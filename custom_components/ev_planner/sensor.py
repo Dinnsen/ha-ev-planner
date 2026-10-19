@@ -238,6 +238,7 @@ async def async_setup_entry(
 
 class VehicleSensor(VehicleEntity, SensorEntity):
     entity_description: VehicleSensorDescription
+    _unrecorded_attributes = frozenset({"segments"})
 
     def __init__(self, household: Household, vehicle_id: str, description: VehicleSensorDescription) -> None:
         super().__init__(household, vehicle_id, description.key)
@@ -295,6 +296,7 @@ class VehicleSensor(VehicleEntity, SensorEntity):
 
 class GuestSensor(GuestEntity, SensorEntity):
     entity_description: GuestSensorDescription
+    _unrecorded_attributes = frozenset({"raw_two_days", "charging_schedule", "charging_segments"})
 
     def __init__(self, household: Household, description: GuestSensorDescription) -> None:
         super().__init__(household, description.key)

@@ -34,6 +34,7 @@ class VehicleChargeNow(VehicleEntity, BinarySensorEntity):
     """On when the car should charge now. Its attributes match EV Smart Charging's, for graphs."""
 
     _attr_device_class = BinarySensorDeviceClass.BATTERY_CHARGING
+    _unrecorded_attributes = frozenset({"raw_two_days", "charging_schedule", "charging_segments"})
 
     def __init__(self, household: Household, vehicle_id: str) -> None:
         super().__init__(household, vehicle_id, "charge_now")

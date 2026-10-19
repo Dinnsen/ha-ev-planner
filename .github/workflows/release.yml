@@ -1,14 +1,18 @@
 name: Release
 
+# Push a tag like v0.4.0: this checks that it matches manifest.json, builds
+# ev_planner.zip and publishes the GitHub release with the changelog section.
+
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "v*"
 
 permissions:
   contents: write
 
 jobs:
-  zip:
+  release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -22,13 +26,25 @@ jobs:
             echo "::error::manifest.json version $version does not match tag $GITHUB_REF_NAME"
             exit 1
           fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Release notes from the changelog
+        run: |
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          test -s notes.md || echo "EV Planner $VERSION" > notes.md
 
       - name: Build zip
         run: |
           cd custom_components/ev_planner
           zip -r "$GITHUB_WORKSPACE/ev_planner.zip" . -x "__pycache__/*"
 
-      - name: Upload zip to the release
+      - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$GITHUB_REF_NAME" ev_planner.zip --clobber
+        run: |
+          gh release create "$GITHUB_REF_NAME" ev_planner.zip \
+            --title "EV Planner $VERSION" --notes-file notes.md --verify-tag

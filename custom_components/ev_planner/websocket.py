@@ -390,13 +390,15 @@ async def ws_vehicle_preview(
     vehicle = _vehicle(household, msg["vehicle_id"])
     trial = Vehicle(vehicle.vehicle_id, vehicle.name, dict(vehicle.config), {**vehicle.settings, **msg["settings"]})
     trial.soc, trial.connected, trial.home = vehicle.soc, vehicle.connected, vehicle.home
+    trial.charging = vehicle.charging
     trial.calendar_event, trial.calendar_target = vehicle.calendar_event, vehicle.calendar_target
     trial.target_from_car = (
         float(msg["settings"][SET_TARGET_SOC])
         if SET_TARGET_SOC in msg["settings"] and vehicle.target_entity
         else vehicle.target_from_car
     )
-    household.plan_one(trial, dt_util.now(), [])
+    now = dt_util.now()
+    household.plan_one(trial, now, household.blocked_for(vehicle, now))
     connection.send_result(
         msg["id"],
         {

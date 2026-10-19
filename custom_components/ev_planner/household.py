@@ -510,6 +510,21 @@ class Household(DataUpdateCoordinator[None]):
         power = vehicle.configured_power
         return min(power, charger.power) if charger is not None else power
 
+    def blocked_for(self, vehicle: Vehicle, now: datetime) -> list[Segment]:
+        """Periods others have on the car's charger: the guest, and plugged-in cars planned before it."""
+        charger_id = vehicle.charger_id
+        if not charger_id:
+            return []
+        blocked: list[Segment] = []
+        if self.guest.charger_id == charger_id and self.guest.session_active(now):
+            blocked.extend(self.guest.segments)
+        for other in self._vehicle_order(now):
+            if other.vehicle_id == vehicle.vehicle_id:
+                break
+            if other.charger_id == charger_id and other.plan is not None and other.connected is True:
+                blocked.extend(other.plan.segments)
+        return blocked
+
     async def async_recalculate(self, *, force: bool = False, apply: bool = True) -> None:
         """Plan every car (earliest deadline first, sharing chargers) and act on it."""
         now = dt_util.now()
