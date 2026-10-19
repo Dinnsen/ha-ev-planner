@@ -88,6 +88,9 @@
       },
       "guest_charging_efficiency": {
         "default": "mdi:percent-circle-outline"
+      },
+      "reminder_price": {
+        "default": "mdi:cash-clock"
       }
     },
     "select": {
@@ -236,6 +239,9 @@
       },
       "guest_continuous": {
         "default": "mdi:timeline-outline"
+      },
+      "reminder_price_enabled": {
+        "default": "mdi:cash-check"
       }
     },
     "text": {

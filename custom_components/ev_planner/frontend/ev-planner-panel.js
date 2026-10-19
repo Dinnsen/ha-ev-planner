@@ -127,6 +127,8 @@ const TEXT = {
     reminder_hint: "Kl. {time}, hvis bilen er under {soc} og ikke tilsluttet.",
     reminder_time: "Kl.",
     reminder_soc: "Under",
+    reminder_price: "Kun når prisen kommer under",
+    reminder_price_hint: "Billigste pris det næste døgn skal være under grænsen.",
     live: "Live-notifikation mens den lader",
     notify_done: "Besked når den er ladet",
     notify_missing: "Vælg mobiler under integrationens indstillinger.",
@@ -416,6 +418,8 @@ const TEXT = {
     reminder_hint: "At {time} when the car is below {soc} and not plugged in.",
     reminder_time: "At",
     reminder_soc: "Below",
+    reminder_price: "Only when the price drops below",
+    reminder_price_hint: "The cheapest price in the coming day must be below the limit.",
     live: "Live notification while charging",
     notify_done: "Message when charged",
     notify_missing: "Choose phones in the integration's options.",
@@ -2195,7 +2199,7 @@ class EvPlannerPanel extends HTMLElement {
     this._patch(root.querySelector(".rules-body"), JSON.stringify([this._ruleValues(s), this._currency, lang]), this._rulesHtml(v, s));
     this._patch(
       root.querySelector(".notify-body"),
-      JSON.stringify([s.reminder, s.reminder_time, s.reminder_soc, s.live_notification, s.notify_done, this._state.config?.notify, lang]),
+      JSON.stringify([s.reminder, s.reminder_time, s.reminder_soc, s.reminder_price_enabled, s.reminder_price, s.live_notification, s.notify_done, this._state.config?.notify, lang]),
       this._notifyHtml(s),
     );
     if (live) this._renderCarLive(v);
@@ -2414,6 +2418,11 @@ class EvPlannerPanel extends HTMLElement {
       ? `<div class="inline-values">
           <span>${this._t("reminder_time")}</span><label class="chip-input time on"><input type="time" step="900" data-set="reminder_time" data-type="time" value="${esc(s.reminder_time || "16:00")}" aria-label="${this._t("reminder_time")}"></label>
           <span>${this._t("reminder_soc")}</span>${this._valueHtml("reminder_soc", s.reminder_soc, { unit: "%", label: this._t("reminder_soc") })}
+        </div>
+        <div class="inline-values">
+          <span>${this._t("reminder_price")}</span>
+          ${s.reminder_price_enabled ? this._valueHtml("reminder_price", s.reminder_price, { unit: `${this._unit}/kWh`, step: 0.01, min: -5, max: 20, label: this._t("reminder_price") }) : ""}
+          ${this._switchHtml("reminder_price_enabled", s.reminder_price_enabled, this._t("reminder_price"))}
         </div>`
       : "";
     return `${missing ? `<p class="note-line warn">${ICONS.info}<span>${this._t("notify_missing")} <a href="/config/integrations/integration/ev_planner" target="_top">${this._t("open_integration")}</a></span></p>` : ""}

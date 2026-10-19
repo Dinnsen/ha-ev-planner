@@ -354,6 +354,9 @@
       "reminder_soc": {
         "name": "Påmind under"
       },
+      "reminder_price": {
+        "name": "Påmind under pris"
+      },
       "guest_soc": {
         "name": "Batteriniveau"
       },
@@ -538,6 +541,9 @@
       },
       "reminder": {
         "name": "Påmindelse om stik"
+      },
+      "reminder_price_enabled": {
+        "name": "Påmind kun ved lav pris"
       },
       "live_notification": {
         "name": "Live-notifikation"

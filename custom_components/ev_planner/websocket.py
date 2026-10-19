@@ -49,6 +49,8 @@ from .const import (
     SET_OPPORTUNISTIC_LEVEL,
     SET_READY_BY,
     SET_REMINDER,
+    SET_REMINDER_PRICE,
+    SET_REMINDER_PRICE_ENABLED,
     SET_REMINDER_SOC,
     SET_REMINDER_TIME,
     SET_SCHEDULE,
@@ -108,6 +110,8 @@ VEHICLE_SCHEMA = vol.Schema(
         vol.Optional(SET_REMINDER): cv.boolean,
         vol.Optional(SET_REMINDER_TIME): _hhmm,
         vol.Optional(SET_REMINDER_SOC): PERCENT,
+        vol.Optional(SET_REMINDER_PRICE_ENABLED): cv.boolean,
+        vol.Optional(SET_REMINDER_PRICE): PRICE,
         vol.Optional(SET_LIVE): cv.boolean,
         vol.Optional(SET_NOTIFY_DONE): cv.boolean,
     }

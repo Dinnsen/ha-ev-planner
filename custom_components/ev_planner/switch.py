@@ -21,6 +21,7 @@ from .const import (
     SET_LOW_SOC_ENABLED,
     SET_NOTIFY_DONE,
     SET_REMINDER,
+    SET_REMINDER_PRICE_ENABLED,
     SET_USE_EARLIEST_START,
     SET_USE_READY_BY,
 )
@@ -48,6 +49,7 @@ VEHICLE_SWITCHES: tuple[PlannerSwitchDescription, ...] = (
     _switch("low_soc_charging", SET_LOW_SOC_ENABLED),
     _switch("keep_charger_on", SET_KEEP_ON),
     _switch("reminder", SET_REMINDER),
+    _switch("reminder_price_enabled", SET_REMINDER_PRICE_ENABLED),
     _switch("live_notification", SET_LIVE),
     _switch("notify_done", SET_NOTIFY_DONE),
 )

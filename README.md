@@ -136,6 +136,19 @@ Tap the picture of a car (on its page) or a charger (on the overview) to add you
 
 The blueprint **EV Planner – charger follows the plan** (`blueprints/automation/ev_planner/charger_follows_plan.yaml`) starts and pauses a charger with any actions, for chargers EV Planner cannot switch itself.
 
+## Replacing Node-RED flows and EV Smart Charging helpers
+
+Typical flows around a car are built in, for any car and charger:
+
+| Flow | In EV Planner |
+| --- | --- |
+| Tell EV Smart Charging the cable is connected (`ev_connected` switches) | Not needed: EV Planner reads the car's or charger's own *plugged in* and *at home* entities. |
+| Stop the car when it starts by itself on plug-in, start it when the plan says so | *Who starts and stops charging*: **the car** (its charge switch) or **the charger**. For a few minutes after plug-in the decision is sent again. |
+| Turn the switch on/off again if it did not take, and notify | Checks a few minutes after every start **and pause**, tries once more, then notifies the phones and turns on `binary_sensor.<car>_charging_problem`. A full car is not a problem. |
+| 16:00: low battery, not plugged in, cheap power coming → notify | *Plug-in reminder*: time, level, *only at a low price*, and the message has the cheapest price and time, with *Charge now* / *Follow the plan* buttons. |
+
+Cars that Home Assistant cannot start or stop (choose **neither**) still get plans, reminders, statistics and the *Charger control* sensor.
+
 ## How it works
 
 A car without a ready-by time looks at most 24 hours ahead, and price forecasts (such as Energi Data Service's week ahead) are never used for opportunistic charging.

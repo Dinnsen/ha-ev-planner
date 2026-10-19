@@ -70,6 +70,8 @@ from .const import (
     SET_MODE,
     SET_NOTIFY_DONE,
     SET_REMINDER,
+    SET_REMINDER_PRICE,
+    SET_REMINDER_PRICE_ENABLED,
     SET_REMINDER_SOC,
     SET_REMINDER_TIME,
     SET_SCHEDULE,
@@ -719,7 +721,7 @@ class Household(DataUpdateCoordinator[None]):
         if (cancel := self._verify_timers.pop(vid, None)) is not None:
             cancel()
         vehicle.verify_attempts = 0
-        if vehicle.decision.control != CONTROL_CHARGE or vehicle.control == CONTROL_NONE:
+        if vehicle.decision.control not in (CONTROL_CHARGE, CONTROL_PAUSE) or vehicle.control == CONTROL_NONE:
             if vehicle.problem:
                 vehicle.problem = False
                 self.config_entry.async_create_task(
@@ -735,13 +737,19 @@ class Household(DataUpdateCoordinator[None]):
 
     async def _async_verify(self, vehicle_id: str) -> None:
         vehicle = self.vehicles.get(vehicle_id)
-        if vehicle is None or vehicle.decision.control != CONTROL_CHARGE or vehicle.connected is False:
+        if vehicle is None or vehicle.connected is False or vehicle.control == CONTROL_NONE:
             return
+        desired = vehicle.decision.control
         charging = vehicle.charging
-        if charging is None:
+        if desired not in (CONTROL_CHARGE, CONTROL_PAUSE) or charging is None:
             # No charging sensor: nothing to check against.
             return
-        if charging:
+        want = desired == CONTROL_CHARGE
+        soc = vehicle.current_soc
+        if want and (vehicle.decision.reason == "keep_on" or (soc is not None and soc >= vehicle.target - 1)):
+            # A full car does not draw power, and that is fine.
+            want = charging
+        if charging == want:
             vehicle.problem = False
             await self.notifier.clear(tag_for("problem", vehicle_id))
             self.async_update_listeners()
@@ -757,7 +765,7 @@ class Household(DataUpdateCoordinator[None]):
             vehicle.problem = True
             await self.notifier.send(
                 title=vehicle.name,
-                message=self._text("problem", name=vehicle.name),
+                message=self._text("problem" if want else "problem_pause", name=vehicle.name),
                 tag=tag_for("problem", vehicle_id),
                 icon="mdi:ev-plug-type2",
                 color=COLOR_ERROR,
@@ -878,6 +886,14 @@ class Household(DataUpdateCoordinator[None]):
             threshold = to_float(s.get(SET_REMINDER_SOC)) or 0.0
             if vehicle.connected is not False or vehicle.home is False or soc is None or soc >= threshold:
                 continue
+            cheapest = self._cheapest_slot(now)
+            if s.get(SET_REMINDER_PRICE_ENABLED):
+                limit = to_float(s.get(SET_REMINDER_PRICE))
+                if cheapest is None or (limit is not None and cheapest.price > limit):
+                    # Not cheap enough today; check again tomorrow.
+                    vehicle.reminded_on = today
+                    self.async_save()
+                    continue
             vehicle.reminded_on = today
             self.async_save()
             plan = vehicle.plan
@@ -892,6 +908,12 @@ class Household(DataUpdateCoordinator[None]):
                 )
             else:
                 text = self._text("reminder", name=vehicle.name, soc=self._num(soc, 0))
+            if cheapest is not None:
+                text = f"{text} " + self._text(
+                    "reminder_cheapest",
+                    price=self._money(cheapest.price),
+                    when=self._window(cheapest.start, cheapest.end),
+                )
             await self.notifier.send(
                 title=self._text("reminder_title", name=vehicle.name),
                 message=text,
@@ -903,6 +925,12 @@ class Household(DataUpdateCoordinator[None]):
                     {"action": f"{ACTION_FOLLOW_PLAN}_{vehicle.vehicle_id}", "title": self._text("action_follow")},
                 ],
             )
+
+    def _cheapest_slot(self, now: datetime) -> PriceSlot | None:
+        """The cheapest price in the coming day."""
+        horizon = now + timedelta(hours=24)
+        upcoming = [slot for slot in self.price_slots(now) if slot.end > now and slot.start < horizon]
+        return min(upcoming, key=lambda slot: (slot.price, slot.start), default=None)
 
     async def _async_clear_reminder(self, vehicle: Vehicle) -> None:
         if vehicle.reminded_on and self.notifier.enabled:
@@ -1102,6 +1130,8 @@ class Household(DataUpdateCoordinator[None]):
 
 TEXT_EN: dict[str, str] = {
     "problem": "{name} should be charging, but it is not. Check the car and the charger.",
+    "problem_pause": "{name} should be paused, but it is still charging. Check the car and the charger.",
+    "reminder_cheapest": "Cheapest price: {price}/kWh ({when}).",
     "done": "Charged to {soc} %: {energy} kWh for {cost}.",
     "live_planned": "Charging to {target} %, ready by {deadline}",
     "live_low_soc": "Low battery: charging right away",
@@ -1115,6 +1145,8 @@ TEXT_EN: dict[str, str] = {
 }
 TEXT_DA: dict[str, str] = {
     "problem": "{name} skulle lade, men gør det ikke. Tjek bilen og laderen.",
+    "problem_pause": "{name} skulle holde pause, men lader stadig. Tjek bilen og laderen.",
+    "reminder_cheapest": "Billigste pris: {price}/kWh ({when}).",
     "done": "Ladet til {soc} %: {energy} kWh for {cost}.",
     "live_planned": "Lader til {target} %, klar kl. {deadline}",
     "live_low_soc": "Lavt batteri: lader med det samme",

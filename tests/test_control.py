@@ -150,6 +150,50 @@ async def test_charging_that_does_not_start_is_retried_then_reported(
     assert problem and problem[0]["data"]["notification_icon"] == "mdi:ev-plug-type2"
 
 
+async def test_a_car_that_keeps_charging_on_pause_is_reported(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    """The car starts by itself when plugged in, and the pause does not take."""
+    notify = NotifyCalls(hass)
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass, cable=False, charging=True)
+    entry = entry_with(
+        charger_sub(),
+        vehicle_sub(TESLA, "Tesla", tesla_data()),
+        options={"notify_services": ["notify.mobile_app_phone"]},
+    )
+    await _setup(hass, freezer, entry)
+    hass.states.async_set(CABLE, "on")
+    await settle(hass, freezer)
+    # The switch already says off, so nothing is sent yet ...
+    assert switches.calls == []
+    # ... but the car still charges: pause it again, then report it.
+    await move(hass, freezer, now + timedelta(minutes=7))
+    assert switches.calls == [("turn_off", CHARGE_SWITCH)]
+    await move(hass, freezer, now + timedelta(minutes=14))
+    assert hass.states.get("binary_sensor.tesla_charging_problem").state == "on"
+    problem = [call for call in notify.calls if call.get("data", {}).get("tag") == f"evp_problem_{TESLA}"]
+    assert problem and "still charging" in problem[0]["message"]
+
+
+async def test_a_full_car_that_does_not_charge_is_fine(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass, soc=79.5)
+    entry = entry_with(charger_sub(), vehicle_sub(TESLA, "Tesla", tesla_data()))
+    await _setup(hass, freezer, entry)
+    await hass.services.async_call(
+        "select", "select_option", {ATTR_ENTITY_ID: "select.tesla_mode", "option": "charge_now"}, blocking=True
+    )
+    await settle(hass, freezer)
+    assert switches.calls == [("turn_on", CHARGE_SWITCH)]
+    await move(hass, freezer, now + timedelta(minutes=7))
+    await move(hass, freezer, now + timedelta(minutes=14))
+    assert switches.calls == [("turn_on", CHARGE_SWITCH)]
+    assert hass.states.get("binary_sensor.tesla_charging_problem").state == "off"
+
+
 async def test_charging_that_starts_is_not_reported(
     hass: HomeAssistant, switches: SwitchCalls, init_integration: MockConfigEntry, freezer: FrozenDateTimeFactory
 ) -> None:

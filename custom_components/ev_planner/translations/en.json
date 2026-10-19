@@ -354,6 +354,9 @@
       "reminder_soc": {
         "name": "Remind below"
       },
+      "reminder_price": {
+        "name": "Remind below price"
+      },
       "guest_soc": {
         "name": "Charge level"
       },
@@ -538,6 +541,9 @@
       },
       "reminder": {
         "name": "Plug-in reminder"
+      },
+      "reminder_price_enabled": {
+        "name": "Remind only at a low price"
       },
       "live_notification": {
         "name": "Live notification"

@@ -83,6 +83,8 @@ async def test_plug_in_reminder(
     assert reminders[0]["data"]["notification_icon"] == "mdi:ev-plug-type2"
     actions = [action["action"] for action in reminders[0]["data"]["actions"]]
     assert actions == [f"EV_PLANNER_CHARGE_NOW_{TESLA}", f"EV_PLANNER_FOLLOW_PLAN_{TESLA}"]
+    # With the cheapest price of the coming day (0.3 at 02:00).
+    assert "Cheapest price: 0.30 DKK/kWh" in reminders[0]["message"]
     # A plain notify action gets the text only.
     assert email.calls and "data" not in email.calls[0]
 
@@ -112,6 +114,27 @@ async def test_reminder_without_a_plan_and_not_when_charged_enough(
     await move(hass, freezer, dt_util.now() + timedelta(minutes=1))
     reminder = [c for c in notify.calls if c.get("data", {}).get("tag") == f"evp_reminder_{TESLA}"]
     assert reminder and "20" in reminder[0]["message"]
+
+
+async def test_reminder_only_at_a_low_price(
+    hass: HomeAssistant, notify: NotifyCalls, household: MockConfigEntry, freezer: FrozenDateTimeFactory
+) -> None:
+    planner = household.runtime_data
+    hass.states.async_set(CABLE, "off")
+    hass.states.async_set(SOC, "40")
+    await planner.async_set_vehicle(TESLA, {"reminder": True, "reminder_price_enabled": True, "reminder_price": 0.2})
+    await settle(hass, freezer)
+    await move(hass, freezer, dt_util.now() + timedelta(minutes=1))
+    # The cheapest price (0.3) is not below 0.2: no reminder today.
+    assert not [c for c in notify.calls if c.get("data", {}).get("tag") == f"evp_reminder_{TESLA}"]
+    assert planner.vehicles[TESLA].reminded_on == dt_util.now().date().isoformat()
+
+    planner.vehicles[TESLA].reminded_on = None
+    await planner.async_set_vehicle(TESLA, {"reminder_price": 0.35})
+    await move(hass, freezer, dt_util.now() + timedelta(minutes=1))
+    assert [c for c in notify.calls if c.get("data", {}).get("tag") == f"evp_reminder_{TESLA}"]
+    assert hass.states.get("number.tesla_remind_below_price").state == "0.35"
+    assert hass.states.get("switch.tesla_remind_only_at_a_low_price").state == "on"
 
 
 async def test_live_notification_while_charging_and_message_when_done(

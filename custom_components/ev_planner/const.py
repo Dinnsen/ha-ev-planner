@@ -114,6 +114,8 @@ SET_EFFICIENCY: Final = "charging_efficiency"
 SET_REMINDER: Final = "reminder"
 SET_REMINDER_TIME: Final = "reminder_time"
 SET_REMINDER_SOC: Final = "reminder_soc"
+SET_REMINDER_PRICE_ENABLED: Final = "reminder_price_enabled"
+SET_REMINDER_PRICE: Final = "reminder_price"
 SET_LIVE: Final = "live_notification"
 SET_NOTIFY_DONE: Final = "notify_done"
 
@@ -157,6 +159,8 @@ DEFAULT_VEHICLE_SETTINGS: Final[dict[str, object]] = {
     SET_REMINDER: False,
     SET_REMINDER_TIME: "16:00",
     SET_REMINDER_SOC: 60.0,
+    SET_REMINDER_PRICE_ENABLED: False,
+    SET_REMINDER_PRICE: 2.2,
     SET_LIVE: False,
     SET_NOTIFY_DONE: False,
 }

@@ -2,6 +2,17 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
 
+## [0.6.0] - 2026-10-19
+
+Everything a typical Node-RED / EV Smart Charging setup does around the car is now in EV Planner itself.
+
+### Added
+- **Checks that a pause takes, too:** when a car keeps charging after it was paused (for example a car that starts by itself when plugged in, while its switch already says off), EV Planner pauses it again after a few minutes and then reports it: "... should be paused, but it is still charging".
+- **Plug-in reminder only at a low price:** an option (switch and number per car, and in the panel) to remind only when the cheapest price of the coming day is below a limit. The reminder now also tells the cheapest price and when it is.
+
+### Changed
+- A car that is (nearly) full and does not draw power is not reported as a charging problem.
+
 ## [0.5.1] - 2026-10-19
 
 ### Added

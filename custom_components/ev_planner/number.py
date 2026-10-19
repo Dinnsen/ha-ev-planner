@@ -23,6 +23,7 @@ from .const import (
     SET_MANUAL_SOC,
     SET_MIN_SOC,
     SET_OPPORTUNISTIC_LEVEL,
+    SET_REMINDER_PRICE,
     SET_REMINDER_SOC,
     SET_TARGET_SOC,
 )
@@ -104,6 +105,7 @@ VEHICLE_NUMBERS: tuple[PlannerNumberDescription, ...] = (
         entity_category=EntityCategory.CONFIG,
     ),
     _percent("reminder_soc", SET_REMINDER_SOC, config=True),
+    _price("reminder_price", SET_REMINDER_PRICE),
 )
 GUEST_NUMBERS: tuple[PlannerNumberDescription, ...] = (
     PlannerNumberDescription(
