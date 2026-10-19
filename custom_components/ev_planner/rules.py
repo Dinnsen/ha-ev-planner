@@ -366,7 +366,7 @@ def plan_vehicle(
         raise PlanError("not_enough_prices")
     end = deadline if deadline is not None else last_price_end
     start = window_start(now, earliest, deadline)
-    window = cut_slots(limit_slots(prices, start, end), blocked)
+    window = cut_slots(limit_slots(list(prices), start, end), blocked)
     if not window:
         raise PlanError("no_window")
 
@@ -403,7 +403,7 @@ def plan_vehicle(
     cost = segments_cost(window, segments, car.power)
 
     charge_now_cost = None
-    upcoming = limit_slots(prices, now, None)
+    upcoming = limit_slots(list(prices), now, None)
     if upcoming and upcoming[0].start == ceil_minute(now):
         begin = upcoming[0].start
         charge_now_cost = energy_cost(upcoming, begin, begin + timedelta(hours=planned.hours), car.power)

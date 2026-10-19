@@ -193,6 +193,7 @@ class Vehicle:
     months: dict[str, dict[str, float]] = field(default_factory=dict)
     history: list[dict[str, Any]] = field(default_factory=list)
     last_soc_seen: float | None = None
+    last_rise: datetime | None = None
 
     # Notifications
     live_active: bool = False

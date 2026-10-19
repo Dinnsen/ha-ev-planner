@@ -30,7 +30,9 @@ async def test_user_flow(hass: HomeAssistant, now: datetime) -> None:
     set_prices(hass, now, NIGHT)
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
     assert result["type"] is FlowResultType.FORM
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {**USER_INPUT, "price_entity": "sensor.nope"})
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {**USER_INPUT, "price_entity": "sensor.nope"}
+    )
     assert result["errors"] == {"price_entity": "invalid_price_entity"}
     result = await hass.config_entries.flow.async_configure(result["flow_id"], USER_INPUT)
     assert result["type"] is FlowResultType.CREATE_ENTRY

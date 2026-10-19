@@ -95,6 +95,8 @@ type EVPlannerConfigEntry = ConfigEntry[Household]
 
 TICK = timedelta(minutes=1)
 ENFORCE_AFTER_PLUG_IN = timedelta(minutes=3)
+# A session without a charging sensor ends when the charge level has not risen for this long.
+IDLE_END = timedelta(minutes=30)
 SETTINGS_DEFAULTS: dict[str, Any] = {"bill_price": None, "payment_text": ""}
 TRIP_TARGET = re.compile(r"(\d{2,3})\s*%")
 TOGGLE_DOMAINS = ("switch", "input_boolean", "light", "fan")
@@ -414,6 +416,7 @@ class Household(DataUpdateCoordinator[None]):
             return
         kwh = vehicle.soc_energy(previous, new)
         if kwh > 0:
+            vehicle.last_rise = now
             vehicle.start_session(now, vehicle.decision.reason)
             vehicle.add_energy(now, kwh, current_price(self.price_slots(now), now))
             self.async_save()
@@ -455,9 +458,7 @@ class Household(DataUpdateCoordinator[None]):
         @callback
         def run(_now: datetime) -> None:
             self._recalc_timer = None
-            self.config_entry.async_create_task(
-                self.hass, self.async_recalculate(force=force), f"{DOMAIN} recalculate"
-            )
+            self.config_entry.async_create_task(self.hass, self.async_recalculate(force=force), f"{DOMAIN} recalculate")
 
         self._recalc_timer = async_call_later(self.hass, RECALCULATE_DELAY, run)
 
@@ -688,9 +689,7 @@ class Household(DataUpdateCoordinator[None]):
     @callback
     def _verify_soon(self, vehicle_id: str, _now: datetime) -> None:
         self._verify_timers.pop(vehicle_id, None)
-        self.config_entry.async_create_task(
-            self.hass, self._async_verify(vehicle_id), f"{DOMAIN} verify charging"
-        )
+        self.config_entry.async_create_task(self.hass, self._async_verify(vehicle_id), f"{DOMAIN} verify charging")
 
     async def _async_verify(self, vehicle_id: str) -> None:
         vehicle = self.vehicles.get(vehicle_id)
@@ -727,7 +726,12 @@ class Household(DataUpdateCoordinator[None]):
     # Sessions, live notifications and widgets
 
     async def _async_session(self, vehicle: Vehicle, now: datetime) -> None:
-        charging = self._is_charging(vehicle)
+        if vehicle.charging is not None or vehicle.control != CONTROL_NONE:
+            charging = self._is_charging(vehicle)
+        else:
+            # Without a charging sensor or control, a rising charge level is the only sign of charging.
+            rising = vehicle.last_rise is not None and now - vehicle.last_rise < IDLE_END
+            charging = rising and vehicle.connected is not False
         if charging:
             vehicle.start_session(now, vehicle.decision.reason)
             if vehicle.settings.get(SET_LIVE) and self.notifier.enabled:
@@ -737,7 +741,7 @@ class Household(DataUpdateCoordinator[None]):
             vehicle.live_active = False
             vehicle.live_sent_at = None
             await self.notifier.clear(tag_for("live", vehicle.vehicle_id))
-        if vehicle.session is not None and (vehicle.decision.control != CONTROL_CHARGE or vehicle.connected is False):
+        if vehicle.session is not None:
             entry = vehicle.end_session(now)
             self.async_save()
             if entry and vehicle.settings.get(SET_NOTIFY_DONE) and self.notifier.enabled:
@@ -809,9 +813,7 @@ class Household(DataUpdateCoordinator[None]):
                 def later(_now: datetime) -> None:
                     self._widgets_timer = None
                     self._widgets_sent = dt_util.now()
-                    self.config_entry.async_create_task(
-                        self.hass, self.notifier.update_widgets(), f"{DOMAIN} widgets"
-                    )
+                    self.config_entry.async_create_task(self.hass, self.notifier.update_widgets(), f"{DOMAIN} widgets")
 
                 self._widgets_timer = async_call_later(self.hass, delay, later)
             return
@@ -922,7 +924,9 @@ class Household(DataUpdateCoordinator[None]):
         except (HomeAssistantError, ServiceNotFound) as err:
             _LOGGER.debug("Could not read %s: %s", entity_id, err)
             return None, None, None
-        events = ((response or {}).get(entity_id) or {}).get("events") or []
+        data = response.get(entity_id) if isinstance(response, dict) else None
+        found = data.get("events") if isinstance(data, dict) else None
+        events = found if isinstance(found, list) else []
         keyword = vehicle.calendar_keyword.casefold()
         for item in events:
             if not isinstance(item, Mapping):

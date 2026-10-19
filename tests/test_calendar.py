@@ -47,7 +47,11 @@ async def test_trip_sets_deadline_and_target(
         [
             {"start": "2026-10-20", "end": "2026-10-21", "summary": "Mercedes all day"},
             {"start": (now + timedelta(hours=1)).isoformat(), "summary": "Dentist"},
-            {"start": trip.isoformat(), "end": (trip + timedelta(hours=3)).isoformat(), "summary": "Mercedes Aarhus 90 %"},
+            {
+                "start": trip.isoformat(),
+                "end": (trip + timedelta(hours=3)).isoformat(),
+                "summary": "Mercedes Aarhus 90 %",
+            },
         ],
     )
     await _setup(hass, freezer, now, calendar_keyword="mercedes")

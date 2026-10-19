@@ -24,7 +24,9 @@ async def _ws(client: Any, msg_id: int, **msg: Any) -> dict[str, Any]:
     return result
 
 
-async def test_state(hass: HomeAssistant, init_integration: MockConfigEntry, hass_ws_client: WebSocketGenerator) -> None:
+async def test_state(
+    hass: HomeAssistant, init_integration: MockConfigEntry, hass_ws_client: WebSocketGenerator
+) -> None:
     client = await hass_ws_client(hass)
     msg = await _ws(client, 1, type="ev_planner/state")
     assert msg["success"]
@@ -153,9 +155,7 @@ async def test_guest_commands(
     assert init_integration.runtime_data.settings == {"bill_price": 2.5, "payment_text": "MobilePay"}
 
 
-async def test_actions(
-    hass: HomeAssistant, init_integration: MockConfigEntry, freezer: FrozenDateTimeFactory
-) -> None:
+async def test_actions(hass: HomeAssistant, init_integration: MockConfigEntry, freezer: FrozenDateTimeFactory) -> None:
     device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, TESLA)})
     assert device is not None
     await hass.services.async_call(DOMAIN, "set_mode", {"vehicle": device.id, "mode": "pause"}, blocking=True)
