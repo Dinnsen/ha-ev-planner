@@ -53,6 +53,7 @@ from .const import (
     GUEST_READY,
     GUEST_READY_BY,
     GUEST_SOC,
+    GUEST_STOPPED,
     GUEST_USE_READY_BY,
     HISTORY_LIMIT,
     METER_GRACE,
@@ -62,6 +63,7 @@ from .const import (
     RELEASE_CLEARED,
     RELEASE_NEW_GUEST,
     RELEASE_PLAN_END,
+    RELEASE_STOPPED,
     RELEASE_UNPLUGGED,
     UNPLUG_DELAY,
 )
@@ -183,6 +185,9 @@ class GuestSession:
         self._recorded = True
         self._release: dict[str, str] | None = None
         self._car_present = False
+        # After "Stop": the charger stays paused for the guest until then
+        # (or until the guest car is unplugged, when the charger can tell).
+        self._hold_until: datetime | None = None
         self._meter_last: float | None = None
         self._boundaries: list[CALLBACK_TYPE] = []
         self._tick: CALLBACK_TYPE | None = None
@@ -224,6 +229,7 @@ class GuestSession:
             "meter_last": self._meter_last,
             "release": self._release,
             "car_present": self._car_present,
+            "hold_until": self._hold_until.isoformat() if self._hold_until else None,
             "history": self.history,
         }
 
@@ -245,6 +251,8 @@ class GuestSession:
         release = stored.get("release")
         self._release = release if isinstance(release, dict) else None
         self._car_present = bool(stored.get("car_present", False))
+        hold = stored.get("hold_until")
+        self._hold_until = dt_util.parse_datetime(hold) if isinstance(hold, str) else None
         meter = stored.get("meter_last")
         self._meter_last = float(meter) if isinstance(meter, int | float) else None
         self.history = [entry for entry in stored.get("history") or [] if isinstance(entry, dict)][:HISTORY_LIMIT]
@@ -294,6 +302,8 @@ class GuestSession:
         now = now or dt_util.now()
         if self.is_charge_now(now):
             return GUEST_CHARGING
+        if self._hold_until is not None:
+            return GUEST_STOPPED
         if now >= self.segments[-1]["end"]:
             return GUEST_COMPLETED
         return GUEST_PLANNED
@@ -470,6 +480,42 @@ class GuestSession:
         plan = charge_now_plan(self.household.price_slots(now), need, power, now)
         self._apply(plan, now, new_session=True)
 
+    async def async_stop_charging(self) -> None:
+        """Stop the guest's charge now; it goes to the history with what was charged.
+
+        The charger stays paused for the guest until the car is unplugged
+        (or, without a plugged-in sensor, until the plan would have ended),
+        so it does not just carry on charging the guest car.
+        """
+        now = dt_util.now()
+        start, planned_end = self.plan_start, self.plan_end
+        if not self.session_active(now) or start is None or planned_end is None:
+            return
+        if now <= start:
+            # Not started yet: there is nothing to stop, only a plan to drop.
+            self._clear_plan(now, RELEASE_CLEARED)
+            self._auto_recalculate = False
+            self._changed()
+            self.household.schedule_recalculate()
+            return
+        planned = sum((seg["end"] - seg["start"]).total_seconds() for seg in self.segments)
+        kept = [{"start": seg["start"], "end": min(seg["end"], now)} for seg in self.segments if seg["start"] < now]
+        charged = sum((seg["end"] - seg["start"]).total_seconds() for seg in kept)
+        if self.plan_info is not None and planned > 0:
+            share = charged / planned
+            for key in ("energy", "battery_energy", "cost", "savings"):
+                if isinstance(value := self.plan_info.get(key), int | float):
+                    self.plan_info[key] = round(value * share, 2)
+            self.plan_info["stopped"] = True
+        self._auto_recalculate = False
+        self._set_plan(kept)
+        self._maybe_record(now, released=True)
+        self._hold_until = planned_end + (POST_PLAN_HOLD if self.connected_entity else timedelta())
+        self._schedule_boundaries()
+        self._stop_tick()
+        self._changed()
+        self.household.schedule_recalculate()
+
     def _apply(self, plan: Plan, now: datetime, *, new_session: bool) -> None:
         """Store a new plan; a new session first records the previous one."""
         if new_session:
@@ -519,6 +565,7 @@ class GuestSession:
     def _start_session(self) -> None:
         self._recorded = False
         self._release = None
+        self._hold_until = None
         if self.energy_entity:
             self.results["measured_energy"] = 0.0
             self.results["measured_cost"] = 0.0
@@ -530,6 +577,7 @@ class GuestSession:
     def _clear_plan(self, now: datetime, reason: str) -> None:
         if self.session_active(now):
             self._release = {"at": now.isoformat(), "reason": reason}
+        self._hold_until = None
         self._set_plan([])
         for key in PLAN_RESULTS:
             self.results[key] = None
@@ -576,6 +624,8 @@ class GuestSession:
             moments.append(self.segments[-1]["end"] + METER_GRACE)
         if self.segments and self.connected_entity and self._release is None:
             moments.append(self.segments[-1]["end"] + POST_PLAN_HOLD)
+        if self._hold_until is not None and self._release is None:
+            moments.append(self._hold_until)
         for moment in moments:
             if moment > now:
                 self._boundaries.append(async_track_point_in_time(self.hass, self._handle_boundary, moment))
@@ -631,6 +681,8 @@ class GuestSession:
         now = now or dt_util.now()
         if now < end:
             return True
+        if self._hold_until is not None:
+            return now < self._hold_until and (not self.connected_entity or self._car_present)
         return bool(self.connected_entity) and self._car_present and now < end + POST_PLAN_HOLD
 
     def charger_control(self, now: datetime | None = None) -> str:
@@ -653,7 +705,8 @@ class GuestSession:
     def _update_session(self, now: datetime) -> None:
         end = self.plan_end
         if self._release is None and end is not None and now >= end and not self.session_active(now):
-            self._release = {"at": now.isoformat(), "reason": RELEASE_PLAN_END}
+            reason = RELEASE_STOPPED if self._hold_until is not None else RELEASE_PLAN_END
+            self._release = {"at": now.isoformat(), "reason": reason}
             self.household.async_save()
 
     @property

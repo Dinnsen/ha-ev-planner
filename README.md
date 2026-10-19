@@ -128,7 +128,7 @@ Per charger: `sensor.<charger>_charger_control` (what the charger should do, and
 
 - `ev_planner.set_mode` – set a car's mode (`vehicle`: the car's device, `mode`).
 - `ev_planner.recalculate` – plan every car again now.
-- `ev_planner.guest_lookup`, `ev_planner.guest_plan`, `ev_planner.guest_charge_now`, `ev_planner.new_guest` – the guest car. *Charge now* charges right away to the target, whatever the price, and is saved in the history like a plan.
+- `ev_planner.guest_lookup`, `ev_planner.guest_plan`, `ev_planner.guest_charge_now`, `ev_planner.guest_stop`, `ev_planner.new_guest` – the guest car. *Charge now* charges right away to the target, whatever the price, and is saved in the history like a plan. *Stop* ends a charge that is running: the history gets what was charged, and the charger stays paused until the guest car is unplugged (without a plugged-in sensor: until the charge would have ended).
 
 ## Photos
 

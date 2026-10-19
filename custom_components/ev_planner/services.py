@@ -15,6 +15,7 @@ from .const import (
     SERVICE_GUEST_CHARGE_NOW,
     SERVICE_GUEST_LOOKUP,
     SERVICE_GUEST_PLAN,
+    SERVICE_GUEST_STOP,
     SERVICE_NEW_GUEST,
     SERVICE_RECALCULATE,
     SERVICE_SET_MODE,
@@ -65,6 +66,10 @@ async def _async_guest_charge_now(call: ServiceCall) -> None:
     await _household(call).guest.async_charge_now()
 
 
+async def _async_guest_stop(call: ServiceCall) -> None:
+    await _household(call).guest.async_stop_charging()
+
+
 async def _async_new_guest(call: ServiceCall) -> None:
     await _household(call).guest.async_new_guest()
 
@@ -76,4 +81,5 @@ def async_setup_services(hass: HomeAssistant) -> None:
     hass.services.async_register(DOMAIN, SERVICE_GUEST_LOOKUP, _async_guest_lookup, schema=ENTRY_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_GUEST_PLAN, _async_guest_plan, schema=ENTRY_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_GUEST_CHARGE_NOW, _async_guest_charge_now, schema=ENTRY_SCHEMA)
+    hass.services.async_register(DOMAIN, SERVICE_GUEST_STOP, _async_guest_stop, schema=ENTRY_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_NEW_GUEST, _async_new_guest, schema=ENTRY_SCHEMA)

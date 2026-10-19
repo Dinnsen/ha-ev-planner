@@ -25,6 +25,7 @@ GUEST_BUTTONS: tuple[GuestButtonDescription, ...] = (
     GuestButtonDescription(key="guest_lookup", press_fn=lambda guest: guest.async_lookup()),
     GuestButtonDescription(key="guest_plan", press_fn=lambda guest: guest.async_calculate()),
     GuestButtonDescription(key="guest_charge_now", press_fn=lambda guest: guest.async_charge_now()),
+    GuestButtonDescription(key="guest_stop", press_fn=lambda guest: guest.async_stop_charging()),
     GuestButtonDescription(key="guest_new", press_fn=lambda guest: guest.async_new_guest()),
 )
 

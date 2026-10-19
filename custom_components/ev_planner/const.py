@@ -225,11 +225,13 @@ GUEST_READY: Final = "ready"
 GUEST_PLANNED: Final = "planned"
 GUEST_CHARGING: Final = "charging"
 GUEST_COMPLETED: Final = "completed"
+GUEST_STOPPED: Final = "stopped"
 GUEST_STATUS_OPTIONS: Final = [
     GUEST_READY,
     GUEST_PLANNED,
     GUEST_CHARGING,
     GUEST_COMPLETED,
+    GUEST_STOPPED,
     ERROR_INVALID_INPUT,
     ERROR_LIMIT_NOT_ABOVE_SOC,
     ERROR_NO_PRICE_DATA,
@@ -257,6 +259,7 @@ RELEASE_PLAN_END: Final = "plan_end"
 RELEASE_NEW_GUEST: Final = "new_guest"
 RELEASE_UNPLUGGED: Final = "unplugged"
 RELEASE_CLEARED: Final = "cleared"
+RELEASE_STOPPED: Final = "stopped"
 
 # ----------------------------------------------------------------------
 # Timing
@@ -285,6 +288,7 @@ SERVICE_SET_MODE: Final = "set_mode"
 SERVICE_GUEST_LOOKUP: Final = "guest_lookup"
 SERVICE_GUEST_PLAN: Final = "guest_plan"
 SERVICE_GUEST_CHARGE_NOW: Final = "guest_charge_now"
+SERVICE_GUEST_STOP: Final = "guest_stop"
 SERVICE_NEW_GUEST: Final = "new_guest"
 ATTR_CONFIG_ENTRY_ID: Final = "config_entry_id"
 ATTR_VEHICLE: Final = "vehicle"

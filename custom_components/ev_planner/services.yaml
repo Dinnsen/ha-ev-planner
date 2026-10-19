@@ -39,6 +39,12 @@ guest_charge_now:
       selector:
         config_entry:
           integration: ev_planner
+guest_stop:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: ev_planner
 new_guest:
   fields:
     config_entry_id:

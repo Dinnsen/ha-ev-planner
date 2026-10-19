@@ -316,6 +316,9 @@
       "guest_charge_now": {
         "name": "Charge now"
       },
+      "guest_stop": {
+        "name": "Stop charging"
+      },
       "guest_new": {
         "name": "New guest"
       }
@@ -464,6 +467,7 @@
           "planned": "Planned",
           "charging": "Charging",
           "completed": "Completed",
+          "stopped": "Stopped",
           "invalid_input": "Invalid input",
           "limit_not_above_soc": "Target not above charge level",
           "no_price_data": "No price data",
@@ -648,6 +652,16 @@
     "guest_charge_now": {
       "name": "Charge guest car now",
       "description": "Charge the guest car right away until its target, whatever the price. The charge is saved in the history.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Household",
+          "description": "The EV Planner to use."
+        }
+      }
+    },
+    "guest_stop": {
+      "name": "Stop guest charging",
+      "description": "Stop the guest's charging now. What was charged is saved in the history, and the charger stays paused for the guest car until it is unplugged.",
       "fields": {
         "config_entry_id": {
           "name": "Household",

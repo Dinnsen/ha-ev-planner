@@ -469,6 +469,7 @@ ws_guest_lookup = _guest_action("guest_lookup", lambda guest: guest.async_lookup
 ws_guest_plan = _guest_action("guest_plan", lambda guest: guest.async_calculate())
 ws_guest_new = _guest_action("guest_new", lambda guest: guest.async_new_guest())
 ws_guest_charge_now = _guest_action("guest_charge_now", lambda guest: guest.async_charge_now())
+ws_guest_stop = _guest_action("guest_stop", lambda guest: guest.async_stop_charging())
 
 
 @websocket_api.websocket_command(
@@ -536,6 +537,7 @@ def async_register_websocket(hass: HomeAssistant) -> None:
         ws_guest_plan,
         ws_guest_new,
         ws_guest_charge_now,
+        ws_guest_stop,
         ws_set_image,
         ws_delete_history,
         ws_settings,

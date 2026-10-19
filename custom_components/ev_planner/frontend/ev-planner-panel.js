@@ -202,6 +202,11 @@ const TEXT = {
     status_planned: "Planlagt",
     status_charging: "Lader",
     status_completed: "Afsluttet",
+    status_stopped: "Stoppet",
+    stopped_at: "Stoppet kl. {time}",
+    guest_stop: "Stop ladning",
+    stopping: "Stopper …",
+    stopped_tag: "Stoppet",
     est_level: "ca. {pct} nu",
     est_level_measured: "ca. {pct} nu, målt",
     behind_plan: "Bilen lader langsommere end planlagt – den når måske ikke målet.",
@@ -485,6 +490,11 @@ const TEXT = {
     status_planned: "Planned",
     status_charging: "Charging",
     status_completed: "Completed",
+    status_stopped: "Stopped",
+    stopped_at: "Stopped at {time}",
+    guest_stop: "Stop charging",
+    stopping: "Stopping …",
+    stopped_tag: "Stopped",
     est_level: "about {pct} now",
     est_level_measured: "about {pct} now, measured",
     behind_plan: "The car charges slower than planned – it may not reach the target.",
@@ -2598,8 +2608,18 @@ class EvPlannerPanel extends HTMLElement {
     calc.querySelector("span").textContent =
       this._busy === "calculate" ? this._t("calculating") : hasSegments(g.plan) ? this._t("recalculate") : this._t("calculate");
     calc.disabled = this._busy === "calculate" || this._busy === "charge_now";
+    // While the guest charges, the button stops it; otherwise it starts charging now.
     const now = root.querySelector(".charge-now");
-    now.querySelector("span").textContent = this._busy === "charge_now" ? this._t("charging_now_busy") : this._t("guest_charge_now");
+    const stop = Boolean(g.charge_now);
+    const label =
+      this._busy === "charge_now"
+        ? this._t("charging_now_busy")
+        : this._busy === "stop"
+          ? this._t("stopping")
+          : this._t(stop ? "guest_stop" : "guest_charge_now");
+    this._patch(now, JSON.stringify([stop, label]), `${ICONS[stop ? "pause" : "boost"]}<span>${esc(label)}</span>`);
+    now.dataset.act = stop ? "g-stop" : "g-now";
+    now.classList.toggle("stop", stop);
     now.disabled = Boolean(this._busy);
     calc.classList.toggle("pulse", this._gstale);
     root.querySelector(".guest-page .note").textContent = this._gstale ? this._t("changed") : "";
@@ -2652,6 +2672,8 @@ class EvPlannerPanel extends HTMLElement {
       text = this._planTiming(segments, true);
     } else if (g.status === "planned") {
       text = this._planTiming(segments, false) || this._t("status_planned");
+    } else if (g.status === "stopped" && segments.length) {
+      text = this._t("stopped_at", { time: this._time(segments.at(-1).end) });
     } else if (g.status === "completed" && segments.length) {
       text =
         g.release && g.release.reason === "unplugged"
@@ -2889,7 +2911,7 @@ class EvPlannerPanel extends HTMLElement {
             <div class="when"><b>${new Date(e.start).getDate()}</b><span>${new Intl.DateTimeFormat(this._locale, { month: "short" }).format(new Date(e.start))}</span></div>
             <div class="what">
               <strong>${esc(e.car || this._t("unknown_car"))}</strong>
-              <span>${e.plate ? `<em class="mini-plate">${esc(e.plate)}</em>` : ""}${e.mode === "now" ? `<em class="tag-now">${ICONS.boost}${this._t("charge_now_tag")}</em>` : ""}${this._time(e.start)}–${this._time(e.end)}</span>
+              <span>${e.plate ? `<em class="mini-plate">${esc(e.plate)}</em>` : ""}${e.mode === "now" ? `<em class="tag-now">${ICONS.boost}${this._t("charge_now_tag")}</em>` : ""}${e.stopped ? `<em class="tag-now stopped">${this._t("stopped_tag")}</em>` : ""}${this._time(e.start)}–${this._time(e.end)}</span>
             </div>
             <div class="nums"><b>${this._money(costOf(e))}</b><span>${this._kwh(energyOf(e))}</span></div>
             <div class="row-actions">
@@ -3072,6 +3094,9 @@ class EvPlannerPanel extends HTMLElement {
         break;
       case "g-now":
         this._guestChargeNow();
+        break;
+      case "g-stop":
+        this._run("stop", "ev_planner/guest_stop");
         break;
       case "photo":
         this._pickPhoto(id);
@@ -3359,6 +3384,8 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .photo:hover .photo-del, .photo:focus-within .photo-del { opacity: 1; }
 @media (hover: none) { .photo-del { opacity: 1; } .photo-pick .cam { opacity: 1; } }
 .tag-now { display: inline-flex; align-items: center; gap: 2px; margin-right: 6px; font-style: normal; font-size: 12px; color: var(--evp-a); }
+.tag-now.stopped { color: var(--evp-soft); }
+.charge-now.stop { border-color: var(--evp-ink); }
 .tag-now svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
 .vcard-title strong { font-size: 18px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .vcard-title span { color: var(--evp-soft); font-size: 13px; }

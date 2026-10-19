@@ -38,6 +38,9 @@
       },
       "guest_charge_now": {
         "default": "mdi:lightning-bolt"
+      },
+      "guest_stop": {
+        "default": "mdi:stop-circle-outline"
       }
     },
     "number": {
@@ -273,6 +276,9 @@
     },
     "guest_charge_now": {
       "service": "mdi:lightning-bolt"
+    },
+    "guest_stop": {
+      "service": "mdi:stop-circle-outline"
     }
   }
 }

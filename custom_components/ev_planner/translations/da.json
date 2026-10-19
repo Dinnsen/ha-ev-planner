@@ -316,6 +316,9 @@
       "guest_charge_now": {
         "name": "Lad nu"
       },
+      "guest_stop": {
+        "name": "Stop ladning"
+      },
       "guest_new": {
         "name": "Ny gæst"
       }
@@ -464,6 +467,7 @@
           "planned": "Planlagt",
           "charging": "Lader",
           "completed": "Færdig",
+          "stopped": "Stoppet",
           "invalid_input": "Ugyldige værdier",
           "limit_not_above_soc": "Målet er ikke over batteriniveauet",
           "no_price_data": "Ingen prisdata",
@@ -648,6 +652,16 @@
     "guest_charge_now": {
       "name": "Lad gæstebilen nu",
       "description": "Lad gæstebilen med det samme til målet, uanset prisen. Ladningen gemmes i historikken.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Husstand",
+          "description": "Den EV Planner, der skal bruges."
+        }
+      }
+    },
+    "guest_stop": {
+      "name": "Stop gæsteladning",
+      "description": "Stop gæstens ladning nu. Det ladede gemmes i historikken, og laderen holdes på pause, til gæstebilen tages ud.",
       "fields": {
         "config_entry_id": {
           "name": "Husstand",

@@ -11,6 +11,7 @@ from homeassistant.config_entries import ConfigSubentryDataWithId
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.util import dt as dt_util
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -179,6 +180,70 @@ async def test_guest_charge_now_is_saved_in_the_history(
     )
     with pytest.raises(ServiceValidationError):
         await _press(hass, "charge_now")
+
+
+async def test_stopping_the_guest_charge(
+    hass: HomeAssistant,
+    guest_household: MockConfigEntry,
+    now: datetime,
+    freezer: FrozenDateTimeFactory,
+    switches: SwitchCalls,
+) -> None:
+    household = guest_household.runtime_data
+    guest = household.guest
+    hass.states.async_set(CHARGER_CAR, "on")
+    await hass.async_block_till_done()
+    # Nothing to stop yet.
+    await _press(hass, "stop_charging")
+    assert guest.history == []
+
+    await _press(hass, "charge_now")
+    assert guest.results["charge_time"] == 280
+    await move(hass, freezer, now + timedelta(minutes=70))
+    await _press(hass, "stop_charging")
+    await settle(hass, freezer)
+    # A quarter of the charge was done, and that is what the history says.
+    assert _state(hass, STATUS).state == "stopped"
+    assert guest.history[0]["stopped"] is True
+    assert guest.history[0]["energy"] == pytest.approx(round(guest.results["energy"] * 70 / 280, 2), abs=0.02)
+    # The charger stays paused for the guest car while it is plugged in.
+    assert _state(hass, CONTROL).state == "pause"
+    assert [call for call in switches.calls if call[1] == CHARGER_SWITCH][-1] == ("turn_off", CHARGER_SWITCH)
+
+    hass.states.async_set(CHARGER_CAR, "off")
+    await hass.async_block_till_done()
+    await move(hass, freezer, now + timedelta(minutes=80))
+    assert _state(hass, CONTROL).state == "released"
+    assert len(guest.history) == 1
+
+    # A plan that has not started is simply dropped.
+    await _press(hass, "make_plan")
+    assert guest.plan_start is not None and guest.plan_start > dt_util.now()
+    await hass.services.async_call("ev_planner", "guest_stop", {}, blocking=True)
+    assert guest.segments == []
+    assert _state(hass, STATUS).state == "ready"
+
+
+async def test_stopped_guest_without_a_plug_sensor(
+    hass: HomeAssistant, init_integration: MockConfigEntry, now: datetime, freezer: FrozenDateTimeFactory
+) -> None:
+    """Without a plugged-in sensor the charger is held until the charge would have ended."""
+    guest = init_integration.runtime_data.guest
+    await _press(hass, "charge_now")
+    end = guest.plan_end
+    assert end is not None
+    await move(hass, freezer, now + timedelta(minutes=30))
+    await _press(hass, "stop_charging")
+    assert guest.status() == "stopped"
+    assert guest.charger_control() == "pause"
+    # Kept across a restart.
+    await hass.config_entries.async_reload(init_integration.entry_id)
+    await hass.async_block_till_done()
+    guest = init_integration.runtime_data.guest
+    assert guest.status() == "stopped"
+    await move(hass, freezer, end + timedelta(minutes=1))
+    assert guest.charger_control() == "released"
+    assert guest.release_info()["reason"] == "stopped"
 
 
 async def test_unplugging_ends_the_guest_session(
