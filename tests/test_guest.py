@@ -137,6 +137,50 @@ async def test_guest_plan_session_and_history(
     assert household.guest.inputs["license_plate"] == ""
 
 
+async def test_guest_charge_now_is_saved_in_the_history(
+    hass: HomeAssistant,
+    guest_household: MockConfigEntry,
+    now: datetime,
+    freezer: FrozenDateTimeFactory,
+    switches: SwitchCalls,
+) -> None:
+    household = guest_household.runtime_data
+    await _press(hass, "make_plan")
+    await _press(hass, "charge_now")
+    guest = household.guest
+    # Starts at the next whole minute and runs until the target, as one period.
+    assert guest.plan_start == now
+    assert guest.plan_info is not None and guest.plan_info["mode"] == "now"
+    assert guest.results["savings"] == 0
+    # 20 % -> 80 % of 77 kWh at 90 % and 11 kW: 4 h 40 min.
+    assert guest.results["charge_time"] == 280
+    assert guest.plan_end == now + timedelta(minutes=280)
+    await settle(hass, freezer)
+    assert _state(hass, STATUS).state == "charging"
+    assert switches.calls[-1] == ("turn_on", CHARGER_SWITCH)
+    # New prices do not move it.
+    set_prices(hass, now, [-1.0] * 11)
+    await settle(hass, freezer)
+    assert guest.plan_start == now
+
+    hass.states.async_set(CHARGER_METER, "1010.0", {"unit_of_measurement": "kWh"})
+    await hass.async_block_till_done()
+    end = guest.plan_end
+    assert end is not None
+    await move(hass, freezer, end + timedelta(minutes=11))
+    assert guest.history[0]["mode"] == "now"
+    assert guest.history[0]["measured_energy"] == pytest.approx(10.0)
+
+    # Also as an action, and the plan it replaces goes to the history first.
+    await hass.services.async_call("ev_planner", "guest_charge_now", {}, blocking=True)
+    assert guest.plan_start is not None
+    await hass.services.async_call(
+        "number", "set_value", {ATTR_ENTITY_ID: "number.guest_car_charge_level", "value": 90}, blocking=True
+    )
+    with pytest.raises(ServiceValidationError):
+        await _press(hass, "charge_now")
+
+
 async def test_unplugging_ends_the_guest_session(
     hass: HomeAssistant, guest_household: MockConfigEntry, freezer: FrozenDateTimeFactory
 ) -> None:

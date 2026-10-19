@@ -16,6 +16,7 @@ from .const import (
     CONF_BATTERY_CAPACITY,
     CONF_CALENDAR_ENTITY,
     CONF_CALENDAR_KEYWORD,
+    CONF_CAPACITY_ENTITY,
     CONF_CHARGE_POWER,
     CONF_CHARGER,
     CONF_CHARGING_ENTITY,
@@ -166,6 +167,8 @@ class Vehicle:
     # Live values, read from the car's entities.
     soc: float | None = None
     target_from_car: float | None = None
+    # Battery capacity in kWh as the car reports it, when it does.
+    capacity_from_car: float | None = None
     connected: bool | None = None
     home: bool | None = None
     charging: bool | None = None
@@ -213,7 +216,14 @@ class Vehicle:
 
     @property
     def capacity(self) -> float:
+        """Usable battery in kWh: the car's own figure when it has one."""
+        if self.capacity_from_car is not None and self.capacity_from_car > 0:
+            return self.capacity_from_car
         return to_float(self.config.get(CONF_BATTERY_CAPACITY)) or DEFAULT_BATTERY_CAPACITY
+
+    @property
+    def capacity_entity(self) -> str | None:
+        return self.config.get(CONF_CAPACITY_ENTITY) or None
 
     @property
     def configured_power(self) -> float:
@@ -279,6 +289,7 @@ class Vehicle:
             for entity in (
                 self.soc_entity,
                 self.target_entity,
+                self.capacity_entity,
                 self.connected_entity,
                 self.home_entity,
                 self.charging_entity,

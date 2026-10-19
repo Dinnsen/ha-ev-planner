@@ -57,12 +57,12 @@ Manually: download `ev_planner.zip` from the [latest release](https://github.com
 [![Open your Home Assistant instance and start setting up EV Planner.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=ev_planner)
 
 1. **Settings → Devices & services → Add integration → EV Planner.** Choose the price sensor and the currency. The MotorAPI key is only for looking up guest cars by license plate.
-2. On EV Planner's page, **Add charger** for each charge point: its power, and optionally its switch, energy meter and *car plugged in* sensor.
+2. On EV Planner's page, **Add charger** for each charge point. Pick its device in Home Assistant (Easee, Zaptec, Wallbox, Peblar, Ohme, OCPP, ...) and/or its brand and model: EV Planner then fills in the power, the switch, the energy meter and the *car plugged in* sensor for you to check. About 40 chargers are known, plus a wall charger, a charging post, a portable charger and a household socket.
 3. **Add car** for each car:
 
 | Setting | |
 | --- | --- |
-| Battery capacity | Usable capacity in kWh. |
+| Battery capacity | Usable capacity in kWh – or a sensor with it, for cars that report it (Wh and MWh are converted). |
 | Charge level, Charge limit | The car's sensors. A *number* charge limit is also changed when you change the target in EV Planner. Without a charge level sensor you set the level yourself. |
 | Plugged in, States that mean unplugged | E.g. a cable binary sensor, or a status sensor where `3` means unplugged. |
 | At home, Charging | Optional. EV Planner only acts at home; *Charging* is used to check that charging started. |
@@ -128,11 +128,17 @@ Per charger: `sensor.<charger>_charger_control` (what the charger should do, and
 
 - `ev_planner.set_mode` – set a car's mode (`vehicle`: the car's device, `mode`).
 - `ev_planner.recalculate` – plan every car again now.
-- `ev_planner.guest_lookup`, `ev_planner.guest_plan`, `ev_planner.new_guest` – the guest car.
+- `ev_planner.guest_lookup`, `ev_planner.guest_plan`, `ev_planner.guest_charge_now`, `ev_planner.new_guest` – the guest car. *Charge now* charges right away to the target, whatever the price, and is saved in the history like a plan.
+
+## Photos
+
+Tap the picture of a car (on its page) or a charger (on the overview) to add your own photo; the cross removes it. Photos are stored by Home Assistant's own image upload, shrunk on the phone first, and also shown as the picture of `sensor.<car>_status` and `sensor.<charger>_charger_control`. EV Planner ships no manufacturer photos – a charger without a photo gets a drawing of its kind.
 
 The blueprint **EV Planner – charger follows the plan** (`blueprints/automation/ev_planner/charger_follows_plan.yaml`) starts and pauses a charger with any actions, for chargers EV Planner cannot switch itself.
 
 ## How it works
+
+A car without a ready-by time looks at most 24 hours ahead, and price forecasts (such as Energi Data Service's week ahead) are never used for opportunistic charging.
 
 Every car is planned again when prices, its charge level, target, connection or settings change, and when a plan ends. A plan that is charging right now is kept until its period ends, so it never moves away under the car. Cars on the same charger are planned in order of their deadline; the periods of the first are not used by the next. Each minute EV Planner decides what each car should do now – charge for a low level or a low price, follow the plan, keep the charger on, or pause – and switches only when that changes, or for a few minutes after the car is plugged in (many cars start charging by themselves). A charge you start yourself is left alone until the plan changes.
 

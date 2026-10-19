@@ -171,6 +171,22 @@ def test_plan_without_deadline_uses_all_known_prices() -> None:
     assert hhmm(plan.segments) == [("02:00", "03:48")]
 
 
+def test_plan_without_deadline_looks_one_day_ahead() -> None:
+    """A week of forecast prices must not move the plan to next Sunday."""
+    week = [*[1.0] * 30, *[0.1] * 4, *[1.0] * 100]
+    plan = plan_vehicle(slots(week), CAR, Rules(), NOW, deadline=None)
+    assert plan.segments[0]["start"] < NOW + timedelta(hours=24)
+    assert plan.segments[-1]["end"] <= NOW + timedelta(hours=24)
+
+
+def test_opportunistic_ignores_forecast() -> None:
+    published = slots([1.0, 1.0])
+    forecast = [PriceSlot(s.start + timedelta(hours=2), s.end + timedelta(hours=2), 0.0, True) for s in published]
+    rules = Rules(ceiling=2.0, opportunistic="lower_ceiling", opportunistic_level=50)
+    assert effective_ceiling(rules, [*published, *forecast]) == (2.0, False)
+    assert effective_ceiling(rules, forecast) == (2.0, False)
+
+
 def test_plan_errors() -> None:
     with pytest.raises(PlanError, match="no_price_data"):
         plan_vehicle([], CAR, Rules(), NOW, deadline=DEADLINE)

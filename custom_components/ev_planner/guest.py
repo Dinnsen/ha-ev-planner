@@ -65,7 +65,18 @@ from .const import (
     RELEASE_UNPLUGGED,
     UNPLUG_DELAY,
 )
-from .planner import Plan, PlanError, PriceSlot, Segment, charge_need, make_plan, price_at, segments_to_schedule
+from .planner import (
+    ChargeNeed,
+    Plan,
+    PlanError,
+    PriceSlot,
+    Segment,
+    charge_need,
+    charge_now_plan,
+    make_plan,
+    price_at,
+    segments_to_schedule,
+)
 from .progress import Progress, plan_progress
 from .rules import cut_slots, parse_hhmm
 
@@ -394,8 +405,9 @@ class GuestSession:
     # ------------------------------------------------------------------
     # Planning
 
-    def make_plan(self, inputs: Mapping[str, Any], now: datetime | None = None) -> tuple[Plan, list[PriceSlot]]:
-        """Plan with the given inputs; raises PlanError. Nothing is stored."""
+    @staticmethod
+    def _need(inputs: Mapping[str, Any]) -> tuple[ChargeNeed, float]:
+        """What the guest car needs, and the charging power; raises PlanError."""
         try:
             soc = float(inputs[GUEST_SOC])
             capacity = float(inputs[GUEST_BATTERY])
@@ -404,7 +416,11 @@ class GuestSession:
             efficiency = float(inputs.get(GUEST_EFFICIENCY) or 90.0) / 100
         except (KeyError, TypeError, ValueError) as err:
             raise PlanError(ERROR_INVALID_INPUT) from err
-        need = charge_need(soc, limit, capacity, power, efficiency)
+        return charge_need(soc, limit, capacity, power, efficiency), power
+
+    def make_plan(self, inputs: Mapping[str, Any], now: datetime | None = None) -> tuple[Plan, list[PriceSlot]]:
+        """Plan with the given inputs; raises PlanError. Nothing is stored."""
+        need, power = self._need(inputs)
         now = now or dt_util.now()
         slots = self.household.price_slots(now)
         completion = None
@@ -437,7 +453,26 @@ class GuestSession:
                 self.error = err.key
                 self.household.async_update_listeners()
             return
-        if manual or not self.segments:
+        self._apply(plan, now, new_session=manual or not self.segments)
+
+    async def async_charge_now(self) -> None:
+        """Charge the guest car right away until the target, whatever the price.
+
+        Runs like a plan that starts now, so the charger, the energy meter and
+        the history work as for a planned charge. New prices do not move it.
+        """
+        now = dt_util.now()
+        try:
+            need, power = self._need(self.inputs)
+        except PlanError as err:
+            self._fail(err.key, cause=err, show_in_status=True)
+        self._auto_recalculate = False
+        plan = charge_now_plan(self.household.price_slots(now), need, power, now)
+        self._apply(plan, now, new_session=True)
+
+    def _apply(self, plan: Plan, now: datetime, *, new_session: bool) -> None:
+        """Store a new plan; a new session first records the previous one."""
+        if new_session:
             self._maybe_record(now, ended=True)
             self._start_session()
         visible = self.household.visible_slots(self.household.price_slots(now))

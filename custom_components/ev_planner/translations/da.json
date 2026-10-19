@@ -100,7 +100,7 @@
           },
           "data_description": {
             "name": "Fx Tesla Model 3.",
-            "battery_capacity": "Brugbar kapacitet i kWh."
+            "battery_capacity": "Brugbar kapacitet i kWh. Bruges, når bilen ikke selv oplyser den."
           },
           "sections": {
             "sensors": {
@@ -109,6 +109,7 @@
               "data": {
                 "soc_entity": "Batteriniveau",
                 "target_entity": "Ladegrænse",
+                "capacity_entity": "Batterikapacitet",
                 "connected_entity": "Tilsluttet",
                 "unplugged_states": "Tilstande, der betyder ikke tilsluttet",
                 "home_entity": "Hjemme",
@@ -117,6 +118,7 @@
               "data_description": {
                 "soc_entity": "Bilens batteriniveau (%). Uden den sætter du niveauet selv.",
                 "target_entity": "Bilens egen ladegrænse (%). En number-entitet ændres også, når du ændrer målet i EV Planner.",
+                "capacity_entity": "Valgfri. En sensor med bilens brugbare batterikapacitet (kWh). Erstatter tallet ovenfor, når den har en værdi.",
                 "connected_entity": "En entitet, der viser om bilen er sat til, fx en ladekabel-sensor.",
                 "unplugged_states": "Standard: off, disconnected, unplugged. For en status-sensor fx 3.",
                 "home_entity": "Valgfri. EV Planner handler kun, når bilen er hjemme.",
@@ -162,7 +164,7 @@
           },
           "data_description": {
             "name": "Fx Tesla Model 3.",
-            "battery_capacity": "Brugbar kapacitet i kWh."
+            "battery_capacity": "Brugbar kapacitet i kWh. Bruges, når bilen ikke selv oplyser den."
           },
           "sections": {
             "sensors": {
@@ -171,6 +173,7 @@
               "data": {
                 "soc_entity": "Batteriniveau",
                 "target_entity": "Ladegrænse",
+                "capacity_entity": "Batterikapacitet",
                 "connected_entity": "Tilsluttet",
                 "unplugged_states": "Tilstande, der betyder ikke tilsluttet",
                 "home_entity": "Hjemme",
@@ -179,6 +182,7 @@
               "data_description": {
                 "soc_entity": "Bilens batteriniveau (%). Uden den sætter du niveauet selv.",
                 "target_entity": "Bilens egen ladegrænse (%). En number-entitet ændres også, når du ændrer målet i EV Planner.",
+                "capacity_entity": "Valgfri. En sensor med bilens brugbare batterikapacitet (kWh). Erstatter tallet ovenfor, når den har en værdi.",
                 "connected_entity": "En entitet, der viser om bilen er sat til, fx en ladekabel-sensor.",
                 "unplugged_states": "Standard: off, disconnected, unplugged. For en status-sensor fx 3.",
                 "home_entity": "Valgfri. EV Planner handler kun, når bilen er hjemme.",
@@ -231,8 +235,22 @@
       "step": {
         "user": {
           "title": "Tilføj ladepunkt",
+          "description": "Vælg laderens enhed i Home Assistant, hvis den har en, så udfylder EV Planner resten. Du kan rette det hele på næste side.",
+          "data": {
+            "device": "Enhed",
+            "model": "Mærke og model"
+          },
+          "data_description": {
+            "device": "Valgfri. Laderens enhed fra dens egen integration (Easee, Zaptec, Wallbox, ...).",
+            "model": "Automatisk finder den ud fra enheden."
+          }
+        },
+        "details": {
+          "title": "Ladepunkt",
+          "description": "Tjek hvad EV Planner har udfyldt. Lad stå tomt, hvad laderen ikke har.",
           "data": {
             "name": "Navn",
+            "model": "Lader",
             "power": "Effekt",
             "switch_entity": "Laderens kontakt",
             "energy_entity": "Energimåler",
@@ -241,7 +259,8 @@
           },
           "data_description": {
             "name": "Fx Carport.",
-            "power": "Det meste laderen giver (kW).",
+            "model": "Mærke og model. Bestemmer tegningen i panelet.",
+            "power": "Det meste laderen giver med jeres installation (kW). Typisk 11 kW på 3 x 16 A, 7,4 kW på 1 x 32 A.",
             "switch_entity": "Valgfri. Lader EV Planner starte og pause laderen.",
             "energy_entity": "Valgfri. Laderens samlede energi (kWh), til at måle hvad gæsten brugte.",
             "connected_entity": "Valgfri. Afslutter gæstesessionen, når gæstebilen tages ud.",
@@ -252,6 +271,7 @@
           "title": "Ret ladepunkt",
           "data": {
             "name": "Navn",
+            "model": "Lader",
             "power": "Effekt",
             "switch_entity": "Laderens kontakt",
             "energy_entity": "Energimåler",
@@ -260,7 +280,8 @@
           },
           "data_description": {
             "name": "Fx Carport.",
-            "power": "Det meste laderen giver (kW).",
+            "model": "Mærke og model. Bestemmer tegningen i panelet.",
+            "power": "Det meste laderen giver med jeres installation (kW). Typisk 11 kW på 3 x 16 A, 7,4 kW på 1 x 32 A.",
             "switch_entity": "Valgfri. Lader EV Planner starte og pause laderen.",
             "energy_entity": "Valgfri. Laderens samlede energi (kWh), til at måle hvad gæsten brugte.",
             "connected_entity": "Valgfri. Afslutter gæstesessionen, når gæstebilen tages ud.",
@@ -291,6 +312,9 @@
       },
       "guest_plan": {
         "name": "Lav plan"
+      },
+      "guest_charge_now": {
+        "name": "Lad nu"
       },
       "guest_new": {
         "name": "Ny gæst"
@@ -564,6 +588,16 @@
         "pause": "Pause",
         "off": "Fra"
       }
+    },
+    "charger_model": {
+      "options": {
+        "auto": "Automatisk",
+        "other": "Anden",
+        "generic_box": "Ladeboks på væggen (11 kW)",
+        "generic_post": "Ladestander (22 kW)",
+        "generic_portable": "Mobil lader (11 kW)",
+        "generic_socket": "Almindelig stikkontakt (2,3 kW)"
+      }
     }
   },
   "services": {
@@ -604,6 +638,16 @@
     "guest_plan": {
       "name": "Lav gæsteplan",
       "description": "Planlæg den billigste ladning af gæstebilen.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Husstand",
+          "description": "Den EV Planner, der skal bruges."
+        }
+      }
+    },
+    "guest_charge_now": {
+      "name": "Lad gæstebilen nu",
+      "description": "Lad gæstebilen med det samme til målet, uanset prisen. Ladningen gemmes i historikken.",
       "fields": {
         "config_entry_id": {
           "name": "Husstand",

@@ -8,6 +8,7 @@
   "dependencies": [
     "frontend",
     "http",
+    "image_upload",
     "panel_custom",
     "websocket_api"
   ],
@@ -18,5 +19,5 @@
   "quality_scale": "platinum",
   "requirements": [],
   "single_config_entry": true,
-  "version": "0.4.0"
+  "version": "0.5.0"
 }

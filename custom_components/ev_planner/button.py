@@ -1,4 +1,4 @@
-"""Buttons for the guest car: look it up, make the plan, start over."""
+"""Buttons for the guest car: look it up, make the plan, charge now, start over."""
 
 from __future__ import annotations
 
@@ -24,6 +24,7 @@ class GuestButtonDescription(ButtonEntityDescription):
 GUEST_BUTTONS: tuple[GuestButtonDescription, ...] = (
     GuestButtonDescription(key="guest_lookup", press_fn=lambda guest: guest.async_lookup()),
     GuestButtonDescription(key="guest_plan", press_fn=lambda guest: guest.async_calculate()),
+    GuestButtonDescription(key="guest_charge_now", press_fn=lambda guest: guest.async_charge_now()),
     GuestButtonDescription(key="guest_new", press_fn=lambda guest: guest.async_new_guest()),
 )
 

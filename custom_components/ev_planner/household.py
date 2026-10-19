@@ -175,6 +175,8 @@ class Household(DataUpdateCoordinator[None]):
                 self.chargers[subentry_id] = Charger(subentry_id, subentry.title, dict(subentry.data))
         self.guest = GuestSession(hass, self)
         self.settings: dict[str, Any] = dict(SETTINGS_DEFAULTS)
+        # Photos of the cars and chargers: {car or charger id: image_upload id}.
+        self.images: dict[str, str] = {}
         self.notifier = Notifier(hass, self.notify_services)
         self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY.format(entry_id=entry.entry_id))
         self._unsub: list[CALLBACK_TYPE] = []
@@ -322,6 +324,12 @@ class Household(DataUpdateCoordinator[None]):
             charger.guest_last_sent = last if last in (CONTROL_CHARGE, CONTROL_PAUSE) else None
         self.guest.load(stored.get("guest"))
         self.settings = {**SETTINGS_DEFAULTS, **(stored.get("settings") or {})}
+        images = stored.get("images") or {}
+        self.images = {
+            key: value
+            for key, value in images.items()
+            if isinstance(value, str) and (key in self.vehicles or key in self.chargers)
+        }
 
     @callback
     def async_save(self) -> None:
@@ -334,6 +342,7 @@ class Household(DataUpdateCoordinator[None]):
             "chargers": {cid: {"guest_last_sent": charger.guest_last_sent} for cid, charger in self.chargers.items()},
             "guest": self.guest.to_store(),
             "settings": self.settings,
+            "images": self.images,
         }
 
     # ------------------------------------------------------------------
@@ -349,6 +358,22 @@ class Household(DataUpdateCoordinator[None]):
         first = dt_util.start_of_local_day(slots[0].start)
         end = first + PLANNING_HORIZON
         return [slot for slot in slots if slot.start < end]
+
+    def image_url(self, target_id: str, size: int = 512) -> str | None:
+        """Where the photo of a car or charger is served, if it has one."""
+        image_id = self.images.get(target_id)
+        return f"/api/image/serve/{image_id}/{size}x{size}" if image_id else None
+
+    def set_image(self, target_id: str, image_id: str | None) -> str | None:
+        """Give a car or charger a photo (None removes it); returns the replaced photo."""
+        if target_id not in self.vehicles and target_id not in self.chargers:
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="car_not_found")
+        old = self.images.pop(target_id, None)
+        if image_id:
+            self.images[target_id] = image_id
+        self.async_save()
+        self.async_update_listeners()
+        return old if old != image_id else None
 
     def meter_kwh(self, entity_id: str) -> float | None:
         return meter_value(self.hass.states.get(entity_id))
@@ -380,6 +405,8 @@ class Household(DataUpdateCoordinator[None]):
             vehicle.soc = state_float(self.hass.states.get(vehicle.soc_entity))
         if vehicle.target_entity:
             vehicle.target_from_car = state_float(self.hass.states.get(vehicle.target_entity))
+        if vehicle.capacity_entity:
+            vehicle.capacity_from_car = meter_value(self.hass.states.get(vehicle.capacity_entity))
         if vehicle.connected_entity:
             vehicle.connected = vehicle.read_connected(self._state(vehicle.connected_entity))
         if vehicle.home_entity:

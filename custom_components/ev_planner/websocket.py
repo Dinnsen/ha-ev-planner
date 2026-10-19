@@ -12,6 +12,7 @@ from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.util import dt as dt_util
 
+from .catalog import panel_info
 from .const import (
     DOMAIN,
     GUEST_BATTERY,
@@ -200,6 +201,7 @@ def vehicle_state(household: Household, vehicle: Vehicle) -> dict[str, Any]:
     return {
         "id": vehicle.vehicle_id,
         "name": vehicle.name,
+        "image": household.image_url(vehicle.vehicle_id),
         "status": vehicle.status(),
         "reason": vehicle.decision.reason,
         "control": vehicle.decision.control,
@@ -306,6 +308,8 @@ def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
                 "connected": charger.connected,
                 "has_switch": charger.switch_entity is not None,
                 "has_meter": charger.energy_entity is not None,
+                "image": household.image_url(charger.charger_id),
+                **panel_info(charger.config),
             }
         )
     return {
@@ -464,6 +468,7 @@ def _guest_action(name: str, run: Callable[[GuestSession], Awaitable[None]]) -> 
 ws_guest_lookup = _guest_action("guest_lookup", lambda guest: guest.async_lookup())
 ws_guest_plan = _guest_action("guest_plan", lambda guest: guest.async_calculate())
 ws_guest_new = _guest_action("guest_new", lambda guest: guest.async_new_guest())
+ws_guest_charge_now = _guest_action("guest_charge_now", lambda guest: guest.async_charge_now())
 
 
 @websocket_api.websocket_command(
@@ -502,6 +507,22 @@ async def ws_settings(hass: HomeAssistant, connection: websocket_api.ActiveConne
     connection.send_result(msg["id"])
 
 
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/set_image",
+        ENTRY: str,
+        vol.Required("target_id"): str,
+        vol.Required("image_id"): vol.Any(None, vol.Match(r"^[0-9a-f]{32}$")),
+    }
+)
+@websocket_api.async_response
+@_errors
+async def ws_set_image(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Give a car or charger a photo uploaded with image_upload; answers with the photo it replaced."""
+    replaced = _household(hass, msg).set_image(msg["target_id"], msg["image_id"])
+    connection.send_result(msg["id"], {"replaced": replaced})
+
+
 @callback
 def async_register_websocket(hass: HomeAssistant) -> None:
     for command in (
@@ -514,6 +535,8 @@ def async_register_websocket(hass: HomeAssistant) -> None:
         ws_guest_lookup,
         ws_guest_plan,
         ws_guest_new,
+        ws_guest_charge_now,
+        ws_set_image,
         ws_delete_history,
         ws_settings,
     ):

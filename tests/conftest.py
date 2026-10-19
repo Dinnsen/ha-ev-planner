@@ -43,7 +43,7 @@ def auto_enable_custom_integrations(enable_custom_integrations: None) -> None:
 @pytest.fixture(autouse=True)
 def skip_panel_dependencies(hass: HomeAssistant) -> None:
     """The sidebar panel needs the real frontend; mark it as loaded instead."""
-    hass.config.components.update({"frontend", "panel_custom"})
+    hass.config.components.update({"frontend", "image_upload", "panel_custom"})
 
 
 @pytest.fixture(autouse=True)

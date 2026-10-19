@@ -279,13 +279,16 @@ def test_extract_price_slots_energi_data_service() -> None:
         {
             "raw_today": [{"hour": START, "price": 1.0}, {"hour": "bad", "price": 1}, {"price": 2}],
             "raw_tomorrow": None,
-            "forecast": [{"hour": (START + timedelta(hours=1)).isoformat(), "price": "2.5"}],
+            "forecast": [
+                {"hour": START.isoformat(), "price": "9.0"},
+                {"hour": (START + timedelta(hours=1)).isoformat(), "price": "2.5"},
+            ],
         },
     )
 
     assert extract_price_slots(state, START) == [
         PriceSlot(START, START + timedelta(hours=1), 1.0),
-        PriceSlot(START + timedelta(hours=1), START + timedelta(hours=2), 2.5),
+        PriceSlot(START + timedelta(hours=1), START + timedelta(hours=2), 2.5, forecast=True),
     ]
 
 

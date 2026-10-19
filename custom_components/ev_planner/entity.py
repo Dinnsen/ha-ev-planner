@@ -5,7 +5,8 @@ from __future__ import annotations
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOCS_URL, DOMAIN, MANUFACTURER
+from .catalog import get_model
+from .const import CONF_MODEL, DOCS_URL, DOMAIN, MANUFACTURER
 from .guest import GuestSession
 from .household import Charger, Household
 from .vehicle import Vehicle
@@ -55,12 +56,13 @@ class ChargerEntity(EVPlannerEntity):
         super().__init__(household, key)
         self.charger_id = charger_id
         charger = household.chargers[charger_id]
+        model = get_model(charger.config.get(CONF_MODEL))
         self._attr_unique_id = f"{charger_id}_{key}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, charger_id)},
             name=charger.name,
             manufacturer=MANUFACTURER,
-            model="EV Planner",
+            model=model.title if model else "EV Planner",
             entry_type=DeviceEntryType.SERVICE,
             configuration_url=DOCS_URL,
         )

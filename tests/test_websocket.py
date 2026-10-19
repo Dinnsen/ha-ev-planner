@@ -15,7 +15,7 @@ from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 from custom_components.ev_planner.const import DOMAIN
 from custom_components.ev_planner.diagnostics import async_get_config_entry_diagnostics
 
-from .conftest import MERCEDES, TESLA, settle
+from .conftest import CARPORT, MERCEDES, TESLA, settle
 
 
 async def _ws(client: Any, msg_id: int, **msg: Any) -> dict[str, Any]:
@@ -153,6 +153,50 @@ async def test_guest_commands(
     msg = await _ws(client, 9, type="ev_planner/settings", settings={"bill_price": 2.5, "payment_text": "MobilePay"})
     assert msg["success"]
     assert init_integration.runtime_data.settings == {"bill_price": 2.5, "payment_text": "MobilePay"}
+
+
+async def test_images(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    client = await hass_ws_client(hass)
+    first, second = "a" * 32, "b" * 32
+    msg = await _ws(client, 1, type="ev_planner/set_image", target_id=TESLA, image_id=first)
+    assert msg["success"] and msg["result"] == {"replaced": None}
+    msg = await _ws(client, 2, type="ev_planner/set_image", target_id=TESLA, image_id=second)
+    assert msg["result"] == {"replaced": first}
+    msg = await _ws(client, 3, type="ev_planner/set_image", target_id=CARPORT, image_id=first)
+    assert msg["success"]
+    await hass.async_block_till_done()
+
+    state = (await _ws(client, 4, type="ev_planner/state"))["result"]
+    assert state["vehicles"][1]["image"] == f"/api/image/serve/{second}/512x512"
+    assert state["vehicles"][0]["image"] is None
+    assert state["chargers"][0]["image"] == f"/api/image/serve/{first}/512x512"
+    assert state["chargers"][0]["style"] == "box"
+    tesla_status = hass.states.get("sensor.tesla_status")
+    assert tesla_status is not None
+    assert tesla_status.attributes["entity_picture"] == f"/api/image/serve/{second}/512x512"
+    carport = hass.states.get("sensor.carport_charger_control")
+    assert carport is not None and carport.attributes["entity_picture"].startswith("/api/image/serve/")
+
+    msg = await _ws(client, 5, type="ev_planner/set_image", target_id=TESLA, image_id=None)
+    assert msg["result"] == {"replaced": second}
+    msg = await _ws(client, 6, type="ev_planner/set_image", target_id="nope", image_id=first)
+    assert not msg["success"]
+    msg = await _ws(client, 7, type="ev_planner/set_image", target_id=TESLA, image_id="../etc")
+    assert not msg["success"]
+
+    # Kept across a restart.
+    await hass.config_entries.async_reload(init_integration.entry_id)
+    await hass.async_block_till_done()
+    assert init_integration.runtime_data.images == {CARPORT: first}
+
+    msg = await _ws(client, 8, type="ev_planner/guest_charge_now")
+    assert msg["success"]
+    assert init_integration.runtime_data.guest.status() == "charging"
 
 
 async def test_actions(hass: HomeAssistant, init_integration: MockConfigEntry, freezer: FrozenDateTimeFactory) -> None:

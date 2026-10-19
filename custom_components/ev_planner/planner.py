@@ -17,15 +17,21 @@ EPSILON = 1e-9
 
 MODE_CONTINUOUS = "continuous"
 MODE_SPLIT = "split"
+MODE_NOW = "now"
 
 
 @dataclass(frozen=True, slots=True)
 class PriceSlot:
-    """A price valid from ``start`` until ``end``."""
+    """A price valid from ``start`` until ``end``.
+
+    ``forecast`` marks a predicted price (Energi Data Service carries a
+    Carnot forecast a week ahead), not a published one.
+    """
 
     start: datetime
     end: datetime
     price: float
+    forecast: bool = False
 
     @property
     def hours(self) -> float:
@@ -119,7 +125,7 @@ def limit_slots(slots: list[PriceSlot], start: datetime, end: datetime | None) -
         begin = max(slot.start, start)
         stop = min(slot.end, end) if end else slot.end
         if stop > begin:
-            result.append(PriceSlot(begin, stop, slot.price))
+            result.append(PriceSlot(begin, stop, slot.price, slot.forecast))
     return result
 
 
@@ -255,6 +261,29 @@ def make_plan(
         mode=mode,
         need=need,
         charge_now_cost=charge_now_cost,
+        average_price=cost / need.grid_kwh if need.grid_kwh else None,
+    )
+
+
+def charge_now_plan(prices: list[PriceSlot], need: ChargeNeed, power_kw: float, now: datetime) -> Plan:
+    """Charge straight away until the target is reached, whatever the price.
+
+    The cost counts the prices that are known; a charge that runs past the
+    last price is priced only as far as the prices go.
+    """
+    begin = ceil_minute(now)
+    finish = begin + timedelta(hours=need.hours)
+    cost = 0.0
+    for slot in prices:
+        start, stop = max(slot.start, begin), min(slot.end, finish)
+        if stop > start:
+            cost += slot.price * (stop - start).total_seconds() / 3600 * power_kw
+    return Plan(
+        segments=[{"start": begin, "end": begin + timedelta(minutes=need.minutes)}],
+        cost=cost,
+        mode=MODE_NOW,
+        need=need,
+        charge_now_cost=cost,
         average_price=cost / need.grid_kwh if need.grid_kwh else None,
     )
 

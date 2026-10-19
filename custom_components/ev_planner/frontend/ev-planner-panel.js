@@ -161,6 +161,21 @@ const TEXT = {
     recalculate: "Beregn igen",
     calculating: "Beregner …",
     new_guest: "Ny gæst",
+    guest_charge_now: "Lad nu",
+    charging_now_busy: "Starter …",
+    charge_now_tag: "Lad nu",
+    photo_add: "Tilføj billede",
+    photo_change: "Skift billede",
+    photo_remove: "Fjern billede",
+    photo_saved: "Billedet er gemt",
+    photo_removed: "Billedet er fjernet",
+    photo_uploading: "Gemmer billedet …",
+    photo_failed: "Billedet kunne ikke gemmes: {detail}",
+    battery_size: "Batteri",
+    model_generic_box: "Ladeboks",
+    model_generic_post: "Ladestander",
+    model_generic_portable: "Mobil lader",
+    model_generic_socket: "Stikkontakt",
     preview: "Forslag",
     changed: "Inputtet er ændret. Beregn igen for at bruge det.",
     price_now: "pr. kWh nu",
@@ -429,6 +444,21 @@ const TEXT = {
     recalculate: "Plan again",
     calculating: "Planning …",
     new_guest: "New guest",
+    guest_charge_now: "Charge now",
+    charging_now_busy: "Starting …",
+    charge_now_tag: "Charge now",
+    photo_add: "Add photo",
+    photo_change: "Change photo",
+    photo_remove: "Remove photo",
+    photo_saved: "The photo is saved",
+    photo_removed: "The photo is removed",
+    photo_uploading: "Saving the photo …",
+    photo_failed: "The photo could not be saved: {detail}",
+    battery_size: "Battery",
+    model_generic_box: "Wall charger",
+    model_generic_post: "Charging post",
+    model_generic_portable: "Portable charger",
+    model_generic_socket: "Household socket",
     preview: "Preview",
     changed: "The inputs changed. Plan again to use them.",
     price_now: "per kWh now",
@@ -600,7 +630,41 @@ const ICONS = {
   off: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v8"/><path d="M7 6.5a7 7 0 1 0 10 0"/></svg>',
   warn: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.2v.1"/></svg>',
   info: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.1"/></svg>',
+  camera: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.3l1.4-2h5.6l1.4 2h2.3A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="12.8" r="3.3"/></svg>',
 };
+
+/* Our own drawings of the kinds of chargers (no manufacturer photos), by catalog style. */
+const CHARGER_ART = {
+  box: `<rect x="14" y="8" width="36" height="42" rx="7"/><rect x="22" y="16" width="20" height="10" rx="2.5" class="glass"/><circle cx="32" cy="36" r="4" class="led"/><path d="M32 50v4a6 6 0 0 0 6 6h10"/>`,
+  slim: `<rect x="21" y="4" width="22" height="50" rx="7"/><path d="M27 14h10" class="led"/><circle cx="32" cy="30" r="5" class="glass"/><path d="M32 54v3a5 5 0 0 0 5 5h12"/>`,
+  round: `<circle cx="32" cy="28" r="20"/><circle cx="32" cy="28" r="11" class="glass"/><path d="M28 28h8" class="led"/><path d="M32 48v6a6 6 0 0 0 6 6h10"/>`,
+  post: `<rect x="22" y="4" width="20" height="44" rx="5"/><rect x="26" y="10" width="12" height="8" rx="2" class="glass"/><circle cx="32" cy="26" r="2.6" class="led"/><path d="M18 60h28M26 48v12M38 48v12"/>`,
+  portable: `<rect x="12" y="22" width="26" height="18" rx="5"/><path d="M18 31h6" class="led"/><path d="M38 31h6a6 6 0 0 1 6 6v8M6 31h6"/><rect x="45" y="45" width="10" height="9" rx="2.5" class="glass"/><path d="M2 27v8"/>`,
+  socket: `<rect x="12" y="12" width="40" height="40" rx="9"/><circle cx="32" cy="32" r="13" class="glass"/><circle cx="27" cy="32" r="1.8" class="led"/><circle cx="37" cy="32" r="1.8" class="led"/>`,
+};
+
+function chargerArt(style) {
+  return `<svg class="art" viewBox="0 0 64 64" aria-hidden="true">${CHARGER_ART[style] || CHARGER_ART.box}</svg>`;
+}
+
+/* A photo from the phone as a JPEG of at most 1280 px, so HEIC and huge photos work too. */
+async function shrinkImage(file, max = 1280) {
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close?.();
+    return await new Promise((resolve, reject) =>
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("image"))), "image/jpeg", 0.86),
+    );
+  } catch (err) {
+    if (["image/jpeg", "image/png", "image/gif"].includes(file.type)) return file;
+    throw err;
+  }
+}
 
 /* Each mode's icon in the segmented control. */
 const MODE_ICONS = { smart: "plan", charge_now: "boost", pause: "pause", off: "off" };
@@ -1276,7 +1340,7 @@ class EvPlannerPanel extends HTMLElement {
     return `<article class="vcard tone-${tone}" data-id="${esc(v.id)}">
       <button class="vcard-open" data-act="open-car" data-id="${esc(v.id)}" data-f="open-${esc(v.id)}" aria-label="${esc(this._t("open_car", { name: v.name }))}">
         <div class="vcard-head">
-          <div class="vcard-title">${ICONS.car}<div><strong>${esc(v.name)}</strong><span>${esc(this._carSubline(v))}</span></div></div>
+          <div class="vcard-title">${v.image ? `<img class="avatar" src="${esc(v.image)}" alt="" loading="lazy">` : ICONS.car}<div><strong>${esc(v.name)}</strong><span>${esc(this._carSubline(v))}</span></div></div>
           <span class="pill ${tone}">${esc(this._statusText(v))}</span>
         </div>
         <div class="vcard-body">
@@ -1399,6 +1463,72 @@ class EvPlannerPanel extends HTMLElement {
     </section>`;
   }
 
+  /* A car's or charger's picture; tapping it picks a new photo, the small cross removes it. */
+  _photoHtml(id, image, fallback, { small = false } = {}) {
+    const busy = this._busy === `photo:${id}`;
+    const label = this._t(image ? "photo_change" : "photo_add");
+    return `<span class="photo ${small ? "small" : ""} ${image ? "has" : ""} ${busy ? "busy" : ""}">
+      <button class="photo-pick" data-act="photo" data-id="${esc(id)}" data-f="photo-${esc(id)}" aria-label="${label}" title="${label}" ${busy ? "disabled" : ""}>
+        ${image ? `<img src="${esc(image)}" alt="" loading="lazy">` : fallback}<i class="cam">${ICONS.camera}</i>
+      </button>
+      ${image ? `<button class="photo-del" data-act="photo-del" data-id="${esc(id)}" aria-label="${this._t("photo_remove")}" title="${this._t("photo_remove")}">${ICONS.close}</button>` : ""}
+    </span>`;
+  }
+
+  _pickPhoto(id) {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.addEventListener("change", () => {
+      const file = input.files?.[0];
+      if (file) this._uploadPhoto(id, file);
+    });
+    input.click();
+  }
+
+  async _uploadPhoto(id, file) {
+    this._busy = `photo:${id}`;
+    this._message = { kind: "ok", text: this._t("photo_uploading") };
+    this._refreshPhotos();
+    try {
+      const blob = await shrinkImage(file);
+      const form = new FormData();
+      form.append("file", blob, blob === file ? file.name : "ev-planner.jpg");
+      const response = await this._hass.fetchWithAuth("/api/image/upload", { method: "POST", body: form });
+      if (!response.ok) throw new Error((await response.text()) || String(response.status));
+      const item = await response.json();
+      const result = await this._ws("ev_planner/set_image", { target_id: id, image_id: item.id });
+      this._dropImage(result?.replaced);
+      this._toast(this._t("photo_saved"));
+    } catch (err) {
+      this._message = { kind: "error", text: this._t("photo_failed", { detail: err?.message || String(err) }) };
+      this._renderToast();
+    } finally {
+      this._busy = null;
+      this._refreshPhotos();
+    }
+  }
+
+  _refreshPhotos() {
+    if (this._currentCar) this._update();
+    else this._render();
+  }
+
+  async _removePhoto(id) {
+    try {
+      const result = await this._ws("ev_planner/set_image", { target_id: id, image_id: null });
+      this._dropImage(result?.replaced);
+      this._toast(this._t("photo_removed"));
+    } catch (err) {
+      this._showError(err);
+    }
+  }
+
+  /* A photo nothing shows any more is deleted from Home Assistant. */
+  _dropImage(imageId) {
+    if (imageId) this._hass.callWS({ type: "image/delete", image_id: imageId }).catch(() => {});
+  }
+
   _chargersHtml() {
     const chargers = this._chargers;
     if (!chargers.length) return "";
@@ -1410,8 +1540,10 @@ class EvPlannerPanel extends HTMLElement {
           const holder = c.holder === "guest" ? this._t("holder_guest") : c.holder;
           const text = holder && c.control !== "released" ? this._t("charger_for", { state, name: holder }) : state;
           const plugged = c.connected === true ? this._t("car_plugged") : c.connected === false ? this._t("car_unplugged") : "";
-          return `<li class="ctl-${esc(c.control || "released")}"><i aria-hidden="true"></i>
-            <div><strong>${esc(c.name)}</strong><span>${isNum(c.power) ? `${this._num(c.power)} kW` : ""}${plugged ? ` · ${plugged}` : ""}</span></div>
+          const model = c.model?.startsWith("generic_") ? this._t(`model_${c.model}`) : c.model_title;
+          const details = [model, isNum(c.power) ? `${this._num(c.power)} kW` : "", plugged].filter(Boolean).join(" · ");
+          return `<li class="ctl-${esc(c.control || "released")}">${this._photoHtml(c.id, c.image, chargerArt(c.style), { small: true })}
+            <div><strong><i aria-hidden="true"></i>${esc(c.name)}</strong><span>${esc(details)}</span></div>
             <b>${esc(text)}</b></li>`;
         })
         .join("")}</ul>
@@ -2025,8 +2157,9 @@ class EvPlannerPanel extends HTMLElement {
     const tone = this._statusTone(v);
     this._patch(
       root.querySelector(".car-head"),
-      JSON.stringify([v.name, v.status, sub, tone, lang]),
+      JSON.stringify([v.name, v.status, sub, tone, lang, v.image, this._busy === `photo:${v.id}`]),
       `<button class="icon back" data-act="back" data-f="back" aria-label="${this._t("back_label")}">${ICONS.back}</button>
+       ${this._photoHtml(v.id, v.image, ICONS.car)}
        <div class="car-title"><h1>${esc(v.name)}</h1><span>${esc(sub)}</span></div>
        <span class="pill ${tone}">${esc(this._statusText(v))}</span>`,
     );
@@ -2048,7 +2181,7 @@ class EvPlannerPanel extends HTMLElement {
       JSON.stringify([schedule, s.ready_by, s.use_ready_by, this._schedDay, lang]),
       this._scheduleHtml(s),
     );
-    this._patch(root.querySelector(".car-info"), JSON.stringify([v.calendar, v.control_source, v.charger, v.power, lang]), this._carInfoHtml(v));
+    this._patch(root.querySelector(".car-info"), JSON.stringify([v.calendar, v.control_source, v.charger, v.power, v.capacity, lang]), this._carInfoHtml(v));
     this._patch(root.querySelector(".rules-body"), JSON.stringify([this._ruleValues(s), this._currency, lang]), this._rulesHtml(v, s));
     this._patch(
       root.querySelector(".notify-body"),
@@ -2145,7 +2278,13 @@ class EvPlannerPanel extends HTMLElement {
       lines.push(`<p class="info-line cal">${ICONS.calendar}<span>${esc(text)}</span></p>`);
     }
     const source = this._t(`control_${v.control_source || "none"}`);
-    const charger = [v.charger?.name, isNum(v.power) ? `${this._num(v.power)} kW` : ""].filter(Boolean).join(" · ");
+    const charger = [
+      v.charger?.name,
+      isNum(v.power) ? `${this._num(v.power)} kW` : "",
+      isNum(v.capacity) ? `${this._t("battery_size")} ${this._kwh(v.capacity, 1)}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
     lines.push(`<p class="info-line">${ICONS.charger}<span>${this._t("control_source")}: <b>${esc(source)}</b>${charger ? ` · ${esc(charger)}` : ""}</span></p>`);
     return lines.join("");
   }
@@ -2373,6 +2512,7 @@ class EvPlannerPanel extends HTMLElement {
 
         <div class="actions">
           <button class="btn primary calc" data-act="g-plan">${ICONS.charge}<span></span></button>
+          <button class="btn ghost charge-now" data-act="g-now">${ICONS.boost}<span>${this._t("guest_charge_now")}</span></button>
           <button class="btn ghost new-guest" data-act="g-new">${ICONS.plus}<span>${this._t("new_guest")}</span></button>
         </div>
         <p class="note"></p>
@@ -2457,7 +2597,10 @@ class EvPlannerPanel extends HTMLElement {
     const calc = root.querySelector(".calc");
     calc.querySelector("span").textContent =
       this._busy === "calculate" ? this._t("calculating") : hasSegments(g.plan) ? this._t("recalculate") : this._t("calculate");
-    calc.disabled = this._busy === "calculate";
+    calc.disabled = this._busy === "calculate" || this._busy === "charge_now";
+    const now = root.querySelector(".charge-now");
+    now.querySelector("span").textContent = this._busy === "charge_now" ? this._t("charging_now_busy") : this._t("guest_charge_now");
+    now.disabled = Boolean(this._busy);
     calc.classList.toggle("pulse", this._gstale);
     root.querySelector(".guest-page .note").textContent = this._gstale ? this._t("changed") : "";
   }
@@ -2563,6 +2706,14 @@ class EvPlannerPanel extends HTMLElement {
   async _guestPlan() {
     await this._gcommit(this._gdraft);
     if (await this._run("calculate", "ev_planner/guest_plan")) {
+      this._gpreview = null;
+      this._renderLive();
+    }
+  }
+
+  async _guestChargeNow() {
+    await this._gcommit(this._gdraft);
+    if (await this._run("charge_now", "ev_planner/guest_charge_now")) {
       this._gpreview = null;
       this._renderLive();
     }
@@ -2738,7 +2889,7 @@ class EvPlannerPanel extends HTMLElement {
             <div class="when"><b>${new Date(e.start).getDate()}</b><span>${new Intl.DateTimeFormat(this._locale, { month: "short" }).format(new Date(e.start))}</span></div>
             <div class="what">
               <strong>${esc(e.car || this._t("unknown_car"))}</strong>
-              <span>${e.plate ? `<em class="mini-plate">${esc(e.plate)}</em>` : ""}${this._time(e.start)}–${this._time(e.end)}</span>
+              <span>${e.plate ? `<em class="mini-plate">${esc(e.plate)}</em>` : ""}${e.mode === "now" ? `<em class="tag-now">${ICONS.boost}${this._t("charge_now_tag")}</em>` : ""}${this._time(e.start)}–${this._time(e.end)}</span>
             </div>
             <div class="nums"><b>${this._money(costOf(e))}</b><span>${this._kwh(energyOf(e))}</span></div>
             <div class="row-actions">
@@ -2918,6 +3069,15 @@ class EvPlannerPanel extends HTMLElement {
         break;
       case "g-new":
         this._newGuest();
+        break;
+      case "g-now":
+        this._guestChargeNow();
+        break;
+      case "photo":
+        this._pickPhoto(id);
+        break;
+      case "photo-del":
+        this._removePhoto(id);
         break;
       case "g-power":
         this._gchange({ charger_power: Number(button.dataset.kw) });
@@ -3181,6 +3341,25 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .vcard-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .vcard-title > svg { width: 26px; height: 26px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; color: var(--evp-soft); }
 .vcard-title div { display: grid; min-width: 0; }
+.vcard-title .avatar { width: 44px; height: 44px; flex: none; border-radius: 12px; object-fit: cover; background: var(--evp-line); }
+.photo { position: relative; flex: none; display: inline-grid; }
+.photo-pick { position: relative; width: 52px; height: 52px; padding: 0; border: 1px solid var(--evp-line); border-radius: 14px; background: color-mix(in srgb, var(--evp-ink) 4%, transparent); color: var(--evp-soft); cursor: pointer; overflow: hidden; display: grid; place-items: center; }
+.photo.small .photo-pick { width: 44px; height: 44px; border-radius: 12px; }
+.photo-pick img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-pick > svg { width: 60%; height: 60%; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.photo-pick > svg.art { width: 80%; height: 80%; stroke-width: 2.6; }
+.photo-pick > svg.art .glass { fill: color-mix(in srgb, var(--evp-a) 18%, transparent); }
+.photo-pick > svg.art .led { stroke: var(--evp-a); fill: var(--evp-a); }
+.photo-pick .cam { position: absolute; right: 2px; bottom: 2px; width: 18px; height: 18px; border-radius: 6px; display: grid; place-items: center; background: var(--evp-card, var(--card-background-color, #fff)); color: var(--evp-ink); opacity: 0; transition: opacity .15s; }
+.photo-pick .cam svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.photo-pick:hover .cam, .photo-pick:focus-visible .cam, .photo:not(.has) .cam { opacity: 1; }
+.photo.busy .photo-pick { animation: seg 1.2s ease-in-out infinite; }
+.photo-del { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; padding: 0; border-radius: 50%; border: 1px solid var(--evp-line); background: var(--evp-card, var(--card-background-color, #fff)); color: var(--evp-soft); cursor: pointer; display: grid; place-items: center; opacity: 0; transition: opacity .15s; }
+.photo-del svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.photo:hover .photo-del, .photo:focus-within .photo-del { opacity: 1; }
+@media (hover: none) { .photo-del { opacity: 1; } .photo-pick .cam { opacity: 1; } }
+.tag-now { display: inline-flex; align-items: center; gap: 2px; margin-right: 6px; font-style: normal; font-size: 12px; color: var(--evp-a); }
+.tag-now svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
 .vcard-title strong { font-size: 18px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .vcard-title span { color: var(--evp-soft); font-size: 13px; }
 .vcard-body { display: grid; grid-template-columns: 148px 1fr; gap: 14px; align-items: center; }
@@ -3205,11 +3384,11 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .guest-line span { color: var(--evp-soft); font-size: 13px; font-variant-numeric: tabular-nums; }
 .guest-card .btn { width: 100%; }
 .chargers ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.chargers li { display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--evp-line); }
+.chargers li { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--evp-line); }
 .chargers li:first-child { border-top: 0; padding-top: 0; }
-.chargers li > i { width: 10px; height: 10px; border-radius: 50%; background: var(--evp-soft); opacity: .5; }
-.chargers li.ctl-charge > i { background: var(--evp-b); opacity: 1; box-shadow: 0 0 0 0 color-mix(in srgb, var(--evp-b) 70%, transparent); animation: ping 1.6s ease-out infinite; }
-.chargers li.ctl-pause > i { background: var(--evp-sand); opacity: 1; }
+.chargers li strong > i { display: inline-block; width: 8px; height: 8px; margin-right: 6px; vertical-align: 2px; border-radius: 50%; background: var(--evp-soft); opacity: .5; }
+.chargers li.ctl-charge strong > i { background: var(--evp-b); opacity: 1; box-shadow: 0 0 0 0 color-mix(in srgb, var(--evp-b) 70%, transparent); animation: ping 1.6s ease-out infinite; }
+.chargers li.ctl-pause strong > i { background: var(--evp-sand); opacity: 1; }
 .chargers li div { display: grid; min-width: 0; }
 .chargers li span { color: var(--evp-soft); font-size: 13px; }
 .chargers li b { font-weight: 500; font-size: 14px; text-align: right; }

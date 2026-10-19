@@ -23,7 +23,8 @@ EV Planner er bygget på [EV Guest](https://github.com/Dinnsen/EV-Guest) (planl�
 - **Tilstande:** Smart, Lad nu (tilbage til Smart, når bilen er fuld eller taget ud), Pause, Fra.
 - **Tjekker at ladningen startede:** prøver én gang til og giver så besked.
 - **Påmindelse om stikket** med knapperne *Lad nu* og *Følg planen*, **live-notifikationer** mens bilen lader (Live Activities på iPhone, Live Updates på Android) og **besked når bilen er ladet** – alle med ikoner.
-- **Gæstebilen** præcis som i EV Guest: opslag på nummerplade, prisur, regning og historik.
+- **Gæstebilen** præcis som i EV Guest: opslag på nummerplade, prisur, regning og historik – og *Lad nu*, der lader med det samme og gemmes i historikken.
+- **Billeder** af jeres biler og ladere (tryk på billedet i panelet), og tegninger af ca. 40 kendte ladere.
 - **Statistik:** energi, pris og ladninger per bil og måned.
 - **Panel** i sidebjælken og som app på hjemmeskærmen, på dansk og engelsk, lyst og mørkt.
 
@@ -34,8 +35,8 @@ Tilføj `https://github.com/Dinnsen/ha-ev-planner` som brugerdefineret repositor
 ## Opsætning
 
 1. **Indstillinger → Enheder og tjenester → Tilføj integration → EV Planner.** Vælg prissensor og valuta. MotorAPI-nøglen bruges kun til gæstebiler.
-2. **Tilføj ladepunkt** for hvert ladepunkt: effekt og eventuelt kontakt, energimåler og *bil tilsluttet*-sensor.
-3. **Tilføj bil** for hver bil: batterikapacitet, bilens sensorer (alle valgfri), ladeeffekt, ladepunkt, og hvem der starter og stopper ladningen. Har I EV Smart Charging, kan I starte fra den bil derfra.
+2. **Tilføj ladepunkt** for hvert ladepunkt. Vælg laderens enhed i Home Assistant og/eller mærke og model, så udfylder EV Planner effekt, kontakt, energimåler og *bil tilsluttet*-sensor, som I kan rette.
+3. **Tilføj bil** for hver bil (alle biler sættes op ens): batterikapacitet (et tal eller en sensor fra bilen), bilens sensorer (alle valgfri), ladeeffekt, ladepunkt, og hvem der starter og stopper ladningen. Har I EV Smart Charging, kan I starte fra den bil derfra.
 4. **Konfigurer**: hvilke mobiler der får beskeder, og om iOS-widgets skal opdateres.
 
 ## Fra EV Smart Charging

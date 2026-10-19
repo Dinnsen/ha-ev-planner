@@ -251,6 +251,13 @@ class VehicleSensor(VehicleEntity, SensorEntity):
         return self.entity_description.value_fn(self.coordinator, self.vehicle)
 
     @property
+    def entity_picture(self) -> str | None:
+        """The car's photo on its status, for dashboards."""
+        if self.entity_description.key != "status":
+            return None
+        return self.coordinator.image_url(self.vehicle_id)
+
+    @property
     def last_reset(self) -> datetime | None:
         if not self.entity_description.month:
             return None
@@ -360,6 +367,10 @@ class ChargerControlSensor(ChargerEntity, SensorEntity):
     @property
     def native_value(self) -> str:
         return self.coordinator.charger_control(self.charger_id)[0]
+
+    @property
+    def entity_picture(self) -> str | None:
+        return self.coordinator.image_url(self.charger_id)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

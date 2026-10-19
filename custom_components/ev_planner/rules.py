@@ -56,6 +56,9 @@ CONTROL_RELEASED = "released"
 CONTROL_CHARGE = "charge"
 CONTROL_PAUSE = "pause"
 
+# How far ahead a car without a ready-by time looks for cheap hours.
+NO_DEADLINE_HORIZON = timedelta(hours=24)
+
 WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 SCHEDULE_DEFAULT = "default"
 SCHEDULE_NONE = "none"
@@ -239,8 +242,9 @@ def window_start(now: datetime, earliest: time | None, deadline: datetime | None
 def effective_ceiling(rules: Rules, prices: Sequence[PriceSlot]) -> tuple[float | None, bool]:
     """The ceiling to plan with, and whether opportunistic charging changed it.
 
-    Like EV Smart Charging, opportunistic charging looks at the last known
-    price (late tomorrow evening once tomorrow's prices are out):
+    Like EV Smart Charging, opportunistic charging looks at the last
+    published price (late tomorrow evening once tomorrow's prices are out),
+    never at a forecast:
 
     * ``lower_ceiling``: when that price is below ``opportunistic_level`` %
       of the ceiling, the ceiling drops to that level, since cheap prices are
@@ -250,9 +254,10 @@ def effective_ceiling(rules: Rules, prices: Sequence[PriceSlot]) -> tuple[float 
       price ceiling itself.
     """
     ceiling = rules.ceiling
-    if not prices:
+    published = [slot for slot in prices if not slot.forecast]
+    if not published:
         return ceiling, False
-    last = prices[-1].price
+    last = published[-1].price
     if rules.opportunistic == OPPORTUNISTIC_LOWER and ceiling is not None:
         lowered = ceiling * rules.opportunistic_level / 100
         if last < lowered:
@@ -286,7 +291,7 @@ def cut_slots(slots: Sequence[PriceSlot], blocked: Iterable[Segment]) -> list[Pr
                 if b_end < p_end:
                     next_pieces.append((b_end, p_end))
             pieces = next_pieces
-        result.extend(PriceSlot(start, end, slot.price) for start, end in pieces if end > start)
+        result.extend(PriceSlot(start, end, slot.price, slot.forecast) for start, end in pieces if end > start)
     return result
 
 
@@ -364,7 +369,9 @@ def plan_vehicle(
     last_price_end = prices[-1].end
     if deadline is not None and last_price_end < deadline:
         raise PlanError("not_enough_prices")
-    end = deadline if deadline is not None else last_price_end
+    # Without a deadline, look one day ahead. Some price sensors carry a
+    # forecast a week ahead, and a plan for next Sunday helps nobody.
+    end = deadline if deadline is not None else min(last_price_end, now + NO_DEADLINE_HORIZON)
     start = window_start(now, earliest, deadline)
     window = cut_slots(limit_slots(list(prices), start, end), blocked)
     if not window:

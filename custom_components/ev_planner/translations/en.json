@@ -100,7 +100,7 @@
           },
           "data_description": {
             "name": "For example Tesla Model 3.",
-            "battery_capacity": "Usable capacity in kWh."
+            "battery_capacity": "Usable capacity in kWh. Used when the car does not report it itself."
           },
           "sections": {
             "sensors": {
@@ -109,6 +109,7 @@
               "data": {
                 "soc_entity": "Charge level",
                 "target_entity": "Charge limit",
+                "capacity_entity": "Battery capacity",
                 "connected_entity": "Plugged in",
                 "unplugged_states": "States that mean unplugged",
                 "home_entity": "At home",
@@ -117,6 +118,7 @@
               "data_description": {
                 "soc_entity": "The car's battery level (%). Without it, you set the level by hand.",
                 "target_entity": "The car's own charge limit (%). A number entity is also changed when you change the target in EV Planner.",
+                "capacity_entity": "Optional. A sensor with the car's usable battery capacity (kWh). Replaces the number above while it has a value.",
                 "connected_entity": "An entity that shows whether the car is plugged in, e.g. a charge cable sensor.",
                 "unplugged_states": "Default: off, disconnected, unplugged. For a status sensor, e.g. 3.",
                 "home_entity": "Optional. EV Planner only acts while the car is home.",
@@ -162,7 +164,7 @@
           },
           "data_description": {
             "name": "For example Tesla Model 3.",
-            "battery_capacity": "Usable capacity in kWh."
+            "battery_capacity": "Usable capacity in kWh. Used when the car does not report it itself."
           },
           "sections": {
             "sensors": {
@@ -171,6 +173,7 @@
               "data": {
                 "soc_entity": "Charge level",
                 "target_entity": "Charge limit",
+                "capacity_entity": "Battery capacity",
                 "connected_entity": "Plugged in",
                 "unplugged_states": "States that mean unplugged",
                 "home_entity": "At home",
@@ -179,6 +182,7 @@
               "data_description": {
                 "soc_entity": "The car's battery level (%). Without it, you set the level by hand.",
                 "target_entity": "The car's own charge limit (%). A number entity is also changed when you change the target in EV Planner.",
+                "capacity_entity": "Optional. A sensor with the car's usable battery capacity (kWh). Replaces the number above while it has a value.",
                 "connected_entity": "An entity that shows whether the car is plugged in, e.g. a charge cable sensor.",
                 "unplugged_states": "Default: off, disconnected, unplugged. For a status sensor, e.g. 3.",
                 "home_entity": "Optional. EV Planner only acts while the car is home.",
@@ -231,8 +235,22 @@
       "step": {
         "user": {
           "title": "Add charger",
+          "description": "Choose the charger's device in Home Assistant, if it has one, and EV Planner fills in the rest. You can check everything on the next page.",
+          "data": {
+            "device": "Device",
+            "model": "Brand and model"
+          },
+          "data_description": {
+            "device": "Optional. The charger's device from its own integration (Easee, Zaptec, Wallbox, ...).",
+            "model": "Automatic finds it from the device."
+          }
+        },
+        "details": {
+          "title": "Charger",
+          "description": "Check what EV Planner filled in. Leave empty what the charger does not have.",
           "data": {
             "name": "Name",
+            "model": "Charger",
             "power": "Power",
             "switch_entity": "Charger switch",
             "energy_entity": "Energy meter",
@@ -241,7 +259,8 @@
           },
           "data_description": {
             "name": "For example Carport.",
-            "power": "The most the charger gives (kW).",
+            "model": "Brand and model. Decides the picture in the panel.",
+            "power": "The most the charger gives with your installation (kW). Typically 11 kW on 3 x 16 A, 7.4 kW on 1 x 32 A.",
             "switch_entity": "Optional. Lets EV Planner start and pause this charger.",
             "energy_entity": "Optional. The charger's total energy (kWh), to measure what the guest used.",
             "connected_entity": "Optional. Ends the guest session when the guest car is unplugged.",
@@ -252,6 +271,7 @@
           "title": "Change charger",
           "data": {
             "name": "Name",
+            "model": "Charger",
             "power": "Power",
             "switch_entity": "Charger switch",
             "energy_entity": "Energy meter",
@@ -260,7 +280,8 @@
           },
           "data_description": {
             "name": "For example Carport.",
-            "power": "The most the charger gives (kW).",
+            "model": "Brand and model. Decides the picture in the panel.",
+            "power": "The most the charger gives with your installation (kW). Typically 11 kW on 3 x 16 A, 7.4 kW on 1 x 32 A.",
             "switch_entity": "Optional. Lets EV Planner start and pause this charger.",
             "energy_entity": "Optional. The charger's total energy (kWh), to measure what the guest used.",
             "connected_entity": "Optional. Ends the guest session when the guest car is unplugged.",
@@ -291,6 +312,9 @@
       },
       "guest_plan": {
         "name": "Make plan"
+      },
+      "guest_charge_now": {
+        "name": "Charge now"
       },
       "guest_new": {
         "name": "New guest"
@@ -564,6 +588,16 @@
         "pause": "Pause",
         "off": "Off"
       }
+    },
+    "charger_model": {
+      "options": {
+        "auto": "Automatic",
+        "other": "Other",
+        "generic_box": "Wall charger (11 kW)",
+        "generic_post": "Charging post (22 kW)",
+        "generic_portable": "Portable charger (11 kW)",
+        "generic_socket": "Household socket (2.3 kW)"
+      }
     }
   },
   "services": {
@@ -604,6 +638,16 @@
     "guest_plan": {
       "name": "Make guest plan",
       "description": "Plan the cheapest charging for the guest car.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Household",
+          "description": "The EV Planner to use."
+        }
+      }
+    },
+    "guest_charge_now": {
+      "name": "Charge guest car now",
+      "description": "Charge the guest car right away until its target, whatever the price. The charge is saved in the history.",
       "fields": {
         "config_entry_id": {
           "name": "Household",

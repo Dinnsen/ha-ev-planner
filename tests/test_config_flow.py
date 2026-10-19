@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.ev_planner.api import PlateAuthError, PlateLookupFailed
@@ -184,16 +185,76 @@ async def test_add_and_change_a_charger(hass: HomeAssistant, init_integration: M
         (init_integration.entry_id, "charger"), context={"source": config_entries.SOURCE_USER}
     )
     assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "user"
+    result = await hass.config_entries.subentries.async_configure(result["flow_id"], {"model": "easee_home"})
+    assert result["step_id"] == "details"
+    schema = result["data_schema"].schema
+    defaults = {str(key): key.default() for key in schema if callable(getattr(key, "default", None))}
+    assert defaults["name"] == "Easee Home"
+    assert defaults["model"] == "easee_home"
+    assert defaults["power"] == 11.0
     result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], {"name": "Garage", "power": 22, "switch_entity": "switch.garage"}
+        result["flow_id"], {"name": "Garage", "model": "easee_home", "power": 22, "switch_entity": "switch.garage"}
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
+    garage = next(sub for sub in init_integration.subentries.values() if sub.title == "Garage")
+    assert garage.data == {"model": "easee_home", "power": 22, "switch_entity": "switch.garage"}
     await hass.async_block_till_done()
 
     result = await init_integration.start_subentry_reconfigure_flow(hass, CARPORT)
-    result = await hass.config_entries.subentries.async_configure(result["flow_id"], {"name": "Carport", "power": 7.4})
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {"name": "Carport", "model": "other", "power": 7.4}
+    )
     assert result["type"] is FlowResultType.ABORT
     assert init_integration.subentries[CARPORT].data == {"power": 7.4}
+
+
+async def test_add_a_charger_from_its_device(hass: HomeAssistant, init_integration: MockConfigEntry) -> None:
+    """The device names the model, and its entities fill in the rest."""
+    easee = MockConfigEntry(domain="easee", title="Easee")
+    easee.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=easee.entry_id,
+        identifiers={("easee", "EH123")},
+        manufacturer="Easee",
+        model="Easee Home",
+        name="Indkørsel",
+    )
+    registry = er.async_get(hass)
+
+    def add(domain: str, key: str, **kwargs: Any) -> str:
+        entity = registry.async_get_or_create(
+            domain, "easee", f"EH123_{key}", config_entry=easee, device_id=device.id, translation_key=key, **kwargs
+        )
+        return entity.entity_id
+
+    add("switch", "smart_charging")
+    enabled = add("switch", "is_enabled")
+    add("sensor", "session_energy", original_device_class="energy")
+    lifetime = add(
+        "sensor", "lifetime_energy", original_device_class="energy", capabilities={"state_class": "total_increasing"}
+    )
+    status = add(
+        "sensor", "status", original_device_class="enum", capabilities={"options": ["disconnected", "charging"]}
+    )
+
+    result = await hass.config_entries.subentries.async_init(
+        (init_integration.entry_id, "charger"), context={"source": config_entries.SOURCE_USER}
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {"device": device.id, "model": "auto"}
+    )
+    schema = result["data_schema"].schema
+    suggested = {
+        str(key): (key.description or {}).get("suggested_value") for key in schema if getattr(key, "description", None)
+    }
+    defaults = {str(key): key.default() for key in schema if callable(getattr(key, "default", None))}
+    assert defaults["name"] == "Indkørsel"
+    assert defaults["model"] == "easee_home"
+    assert suggested["switch_entity"] == enabled
+    assert suggested["energy_entity"] == lifetime
+    assert suggested["connected_entity"] == status
+    assert suggested["unplugged_states"] == ["disconnected"]
 
 
 def _esc_entities(hass: HomeAssistant, esc: MockConfigEntry) -> None:

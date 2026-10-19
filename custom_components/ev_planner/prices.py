@@ -30,9 +30,9 @@ def extract_price_slots(state: State | None, now: datetime) -> list[PriceSlot]:
         return []
 
     attrs = state.attributes
-    starts: list[tuple[datetime, datetime | None, float]] = []
+    starts: list[tuple[datetime, datetime | None, float, bool]] = []
     for key in ("raw_today", "raw_tomorrow", "forecast"):
-        starts.extend(_rows(attrs.get(key)))
+        starts.extend((*row, key == "forecast") for row in _rows(attrs.get(key)))
 
     if not starts and isinstance(attrs.get("today"), list):
         base = dt_util.as_local(now).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -47,21 +47,23 @@ def extract_price_slots(state: State | None, now: datetime) -> list[PriceSlot]:
                 price = _to_float(value)
                 if price is not None:
                     start = dt_util.as_local(day + step * idx)
-                    starts.append((start, start + step, price))
+                    starts.append((start, start + step, price, False))
 
-    by_start: dict[datetime, tuple[datetime | None, float]] = {}
-    for start, end, price in starts:
-        by_start[start] = (end, price)
+    # A published price wins over a forecast for the same time.
+    by_start: dict[datetime, tuple[datetime | None, float, bool]] = {}
+    for start, end, price, forecast in starts:
+        if start not in by_start or not forecast:
+            by_start[start] = (end, price, forecast)
     ordered = sorted(by_start)
     step = _common_step(ordered)
 
     slots: list[PriceSlot] = []
     for index, start in enumerate(ordered):
-        end, price = by_start[start]
+        end, price, forecast = by_start[start]
         if end is None or end <= start:
             following = ordered[index + 1] if index + 1 < len(ordered) else None
             end = following if following and following - start <= step else start + step
-        slots.append(PriceSlot(start, end, price))
+        slots.append(PriceSlot(start, end, price, forecast))
     return slots
 
 

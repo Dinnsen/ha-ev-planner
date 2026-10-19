@@ -35,6 +35,9 @@
       },
       "guest_new": {
         "default": "mdi:account-plus-outline"
+      },
+      "guest_charge_now": {
+        "default": "mdi:lightning-bolt"
       }
     },
     "number": {
@@ -267,6 +270,9 @@
     },
     "new_guest": {
       "service": "mdi:account-plus-outline"
+    },
+    "guest_charge_now": {
+      "service": "mdi:lightning-bolt"
     }
   }
 }

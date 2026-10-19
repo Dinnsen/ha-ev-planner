@@ -223,3 +223,22 @@ async def test_missing_control_entity(
     await _setup(hass, freezer, entry)
     assert hass.states.get("sensor.tesla_status").attributes["control_error"] == "no_control_entity"
     assert switches.calls == []
+
+
+async def test_battery_capacity_from_the_car(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    """A capacity sensor replaces the number from the setup while it has a value."""
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass)
+    hass.states.async_set("sensor.tesla_capacity", "75000", {"unit_of_measurement": "Wh"})
+    entry = entry_with(vehicle_sub(TESLA, "Tesla", tesla_data(capacity_entity="sensor.tesla_capacity", charger=None)))
+    await _setup(hass, freezer, entry)
+    tesla = entry.runtime_data.vehicles[TESLA]
+    assert tesla.capacity == 75
+    assert tesla.plan is not None and tesla.plan.energy == pytest.approx(25)
+
+    hass.states.async_set("sensor.tesla_capacity", "unavailable")
+    await settle(hass, freezer)
+    assert tesla.capacity == 60
+    assert tesla.plan is not None and tesla.plan.energy == pytest.approx(20)

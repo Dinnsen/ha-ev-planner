@@ -33,6 +33,12 @@ guest_plan:
       selector:
         config_entry:
           integration: ev_planner
+guest_charge_now:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: ev_planner
 new_guest:
   fields:
     config_entry_id:

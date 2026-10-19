@@ -21,10 +21,12 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
 
 from .api import PlateAuthError, PlateLookupFailed, async_validate_plate_provider_credentials
+from .catalog import MODEL_AUTO, MODEL_OTHER, describe_device, get_model, model_options, suggest_entities
 from .const import (
     CONF_BATTERY_CAPACITY,
     CONF_CALENDAR_ENTITY,
     CONF_CALENDAR_KEYWORD,
+    CONF_CAPACITY_ENTITY,
     CONF_CHARGE_POWER,
     CONF_CHARGER,
     CONF_CHARGING_ENTITY,
@@ -33,9 +35,11 @@ from .const import (
     CONF_CONTROL_ENTITY,
     CONF_COUNTRY,
     CONF_CURRENCY,
+    CONF_DEVICE,
     CONF_ENERGY_ENTITY,
     CONF_HOME_ENTITY,
     CONF_IMPORTED_FROM,
+    CONF_MODEL,
     CONF_MOTORAPI_KEY,
     CONF_NOTIFY,
     CONF_PLATE_PROVIDER,
@@ -107,6 +111,9 @@ HOME_SELECTOR = selector.EntitySelector(
 )
 SWITCH_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain=["switch", "input_boolean"]))
 ENERGY_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", device_class="energy"))
+CAPACITY_ENTITY_SELECTOR = selector.EntitySelector(
+    selector.EntitySelectorConfig(domain=["sensor", "number", "input_number"])
+)
 CALENDAR_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="calendar"))
 CONTROL_SELECTOR = selector.SelectSelector(
     selector.SelectSelectorConfig(
@@ -428,6 +435,7 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
                         {
                             opt(CONF_SOC_ENTITY): LEVEL_SELECTOR,
                             opt(CONF_TARGET_ENTITY): LEVEL_SELECTOR,
+                            opt(CONF_CAPACITY_ENTITY): CAPACITY_ENTITY_SELECTOR,
                             opt(CONF_CONNECTED_ENTITY): ANY_ENTITY_SELECTOR,
                             opt(CONF_UNPLUGGED_STATES): STATES_SELECTOR,
                             opt(CONF_HOME_ENTITY): HOME_SELECTOR,
@@ -551,8 +559,22 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
 # Chargers
 
 
+def _model_selector(*, auto: bool) -> selector.SelectSelector:
+    options = [selector.SelectOptionDict(value=MODEL_AUTO, label=MODEL_AUTO)] if auto else []
+    options.extend(selector.SelectOptionDict(value=key, label=label) for key, label in model_options())
+    options.append(selector.SelectOptionDict(value=MODEL_OTHER, label=MODEL_OTHER))
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=options, mode=selector.SelectSelectorMode.DROPDOWN, translation_key="charger_model", sort=False
+        )
+    )
+
+
 class ChargerSubentryFlow(ConfigSubentryFlow):
-    """Add or change a charger."""
+    """Add or change a charger: pick it from the list, and its device fills in the rest."""
+
+    def __init__(self) -> None:
+        self._values: dict[str, Any] = {}
 
     @staticmethod
     def _schema(values: Mapping[str, Any]) -> vol.Schema:
@@ -562,6 +584,7 @@ class ChargerSubentryFlow(ConfigSubentryFlow):
         return vol.Schema(
             {
                 vol.Required(CONF_NAME, default=values.get(CONF_NAME, "")): str,
+                vol.Required(CONF_MODEL, default=values.get(CONF_MODEL) or MODEL_OTHER): _model_selector(auto=False),
                 vol.Required(CONF_POWER, default=values.get(CONF_POWER, DEFAULT_CHARGE_POWER)): POWER_SELECTOR,
                 opt(CONF_SWITCH_ENTITY): SWITCH_SELECTOR,
                 opt(CONF_ENERGY_ENTITY): ENERGY_SELECTOR,
@@ -572,12 +595,41 @@ class ChargerSubentryFlow(ConfigSubentryFlow):
 
     @staticmethod
     def _clean(data: Mapping[str, Any]) -> dict[str, Any]:
-        return {key: value for key, value in data.items() if key != CONF_NAME and value not in (None, "", [])}
+        result = {key: value for key, value in data.items() if key != CONF_NAME and value not in (None, "", [])}
+        if result.get(CONF_MODEL) == MODEL_OTHER:
+            result.pop(CONF_MODEL)
+        return result
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
+        """Which charger, and its device in Home Assistant if it has one."""
+        if user_input is not None:
+            device_id = user_input.get(CONF_DEVICE)
+            device_name, matched = describe_device(self.hass, device_id) if device_id else (None, None)
+            chosen = user_input.get(CONF_MODEL, MODEL_AUTO)
+            model = matched if chosen == MODEL_AUTO else get_model(chosen)
+            values: dict[str, Any] = {
+                CONF_NAME: device_name or (model.title if model else ""),
+                CONF_MODEL: model.key if model else MODEL_OTHER,
+                CONF_POWER: model.suggested_power if model else DEFAULT_CHARGE_POWER,
+            }
+            if device_id:
+                values.update(suggest_entities(self.hass, device_id, model))
+            self._values = values
+            return await self.async_step_details()
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(CONF_DEVICE): selector.DeviceSelector(selector.DeviceSelectorConfig()),
+                    vol.Required(CONF_MODEL, default=MODEL_AUTO): _model_selector(auto=True),
+                }
+            ),
+        )
+
+    async def async_step_details(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
         if user_input is not None:
             return self.async_create_entry(title=user_input[CONF_NAME], data=self._clean(user_input))
-        return self.async_show_form(step_id="user", data_schema=self._schema({}))
+        return self.async_show_form(step_id="details", data_schema=self._schema(self._values))
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
         subentry = self._get_reconfigure_subentry()
