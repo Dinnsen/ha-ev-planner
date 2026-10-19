@@ -55,8 +55,15 @@ async def test_car_starts_and_stops_with_the_plan(
     assert switches.calls == []
     await move(hass, freezer, _night(now, 2))
     assert switches.calls == [("turn_on", CHARGE_SWITCH)]
-    assert hass.states.get("binary_sensor.tesla_charge_now").state == "on"
+    charge_now = hass.states.get("binary_sensor.tesla_charge_now")
+    assert charge_now is not None and charge_now.state == "on"
     assert hass.states.get("sensor.tesla_status").state == "charging"
+    # The attributes of EV Smart Charging's charging sensor.
+    assert charge_now.attributes["current_price"] == 0.3
+    assert charge_now.attributes["ev_soc"] == 50
+    assert charge_now.attributes["ev_target_soc"] == 80
+    assert charge_now.attributes["charging_number_of_hours"] > 0
+    assert charge_now.attributes["opportunistic"] is False
 
     # Full: pause.
     hass.states.async_set(SOC, "80")

@@ -12,6 +12,7 @@ from homeassistant.util import dt as dt_util
 from .entity import GuestEntity, VehicleEntity
 from .guest import serialize_segments
 from .household import EVPlannerConfigEntry, Household
+from .rules import current_price
 
 PARALLEL_UPDATES = 0
 
@@ -46,10 +47,18 @@ class VehicleChargeNow(VehicleEntity, BinarySensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         vehicle = self.vehicle
-        raw, schedule = self.coordinator.schedule_for(vehicle, dt_util.now())
+        now = dt_util.now()
+        raw, schedule = self.coordinator.schedule_for(vehicle, now)
         plan = vehicle.plan
         return {
             "reason": vehicle.decision.reason,
+            # The same attributes as EV Smart Charging's charging sensor, so
+            # dashboards and automations made for it keep working.
+            "current_price": current_price(self.coordinator.price_slots(now), now),
+            "ev_soc": vehicle.current_soc,
+            "ev_target_soc": vehicle.target,
+            "charging_number_of_hours": round(plan.minutes / 60, 2) if plan and plan.segments else 0,
+            "opportunistic": bool(plan and plan.opportunistic),
             "charging_is_planned": bool(plan and plan.segments),
             "charging_start_time": plan.start.isoformat() if plan and plan.start else None,
             "charging_stop_time": plan.end.isoformat() if plan and plan.end else None,

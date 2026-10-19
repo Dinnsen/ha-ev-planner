@@ -2,6 +2,11 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
 
+## [0.7.1] - 2026-10-19
+
+### Added
+- `binary_sensor.<car>_charge_now` now has every attribute of EV Smart Charging's charging sensor (`current_price`, `ev_soc`, `ev_target_soc`, `charging_number_of_hours`, `opportunistic`), so dashboards made for EV Smart Charging work by changing the entity.
+
 ## [0.7.0] - 2026-10-19
 
 ### Added
