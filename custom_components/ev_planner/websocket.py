@@ -9,7 +9,7 @@ from typing import Any
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
-from homeassistant.helpers import config_validation as cv, device_registry as dr
+from homeassistant.helpers import config_validation as cv
 from homeassistant.util import dt as dt_util, slugify
 
 from .catalog import panel_info
@@ -306,9 +306,10 @@ def _notify_name(hass: HomeAssistant, service: str) -> str:
     """A phone's name for a notify action: its device's name, else the action's own."""
     name = service.removeprefix("notify.")
     if name.startswith("mobile_app_"):
-        for device in dr.async_get(hass).devices.values():
-            if device.name and slugify(device.name) == name.removeprefix("mobile_app_"):
-                return device.name_by_user or device.name
+        for entry in hass.config_entries.async_entries("mobile_app"):
+            device_name = str(entry.data.get("device_name") or entry.title or "")
+            if device_name and slugify(device_name) == name.removeprefix("mobile_app_"):
+                return entry.title or device_name
         name = name.removeprefix("mobile_app_")
     return name.replace("_", " ").strip().capitalize()
 

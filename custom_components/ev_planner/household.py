@@ -756,9 +756,10 @@ class Household(DataUpdateCoordinator[None]):
             # A full car does not draw power, and that is fine.
             want = charging
         if charging == want:
-            vehicle.problem = False
-            await self.notifier.clear(tag_for("problem", vehicle_id), to=vehicle.notify_to)
-            self.async_update_listeners()
+            if vehicle.problem:
+                vehicle.problem = False
+                await self.notifier.clear(tag_for("problem", vehicle_id), to=vehicle.notify_to)
+                self.async_update_listeners()
             return
         if vehicle.verify_attempts == 0:
             vehicle.verify_attempts = 1

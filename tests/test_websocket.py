@@ -14,6 +14,7 @@ from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
 from custom_components.ev_planner.const import DOMAIN
 from custom_components.ev_planner.diagnostics import async_get_config_entry_diagnostics
+from custom_components.ev_planner.websocket import _notify_name
 
 from .conftest import CARPORT, MERCEDES, TESLA, settle
 
@@ -223,3 +224,12 @@ async def test_diagnostics(hass: HomeAssistant, init_integration: MockConfigEntr
     assert diagnostics["vehicles"][TESLA]["plan"]["energy"] == 20
     assert diagnostics["guest"]["inputs"]["license_plate"] == "**REDACTED**"
     assert diagnostics["price_slots"] == 11
+
+
+async def test_phone_names(hass: HomeAssistant) -> None:
+    MockConfigEntry(domain="mobile_app", title="Dinners iPhone", data={"device_name": "Dinner iPhone 17"}).add_to_hass(
+        hass
+    )
+    assert _notify_name(hass, "notify.mobile_app_dinner_iphone_17") == "Dinners iPhone"
+    assert _notify_name(hass, "notify.mobile_app_old_phone") == "Old phone"
+    assert _notify_name(hass, "notify.family_email") == "Family email"

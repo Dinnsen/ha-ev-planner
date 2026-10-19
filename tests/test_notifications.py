@@ -164,8 +164,8 @@ async def test_reminder_days_repeats_and_phones(
         assert reminders() == expected
     # Only the chosen phone.
     assert email.calls == []
-    assert hass.states.get("number.tesla_repeat_reminder_every").state == "30"
-    assert hass.states.get("number.tesla_low_price_within").state == "24"
+    assert float(hass.states.get("number.tesla_repeat_reminder_every").state) == 30
+    assert float(hass.states.get("number.tesla_low_price_within").state) == 24
 
 
 async def test_live_notification_while_charging_and_message_when_done(
