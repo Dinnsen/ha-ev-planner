@@ -1,0 +1,678 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "EV Planner",
+        "description": "Sæt EV Planner op for husstanden. Tilføj bagefter jeres biler og ladepunkter på integrationens side.",
+        "data": {
+          "name": "Navn",
+          "price_entity": "Elpris-sensor",
+          "country": "Land",
+          "motorapi_api_key": "MotorAPI-nøgle",
+          "currency": "Valuta"
+        },
+        "data_description": {
+          "name": "Vises som integrationens navn.",
+          "price_entity": "En sensor med priser for i dag og i morgen (timer eller kvarterer), fx Energi Data Service eller Nord Pool.",
+          "country": "Land til opslag af gæstebiler på nummerplade.",
+          "motorapi_api_key": "Valgfri, til at slå gæstebiler op på nummerpladen. Få en gratis nøgle på motorapi.dk.",
+          "currency": "Elprisernes valuta."
+        }
+      },
+      "reconfigure": {
+        "title": "Omkonfigurer EV Planner",
+        "description": "Skift prissensor, land eller MotorAPI-nøgle.",
+        "data": {
+          "price_entity": "Elpris-sensor",
+          "country": "Land",
+          "motorapi_api_key": "MotorAPI-nøgle"
+        },
+        "data_description": {
+          "price_entity": "En sensor med priser for i dag og i morgen (timer eller kvarterer), fx Energi Data Service eller Nord Pool.",
+          "country": "Land til opslag af gæstebiler på nummerplade.",
+          "motorapi_api_key": "Valgfri, til at slå gæstebiler op på nummerpladen. Få en gratis nøgle på motorapi.dk."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Opdater MotorAPI-nøgle",
+        "description": "MotorAPI-nøglen til {name} blev afvist. Skriv en ny nøgle.",
+        "data": {
+          "motorapi_api_key": "MotorAPI-nøgle"
+        },
+        "data_description": {
+          "motorapi_api_key": "Valgfri, til at slå gæstebiler op på nummerpladen. Få en gratis nøgle på motorapi.dk."
+        }
+      }
+    },
+    "error": {
+      "invalid_price_entity": "Sensoren har ingen priser, EV Planner kan læse.",
+      "invalid_auth": "Ugyldig API-nøgle.",
+      "cannot_connect": "Kan ikke forbinde til MotorAPI.",
+      "timeout": "MotorAPI svarede ikke i tide.",
+      "unsupported_provider": "Det valgte land understøttes ikke endnu.",
+      "unknown": "Uventet fejl."
+    },
+    "abort": {
+      "already_configured": "EV Planner er allerede sat op. Tilføj flere biler på dens side.",
+      "single_instance_allowed": "EV Planner er allerede sat op. Tilføj flere biler på dens side.",
+      "reauth_successful": "MotorAPI-nøglen blev opdateret.",
+      "reconfigure_successful": "EV Planner blev omkonfigureret."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "EV Planner",
+        "data": {
+          "currency": "Valuta",
+          "notify_services": "Mobiler og andre notify-handlinger",
+          "update_widgets": "Opdater iOS-widgets"
+        },
+        "data_description": {
+          "currency": "Elprisernes valuta.",
+          "notify_services": "Hvor påmindelser, live-notifikationer og beskeder sendes hen, fx notify.mobile_app_min_iphone. Live-notifikationer kræver companion-appen.",
+          "update_widgets": "Bed iOS companion-appen om at opdatere sine widgets, når en bils status ændres (højst hvert 15. minut)."
+        }
+      }
+    }
+  },
+  "config_subentries": {
+    "vehicle": {
+      "entry_type": "Bil",
+      "initiate_flow": {
+        "user": "Tilføj bil",
+        "reconfigure": "Ret bil"
+      },
+      "step": {
+        "user": {
+          "title": "Tilføj bil",
+          "description": "Start fra en bil i EV Smart Charging, eller fra bunden. EV Smart Charging ændres ikke.",
+          "data": {
+            "source": "Start fra"
+          }
+        },
+        "details": {
+          "title": "Bil",
+          "description": "Fortæl EV Planner om bilen. Mål, klar kl. og regler ændres i panelet eller med bilens entiteter.",
+          "data": {
+            "name": "Navn",
+            "battery_capacity": "Batterikapacitet"
+          },
+          "data_description": {
+            "name": "Fx Tesla Model 3.",
+            "battery_capacity": "Brugbar kapacitet i kWh."
+          },
+          "sections": {
+            "sensors": {
+              "name": "Sensorer fra bilen",
+              "description": "Lad stå tomt, hvad bilen ikke har.",
+              "data": {
+                "soc_entity": "Batteriniveau",
+                "target_entity": "Ladegrænse",
+                "connected_entity": "Tilsluttet",
+                "unplugged_states": "Tilstande, der betyder ikke tilsluttet",
+                "home_entity": "Hjemme",
+                "charging_entity": "Lader"
+              },
+              "data_description": {
+                "soc_entity": "Bilens batteriniveau (%). Uden den sætter du niveauet selv.",
+                "target_entity": "Bilens egen ladegrænse (%). En number-entitet ændres også, når du ændrer målet i EV Planner.",
+                "connected_entity": "En entitet, der viser om bilen er sat til, fx en ladekabel-sensor.",
+                "unplugged_states": "Standard: off, disconnected, unplugged. For en status-sensor fx 3.",
+                "home_entity": "Valgfri. EV Planner handler kun, når bilen er hjemme.",
+                "charging_entity": "Valgfri. Viser om bilen lader (on/charging eller en effekt over 0). Bruges til at tjekke, at ladningen startede."
+              }
+            },
+            "charging": {
+              "name": "Ladning derhjemme",
+              "description": "Hvor bilen lader, og hvem der starter og stopper den.",
+              "data": {
+                "charge_power": "Ladeeffekt",
+                "charger": "Ladepunkt",
+                "control": "Hvem starter og stopper ladningen",
+                "control_entity": "Bilens ladekontakt"
+              },
+              "data_description": {
+                "charge_power": "Hvad bilen trækker fra nettet, når den lader hjemme (kW).",
+                "charger": "Ladepunktet bilen bruger. Biler på samme ladepunkt deler det.",
+                "control": "Vælg bilen, laderen eller ingen af dem.",
+                "control_entity": "Skal udfyldes, når bilen starter og stopper ladningen, fx switch.model3_charge."
+              }
+            },
+            "trips": {
+              "name": "Ture fra en kalender",
+              "description": "Valgfrit.",
+              "data": {
+                "calendar_entity": "Kalender",
+                "calendar_keyword": "Nøgleord"
+              },
+              "data_description": {
+                "calendar_entity": "Ture i denne kalender bestemmer, hvornår bilen skal være klar.",
+                "calendar_keyword": "Kun begivenheder med dette ord. Skriv fx 90 % i begivenheden for at lade til 90 %."
+              }
+            }
+          }
+        },
+        "reconfigure": {
+          "title": "Ret bil",
+          "description": "Ret hvad EV Planner ved om bilen.",
+          "data": {
+            "name": "Navn",
+            "battery_capacity": "Batterikapacitet"
+          },
+          "data_description": {
+            "name": "Fx Tesla Model 3.",
+            "battery_capacity": "Brugbar kapacitet i kWh."
+          },
+          "sections": {
+            "sensors": {
+              "name": "Sensorer fra bilen",
+              "description": "Lad stå tomt, hvad bilen ikke har.",
+              "data": {
+                "soc_entity": "Batteriniveau",
+                "target_entity": "Ladegrænse",
+                "connected_entity": "Tilsluttet",
+                "unplugged_states": "Tilstande, der betyder ikke tilsluttet",
+                "home_entity": "Hjemme",
+                "charging_entity": "Lader"
+              },
+              "data_description": {
+                "soc_entity": "Bilens batteriniveau (%). Uden den sætter du niveauet selv.",
+                "target_entity": "Bilens egen ladegrænse (%). En number-entitet ændres også, når du ændrer målet i EV Planner.",
+                "connected_entity": "En entitet, der viser om bilen er sat til, fx en ladekabel-sensor.",
+                "unplugged_states": "Standard: off, disconnected, unplugged. For en status-sensor fx 3.",
+                "home_entity": "Valgfri. EV Planner handler kun, når bilen er hjemme.",
+                "charging_entity": "Valgfri. Viser om bilen lader (on/charging eller en effekt over 0). Bruges til at tjekke, at ladningen startede."
+              }
+            },
+            "charging": {
+              "name": "Ladning derhjemme",
+              "description": "Hvor bilen lader, og hvem der starter og stopper den.",
+              "data": {
+                "charge_power": "Ladeeffekt",
+                "charger": "Ladepunkt",
+                "control": "Hvem starter og stopper ladningen",
+                "control_entity": "Bilens ladekontakt"
+              },
+              "data_description": {
+                "charge_power": "Hvad bilen trækker fra nettet, når den lader hjemme (kW).",
+                "charger": "Ladepunktet bilen bruger. Biler på samme ladepunkt deler det.",
+                "control": "Vælg bilen, laderen eller ingen af dem.",
+                "control_entity": "Skal udfyldes, når bilen starter og stopper ladningen, fx switch.model3_charge."
+              }
+            },
+            "trips": {
+              "name": "Ture fra en kalender",
+              "description": "Valgfrit.",
+              "data": {
+                "calendar_entity": "Kalender",
+                "calendar_keyword": "Nøgleord"
+              },
+              "data_description": {
+                "calendar_entity": "Ture i denne kalender bestemmer, hvornår bilen skal være klar.",
+                "calendar_keyword": "Kun begivenheder med dette ord. Skriv fx 90 % i begivenheden for at lade til 90 %."
+              }
+            }
+          }
+        }
+      },
+      "error": {
+        "control_entity_required": "Vælg bilens ladekontakt, eller lad ingen af dem starte og stoppe ladningen.",
+        "charger_required": "Vælg ladepunktet, eller lad bilen eller ingen af dem starte og stoppe ladningen.",
+        "charger_has_no_switch": "Ladepunktet har ingen kontakt. Tilføj en til ladepunktet, eller vælg bilen eller ingen."
+      }
+    },
+    "charger": {
+      "entry_type": "Ladepunkt",
+      "initiate_flow": {
+        "user": "Tilføj ladepunkt",
+        "reconfigure": "Ret ladepunkt"
+      },
+      "step": {
+        "user": {
+          "title": "Tilføj ladepunkt",
+          "data": {
+            "name": "Navn",
+            "power": "Effekt",
+            "switch_entity": "Laderens kontakt",
+            "energy_entity": "Energimåler",
+            "connected_entity": "Bil tilsluttet",
+            "unplugged_states": "Tilstande, der betyder ikke tilsluttet"
+          },
+          "data_description": {
+            "name": "Fx Carport.",
+            "power": "Det meste laderen giver (kW).",
+            "switch_entity": "Valgfri. Lader EV Planner starte og pause laderen.",
+            "energy_entity": "Valgfri. Laderens samlede energi (kWh), til at måle hvad gæsten brugte.",
+            "connected_entity": "Valgfri. Afslutter gæstesessionen, når gæstebilen tages ud.",
+            "unplugged_states": "Standard: off."
+          }
+        },
+        "reconfigure": {
+          "title": "Ret ladepunkt",
+          "data": {
+            "name": "Navn",
+            "power": "Effekt",
+            "switch_entity": "Laderens kontakt",
+            "energy_entity": "Energimåler",
+            "connected_entity": "Bil tilsluttet",
+            "unplugged_states": "Tilstande, der betyder ikke tilsluttet"
+          },
+          "data_description": {
+            "name": "Fx Carport.",
+            "power": "Det meste laderen giver (kW).",
+            "switch_entity": "Valgfri. Lader EV Planner starte og pause laderen.",
+            "energy_entity": "Valgfri. Laderens samlede energi (kWh), til at måle hvad gæsten brugte.",
+            "connected_entity": "Valgfri. Afslutter gæstesessionen, når gæstebilen tages ud.",
+            "unplugged_states": "Standard: off."
+          }
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "charge_now": {
+        "name": "Lad nu"
+      },
+      "charging_problem": {
+        "name": "Ladeproblem"
+      },
+      "guest_charge_now": {
+        "name": "Lad nu"
+      },
+      "guest_behind_plan": {
+        "name": "Bagud"
+      }
+    },
+    "button": {
+      "guest_lookup": {
+        "name": "Slå op"
+      },
+      "guest_plan": {
+        "name": "Lav plan"
+      },
+      "guest_new": {
+        "name": "Ny gæst"
+      }
+    },
+    "number": {
+      "target_soc": {
+        "name": "Mål"
+      },
+      "manual_soc": {
+        "name": "Batteriniveau"
+      },
+      "min_soc": {
+        "name": "Minimumsniveau"
+      },
+      "price_ceiling": {
+        "name": "Prisloft"
+      },
+      "low_price_level": {
+        "name": "Lav pris"
+      },
+      "low_soc_level": {
+        "name": "Lavt batteri-niveau"
+      },
+      "opportunistic_level": {
+        "name": "Opportunistisk niveau"
+      },
+      "follow_level": {
+        "name": "Følg pris-niveau"
+      },
+      "charging_efficiency": {
+        "name": "Ladeeffektivitet"
+      },
+      "reminder_soc": {
+        "name": "Påmind under"
+      },
+      "guest_soc": {
+        "name": "Batteriniveau"
+      },
+      "guest_charge_limit": {
+        "name": "Mål"
+      },
+      "guest_battery_capacity": {
+        "name": "Batterikapacitet"
+      },
+      "guest_charger_power": {
+        "name": "Ladeeffekt"
+      },
+      "guest_charging_efficiency": {
+        "name": "Ladeeffektivitet"
+      }
+    },
+    "select": {
+      "mode": {
+        "name": "Tilstand",
+        "state": {
+          "smart": "Smart",
+          "charge_now": "Lad nu",
+          "pause": "Pause",
+          "off": "Fra"
+        }
+      },
+      "opportunistic": {
+        "name": "Opportunistisk ladning",
+        "state": {
+          "off": "Fra",
+          "lower_ceiling": "Sænk prisloftet, når billige priser er på vej",
+          "follow_end_price": "Følg den sidste kendte pris"
+        }
+      },
+      "guest_charger": {
+        "name": "Ladepunkt"
+      }
+    },
+    "sensor": {
+      "status": {
+        "name": "Status",
+        "state": {
+          "off": "Fra",
+          "paused": "Pause",
+          "unplugged": "Ikke tilsluttet",
+          "planned": "Planlagt",
+          "charging": "Lader",
+          "charging_now": "Lader nu",
+          "charging_low_soc": "Lavt batteri: lader",
+          "charging_low_price": "Billig strøm: lader",
+          "keeping_on": "Holder laderen tændt",
+          "completed": "Ladet",
+          "no_plan": "Ingen plan",
+          "charger_busy": "Laderen er optaget",
+          "no_soc": "Batteriniveau mangler",
+          "no_price_data": "Ingen prisdata",
+          "not_enough_prices": "Venter på priser",
+          "no_window": "Intet ladevindue"
+        }
+      },
+      "charger_control": {
+        "name": "Ladestyring",
+        "state": {
+          "released": "Frigivet",
+          "charge": "Lad",
+          "pause": "Pause"
+        },
+        "state_attributes": {
+          "holder": {
+            "name": "Bruges af"
+          }
+        }
+      },
+      "plan_start": {
+        "name": "Planen starter"
+      },
+      "plan_end": {
+        "name": "Planen slutter"
+      },
+      "ready_by_next": {
+        "name": "Klar kl."
+      },
+      "plan_cost": {
+        "name": "Planens pris"
+      },
+      "savings": {
+        "name": "Besparelse"
+      },
+      "energy_needed": {
+        "name": "Energibehov"
+      },
+      "charge_time": {
+        "name": "Ladetid"
+      },
+      "planned_soc": {
+        "name": "Planlagt niveau"
+      },
+      "month_energy": {
+        "name": "Energi denne måned"
+      },
+      "month_cost": {
+        "name": "Pris denne måned"
+      },
+      "summary": {
+        "name": "Overblik"
+      },
+      "guest_status": {
+        "name": "Status",
+        "state": {
+          "ready": "Klar",
+          "planned": "Planlagt",
+          "charging": "Lader",
+          "completed": "Færdig",
+          "invalid_input": "Ugyldige værdier",
+          "limit_not_above_soc": "Målet er ikke over batteriniveauet",
+          "no_price_data": "Ingen prisdata",
+          "not_enough_prices": "Venter på priser",
+          "no_window": "Intet ladevindue"
+        }
+      },
+      "guest_charger_control": {
+        "name": "Ladestyring",
+        "state": {
+          "released": "Frigivet",
+          "charge": "Lad",
+          "pause": "Pause"
+        }
+      },
+      "guest_plan_start": {
+        "name": "Planen starter"
+      },
+      "guest_plan_end": {
+        "name": "Planen slutter"
+      },
+      "guest_cost": {
+        "name": "Pris"
+      },
+      "guest_savings": {
+        "name": "Besparelse"
+      },
+      "guest_energy": {
+        "name": "Energi"
+      },
+      "guest_estimated_soc": {
+        "name": "Anslået niveau"
+      },
+      "guest_measured_energy": {
+        "name": "Målt energi"
+      },
+      "guest_measured_cost": {
+        "name": "Målt pris"
+      },
+      "guest_car": {
+        "name": "Bil"
+      },
+      "guest_car_battery": {
+        "name": "Batteri"
+      }
+    },
+    "switch": {
+      "use_ready_by": {
+        "name": "Klar kl."
+      },
+      "use_earliest_start": {
+        "name": "Tidligste start"
+      },
+      "continuous": {
+        "name": "Én periode"
+      },
+      "price_ceiling_enabled": {
+        "name": "Prisloft"
+      },
+      "low_price_charging": {
+        "name": "Lad ved lav pris"
+      },
+      "low_soc_charging": {
+        "name": "Lad ved lavt batteri"
+      },
+      "keep_charger_on": {
+        "name": "Hold laderen tændt"
+      },
+      "reminder": {
+        "name": "Påmindelse om stik"
+      },
+      "live_notification": {
+        "name": "Live-notifikation"
+      },
+      "notify_done": {
+        "name": "Besked når ladet"
+      },
+      "guest_use_ready_by": {
+        "name": "Klar kl."
+      },
+      "guest_continuous": {
+        "name": "Én periode"
+      }
+    },
+    "text": {
+      "guest_license_plate": {
+        "name": "Nummerplade"
+      }
+    },
+    "time": {
+      "ready_by": {
+        "name": "Klar kl."
+      },
+      "earliest_start": {
+        "name": "Tidligste start"
+      },
+      "reminder_time": {
+        "name": "Påmindelse kl."
+      },
+      "guest_ready_by": {
+        "name": "Klar kl."
+      }
+    }
+  },
+  "device": {
+    "guest": {
+      "name": "Gæstebil"
+    }
+  },
+  "selector": {
+    "control": {
+      "options": {
+        "car": "Bilen starter og stopper ladningen",
+        "charger": "Laderen starter og stopper ladningen",
+        "none": "Ingen af dem: kun plan (og beskeder)"
+      }
+    },
+    "mode": {
+      "options": {
+        "smart": "Smart",
+        "charge_now": "Lad nu",
+        "pause": "Pause",
+        "off": "Fra"
+      }
+    }
+  },
+  "services": {
+    "recalculate": {
+      "name": "Beregn igen",
+      "description": "Planlæg alle biler igen nu.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Husstand",
+          "description": "Den EV Planner, der skal bruges."
+        }
+      }
+    },
+    "set_mode": {
+      "name": "Sæt tilstand",
+      "description": "Sæt en bils tilstand: smart, lad nu, pause eller fra.",
+      "fields": {
+        "vehicle": {
+          "name": "Bil",
+          "description": "Bilens EV Planner-enhed."
+        },
+        "mode": {
+          "name": "Tilstand",
+          "description": "Smart følger planen. Lad nu lader, til målet er nået."
+        }
+      }
+    },
+    "guest_lookup": {
+      "name": "Slå gæstebil op",
+      "description": "Slå gæstebilen op ud fra nummerpladen.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Husstand",
+          "description": "Den EV Planner, der skal bruges."
+        }
+      }
+    },
+    "guest_plan": {
+      "name": "Lav gæsteplan",
+      "description": "Planlæg den billigste ladning af gæstebilen.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Husstand",
+          "description": "Den EV Planner, der skal bruges."
+        }
+      }
+    },
+    "new_guest": {
+      "name": "Ny gæst",
+      "description": "Glem gæstebilen og dens plan; en færdig plan gemmes i historikken.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Husstand",
+          "description": "Den EV Planner, der skal bruges."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "invalid_api_key": {
+      "message": "MotorAPI-nøglen blev afvist."
+    },
+    "unsupported_provider": {
+      "message": "Det valgte land understøttes ikke til opslag på nummerplade."
+    },
+    "license_plate_required": {
+      "message": "Skriv en nummerplade først."
+    },
+    "motorapi_key_missing": {
+      "message": "Opslag på nummerplade kræver en MotorAPI-nøgle. Tilføj en under Omkonfigurer, eller skriv batterikapaciteten selv."
+    },
+    "vehicle_not_found": {
+      "message": "Der blev ikke fundet en bil med denne nummerplade."
+    },
+    "lookup_failed": {
+      "message": "Opslaget af bilen mislykkedes ({detail}). Prøv igen senere."
+    },
+    "invalid_input": {
+      "message": "Batterikapacitet og ladeeffekt skal være over 0, og batteriniveauerne mellem 0 og 100."
+    },
+    "limit_not_above_soc": {
+      "message": "Målet skal være over det nuværende batteriniveau."
+    },
+    "no_price_data": {
+      "message": "Prissensoren har ingen brugbare priser."
+    },
+    "not_enough_prices": {
+      "message": "Priserne rækker ikke til fristen endnu. EV Planner planlægger igen, når nye priser kommer."
+    },
+    "no_window": {
+      "message": "Der er ikke et ladevindue før fristen."
+    },
+    "entry_not_found": {
+      "message": "EV Planner er ikke sat op eller ikke indlæst."
+    },
+    "car_not_found": {
+      "message": "Bilen er ikke en del af EV Planner."
+    },
+    "invalid_mode": {
+      "message": "Ukendt tilstand."
+    },
+    "target_not_set": {
+      "message": "Kunne ikke sætte bilens ladegrænse {entity_id}: {error}"
+    }
+  },
+  "issues": {
+    "price_entity_missing": {
+      "title": "EV Planners prissensor mangler",
+      "description": "{title} bruger prissensoren `{entity_id}`, som ikke findes. Vælg en anden sensor under Omkonfigurer."
+    }
+  }
+}

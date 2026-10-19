@@ -1,0 +1,41 @@
+recalculate:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: ev_planner
+set_mode:
+  fields:
+    vehicle:
+      required: true
+      selector:
+        device:
+          integration: ev_planner
+    mode:
+      required: true
+      selector:
+        select:
+          translation_key: mode
+          options:
+            - smart
+            - charge_now
+            - pause
+            - "off"
+guest_lookup:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: ev_planner
+guest_plan:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: ev_planner
+new_guest:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: ev_planner

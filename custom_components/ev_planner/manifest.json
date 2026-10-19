@@ -1,0 +1,22 @@
+{
+  "domain": "ev_planner",
+  "name": "EV Planner",
+  "codeowners": [
+    "@Dinnsen"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "frontend",
+    "http",
+    "panel_custom",
+    "websocket_api"
+  ],
+  "documentation": "https://github.com/Dinnsen/ha-ev-planner",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/Dinnsen/ha-ev-planner/issues",
+  "quality_scale": "platinum",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.4.0"
+}
