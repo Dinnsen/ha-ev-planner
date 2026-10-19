@@ -271,7 +271,8 @@ def charge_now_plan(prices: list[PriceSlot], need: ChargeNeed, power_kw: float, 
     The cost counts the prices that are known; a charge that runs past the
     last price is priced only as far as the prices go.
     """
-    begin = ceil_minute(now)
+    # From the start of this minute, so the charger is told to charge right away.
+    begin = now.replace(second=0, microsecond=0)
     finish = begin + timedelta(hours=need.hours)
     cost = 0.0
     for slot in prices:

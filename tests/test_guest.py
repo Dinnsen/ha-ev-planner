@@ -148,8 +148,8 @@ async def test_guest_charge_now_is_saved_in_the_history(
     await _press(hass, "make_plan")
     await _press(hass, "charge_now")
     guest = household.guest
-    # Starts at the next whole minute and runs until the target, as one period.
-    assert guest.plan_start == now
+    # Starts right away and runs until the target, as one period.
+    assert guest.plan_start == now.replace(second=0)
     assert guest.plan_info is not None and guest.plan_info["mode"] == "now"
     assert guest.results["savings"] == 0
     # 20 % -> 80 % of 77 kWh at 90 % and 11 kW: 4 h 40 min.

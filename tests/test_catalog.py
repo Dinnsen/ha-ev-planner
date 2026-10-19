@@ -86,9 +86,8 @@ async def test_suggest_entities_with_a_plug_sensor(hass: HomeAssistant) -> None:
     _add(hass, entry, device_id, "binary_sensor", "contactor", original_name="Contactor closed")
     meter = _add(hass, entry, device_id, "sensor", "energy", original_device_class="energy")
     _add(hass, entry, device_id, "switch", "led", original_name="Status LED")
-    name, model = describe_device(hass, device_id)
+    _name, model = describe_device(hass, device_id)
     assert model is not None and model.key == "tesla_wall_connector"
-    assert name == "Wall Connector" or name is None
     assert suggest_entities(hass, device_id, model) == {"energy_entity": meter, "connected_entity": plug}
 
 

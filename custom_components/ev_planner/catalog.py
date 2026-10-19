@@ -200,8 +200,14 @@ def _words(entry: er.RegistryEntry) -> str:
     )
 
 
+def _has_word(text: str, words: Iterable[str]) -> bool:
+    """A word in ``text`` starts with one of ``words`` ("led" is not in "is_enabled")."""
+    tokens = re.split(r"[^a-z0-9]+", text)
+    return any(token.startswith(word) for token in tokens for word in words)
+
+
 def _score(text: str, good: Iterable[str], bad: Iterable[str] = ()) -> int:
-    if any(word in text for word in bad):
+    if _has_word(text, bad):
         return -1
     return sum(1 for word in good if word in text)
 
@@ -223,7 +229,7 @@ def suggest_entities(hass: HomeAssistant, device_id: str, model: ChargerModel | 
             continue
         text = _words(entry)
         score = 1 + _score(text, METER_GOOD)
-        if any(word in text for word in METER_BAD):
+        if _has_word(text, METER_BAD):
             score -= 2
         if (entry.capabilities or {}).get("state_class") == "total_increasing":
             score += 1
@@ -266,12 +272,13 @@ def describe_device(hass: HomeAssistant, device_id: str) -> tuple[str | None, Ch
     device = dr.async_get(hass).async_get(device_id)
     if device is None:
         return None, None
-    domains = [
-        entry.domain
-        for entry_id in device.config_entries
-        if (entry := hass.config_entries.async_get_entry(entry_id)) is not None
-    ]
-    return device.name_by_user or device.name, match_model(device.manufacturer, device.model, domains)
+    # Newer Home Assistant: one config entry per device; older: a set of them.
+    entry_id: str | None = getattr(device, "config_entry_id", None)
+    entry_ids = [entry_id] if entry_id else list(getattr(device, "config_entries", ()))
+    domains = [entry.domain for eid in entry_ids if (entry := hass.config_entries.async_get_entry(eid)) is not None]
+    manufacturer: str | None = getattr(device, "manufacturer", None)
+    model: str | None = getattr(device, "model", None)
+    return device.name_by_user or device.name, match_model(manufacturer, model, domains)
 
 
 def panel_info(config: Mapping[str, Any]) -> dict[str, Any]:
