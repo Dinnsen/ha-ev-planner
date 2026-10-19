@@ -9,8 +9,8 @@ from typing import Any
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
-from homeassistant.helpers import config_validation as cv
-from homeassistant.util import dt as dt_util
+from homeassistant.helpers import config_validation as cv, device_registry as dr
+from homeassistant.util import dt as dt_util, slugify
 
 from .catalog import panel_info
 from .const import (
@@ -45,12 +45,16 @@ from .const import (
     SET_MIN_SOC,
     SET_MODE,
     SET_NOTIFY_DONE,
+    SET_NOTIFY_TARGETS,
     SET_OPPORTUNISTIC,
     SET_OPPORTUNISTIC_LEVEL,
     SET_READY_BY,
     SET_REMINDER,
+    SET_REMINDER_DAYS,
+    SET_REMINDER_HORIZON,
     SET_REMINDER_PRICE,
     SET_REMINDER_PRICE_ENABLED,
+    SET_REMINDER_REPEAT,
     SET_REMINDER_SOC,
     SET_REMINDER_TIME,
     SET_SCHEDULE,
@@ -112,6 +116,10 @@ VEHICLE_SCHEMA = vol.Schema(
         vol.Optional(SET_REMINDER_SOC): PERCENT,
         vol.Optional(SET_REMINDER_PRICE_ENABLED): cv.boolean,
         vol.Optional(SET_REMINDER_PRICE): PRICE,
+        vol.Optional(SET_REMINDER_DAYS): vol.All(cv.ensure_list, [vol.In(WEEKDAYS)]),
+        vol.Optional(SET_REMINDER_REPEAT): vol.All(vol.Coerce(float), vol.Range(min=0, max=240)),
+        vol.Optional(SET_REMINDER_HORIZON): vol.All(vol.Coerce(float), vol.Range(min=1, max=48)),
+        vol.Optional(SET_NOTIFY_TARGETS): vol.All(cv.ensure_list, [cv.string]),
         vol.Optional(SET_LIVE): cv.boolean,
         vol.Optional(SET_NOTIFY_DONE): cv.boolean,
     }
@@ -294,6 +302,17 @@ def guest_state(household: Household, guest: GuestSession) -> dict[str, Any]:
     }
 
 
+def _notify_name(hass: HomeAssistant, service: str) -> str:
+    """A phone's name for a notify action: its device's name, else the action's own."""
+    name = service.removeprefix("notify.")
+    if name.startswith("mobile_app_"):
+        for device in dr.async_get(hass).devices.values():
+            if device.name and slugify(device.name) == name.removeprefix("mobile_app_"):
+                return device.name_by_user or device.name
+        name = name.removeprefix("mobile_app_")
+    return name.replace("_", " ").strip().capitalize()
+
+
 def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
     """Everything the panel shows."""
     now = dt_util.now()
@@ -329,6 +348,7 @@ def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
         "config": {
             "price_entity": household.price_entity,
             "notify": household.notify_services,
+            "notify_names": {service: _notify_name(hass, service) for service in household.notify_services},
             "update_widgets": bool(household.config.get("update_widgets")),
         },
     }

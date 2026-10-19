@@ -145,7 +145,8 @@ Typical flows around a car are built in, for any car and charger:
 | Tell EV Smart Charging the cable is connected (`ev_connected` switches) | Not needed: EV Planner reads the car's or charger's own *plugged in* and *at home* entities. |
 | Stop the car when it starts by itself on plug-in, start it when the plan says so | *Who starts and stops charging*: **the car** (its charge switch) or **the charger**. For a few minutes after plug-in the decision is sent again. |
 | Turn the switch on/off again if it did not take, and notify | Checks a few minutes after every start **and pause**, tries once more, then notifies the phones and turns on `binary_sensor.<car>_charging_problem`. A full car is not a problem. |
-| 16:00: low battery, not plugged in, cheap power coming → notify | *Plug-in reminder*: time, level, *only at a low price*, and the message has the cheapest price and time, with *Charge now* / *Follow the plan* buttons. |
+| 16:00: low battery, not plugged in, cheap power coming → notify | *Plug-in reminder*: time, days, level, repeat, *only at a low price* (limit and how many hours ahead), and the message has the cheapest price and time, with *Charge now* / *Follow the plan* buttons. Choose the phones per car. |
+| Only act when the car is at home | The car's *at home* entity. Away – or an unknown location – EV Planner leaves charging alone. |
 
 Cars that Home Assistant cannot start or stop (choose **neither**) still get plans, reminders, statistics and the *Charger control* sensor.
 

@@ -137,6 +137,37 @@ async def test_reminder_only_at_a_low_price(
     assert hass.states.get("switch.tesla_remind_only_at_a_low_price").state == "on"
 
 
+async def test_reminder_days_repeats_and_phones(
+    hass: HomeAssistant, notify: NotifyCalls, household: MockConfigEntry, freezer: FrozenDateTimeFactory
+) -> None:
+    planner = household.runtime_data
+    email = NotifyCalls(hass, "family_email")
+    hass.states.async_set(CABLE, "off")
+    hass.states.async_set(SOC, "40")
+
+    def reminders() -> int:
+        return len([c for c in notify.calls if c.get("data", {}).get("tag") == f"evp_reminder_{TESLA}"])
+
+    # Monday is not one of the days.
+    await planner.async_set_vehicle(TESLA, {"reminder": True, "reminder_days": ["tue"]})
+    await settle(hass, freezer)
+    await move(hass, freezer, dt_util.now() + timedelta(minutes=1))
+    assert reminders() == 0
+
+    await planner.async_set_vehicle(TESLA, {"reminder_days": ["mon"], "reminder_repeat": 30, "notify_targets": [PHONE]})
+    await move(hass, freezer, dt_util.now() + timedelta(minutes=1))
+    assert reminders() == 1
+    await move(hass, freezer, dt_util.now() + timedelta(minutes=10))
+    assert reminders() == 1
+    for expected in (2, 3, 4, 4):
+        await move(hass, freezer, dt_util.now() + timedelta(minutes=31))
+        assert reminders() == expected
+    # Only the chosen phone.
+    assert email.calls == []
+    assert hass.states.get("number.tesla_repeat_reminder_every").state == "30"
+    assert hass.states.get("number.tesla_low_price_within").state == "24"
+
+
 async def test_live_notification_while_charging_and_message_when_done(
     hass: HomeAssistant, notify: NotifyCalls, household: MockConfigEntry, freezer: FrozenDateTimeFactory
 ) -> None:

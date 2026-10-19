@@ -128,6 +128,14 @@ const TEXT = {
     reminder_time: "Kl.",
     reminder_soc: "Under",
     reminder_price: "Kun når prisen kommer under",
+    reminder_days: "Dage",
+    reminder_repeat: "Gentag hvert",
+    reminder_repeat_hint: "0 = kun én gang. Højst 3 gentagelser om dagen.",
+    reminder_horizon: "inden for",
+    hours_short: "t",
+    minutes_short: "min",
+    notify_to: "Send til",
+    notify_to_hint: "Gælder alle beskeder om bilen.",
     reminder_price_hint: "Billigste pris det næste døgn skal være under grænsen.",
     live: "Live-notifikation mens den lader",
     notify_done: "Besked når den er ladet",
@@ -419,6 +427,14 @@ const TEXT = {
     reminder_time: "At",
     reminder_soc: "Below",
     reminder_price: "Only when the price drops below",
+    reminder_days: "Days",
+    reminder_repeat: "Repeat every",
+    reminder_repeat_hint: "0 = only once. At most 3 repeats a day.",
+    reminder_horizon: "within",
+    hours_short: "h",
+    minutes_short: "min",
+    notify_to: "Send to",
+    notify_to_hint: "For all messages about the car.",
     reminder_price_hint: "The cheapest price in the coming day must be below the limit.",
     live: "Live notification while charging",
     notify_done: "Message when charged",
@@ -2199,7 +2215,7 @@ class EvPlannerPanel extends HTMLElement {
     this._patch(root.querySelector(".rules-body"), JSON.stringify([this._ruleValues(s), this._currency, lang]), this._rulesHtml(v, s));
     this._patch(
       root.querySelector(".notify-body"),
-      JSON.stringify([s.reminder, s.reminder_time, s.reminder_soc, s.reminder_price_enabled, s.reminder_price, s.live_notification, s.notify_done, this._state.config?.notify, lang]),
+      JSON.stringify([s.reminder, s.reminder_time, s.reminder_soc, s.reminder_price_enabled, s.reminder_price, s.reminder_days, s.reminder_repeat, s.reminder_horizon, s.notify_targets, this._state.config?.notify_names, s.live_notification, s.notify_done, this._state.config?.notify, lang]),
       this._notifyHtml(s),
     );
     if (live) this._renderCarLive(v);
@@ -2420,11 +2436,35 @@ class EvPlannerPanel extends HTMLElement {
           <span>${this._t("reminder_soc")}</span>${this._valueHtml("reminder_soc", s.reminder_soc, { unit: "%", label: this._t("reminder_soc") })}
         </div>
         <div class="inline-values">
+          <span>${this._t("reminder_days")}</span>
+          <div class="chips days">${WEEKDAYS.map((day) => {
+            const on = (s.reminder_days || WEEKDAYS).includes(day);
+            return `<button data-act="rem-day" data-day="${day}" data-f="rem-${day}" class="${on ? "on" : ""}" aria-pressed="${on}" aria-label="${esc(this._t(`dayl_${day}`))}">${this._t(`day_${day}`)}</button>`;
+          }).join("")}</div>
+        </div>
+        <div class="inline-values">
+          <span>${this._t("reminder_repeat")}</span>${this._valueHtml("reminder_repeat", s.reminder_repeat ?? 0, { unit: this._t("minutes_short"), step: 5, min: 0, max: 240, label: this._t("reminder_repeat") })}
+          <small class="hint">${this._t("reminder_repeat_hint")}</small>
+        </div>
+        <div class="inline-values">
           <span>${this._t("reminder_price")}</span>
           ${s.reminder_price_enabled ? this._valueHtml("reminder_price", s.reminder_price, { unit: `${this._unit}/kWh`, step: 0.01, min: -5, max: 20, label: this._t("reminder_price") }) : ""}
+          ${s.reminder_price_enabled ? `<span>${this._t("reminder_horizon")}</span>${this._valueHtml("reminder_horizon", s.reminder_horizon ?? 24, { unit: this._t("hours_short"), step: 1, min: 1, max: 48, label: this._t("reminder_horizon") })}` : ""}
           ${this._switchHtml("reminder_price_enabled", s.reminder_price_enabled, this._t("reminder_price"))}
         </div>`
       : "";
+    const phones = this._state.config?.notify || [];
+    const names = this._state.config?.notify_names || {};
+    const chosen = s.notify_targets?.length ? s.notify_targets : phones;
+    const targets =
+      phones.length > 1
+        ? `<div class="notify-to"><span>${this._t("notify_to")}</span><div class="chips">${phones
+            .map((phone) => {
+              const on = chosen.includes(phone);
+              return `<button data-act="notify-to" data-phone="${esc(phone)}" data-f="nt-${esc(phone)}" class="${on ? "on" : ""}" aria-pressed="${on}">${esc(names[phone] || phone)}</button>`;
+            })
+            .join("")}</div><small class="hint">${this._t("notify_to_hint")}</small></div>`
+        : "";
     return `${missing ? `<p class="note-line warn">${ICONS.info}<span>${this._t("notify_missing")} <a href="/config/integrations/integration/ev_planner" target="_top">${this._t("open_integration")}</a></span></p>` : ""}
       ${this._ruleRow({
         icon: "bell",
@@ -2435,7 +2475,8 @@ class EvPlannerPanel extends HTMLElement {
         control: this._switchHtml("reminder", s.reminder, this._t("reminder")),
       })}
       ${this._ruleRow({ icon: "charge", title: this._t("live"), off: !s.live_notification, control: this._switchHtml("live_notification", s.live_notification, this._t("live")) })}
-      ${this._ruleRow({ icon: "depart", title: this._t("notify_done"), off: !s.notify_done, control: this._switchHtml("notify_done", s.notify_done, this._t("notify_done")) })}`;
+      ${this._ruleRow({ icon: "depart", title: this._t("notify_done"), off: !s.notify_done, control: this._switchHtml("notify_done", s.notify_done, this._t("notify_done")) })}
+      ${targets}`;
   }
 
   // ------------------------------------------------------------------ guest (EV Guest)
@@ -3089,6 +3130,24 @@ class EvPlannerPanel extends HTMLElement {
       case "toggle":
         if (s) this._vchange({ [button.dataset.key]: !s[button.dataset.key] });
         break;
+      case "rem-day":
+        if (s) {
+          const days = new Set(s.reminder_days || WEEKDAYS);
+          if (days.has(button.dataset.day)) days.delete(button.dataset.day);
+          else days.add(button.dataset.day);
+          this._vchange({ reminder_days: WEEKDAYS.filter((day) => days.has(day)) });
+        }
+        break;
+      case "notify-to":
+        if (s) {
+          const phones = this._state.config?.notify || [];
+          const set = new Set(s.notify_targets?.length ? s.notify_targets : phones);
+          if (set.has(button.dataset.phone)) set.delete(button.dataset.phone);
+          else set.add(button.dataset.phone);
+          // At least one phone; all of them is stored as "all", so new phones are included.
+          if (set.size) this._vchange({ notify_targets: set.size === phones.length ? [] : phones.filter((p) => set.has(p)) });
+        }
+        break;
       case "opp":
         this._vchange({ opportunistic: button.dataset.value });
         break;
@@ -3393,6 +3452,9 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .photo:hover .photo-del, .photo:focus-within .photo-del { opacity: 1; }
 @media (hover: none) { .photo-del { opacity: 1; } .photo-pick .cam { opacity: 1; } }
 .tag-now { display: inline-flex; align-items: center; gap: 2px; margin-right: 6px; font-style: normal; font-size: 12px; color: var(--evp-a); }
+.notify-to { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--evp-line); }
+.notify-to > span { font-size: 14px; font-weight: 600; }
+.chips.days button { min-width: 40px; padding-inline: 8px; }
 .tag-now.stopped { color: var(--evp-soft); }
 .charge-now.stop { border-color: var(--evp-ink); }
 .tag-now svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }

@@ -357,6 +357,12 @@
       "reminder_price": {
         "name": "Påmind under pris"
       },
+      "reminder_repeat": {
+        "name": "Gentag påmindelse hvert"
+      },
+      "reminder_horizon": {
+        "name": "Lav pris inden for"
+      },
       "guest_soc": {
         "name": "Batteriniveau"
       },

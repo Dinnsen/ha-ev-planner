@@ -55,6 +55,13 @@ class Notifier:
     def enabled(self) -> bool:
         return bool(self.services)
 
+    def targets(self, chosen: Iterable[str] | None) -> list[str]:
+        """The household's notify actions, narrowed to a car's own choice when it has one."""
+        if not chosen:
+            return self.services
+        wanted = {service_name(service) for service in chosen if service}
+        return [service for service in self.services if service in wanted] or self.services
+
     async def _call(self, service: str, data: Mapping[str, Any]) -> None:
         if not self.hass.services.has_service(NOTIFY, service):
             _LOGGER.debug("Notify action notify.%s does not exist", service)
@@ -73,9 +80,10 @@ class Notifier:
         icon: str,
         color: str = COLOR_CHARGE,
         actions: list[dict[str, str]] | None = None,
+        to: Iterable[str] | None = None,
     ) -> None:
         """A normal notification with an icon (the companion app shows it)."""
-        for service in self.services:
+        for service in self.targets(to):
             data: dict[str, Any] = {"title": title, "message": message}
             if is_mobile_app(service):
                 extra: dict[str, Any] = {
@@ -105,9 +113,10 @@ class Notifier:
         icon: str,
         color: str = COLOR_CHARGE,
         first: bool,
+        to: Iterable[str] | None = None,
     ) -> None:
         """Start or update a live notification (only to companion apps)."""
-        for service in self.services:
+        for service in self.targets(to):
             if not is_mobile_app(service):
                 if first:
                     await self._call(service, {"title": title, "message": message})
@@ -137,9 +146,9 @@ class Notifier:
                 extra["alert_once"] = True
             await self._call(service, {"title": title, "message": message, "data": extra})
 
-    async def clear(self, tag: str) -> None:
+    async def clear(self, tag: str, to: Iterable[str] | None = None) -> None:
         """End a live notification, or remove a delivered one."""
-        for service in self.services:
+        for service in self.targets(to):
             if is_mobile_app(service):
                 await self._call(service, {"message": "clear_notification", "data": {"tag": tag}})
 

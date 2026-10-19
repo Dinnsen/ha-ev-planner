@@ -91,6 +91,12 @@
       },
       "reminder_price": {
         "default": "mdi:cash-clock"
+      },
+      "reminder_repeat": {
+        "default": "mdi:repeat"
+      },
+      "reminder_horizon": {
+        "default": "mdi:clock-fast"
       }
     },
     "select": {

@@ -65,13 +65,17 @@ from .const import (
     MODES,
     PLANNING_HORIZON,
     RECALCULATE_DELAY,
+    REMINDER_MAX_REPEATS,
     SET_LIVE,
     SET_MANUAL_SOC,
     SET_MODE,
     SET_NOTIFY_DONE,
     SET_REMINDER,
+    SET_REMINDER_DAYS,
+    SET_REMINDER_HORIZON,
     SET_REMINDER_PRICE,
     SET_REMINDER_PRICE_ENABLED,
+    SET_REMINDER_REPEAT,
     SET_REMINDER_SOC,
     SET_REMINDER_TIME,
     SET_SCHEDULE,
@@ -623,7 +627,7 @@ class Household(DataUpdateCoordinator[None]):
                 now,
                 mode=vehicle.mode,
                 connected=vehicle.connected,
-                home=vehicle.home,
+                home=vehicle.at_home,
                 soc=vehicle.current_soc,
                 target=vehicle.target,
                 segments=vehicle.plan.segments if vehicle.plan else [],
@@ -725,7 +729,9 @@ class Household(DataUpdateCoordinator[None]):
             if vehicle.problem:
                 vehicle.problem = False
                 self.config_entry.async_create_task(
-                    self.hass, self.notifier.clear(tag_for("problem", vid)), f"{DOMAIN} clear problem"
+                    self.hass,
+                    self.notifier.clear(tag_for("problem", vid), to=vehicle.notify_to),
+                    f"{DOMAIN} clear problem",
                 )
             return
         self._verify_timers[vid] = async_call_later(self.hass, VERIFY_DELAY, partial(self._verify_soon, vid))
@@ -751,7 +757,7 @@ class Household(DataUpdateCoordinator[None]):
             want = charging
         if charging == want:
             vehicle.problem = False
-            await self.notifier.clear(tag_for("problem", vehicle_id))
+            await self.notifier.clear(tag_for("problem", vehicle_id), to=vehicle.notify_to)
             self.async_update_listeners()
             return
         if vehicle.verify_attempts == 0:
@@ -767,6 +773,7 @@ class Household(DataUpdateCoordinator[None]):
                 title=vehicle.name,
                 message=self._text("problem" if want else "problem_pause", name=vehicle.name),
                 tag=tag_for("problem", vehicle_id),
+                to=vehicle.notify_to,
                 icon="mdi:ev-plug-type2",
                 color=COLOR_ERROR,
             )
@@ -790,7 +797,7 @@ class Household(DataUpdateCoordinator[None]):
         if vehicle.live_active:
             vehicle.live_active = False
             vehicle.live_sent_at = None
-            await self.notifier.clear(tag_for("live", vehicle.vehicle_id))
+            await self.notifier.clear(tag_for("live", vehicle.vehicle_id), to=vehicle.notify_to)
         if vehicle.session is not None:
             entry = vehicle.end_session(now)
             self.async_save()
@@ -805,6 +812,7 @@ class Household(DataUpdateCoordinator[None]):
                         cost=self._money(entry["cost"]),
                     ),
                     tag=tag_for("done", vehicle.vehicle_id),
+                    to=vehicle.notify_to,
                     icon="mdi:battery-charging-100",
                     color=COLOR_CHARGE,
                 )
@@ -831,6 +839,7 @@ class Household(DataUpdateCoordinator[None]):
         )
         await self.notifier.live(
             tag=tag_for("live", vehicle.vehicle_id),
+            to=vehicle.notify_to,
             title=vehicle.name,
             message=message,
             critical_text=f"{self._num(soc, 0)} %" if soc is not None else None,
@@ -874,67 +883,89 @@ class Household(DataUpdateCoordinator[None]):
     # Reminders
 
     async def _async_reminders(self, now: datetime) -> None:
-        today = now.date().isoformat()
         for vehicle in self.vehicles.values():
-            s = vehicle.settings
-            if not s.get(SET_REMINDER) or not self.notifier.enabled or vehicle.reminded_on == today:
-                continue
-            moment = parse_hhmm(s.get(SET_REMINDER_TIME))
-            if moment is None or now.time() < moment:
-                continue
-            soc = vehicle.current_soc
-            threshold = to_float(s.get(SET_REMINDER_SOC)) or 0.0
-            if vehicle.connected is not False or vehicle.home is False or soc is None or soc >= threshold:
-                continue
-            cheapest = self._cheapest_slot(now)
-            if s.get(SET_REMINDER_PRICE_ENABLED):
-                limit = to_float(s.get(SET_REMINDER_PRICE))
-                if cheapest is None or (limit is not None and cheapest.price > limit):
-                    # Not cheap enough today; check again tomorrow.
-                    vehicle.reminded_on = today
-                    self.async_save()
-                    continue
-            vehicle.reminded_on = today
-            self.async_save()
-            plan = vehicle.plan
-            if plan is not None and plan.segments:
-                text = self._text(
-                    "reminder_plan",
-                    name=vehicle.name,
-                    soc=self._num(soc, 0),
-                    window=self._window(plan.start, plan.end),
-                    energy=self._num(plan.energy, 0),
-                    cost=self._money(plan.cost),
-                )
-            else:
-                text = self._text("reminder", name=vehicle.name, soc=self._num(soc, 0))
-            if cheapest is not None:
-                text = f"{text} " + self._text(
-                    "reminder_cheapest",
-                    price=self._money(cheapest.price),
-                    when=self._window(cheapest.start, cheapest.end),
-                )
-            await self.notifier.send(
-                title=self._text("reminder_title", name=vehicle.name),
-                message=text,
-                tag=tag_for("reminder", vehicle.vehicle_id),
-                icon="mdi:ev-plug-type2",
-                color=COLOR_WARN,
-                actions=[
-                    {"action": f"{ACTION_CHARGE_NOW}_{vehicle.vehicle_id}", "title": self._text("action_charge_now")},
-                    {"action": f"{ACTION_FOLLOW_PLAN}_{vehicle.vehicle_id}", "title": self._text("action_follow")},
-                ],
-            )
+            if self.notifier.enabled and self._reminder_due(vehicle, now):
+                await self._async_remind(vehicle, now)
 
-    def _cheapest_slot(self, now: datetime) -> PriceSlot | None:
-        """The cheapest price in the coming day."""
-        horizon = now + timedelta(hours=24)
+    def _reminder_due(self, vehicle: Vehicle, now: datetime) -> bool:
+        """Whether a plug-in reminder (or a repeat of it) should go out now."""
+        s = vehicle.settings
+        if not s.get(SET_REMINDER):
+            return False
+        moment = parse_hhmm(s.get(SET_REMINDER_TIME))
+        if moment is None or now.time() < moment:
+            return False
+        days = s.get(SET_REMINDER_DAYS)
+        if isinstance(days, list) and WEEKDAYS[now.weekday()] not in days:
+            return False
+        if vehicle.reminded_on == now.date().isoformat():
+            # Already reminded (or skipped for the price) today: only repeat it.
+            repeat = to_float(s.get(SET_REMINDER_REPEAT)) or 0.0
+            if repeat <= 0 or not 0 < vehicle.reminders_sent <= REMINDER_MAX_REPEATS or vehicle.reminded_at is None:
+                return False
+            if now - vehicle.reminded_at < timedelta(minutes=repeat):
+                return False
+        soc = vehicle.current_soc
+        threshold = to_float(s.get(SET_REMINDER_SOC)) or 0.0
+        return not (vehicle.connected is not False or vehicle.at_home is False or soc is None or soc >= threshold)
+
+    async def _async_remind(self, vehicle: Vehicle, now: datetime) -> None:
+        s = vehicle.settings
+        today = now.date().isoformat()
+        if vehicle.reminded_on != today:
+            vehicle.reminded_on, vehicle.reminders_sent = today, 0
+        hours = to_float(s.get(SET_REMINDER_HORIZON)) or 24.0
+        cheapest = self._cheapest_slot(now, timedelta(hours=hours))
+        if s.get(SET_REMINDER_PRICE_ENABLED) and vehicle.reminders_sent == 0:
+            limit = to_float(s.get(SET_REMINDER_PRICE))
+            if cheapest is None or (limit is not None and cheapest.price > limit):
+                # Not cheap enough: no reminder today.
+                self.async_save()
+                return
+        vehicle.reminders_sent += 1
+        vehicle.reminded_at = now
+        self.async_save()
+        soc = vehicle.current_soc
+        plan = vehicle.plan
+        if plan is not None and plan.segments:
+            text = self._text(
+                "reminder_plan",
+                name=vehicle.name,
+                soc=self._num(soc, 0),
+                window=self._window(plan.start, plan.end),
+                energy=self._num(plan.energy, 0),
+                cost=self._money(plan.cost),
+            )
+        else:
+            text = self._text("reminder", name=vehicle.name, soc=self._num(soc, 0))
+        if cheapest is not None:
+            text = f"{text} " + self._text(
+                "reminder_cheapest",
+                price=self._money(cheapest.price),
+                when=self._window(cheapest.start, cheapest.end),
+            )
+        await self.notifier.send(
+            title=self._text("reminder_title", name=vehicle.name),
+            message=text,
+            tag=tag_for("reminder", vehicle.vehicle_id),
+            icon="mdi:ev-plug-type2",
+            color=COLOR_WARN,
+            actions=[
+                {"action": f"{ACTION_CHARGE_NOW}_{vehicle.vehicle_id}", "title": self._text("action_charge_now")},
+                {"action": f"{ACTION_FOLLOW_PLAN}_{vehicle.vehicle_id}", "title": self._text("action_follow")},
+            ],
+            to=vehicle.notify_to,
+        )
+
+    def _cheapest_slot(self, now: datetime, ahead: timedelta = timedelta(hours=24)) -> PriceSlot | None:
+        """The cheapest price from now until ``ahead``."""
+        horizon = now + ahead
         upcoming = [slot for slot in self.price_slots(now) if slot.end > now and slot.start < horizon]
         return min(upcoming, key=lambda slot: (slot.price, slot.start), default=None)
 
     async def _async_clear_reminder(self, vehicle: Vehicle) -> None:
         if vehicle.reminded_on and self.notifier.enabled:
-            await self.notifier.clear(tag_for("reminder", vehicle.vehicle_id))
+            await self.notifier.clear(tag_for("reminder", vehicle.vehicle_id), to=vehicle.notify_to)
 
     @callback
     def _handle_notification_action(self, event: Event) -> None:

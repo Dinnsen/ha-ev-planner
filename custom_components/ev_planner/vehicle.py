@@ -56,6 +56,7 @@ from .const import (
     SET_MANUAL_SOC,
     SET_MIN_SOC,
     SET_MODE,
+    SET_NOTIFY_TARGETS,
     SET_OPPORTUNISTIC,
     SET_OPPORTUNISTIC_LEVEL,
     SET_READY_BY,
@@ -204,6 +205,9 @@ class Vehicle:
     live_sent_soc: float | None = None
     live_sent_reason: str | None = None
     reminded_on: str | None = None
+    # Reminders sent on ``reminded_on`` (0: checked, but not sent), and when the last one went.
+    reminders_sent: int = 0
+    reminded_at: datetime | None = None
 
     def __post_init__(self) -> None:
         imported = self.config.get("imported_settings")
@@ -220,6 +224,12 @@ class Vehicle:
         if self.capacity_from_car is not None and self.capacity_from_car > 0:
             return self.capacity_from_car
         return to_float(self.config.get(CONF_BATTERY_CAPACITY)) or DEFAULT_BATTERY_CAPACITY
+
+    @property
+    def notify_to(self) -> list[str]:
+        """The phones this car's messages go to; empty means all of the household's."""
+        chosen = self.settings.get(SET_NOTIFY_TARGETS)
+        return [str(item) for item in chosen] if isinstance(chosen, list) else []
 
     @property
     def capacity_entity(self) -> str | None:
@@ -311,6 +321,18 @@ class Vehicle:
         if state is None or state in ("unknown", "unavailable"):
             return None
         return state.lower() in ("home", "on", "true")
+
+    @property
+    def at_home(self) -> bool | None:
+        """Whether EV Planner may act on the car where it is.
+
+        None without a home entity (the car is taken to be at home). With
+        one, an unknown location counts as away: better to leave a charge
+        on the road alone than to stop it.
+        """
+        if self.home_entity is None:
+            return self.home
+        return self.home is True
 
     @property
     def has_soc_sensor(self) -> bool:
@@ -497,6 +519,8 @@ class Vehicle:
             "last_soc_seen": self.last_soc_seen,
             "live_active": self.live_active,
             "reminded_on": self.reminded_on,
+            "reminders_sent": self.reminders_sent,
+            "reminded_at": self.reminded_at.isoformat() if self.reminded_at else None,
             "plan_done": self.plan_done,
         }
 
@@ -525,4 +549,8 @@ class Vehicle:
         self.live_active = bool(data.get("live_active"))
         reminded = data.get("reminded_on")
         self.reminded_on = str(reminded) if reminded else None
+        sent = data.get("reminders_sent")
+        self.reminders_sent = int(sent) if isinstance(sent, int) else (1 if self.reminded_on else 0)
+        at = data.get("reminded_at")
+        self.reminded_at = datetime.fromisoformat(at) if isinstance(at, str) else None
         self.plan_done = bool(data.get("plan_done"))

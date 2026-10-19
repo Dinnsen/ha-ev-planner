@@ -357,6 +357,12 @@
       "reminder_price": {
         "name": "Remind below price"
       },
+      "reminder_repeat": {
+        "name": "Repeat reminder every"
+      },
+      "reminder_horizon": {
+        "name": "Low price within"
+      },
       "guest_soc": {
         "name": "Charge level"
       },

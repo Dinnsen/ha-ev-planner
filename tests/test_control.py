@@ -286,3 +286,22 @@ async def test_battery_capacity_from_the_car(
     await settle(hass, freezer)
     assert tesla.capacity == 60
     assert tesla.plan is not None and tesla.plan.energy == pytest.approx(20)
+
+
+async def test_unknown_location_counts_as_away(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    """Charging on the road is left alone, also when the car's location is unknown."""
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass, switch=True, charging=True)
+    hass.states.async_set("binary_sensor.tesla_home", "unavailable")
+    entry = entry_with(vehicle_sub(TESLA, "Tesla", tesla_data(home_entity="binary_sensor.tesla_home", charger=None)))
+    await _setup(hass, freezer, entry)
+    assert switches.calls == []
+    hass.states.async_set("binary_sensor.tesla_home", "off")
+    await settle(hass, freezer)
+    assert switches.calls == []
+    # Home again: the plan says wait.
+    hass.states.async_set("binary_sensor.tesla_home", "on")
+    await settle(hass, freezer)
+    assert switches.calls == [("turn_off", CHARGE_SWITCH)]

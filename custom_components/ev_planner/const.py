@@ -116,6 +116,12 @@ SET_REMINDER_TIME: Final = "reminder_time"
 SET_REMINDER_SOC: Final = "reminder_soc"
 SET_REMINDER_PRICE_ENABLED: Final = "reminder_price_enabled"
 SET_REMINDER_PRICE: Final = "reminder_price"
+SET_REMINDER_DAYS: Final = "reminder_days"
+SET_REMINDER_REPEAT: Final = "reminder_repeat"
+SET_REMINDER_HORIZON: Final = "reminder_horizon"
+SET_NOTIFY_TARGETS: Final = "notify_targets"
+# A reminder is repeated at most this many times a day.
+REMINDER_MAX_REPEATS: Final = 3
 SET_LIVE: Final = "live_notification"
 SET_NOTIFY_DONE: Final = "notify_done"
 
@@ -161,6 +167,10 @@ DEFAULT_VEHICLE_SETTINGS: Final[dict[str, object]] = {
     SET_REMINDER_SOC: 60.0,
     SET_REMINDER_PRICE_ENABLED: False,
     SET_REMINDER_PRICE: 2.2,
+    SET_REMINDER_DAYS: ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+    SET_REMINDER_REPEAT: 0,
+    SET_REMINDER_HORIZON: 24,
+    SET_NOTIFY_TARGETS: [],
     SET_LIVE: False,
     SET_NOTIFY_DONE: False,
 }
