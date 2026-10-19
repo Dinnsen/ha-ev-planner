@@ -29,7 +29,7 @@ jobs:
         id: pytest
         run: |
           set -o pipefail
-          pytest --cov --cov-report=term-missing --cov-fail-under=90 -rfE --tb=short 2>&1 | tee pytest.txt
+          pytest --cov --cov-report=term-missing --cov-fail-under=95 -rfE --tb=short 2>&1 | tee pytest.txt
 
       - name: Strict typing
         id: mypy
