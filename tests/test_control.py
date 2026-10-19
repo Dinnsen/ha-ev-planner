@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from unittest.mock import patch
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.const import ATTR_ENTITY_ID
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.util import dt as dt_util
 import pytest
@@ -195,17 +194,23 @@ async def test_switch_errors_are_kept(
 
 async def test_switching_reports_errors(hass: HomeAssistant, init_integration: MockConfigEntry) -> None:
     household = init_integration.runtime_data
-    with patch.object(hass.services, "async_call", side_effect=HomeAssistantError("no way")):
-        assert await household._async_switch("switch.x", True) == "no way"
     calls: list[str] = []
 
-    async def record(domain: str, service: str, data: dict, blocking: bool) -> None:
-        calls.append(f"{domain}.{service}")
+    async def fail(call: ServiceCall) -> None:
+        raise HomeAssistantError("no way")
 
-    with patch.object(hass.services, "async_call", side_effect=record):
-        assert await household._async_switch("input_boolean.x", False) is None
-        assert await household._async_switch("lock.x", True) is None
+    async def record(call: ServiceCall) -> None:
+        calls.append(f"{call.domain}.{call.service}")
+
+    hass.services.async_register("input_boolean", "turn_on", fail)
+    hass.services.async_register("input_boolean", "turn_off", record)
+    hass.services.async_register("homeassistant", "turn_on", record)
+    assert await household._async_switch("input_boolean.x", True) == "no way"
+    assert await household._async_switch("input_boolean.x", False) is None
+    assert await household._async_switch("lock.x", True) is None
     assert calls == ["input_boolean.turn_off", "homeassistant.turn_on"]
+    # A domain without the action.
+    assert await household._async_switch("fan.x", True)
 
 
 @pytest.mark.parametrize("control", ["car", "charger"])

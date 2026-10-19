@@ -156,7 +156,7 @@ async def test_guest_commands(
 
 
 async def test_actions(hass: HomeAssistant, init_integration: MockConfigEntry, freezer: FrozenDateTimeFactory) -> None:
-    device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, TESLA)})
+    device = dr.async_get(hass).async_get_device_by_identifier((DOMAIN, TESLA), init_integration.entry_id)
     assert device is not None
     await hass.services.async_call(DOMAIN, "set_mode", {"vehicle": device.id, "mode": "pause"}, blocking=True)
     await settle(hass, freezer)

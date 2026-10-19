@@ -37,9 +37,14 @@ async def test_setup_creates_cars_charger_and_guest(hass: HomeAssistant, init_in
     assert hass.states.get("button.guest_car_new_guest") is not None
 
     devices = dr.async_get(hass)
-    tesla = devices.async_get_device(identifiers={(DOMAIN, TESLA)})
+    tesla = devices.async_get_device_by_identifier((DOMAIN, TESLA), init_integration.entry_id)
     assert tesla is not None and tesla.name == "Tesla"
-    assert devices.async_get_device(identifiers={(DOMAIN, f"{init_integration.entry_id}_guest")}) is not None
+    assert (
+        devices.async_get_device_by_identifier(
+            (DOMAIN, f"{init_integration.entry_id}_guest"), init_integration.entry_id
+        )
+        is not None
+    )
 
 
 async def test_unload_and_remove(hass: HomeAssistant, init_integration: MockConfigEntry) -> None:
@@ -66,7 +71,7 @@ async def test_adding_a_car_reloads_the_household(
 
 async def test_device_removal(hass: HomeAssistant, init_integration: MockConfigEntry) -> None:
     devices = dr.async_get(hass)
-    tesla = devices.async_get_device(identifiers={(DOMAIN, TESLA)})
+    tesla = devices.async_get_device_by_identifier((DOMAIN, TESLA), init_integration.entry_id)
     assert tesla is not None
     assert not await async_remove_config_entry_device(hass, init_integration, tesla)
     stale = devices.async_get_or_create(config_entry_id=init_integration.entry_id, identifiers={(DOMAIN, "gone")})
