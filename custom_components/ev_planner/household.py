@@ -24,6 +24,7 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event, async_track_time_interval
 from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.storage import Store
+from homeassistant.helpers.translation import async_get_translations
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
@@ -192,6 +193,8 @@ class Household(DataUpdateCoordinator[None]):
         self._recalc_timer: CALLBACK_TYPE | None = None
         self._verify_timers: dict[str, CALLBACK_TYPE] = {}
         self._widgets_sent: datetime | None = None
+        # The status words in Danish and English, for the summary line widgets show.
+        self._status_texts: dict[str, dict[str, str]] = {}
         self._widgets_timer: CALLBACK_TYPE | None = None
         self._last_status: dict[str, str] = {}
         self._started = False
@@ -234,6 +237,7 @@ class Household(DataUpdateCoordinator[None]):
 
     async def async_initialize(self) -> None:
         await self._async_load()
+        await self._async_load_status_texts()
         hass = self.hass
         for vehicle in self.vehicles.values():
             self._read_vehicle(vehicle)
@@ -1179,6 +1183,18 @@ class Household(DataUpdateCoordinator[None]):
 
     # ------------------------------------------------------------------
     # For the panel and entities
+
+    async def _async_load_status_texts(self) -> None:
+        prefix = f"component.{DOMAIN}.entity.sensor.status.state."
+        for language in ("da", "en"):
+            strings = await async_get_translations(self.hass, language, "entity", [DOMAIN])
+            self._status_texts[language] = {
+                key.removeprefix(prefix): value for key, value in strings.items() if key.startswith(prefix)
+            }
+
+    def status_text(self, status: str) -> str:
+        """A car's status in words, in the language of the notifications."""
+        return self._status_texts.get("da" if self._danish else "en", {}).get(status, status)
 
     def format_time(self, moment: datetime | None) -> str:
         return self._time(moment)

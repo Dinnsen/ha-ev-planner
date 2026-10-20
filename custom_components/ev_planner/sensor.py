@@ -58,7 +58,7 @@ def _plan_time(attr: str) -> Callable[[Household, Vehicle], datetime | None]:
 
 def _summary(household: Household, vehicle: Vehicle) -> str:
     now = dt_util.now()
-    return vehicle.summary(now, household.format_time, household.format_money)
+    return household.status_text(vehicle.summary(now, household.format_time, household.format_money))
 
 
 VEHICLE_SENSORS: tuple[VehicleSensorDescription, ...] = (

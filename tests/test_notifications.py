@@ -113,6 +113,11 @@ async def test_notifications_in_the_chosen_language(
     await move(hass, freezer, dt_util.now() + timedelta(minutes=1))
     reminders = [call for call in notify.calls if call.get("data", {}).get("tag") == f"evp_reminder_{TESLA}"]
     assert reminders and "Billigste pris: 0,30 kr./kWh" in reminders[0]["message"]
+    # The line widgets show follows the same language.
+    assert household.runtime_data.status_text("unplugged") == "Ikke tilsluttet"
+    await household.runtime_data.async_update_settings({"language": "en"})
+    assert household.runtime_data.status_text("unplugged") == "Not plugged in"
+    assert household.runtime_data.status_text("10.00-11.00") == "10.00-11.00"
 
 
 async def test_reminder_without_a_plan_and_not_when_charged_enough(
