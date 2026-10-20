@@ -178,6 +178,10 @@ const TEXT = {
     photo_change: "Skift billede",
     photo_remove: "Fjern billede",
     photo_saved: "Billedet er gemt",
+    photo_saved_cut: "Billedet er gemt, og baggrunden er fjernet",
+    photo_cut: "Fjern baggrunden",
+    photo_cutting: "Fjerner baggrunden …",
+    photo_no_background: "Billedet har ikke en ensfarvet baggrund, der kan fjernes",
     photo_removed: "Billedet er fjernet",
     photo_uploading: "Gemmer billedet …",
     photo_failed: "Billedet kunne ikke gemmes: {detail}",
@@ -476,6 +480,10 @@ const TEXT = {
     photo_change: "Change photo",
     photo_remove: "Remove photo",
     photo_saved: "The photo is saved",
+    photo_saved_cut: "The photo is saved, without its background",
+    photo_cut: "Remove the background",
+    photo_cutting: "Removing the background …",
+    photo_no_background: "The photo has no plain background to remove",
     photo_removed: "The photo is removed",
     photo_uploading: "Saving the photo …",
     photo_failed: "The photo could not be saved: {detail}",
@@ -660,6 +668,7 @@ const ICONS = {
   off: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v8"/><path d="M7 6.5a7 7 0 1 0 10 0"/></svg>',
   warn: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.2v.1"/></svg>',
   info: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.1"/></svg>',
+  wand: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 11-11M14 5l1-2 1 2 2 1-2 1-1 2-1-2-2-1zM19 11l.6-1.2L21 9.2l-1.4-.6L19 7.4l-.6 1.2-1.4.6 1.4.6zM8 4l.5-1 .5 1 1 .5-1 .5L8.5 6 8 5l-1-.5z"/></svg>',
   camera: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.3l1.4-2h5.6l1.4 2h2.3A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="12.8" r="3.3"/></svg>',
 };
 
@@ -677,23 +686,117 @@ function chargerArt(style) {
   return `<svg class="art" viewBox="0 0 64 64" aria-hidden="true">${CHARGER_ART[style] || CHARGER_ART.box}</svg>`;
 }
 
-/* A photo from the phone as a JPEG of at most 1280 px, so HEIC and huge photos work too. */
-async function shrinkImage(file, max = 1280) {
+/* Make a photo look good on any card, light or dark: at most 1280 px, a plain
+   background (black, white or any one colour) is cut away, the subject is
+   trimmed to fill the frame, and transparency is kept (PNG). A normal photo
+   stays a JPEG. Returns { blob, cut } where cut tells that a background went. */
+async function preparePhoto(source, { cutout = true, max = 1280 } = {}) {
+  let bitmap;
   try {
-    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
-    const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-    canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    bitmap.close?.();
-    return await new Promise((resolve, reject) =>
-      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("image"))), "image/jpeg", 0.86),
-    );
+    bitmap = await createImageBitmap(source, { imageOrientation: "from-image" });
   } catch (err) {
-    if (["image/jpeg", "image/png", "image/gif"].includes(file.type)) return file;
+    if (["image/jpeg", "image/png", "image/gif"].includes(source.type)) return { blob: source, cut: false };
     throw err;
   }
+  const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+  let canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  let ctx = canvas.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close?.();
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  let transparent = hasTransparency(img);
+  let cut = false;
+  if (cutout && !transparent && removePlainBackground(img)) {
+    ctx.putImageData(img, 0, 0);
+    transparent = cut = true;
+  }
+  if (transparent) {
+    const box = opaqueBox(img);
+    if (box) {
+      const pad = Math.round(Math.max(box.w, box.h) * 0.04);
+      const out = document.createElement("canvas");
+      out.width = box.w + pad * 2;
+      out.height = box.h + pad * 2;
+      out.getContext("2d").drawImage(canvas, box.x, box.y, box.w, box.h, pad, pad, box.w, box.h);
+      canvas = out;
+    }
+  }
+  const blob = await new Promise((resolve, reject) =>
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("image"))),
+      transparent ? "image/png" : "image/jpeg",
+      transparent ? undefined : 0.88,
+    ),
+  );
+  return { blob, cut };
+}
+
+function hasTransparency(img) {
+  const d = img.data;
+  for (let i = 3; i < d.length; i += 4 * 7) if (d[i] < 250) return true;
+  return false;
+}
+
+/* Cut away a background of one colour that touches the edges (flood fill from the border). */
+function removePlainBackground(img) {
+  const { width: w, height: h, data: d } = img;
+  const border = [];
+  for (let x = 0; x < w; x++) border.push(x, (h - 1) * w + x);
+  for (let y = 1; y < h - 1; y++) border.push(y * w, y * w + w - 1);
+  let r = 0, g = 0, b = 0;
+  for (const p of border) { r += d[p * 4]; g += d[p * 4 + 1]; b += d[p * 4 + 2]; }
+  r /= border.length; g /= border.length; b /= border.length;
+  const dist = (p) => {
+    const dr = d[p * 4] - r, dg = d[p * 4 + 1] - g, db = d[p * 4 + 2] - b;
+    return Math.sqrt(dr * dr + dg * dg + db * db);
+  };
+  // Only a plain background: nearly the whole border is that one colour.
+  if (border.filter((p) => dist(p) < 30).length < border.length * 0.85) return false;
+  // Tighter on a dark background, so black tyres and shadows are kept.
+  const light = 0.299 * r + 0.587 * g + 0.114 * b;
+  const tol = light < 50 ? 20 : light > 205 ? 26 : 32;
+  const removed = new Uint8Array(w * h);
+  const queue = new Int32Array(w * h);
+  let head = 0, tail = 0;
+  for (const p of border) if (!removed[p] && dist(p) <= tol) { removed[p] = 1; queue[tail++] = p; }
+  while (head < tail) {
+    const p = queue[head++];
+    const x = p % w;
+    const next = [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, p - w, p + w];
+    for (const n of next) {
+      if (n < 0 || n >= w * h || removed[n]) continue;
+      if (dist(n) <= tol) { removed[n] = 1; queue[tail++] = n; }
+    }
+  }
+  // Nothing much, or everything, removed: leave the photo as it is.
+  if (tail < w * h * 0.03 || tail > w * h * 0.97) return false;
+  for (let p = 0; p < w * h; p++) {
+    if (removed[p]) { d[p * 4 + 3] = 0; continue; }
+    // Soften the edge next to the background.
+    const x = p % w;
+    const edge = (x > 0 && removed[p - 1]) || (x < w - 1 && removed[p + 1]) || (p >= w && removed[p - w]) || (p < w * h - w && removed[p + w]);
+    if (edge) d[p * 4 + 3] = Math.round(255 * Math.min(1, Math.max(0.25, (dist(p) - tol) / tol)));
+  }
+  return true;
+}
+
+/* The part of the picture that is not transparent. */
+function opaqueBox(img) {
+  const { width: w, height: h, data: d } = img;
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (d[(y * w + x) * 4 + 3] > 16) {
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+  }
+  return x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
 }
 
 /* Each mode's icon in the segmented control. */
@@ -1494,14 +1597,15 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   /* A car's or charger's picture; tapping it picks a new photo, the small cross removes it. */
-  _photoHtml(id, image, fallback, { small = false } = {}) {
+  _photoHtml(id, image, fallback, { small = false, wide = false } = {}) {
     const busy = this._busy === `photo:${id}`;
     const label = this._t(image ? "photo_change" : "photo_add");
-    return `<span class="photo ${small ? "small" : ""} ${image ? "has" : ""} ${busy ? "busy" : ""}">
+    return `<span class="photo ${small ? "small" : ""} ${wide ? "wide" : ""} ${image ? "has" : ""} ${busy ? "busy" : ""}">
       <button class="photo-pick" data-act="photo" data-id="${esc(id)}" data-f="photo-${esc(id)}" aria-label="${label}" title="${label}" ${busy ? "disabled" : ""}>
         ${image ? `<img src="${esc(image)}" alt="" loading="lazy">` : fallback}<i class="cam">${ICONS.camera}</i>
       </button>
       ${image ? `<button class="photo-del" data-act="photo-del" data-id="${esc(id)}" aria-label="${this._t("photo_remove")}" title="${this._t("photo_remove")}">${ICONS.close}</button>` : ""}
+      ${image && !small ? `<button class="photo-cut" data-act="photo-cut" data-id="${esc(id)}" data-image="${esc(image)}" aria-label="${this._t("photo_cut")}" title="${this._t("photo_cut")}" ${busy ? "disabled" : ""}>${ICONS.wand}</button>` : ""}
     </span>`;
   }
 
@@ -1521,15 +1625,44 @@ class EvPlannerPanel extends HTMLElement {
     this._message = { kind: "ok", text: this._t("photo_uploading") };
     this._refreshPhotos();
     try {
-      const blob = await shrinkImage(file);
-      const form = new FormData();
-      form.append("file", blob, blob === file ? file.name : "ev-planner.jpg");
-      const response = await this._hass.fetchWithAuth("/api/image/upload", { method: "POST", body: form });
-      if (!response.ok) throw new Error((await response.text()) || String(response.status));
-      const item = await response.json();
-      const result = await this._ws("ev_planner/set_image", { target_id: id, image_id: item.id });
+      const { blob, cut } = await preparePhoto(file);
+      const result = await this._savePhoto(id, blob, blob === file ? file.name : null);
       this._dropImage(result?.replaced);
-      this._toast(this._t("photo_saved"));
+      this._toast(this._t(cut ? "photo_saved_cut" : "photo_saved"));
+    } catch (err) {
+      this._message = { kind: "error", text: this._t("photo_failed", { detail: err?.message || String(err) }) };
+      this._renderToast();
+    } finally {
+      this._busy = null;
+      this._refreshPhotos();
+    }
+  }
+
+  async _savePhoto(id, blob, name) {
+    const form = new FormData();
+    form.append("file", blob, name || (blob.type === "image/png" ? "ev-planner.png" : "ev-planner.jpg"));
+    const response = await this._hass.fetchWithAuth("/api/image/upload", { method: "POST", body: form });
+    if (!response.ok) throw new Error((await response.text()) || String(response.status));
+    const item = await response.json();
+    return this._ws("ev_planner/set_image", { target_id: id, image_id: item.id });
+  }
+
+  /* Cut the background out of a photo that is already there. The original is kept in Home Assistant. */
+  async _cutPhoto(id, image) {
+    if (!image) return;
+    this._busy = `photo:${id}`;
+    this._message = { kind: "ok", text: this._t("photo_cutting") };
+    this._refreshPhotos();
+    try {
+      const response = await this._hass.fetchWithAuth(image.replace(/\/\d+x\d+$/, "/original"));
+      if (!response.ok) throw new Error(String(response.status));
+      const { blob, cut } = await preparePhoto(await response.blob());
+      if (!cut) {
+        this._toast(this._t("photo_no_background"));
+        return;
+      }
+      await this._savePhoto(id, blob, null);
+      this._toast(this._t("photo_saved_cut"));
     } catch (err) {
       this._message = { kind: "error", text: this._t("photo_failed", { detail: err?.message || String(err) }) };
       this._renderToast();
@@ -2189,7 +2322,7 @@ class EvPlannerPanel extends HTMLElement {
       root.querySelector(".car-head"),
       JSON.stringify([v.name, v.status, sub, tone, lang, v.image, this._busy === `photo:${v.id}`]),
       `<button class="icon back" data-act="back" data-f="back" aria-label="${this._t("back_label")}">${ICONS.back}</button>
-       ${this._photoHtml(v.id, v.image, ICONS.car)}
+       ${this._photoHtml(v.id, v.image, ICONS.car, { wide: true })}
        <div class="car-title"><h1>${esc(v.name)}</h1><span>${esc(sub)}</span></div>
        <span class="pill ${tone}">${esc(this._statusText(v))}</span>`,
     );
@@ -3172,6 +3305,9 @@ class EvPlannerPanel extends HTMLElement {
       case "photo-del":
         this._removePhoto(id);
         break;
+      case "photo-cut":
+        this._cutPhoto(id, button.dataset.image);
+        break;
       case "g-power":
         this._gchange({ charger_power: Number(button.dataset.kw) });
         break;
@@ -3309,6 +3445,8 @@ const STYLE = `
   --evp-card: var(--card-background-color, #fff);
   --evp-bg: var(--primary-background-color, #fafafa);
   --evp-line: var(--divider-color, rgba(0,0,0,.12));
+  /* A soft "studio floor" behind photos, in light and dark themes. */
+  --evp-photo-bg: radial-gradient(120% 90% at 50% 100%, color-mix(in srgb, var(--evp-ink) 11%, transparent), color-mix(in srgb, var(--evp-ink) 3%, transparent) 72%);
   --evp-accent: var(--primary-color, #009ac7);
   --evp-radius: var(--ha-card-border-radius, 16px);
   --evp-good: #0E9F6E;
@@ -3434,11 +3572,17 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .vcard-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .vcard-title > svg { width: 26px; height: 26px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; color: var(--evp-soft); }
 .vcard-title div { display: grid; min-width: 0; }
-.vcard-title .avatar { width: 44px; height: 44px; flex: none; border-radius: 12px; object-fit: cover; background: var(--evp-line); }
+.vcard-title .avatar { width: 68px; height: 46px; flex: none; border-radius: 12px; object-fit: contain; padding: 2px; box-sizing: border-box; background: var(--evp-photo-bg); filter: drop-shadow(0 2px 3px rgba(0,0,0,.18)); }
 .photo { position: relative; flex: none; display: inline-grid; }
 .photo-pick { position: relative; width: 52px; height: 52px; padding: 0; border: 1px solid var(--evp-line); border-radius: 14px; background: color-mix(in srgb, var(--evp-ink) 4%, transparent); color: var(--evp-soft); cursor: pointer; overflow: hidden; display: grid; place-items: center; }
 .photo.small .photo-pick { width: 44px; height: 44px; border-radius: 12px; }
-.photo-pick img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-pick img { width: 100%; height: 100%; object-fit: contain; padding: 3px; box-sizing: border-box; display: block; filter: drop-shadow(0 2px 3px rgba(0,0,0,.18)); }
+.photo.has .photo-pick { background: var(--evp-photo-bg); }
+.photo.wide .photo-pick { width: 84px; height: 56px; }
+.photo-cut { position: absolute; bottom: -6px; right: -6px; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid var(--evp-line); background: var(--evp-card, var(--card-background-color, #fff)); color: var(--evp-a); cursor: pointer; display: grid; place-items: center; opacity: 0; transition: opacity .15s; }
+.photo-cut svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.photo:hover .photo-cut, .photo:focus-within .photo-cut { opacity: 1; }
+@media (hover: none) { .photo-cut { opacity: 1; } }
 .photo-pick > svg { width: 60%; height: 60%; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .photo-pick > svg.art { width: 80%; height: 80%; stroke-width: 2.6; }
 .photo-pick > svg.art .glass { fill: color-mix(in srgb, var(--evp-a) 18%, transparent); }

@@ -2,6 +2,15 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
 
+## [0.7.2] - 2026-10-20
+
+### Fixed
+- A photo with a transparent background came out black: photos were always saved as JPEG. Transparency is now kept (PNG).
+
+### Added
+- **Photos look good on any card:** a plain background (black, white or any one colour) is removed when a photo is added, the car or charger is trimmed to fill the frame, and photos sit on a soft "studio" background in light and dark themes. A wand on the car's photo removes the background of a photo that is already there (the original is kept in Home Assistant).
+- Car photos are shown wide, like cars.
+
 ## [0.7.1] - 2026-10-19
 
 ### Added
