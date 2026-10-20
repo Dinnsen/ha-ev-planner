@@ -178,10 +178,12 @@ const TEXT = {
     photo_change: "Skift billede",
     photo_remove: "Fjern billede",
     photo_saved: "Billedet er gemt",
-    photo_saved_cut: "Billedet er gemt, og baggrunden er fjernet",
+    photo_saved_cut: "Baggrunden er fjernet – pilen på billedet fortryder",
     photo_cut: "Fjern baggrunden",
     photo_cutting: "Fjerner baggrunden …",
     photo_no_background: "Billedet har ikke en ensfarvet baggrund, der kan fjernes",
+    photo_undo: "Fortryd: brug billedet med baggrund",
+    photo_restored: "Billedet med baggrund er tilbage",
     photo_removed: "Billedet er fjernet",
     photo_uploading: "Gemmer billedet …",
     photo_failed: "Billedet kunne ikke gemmes: {detail}",
@@ -480,10 +482,12 @@ const TEXT = {
     photo_change: "Change photo",
     photo_remove: "Remove photo",
     photo_saved: "The photo is saved",
-    photo_saved_cut: "The photo is saved, without its background",
+    photo_saved_cut: "The background is removed – the arrow on the photo undoes it",
     photo_cut: "Remove the background",
     photo_cutting: "Removing the background …",
     photo_no_background: "The photo has no plain background to remove",
+    photo_undo: "Undo: use the photo with its background",
+    photo_restored: "The photo with its background is back",
     photo_removed: "The photo is removed",
     photo_uploading: "Saving the photo …",
     photo_failed: "The photo could not be saved: {detail}",
@@ -668,6 +672,7 @@ const ICONS = {
   off: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v8"/><path d="M7 6.5a7 7 0 1 0 10 0"/></svg>',
   warn: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.2v.1"/></svg>',
   info: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.1"/></svg>',
+  undo: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>',
   wand: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 11-11M14 5l1-2 1 2 2 1-2 1-1 2-1-2-2-1zM19 11l.6-1.2L21 9.2l-1.4-.6L19 7.4l-.6 1.2-1.4.6 1.4.6zM8 4l.5-1 .5 1 1 .5-1 .5L8.5 6 8 5l-1-.5z"/></svg>',
   camera: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.3l1.4-2h5.6l1.4 2h2.3A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="12.8" r="3.3"/></svg>',
 };
@@ -686,51 +691,57 @@ function chargerArt(style) {
   return `<svg class="art" viewBox="0 0 64 64" aria-hidden="true">${CHARGER_ART[style] || CHARGER_ART.box}</svg>`;
 }
 
-/* Make a photo look good on any card, light or dark: at most 1280 px, a plain
-   background (black, white or any one colour) is cut away, the subject is
-   trimmed to fill the frame, and transparency is kept (PNG). A normal photo
-   stays a JPEG. Returns { blob, cut } where cut tells that a background went. */
+/* Make a photo fit for a card: at most 1280 px, and a normal photo stays a JPEG.
+   With cutout, a plain background (black, white or any one colour) is also cut
+   away and the subject trimmed to fill the frame (PNG, see-through). Returns
+   { blob, cut }: the photo, and the cut-out or null when there was no plain
+   background to remove. The photo itself is never changed, so a cut can be undone. */
 async function preparePhoto(source, { cutout = true, max = 1280 } = {}) {
   let bitmap;
   try {
     bitmap = await createImageBitmap(source, { imageOrientation: "from-image" });
   } catch (err) {
-    if (["image/jpeg", "image/png", "image/gif"].includes(source.type)) return { blob: source, cut: false };
+    if (["image/jpeg", "image/png", "image/gif"].includes(source.type)) return { blob: source, cut: null };
     throw err;
   }
   const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
-  let canvas = document.createElement("canvas");
+  const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(bitmap.width * scale));
   canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-  let ctx = canvas.getContext("2d", { willReadFrequently: true });
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
   ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close?.();
   const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  let transparent = hasTransparency(img);
-  let cut = false;
-  if (cutout && !transparent && removePlainBackground(img)) {
-    ctx.putImageData(img, 0, 0);
-    transparent = cut = true;
-  }
-  if (transparent) {
-    const box = opaqueBox(img);
-    if (box) {
-      const pad = Math.round(Math.max(box.w, box.h) * 0.04);
-      const out = document.createElement("canvas");
-      out.width = box.w + pad * 2;
-      out.height = box.h + pad * 2;
-      out.getContext("2d").drawImage(canvas, box.x, box.y, box.w, box.h, pad, pad, box.w, box.h);
-      canvas = out;
-    }
-  }
-  const blob = await new Promise((resolve, reject) =>
+  const transparent = hasTransparency(img);
+  const blob = await canvasBlob(canvas, transparent);
+  if (!cutout || transparent || !removePlainBackground(img)) return { blob, cut: null };
+  const cutCanvas = document.createElement("canvas");
+  cutCanvas.width = canvas.width;
+  cutCanvas.height = canvas.height;
+  cutCanvas.getContext("2d").putImageData(img, 0, 0);
+  return { blob, cut: await canvasBlob(trimmed(cutCanvas, img), true) };
+}
+
+function canvasBlob(canvas, transparent) {
+  return new Promise((resolve, reject) =>
     canvas.toBlob(
       (b) => (b ? resolve(b) : reject(new Error("image"))),
       transparent ? "image/png" : "image/jpeg",
-      transparent ? undefined : 0.88,
+      transparent ? undefined : 0.9,
     ),
   );
-  return { blob, cut };
+}
+
+/* Trim the see-through edges away, keeping a little air around the subject. */
+function trimmed(canvas, img) {
+  const box = opaqueBox(img);
+  if (!box) return canvas;
+  const pad = Math.round(Math.max(box.w, box.h) * 0.04);
+  const out = document.createElement("canvas");
+  out.width = box.w + pad * 2;
+  out.height = box.h + pad * 2;
+  out.getContext("2d").drawImage(canvas, box.x, box.y, box.w, box.h, pad, pad, box.w, box.h);
+  return out;
 }
 
 function hasTransparency(img) {
@@ -739,45 +750,166 @@ function hasTransparency(img) {
   return false;
 }
 
-/* Cut away a background of one colour that touches the edges (flood fill from the border). */
+/* Cut away a plain background (black, white or any one colour) that touches the
+   edges. Works on ImageData in place and returns true when it removed one.
+   - the background colour is the median of the border, and most of the border must be it;
+   - a flood fill from the border takes what is clearly background (on a lightly
+     blurred copy, so JPEG noise and dithering do not leave specks);
+   - a narrow band along the cut gets a soft edge, and the colour of the
+     background is taken out of those pixels, so there is no dark or light rim;
+   - loose specks that are left are dropped. */
 function removePlainBackground(img) {
   const { width: w, height: h, data: d } = img;
+  const n = w * h;
+  if (w < 16 || h < 16) return false;
   const border = [];
   for (let x = 0; x < w; x++) border.push(x, (h - 1) * w + x);
   for (let y = 1; y < h - 1; y++) border.push(y * w, y * w + w - 1);
-  let r = 0, g = 0, b = 0;
-  for (const p of border) { r += d[p * 4]; g += d[p * 4 + 1]; b += d[p * 4 + 2]; }
-  r /= border.length; g /= border.length; b /= border.length;
-  const dist = (p) => {
-    const dr = d[p * 4] - r, dg = d[p * 4 + 1] - g, db = d[p * 4 + 2] - b;
-    return Math.sqrt(dr * dr + dg * dg + db * db);
+  const median = (c) => {
+    const values = border.map((p) => d[p * 4 + c]).sort((a, b) => a - b);
+    return values[values.length >> 1];
   };
-  // Only a plain background: nearly the whole border is that one colour.
-  if (border.filter((p) => dist(p) < 30).length < border.length * 0.85) return false;
-  // Tighter on a dark background, so black tyres and shadows are kept.
-  const light = 0.299 * r + 0.587 * g + 0.114 * b;
-  const tol = light < 50 ? 20 : light > 205 ? 26 : 32;
-  const removed = new Uint8Array(w * h);
-  const queue = new Int32Array(w * h);
-  let head = 0, tail = 0;
-  for (const p of border) if (!removed[p] && dist(p) <= tol) { removed[p] = 1; queue[tail++] = p; }
-  while (head < tail) {
-    const p = queue[head++];
-    const x = p % w;
-    const next = [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, p - w, p + w];
-    for (const n of next) {
-      if (n < 0 || n >= w * h || removed[n]) continue;
-      if (dist(n) <= tol) { removed[n] = 1; queue[tail++] = n; }
+  const bg = [median(0), median(1), median(2)];
+  // A lightly blurred copy, so noise does not decide where the edge goes.
+  const dist = new Float32Array(n);
+  const B = Math.min(w, h) > 400 ? 2 : 1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let r = 0, g = 0, b = 0, k = 0;
+      for (let yy = Math.max(0, y - B); yy <= Math.min(h - 1, y + B); yy++) {
+        for (let xx = Math.max(0, x - B); xx <= Math.min(w - 1, x + B); xx++) {
+          const q = (yy * w + xx) * 4;
+          r += d[q]; g += d[q + 1]; b += d[q + 2]; k++;
+        }
+      }
+      const dr = r / k - bg[0], dg = g / k - bg[1], db = b / k - bg[2];
+      dist[y * w + x] = Math.sqrt(dr * dr + dg * dg + db * db);
     }
   }
-  // Nothing much, or everything, removed: leave the photo as it is.
-  if (tail < w * h * 0.03 || tail > w * h * 0.97) return false;
-  for (let p = 0; p < w * h; p++) {
-    if (removed[p]) { d[p * 4 + 3] = 0; continue; }
-    // Soften the edge next to the background.
+  // Only a plain background: nearly the whole border is that one colour.
+  let plain = 0;
+  for (const p of border) if (dist[p] < 24) plain++;
+  if (plain < border.length * 0.85) return false;
+  const light = 0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2];
+  // What is surely background, and from where on it is surely the subject.
+  const low = light < 60 ? 12 : light > 200 ? 16 : 20;
+  const high = low * 3.5;
+  const removed = new Uint8Array(n);
+  const queue = new Int32Array(n);
+  let head = 0, tail = 0;
+  for (const p of border) if (!removed[p] && dist[p] <= low) { removed[p] = 1; queue[tail++] = p; }
+  const each = (p, fn) => {
     const x = p % w;
-    const edge = (x > 0 && removed[p - 1]) || (x < w - 1 && removed[p + 1]) || (p >= w && removed[p - w]) || (p < w * h - w && removed[p + w]);
-    if (edge) d[p * 4 + 3] = Math.round(255 * Math.min(1, Math.max(0.25, (dist(p) - tol) / tol)));
+    if (x > 0) fn(p - 1);
+    if (x < w - 1) fn(p + 1);
+    if (p >= w) fn(p - w);
+    if (p < n - w) fn(p + w);
+  };
+  while (head < tail) {
+    const p = queue[head++];
+    each(p, (q) => {
+      if (!removed[q] && dist[q] <= low) { removed[q] = 1; queue[tail++] = q; }
+    });
+  }
+  // Nothing much, or everything, removed: leave the photo as it is.
+  if (tail < n * 0.03 || tail > n * 0.97) return false;
+
+  // Smooth the outline: a pixel follows what most of its neighbourhood is.
+  const R = Math.max(2, Math.round(Math.min(w, h) / 200));
+  const side = 2 * R + 1;
+  for (let pass = 0; pass < 2; pass++) {
+    const sum = new Int32Array((w + 1) * (h + 1));
+    for (let y = 0; y < h; y++) {
+      let row = 0;
+      for (let x = 0; x < w; x++) {
+        row += removed[y * w + x];
+        sum[(y + 1) * (w + 1) + x + 1] = sum[y * (w + 1) + x + 1] + row;
+      }
+    }
+    const next = removed.slice();
+    for (let y = 0; y < h; y++) {
+      const y0 = Math.max(0, y - R), y1 = Math.min(h, y + R + 1);
+      for (let x = 0; x < w; x++) {
+        const x0 = Math.max(0, x - R), x1 = Math.min(w, x + R + 1);
+        const count = sum[y1 * (w + 1) + x1] - sum[y0 * (w + 1) + x1] - sum[y1 * (w + 1) + x0] + sum[y0 * (w + 1) + x0];
+        const area = (y1 - y0) * (x1 - x0);
+        if (count === 0 || count === area) continue;
+        const p = y * w + x;
+        // Only where it looks like the background can a pixel become background.
+        if (count * 2 > area && dist[p] < low * 3.5) next[p] = 1;
+        else if (count * 2 < area) next[p] = 0;
+      }
+    }
+    removed.set(next);
+  }
+
+  // Drop specks: keep the subject (the largest piece) and any piece of a fair size.
+  const piece = new Int32Array(n).fill(-1);
+  const sizes = [];
+  for (let p = 0; p < n; p++) {
+    if (removed[p] || piece[p] >= 0) continue;
+    const id = sizes.length;
+    head = tail = 0;
+    queue[tail++] = p;
+    piece[p] = id;
+    while (head < tail) {
+      each(queue[head++], (q) => {
+        if (!removed[q] && piece[q] < 0) { piece[q] = id; queue[tail++] = q; }
+      });
+    }
+    sizes.push(tail);
+  }
+  const largest = Math.max(...sizes);
+  const keep = sizes.map((size) => size >= largest * 0.02 && size >= n * 0.0005);
+  for (let p = 0; p < n; p++) if (!removed[p] && !keep[piece[p]]) removed[p] = 1;
+
+  // How far each kept pixel is from the background (up to the width of the soft edge).
+  const BAND = 3;
+  const far = new Uint8Array(n).fill(255);
+  head = tail = 0;
+  for (let p = 0; p < n; p++) {
+    if (removed[p]) continue;
+    let edge = false;
+    each(p, (q) => { if (removed[q]) edge = true; });
+    if (edge) { far[p] = 1; queue[tail++] = p; }
+  }
+  while (head < tail) {
+    const p = queue[head++];
+    if (far[p] >= BAND) continue;
+    each(p, (q) => {
+      if (!removed[q] && far[q] === 255) { far[q] = far[p] + 1; queue[tail++] = q; }
+    });
+  }
+  const alpha = new Float32Array(n);
+  for (let p = 0; p < n; p++) {
+    if (removed[p]) continue;
+    if (far[p] > BAND) { alpha[p] = 1; continue; }
+    // Close to the background: as see-through as the pixel looks like background.
+    const t = Math.min(1, Math.max(0, (dist[p] - low) / (high - low)));
+    alpha[p] = Math.max(t * t * (3 - 2 * t), (far[p] - 1) / BAND);
+  }
+  // A light blur of the edge, so it is not jagged.
+  const soft = new Float32Array(n);
+  for (let p = 0; p < n; p++) {
+    if (far[p] > BAND + 1 && !removed[p]) { soft[p] = 1; continue; }
+    const x = p % w;
+    let sum = alpha[p] * 4, k = 4;
+    each(p, (q) => { sum += alpha[q]; k++; });
+    if (x > 0 && p >= w) { sum += alpha[p - w - 1] * 0.5; k += 0.5; }
+    if (x < w - 1 && p >= w) { sum += alpha[p - w + 1] * 0.5; k += 0.5; }
+    if (x > 0 && p < n - w) { sum += alpha[p + w - 1] * 0.5; k += 0.5; }
+    if (x < w - 1 && p < n - w) { sum += alpha[p + w + 1] * 0.5; k += 0.5; }
+    soft[p] = Math.min(alpha[p] > 0 ? 1 : 0.5, sum / k);
+  }
+  for (let p = 0; p < n; p++) {
+    const a = soft[p];
+    const i = p * 4;
+    if (a < 0.02) { d[i + 3] = 0; continue; }
+    if (a < 0.999) {
+      // Take the background's colour out of a see-through pixel, so no rim is left.
+      for (let c = 0; c < 3; c++) d[i + c] = Math.round(Math.min(255, Math.max(0, (d[i + c] - (1 - a) * bg[c]) / a)));
+    }
+    d[i + 3] = Math.round(a * 255);
   }
   return true;
 }
@@ -1596,17 +1728,25 @@ class EvPlannerPanel extends HTMLElement {
     </section>`;
   }
 
-  /* A car's or charger's picture; tapping it picks a new photo, the small cross removes it. */
-  _photoHtml(id, image, fallback, { small = false, wide = false } = {}) {
+  /* A car's or charger's picture; tapping it picks a new photo, the small cross removes it,
+     the wand cuts a plain background away and the arrow undoes that. */
+  _photoHtml(id, image, fallback, { small = false, wide = false, original = null } = {}) {
     const busy = this._busy === `photo:${id}`;
     const label = this._t(image ? "photo_change" : "photo_add");
+    const button = (act, icon, text) =>
+      `<button class="photo-${act}" data-act="photo-${act}" data-id="${esc(id)}" aria-label="${text}" title="${text}" ${busy ? "disabled" : ""}>${icon}</button>`;
     return `<span class="photo ${small ? "small" : ""} ${wide ? "wide" : ""} ${image ? "has" : ""} ${busy ? "busy" : ""}">
       <button class="photo-pick" data-act="photo" data-id="${esc(id)}" data-f="photo-${esc(id)}" aria-label="${label}" title="${label}" ${busy ? "disabled" : ""}>
         ${image ? `<img src="${esc(image)}" alt="" loading="lazy">` : fallback}<i class="cam">${ICONS.camera}</i>
       </button>
-      ${image ? `<button class="photo-del" data-act="photo-del" data-id="${esc(id)}" aria-label="${this._t("photo_remove")}" title="${this._t("photo_remove")}">${ICONS.close}</button>` : ""}
-      ${image && !small ? `<button class="photo-cut" data-act="photo-cut" data-id="${esc(id)}" data-image="${esc(image)}" aria-label="${this._t("photo_cut")}" title="${this._t("photo_cut")}" ${busy ? "disabled" : ""}>${ICONS.wand}</button>` : ""}
+      ${image ? button("del", ICONS.close, this._t("photo_remove")) : ""}
+      ${image && !small && !original ? button("cut", ICONS.wand, this._t("photo_cut")) : ""}
+      ${original ? button("undo", ICONS.undo, this._t("photo_undo")) : ""}
     </span>`;
+  }
+
+  _photoOf(id) {
+    return [...this._cars, ...this._chargers].find((item) => item.id === id) || {};
   }
 
   _pickPhoto(id) {
@@ -1620,15 +1760,47 @@ class EvPlannerPanel extends HTMLElement {
     input.click();
   }
 
+  /* A new photo is saved as it is; when it has a plain background, a cut-out of
+     it is shown instead, and the arrow on the photo brings the photo back. */
   async _uploadPhoto(id, file) {
+    await this._photoWork(id, "photo_uploading", async () => {
+      const { blob, cut } = await preparePhoto(file);
+      await this._savePhoto(id, blob, false);
+      if (cut) await this._savePhoto(id, cut, true);
+      return cut ? "photo_saved_cut" : "photo_saved";
+    });
+  }
+
+  /* Cut the background out of the photo. It is always made from the photo as it
+     was uploaded, which is kept, so the cut can be undone. */
+  async _cutPhoto(id) {
+    const { image, image_original: original } = this._photoOf(id);
+    const source = original || image;
+    if (!source) return;
+    await this._photoWork(id, "photo_cutting", async () => {
+      const response = await this._hass.fetchWithAuth(source.replace(/\/\d+x\d+$/, "/original"));
+      if (!response.ok) throw new Error(String(response.status));
+      const { cut } = await preparePhoto(await response.blob());
+      if (!cut) return "photo_no_background";
+      await this._savePhoto(id, cut, true);
+      return "photo_saved_cut";
+    });
+  }
+
+  async _undoPhoto(id) {
+    await this._photoWork(id, null, async () => {
+      const result = await this._ws("ev_planner/restore_image", { target_id: id });
+      this._dropImages(result?.unused);
+      return "photo_restored";
+    });
+  }
+
+  async _photoWork(id, busyText, work) {
     this._busy = `photo:${id}`;
-    this._message = { kind: "ok", text: this._t("photo_uploading") };
+    if (busyText) this._message = { kind: "ok", text: this._t(busyText) };
     this._refreshPhotos();
     try {
-      const { blob, cut } = await preparePhoto(file);
-      const result = await this._savePhoto(id, blob, blob === file ? file.name : null);
-      this._dropImage(result?.replaced);
-      this._toast(this._t(cut ? "photo_saved_cut" : "photo_saved"));
+      this._toast(this._t(await work()));
     } catch (err) {
       this._message = { kind: "error", text: this._t("photo_failed", { detail: err?.message || String(err) }) };
       this._renderToast();
@@ -1638,38 +1810,15 @@ class EvPlannerPanel extends HTMLElement {
     }
   }
 
-  async _savePhoto(id, blob, name) {
+  async _savePhoto(id, blob, cutout) {
     const form = new FormData();
-    form.append("file", blob, name || (blob.type === "image/png" ? "ev-planner.png" : "ev-planner.jpg"));
+    form.append("file", blob, blob.type === "image/png" ? "ev-planner.png" : "ev-planner.jpg");
     const response = await this._hass.fetchWithAuth("/api/image/upload", { method: "POST", body: form });
     if (!response.ok) throw new Error((await response.text()) || String(response.status));
     const item = await response.json();
-    return this._ws("ev_planner/set_image", { target_id: id, image_id: item.id });
-  }
-
-  /* Cut the background out of a photo that is already there. The original is kept in Home Assistant. */
-  async _cutPhoto(id, image) {
-    if (!image) return;
-    this._busy = `photo:${id}`;
-    this._message = { kind: "ok", text: this._t("photo_cutting") };
-    this._refreshPhotos();
-    try {
-      const response = await this._hass.fetchWithAuth(image.replace(/\/\d+x\d+$/, "/original"));
-      if (!response.ok) throw new Error(String(response.status));
-      const { blob, cut } = await preparePhoto(await response.blob());
-      if (!cut) {
-        this._toast(this._t("photo_no_background"));
-        return;
-      }
-      await this._savePhoto(id, blob, null);
-      this._toast(this._t("photo_saved_cut"));
-    } catch (err) {
-      this._message = { kind: "error", text: this._t("photo_failed", { detail: err?.message || String(err) }) };
-      this._renderToast();
-    } finally {
-      this._busy = null;
-      this._refreshPhotos();
-    }
+    const result = await this._ws("ev_planner/set_image", { target_id: id, image_id: item.id, cutout });
+    this._dropImages(result?.unused);
+    return result;
   }
 
   _refreshPhotos() {
@@ -1680,16 +1829,16 @@ class EvPlannerPanel extends HTMLElement {
   async _removePhoto(id) {
     try {
       const result = await this._ws("ev_planner/set_image", { target_id: id, image_id: null });
-      this._dropImage(result?.replaced);
+      this._dropImages(result?.unused);
       this._toast(this._t("photo_removed"));
     } catch (err) {
       this._showError(err);
     }
   }
 
-  /* A photo nothing shows any more is deleted from Home Assistant. */
-  _dropImage(imageId) {
-    if (imageId) this._hass.callWS({ type: "image/delete", image_id: imageId }).catch(() => {});
+  /* Photos nothing shows any more are deleted from Home Assistant. */
+  _dropImages(imageIds) {
+    for (const imageId of imageIds || []) this._hass.callWS({ type: "image/delete", image_id: imageId }).catch(() => {});
   }
 
   _chargersHtml() {
@@ -1705,7 +1854,7 @@ class EvPlannerPanel extends HTMLElement {
           const plugged = c.connected === true ? this._t("car_plugged") : c.connected === false ? this._t("car_unplugged") : "";
           const model = c.model?.startsWith("generic_") ? this._t(`model_${c.model}`) : c.model_title;
           const details = [model, isNum(c.power) ? `${this._num(c.power)} kW` : "", plugged].filter(Boolean).join(" · ");
-          return `<li class="ctl-${esc(c.control || "released")}">${this._photoHtml(c.id, c.image, chargerArt(c.style), { small: true })}
+          return `<li class="ctl-${esc(c.control || "released")}">${this._photoHtml(c.id, c.image, chargerArt(c.style), { small: true, original: c.image_original })}
             <div><strong><i aria-hidden="true"></i>${esc(c.name)}</strong><span>${esc(details)}</span></div>
             <b>${esc(text)}</b></li>`;
         })
@@ -2322,7 +2471,7 @@ class EvPlannerPanel extends HTMLElement {
       root.querySelector(".car-head"),
       JSON.stringify([v.name, v.status, sub, tone, lang, v.image, this._busy === `photo:${v.id}`]),
       `<button class="icon back" data-act="back" data-f="back" aria-label="${this._t("back_label")}">${ICONS.back}</button>
-       ${this._photoHtml(v.id, v.image, ICONS.car, { wide: true })}
+       ${this._photoHtml(v.id, v.image, ICONS.car, { wide: true, original: v.image_original })}
        <div class="car-title"><h1>${esc(v.name)}</h1><span>${esc(sub)}</span></div>
        <span class="pill ${tone}">${esc(this._statusText(v))}</span>`,
     );
@@ -3306,7 +3455,10 @@ class EvPlannerPanel extends HTMLElement {
         this._removePhoto(id);
         break;
       case "photo-cut":
-        this._cutPhoto(id, button.dataset.image);
+        this._cutPhoto(id);
+        break;
+      case "photo-undo":
+        this._undoPhoto(id);
         break;
       case "g-power":
         this._gchange({ charger_power: Number(button.dataset.kw) });
@@ -3582,7 +3734,10 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .photo-cut { position: absolute; bottom: -6px; right: -6px; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid var(--evp-line); background: var(--evp-card, var(--card-background-color, #fff)); color: var(--evp-a); cursor: pointer; display: grid; place-items: center; opacity: 0; transition: opacity .15s; }
 .photo-cut svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .photo:hover .photo-cut, .photo:focus-within .photo-cut { opacity: 1; }
-@media (hover: none) { .photo-cut { opacity: 1; } }
+.photo-undo { position: absolute; bottom: -6px; left: -6px; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid var(--evp-line); background: var(--evp-card, var(--card-background-color, #fff)); color: var(--evp-a); cursor: pointer; display: grid; place-items: center; opacity: 0; transition: opacity .15s; }
+.photo-undo svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.photo:hover .photo-undo, .photo:focus-within .photo-undo { opacity: 1; }
+@media (hover: none) { .photo-cut, .photo-undo { opacity: 1; } }
 .photo-pick > svg { width: 60%; height: 60%; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .photo-pick > svg.art { width: 80%; height: 80%; stroke-width: 2.6; }
 .photo-pick > svg.art .glass { fill: color-mix(in srgb, var(--evp-a) 18%, transparent); }

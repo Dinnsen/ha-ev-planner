@@ -735,6 +735,9 @@
     "invalid_mode": {
       "message": "Ukendt tilstand."
     },
+    "no_original_image": {
+      "message": "Der er ikke et billede fra før baggrunden blev fjernet."
+    },
     "target_not_set": {
       "message": "Kunne ikke sætte bilens ladegrænse {entity_id}: {error}"
     }

@@ -735,6 +735,9 @@
     "invalid_mode": {
       "message": "Unknown mode."
     },
+    "no_original_image": {
+      "message": "There is no photo from before the background was removed."
+    },
     "target_not_set": {
       "message": "Could not set the car's charge limit {entity_id}: {error}"
     }

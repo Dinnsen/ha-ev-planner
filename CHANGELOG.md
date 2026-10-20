@@ -2,6 +2,15 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
 
+## [0.7.3] - 2026-10-20
+
+### Fixed
+- **The wand no longer spoils photos.** Cutting a background left a dark (or light) rim around the car and frayed, speckled tyres and shadows. The cut now follows a smoothed outline, softens the edge and takes the background's colour out of it, and drops loose specks.
+
+### Added
+- **Undo for a cut-out.** The photo as uploaded is always kept: an arrow on the photo brings it back, and the wand always works from it, never from an earlier cut-out. A new photo with a plain background is saved as it is, and its cut-out is shown, with the arrow to go back.
+- `ev_planner/restore_image` websocket command, and `image_original` on each car and charger in `ev_planner/state`.
+
 ## [0.7.2] - 2026-10-20
 
 ### Fixed

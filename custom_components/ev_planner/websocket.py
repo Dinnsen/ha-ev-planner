@@ -214,6 +214,7 @@ def vehicle_state(household: Household, vehicle: Vehicle) -> dict[str, Any]:
         "id": vehicle.vehicle_id,
         "name": vehicle.name,
         "image": household.image_url(vehicle.vehicle_id),
+        "image_original": household.original_image_url(vehicle.vehicle_id),
         "status": vehicle.status(),
         "reason": vehicle.decision.reason,
         "control": vehicle.decision.control,
@@ -333,6 +334,7 @@ def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
                 "has_switch": charger.switch_entity is not None,
                 "has_meter": charger.energy_entity is not None,
                 "image": household.image_url(charger.charger_id),
+                "image_original": household.original_image_url(charger.charger_id),
                 **panel_info(charger.config),
             }
         )
@@ -539,14 +541,32 @@ async def ws_settings(hass: HomeAssistant, connection: websocket_api.ActiveConne
         ENTRY: str,
         vol.Required("target_id"): str,
         vol.Required("image_id"): vol.Any(None, vol.Match(r"^[0-9a-f]{32}$")),
+        vol.Optional("cutout", default=False): bool,
     }
 )
 @websocket_api.async_response
 @_errors
 async def ws_set_image(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
-    """Give a car or charger a photo uploaded with image_upload; answers with the photo it replaced."""
-    replaced = _household(hass, msg).set_image(msg["target_id"], msg["image_id"])
-    connection.send_result(msg["id"], {"replaced": replaced})
+    """Give a car or charger a photo uploaded with image_upload; answers with the photos nothing uses any more."""
+    unused = _household(hass, msg).set_image(msg["target_id"], msg["image_id"], msg["cutout"])
+    connection.send_result(msg["id"], {"unused": unused})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/restore_image",
+        ENTRY: str,
+        vol.Required("target_id"): str,
+    }
+)
+@websocket_api.async_response
+@_errors
+async def ws_restore_image(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Undo a cut-out: back to the photo it was made from."""
+    unused = _household(hass, msg).restore_image(msg["target_id"])
+    connection.send_result(msg["id"], {"unused": unused})
 
 
 @callback
@@ -564,6 +584,7 @@ def async_register_websocket(hass: HomeAssistant) -> None:
         ws_guest_charge_now,
         ws_guest_stop,
         ws_set_image,
+        ws_restore_image,
         ws_delete_history,
         ws_settings,
     ):

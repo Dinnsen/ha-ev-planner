@@ -183,6 +183,8 @@ class Household(DataUpdateCoordinator[None]):
         self.settings: dict[str, Any] = dict(SETTINGS_DEFAULTS)
         # Photos of the cars and chargers: {car or charger id: image_upload id}.
         self.images: dict[str, str] = {}
+        # The photo as it was before its background was cut away, so the cut can be undone.
+        self.originals: dict[str, str] = {}
         self.notifier = Notifier(hass, self.notify_services)
         self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY.format(entry_id=entry.entry_id))
         self._unsub: list[CALLBACK_TYPE] = []
@@ -330,8 +332,15 @@ class Household(DataUpdateCoordinator[None]):
             charger.guest_last_sent = last if last in (CONTROL_CHARGE, CONTROL_PAUSE) else None
         self.guest.load(stored.get("guest"))
         self.settings = {**SETTINGS_DEFAULTS, **(stored.get("settings") or {})}
-        images = stored.get("images") or {}
-        self.images = {
+        self.images = self._known_images(stored.get("images"))
+        self.originals = {
+            key: value for key, value in self._known_images(stored.get("image_originals")).items() if key in self.images
+        }
+
+    def _known_images(self, images: Any) -> dict[str, str]:
+        if not isinstance(images, dict):
+            return {}
+        return {
             key: value
             for key, value in images.items()
             if isinstance(value, str) and (key in self.vehicles or key in self.chargers)
@@ -349,6 +358,7 @@ class Household(DataUpdateCoordinator[None]):
             "guest": self.guest.to_store(),
             "settings": self.settings,
             "images": self.images,
+            "image_originals": self.originals,
         }
 
     # ------------------------------------------------------------------
@@ -370,16 +380,46 @@ class Household(DataUpdateCoordinator[None]):
         image_id = self.images.get(target_id)
         return f"/api/image/serve/{image_id}/{size}x{size}" if image_id else None
 
-    def set_image(self, target_id: str, image_id: str | None) -> str | None:
-        """Give a car or charger a photo (None removes it); returns the replaced photo."""
-        if target_id not in self.vehicles and target_id not in self.chargers:
-            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="car_not_found")
+    def original_image_url(self, target_id: str) -> str | None:
+        """The photo before its background was cut away, if it was."""
+        image_id = self.originals.get(target_id)
+        return f"/api/image/serve/{image_id}/original" if image_id else None
+
+    def set_image(self, target_id: str, image_id: str | None, cutout: bool = False) -> list[str]:
+        """Give a car or charger a photo (None removes it).
+
+        A cut-out keeps the photo it was made from, so it can be undone. Returns
+        the photos nothing uses any more, so they can be deleted.
+        """
+        self._check_target(target_id)
         old = self.images.pop(target_id, None)
+        original = self.originals.pop(target_id, None)
         if image_id:
             self.images[target_id] = image_id
+            source = original or old
+            if cutout and source and source != image_id:
+                self.originals[target_id] = source
+        return self._images_changed(old, original)
+
+    def restore_image(self, target_id: str) -> list[str]:
+        """Undo a cut-out: the car or charger gets the photo it was made from back."""
+        self._check_target(target_id)
+        original = self.originals.pop(target_id, None)
+        if original is None:
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="no_original_image")
+        old = self.images.get(target_id)
+        self.images[target_id] = original
+        return self._images_changed(old)
+
+    def _check_target(self, target_id: str) -> None:
+        if target_id not in self.vehicles and target_id not in self.chargers:
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="car_not_found")
+
+    def _images_changed(self, *dropped: str | None) -> list[str]:
         self.async_save()
         self.async_update_listeners()
-        return old if old != image_id else None
+        in_use = {*self.images.values(), *self.originals.values()}
+        return [image_id for image_id in dict.fromkeys(dropped) if image_id and image_id not in in_use]
 
     def meter_kwh(self, entity_id: str) -> float | None:
         return meter_value(self.hass.states.get(entity_id))

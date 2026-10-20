@@ -156,6 +156,53 @@ async def test_guest_commands(
     assert init_integration.runtime_data.settings == {"bill_price": 2.5, "payment_text": "MobilePay"}
 
 
+async def test_cut_out_photos(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    client = await hass_ws_client(hass)
+    photo, cut, recut, other = "a" * 32, "b" * 32, "c" * 32, "d" * 32
+    household = init_integration.runtime_data
+    msg = await _ws(client, 1, type="ev_planner/restore_image", target_id=TESLA)
+    assert not msg["success"]
+    await _ws(client, 2, type="ev_planner/set_image", target_id=TESLA, image_id=photo)
+    # A cut-out keeps the photo it was made from.
+    msg = await _ws(client, 3, type="ev_planner/set_image", target_id=TESLA, image_id=cut, cutout=True)
+    assert msg["result"] == {"unused": []}
+    assert household.images[TESLA] == cut and household.originals[TESLA] == photo
+    state = (await _ws(client, 4, type="ev_planner/state"))["result"]
+    assert state["vehicles"][1]["image_original"] == f"/api/image/serve/{photo}/original"
+    # Cutting again replaces the cut-out, never the photo.
+    msg = await _ws(client, 5, type="ev_planner/set_image", target_id=TESLA, image_id=recut, cutout=True)
+    assert msg["result"] == {"unused": [cut]}
+    assert household.originals[TESLA] == photo
+
+    # Kept across a restart.
+    await hass.config_entries.async_reload(init_integration.entry_id)
+    await hass.async_block_till_done()
+    household = init_integration.runtime_data
+    assert household.images == {TESLA: recut} and household.originals == {TESLA: photo}
+
+    # Undo: the photo is back, the cut-out is no longer used.
+    client = await hass_ws_client(hass)
+    msg = await _ws(client, 6, type="ev_planner/restore_image", target_id=TESLA)
+    assert msg["result"] == {"unused": [recut]}
+    assert household.images == {TESLA: photo} and household.originals == {}
+    msg = await _ws(client, 7, type="ev_planner/restore_image", target_id="nope")
+    assert not msg["success"]
+
+    # A new photo drops both the cut-out and the photo it was made from.
+    await _ws(client, 8, type="ev_planner/set_image", target_id=TESLA, image_id=cut, cutout=True)
+    msg = await _ws(client, 9, type="ev_planner/set_image", target_id=TESLA, image_id=other)
+    assert msg["result"] == {"unused": [cut, photo]}
+    assert household.originals == {}
+    # A photo another car still shows is not dropped.
+    await _ws(client, 10, type="ev_planner/set_image", target_id=CARPORT, image_id=other)
+    msg = await _ws(client, 11, type="ev_planner/set_image", target_id=TESLA, image_id=None)
+    assert msg["result"] == {"unused": []}
+
+
 async def test_images(
     hass: HomeAssistant,
     init_integration: MockConfigEntry,
@@ -165,15 +212,16 @@ async def test_images(
     client = await hass_ws_client(hass)
     first, second = "a" * 32, "b" * 32
     msg = await _ws(client, 1, type="ev_planner/set_image", target_id=TESLA, image_id=first)
-    assert msg["success"] and msg["result"] == {"replaced": None}
+    assert msg["success"] and msg["result"] == {"unused": []}
     msg = await _ws(client, 2, type="ev_planner/set_image", target_id=TESLA, image_id=second)
-    assert msg["result"] == {"replaced": first}
+    assert msg["result"] == {"unused": [first]}
     msg = await _ws(client, 3, type="ev_planner/set_image", target_id=CARPORT, image_id=first)
     assert msg["success"]
     await hass.async_block_till_done()
 
     state = (await _ws(client, 4, type="ev_planner/state"))["result"]
     assert state["vehicles"][1]["image"] == f"/api/image/serve/{second}/512x512"
+    assert state["vehicles"][1]["image_original"] is None
     assert state["vehicles"][0]["image"] is None
     assert state["chargers"][0]["image"] == f"/api/image/serve/{first}/512x512"
     assert state["chargers"][0]["style"] == "box"
@@ -184,7 +232,7 @@ async def test_images(
     assert carport is not None and carport.attributes["entity_picture"].startswith("/api/image/serve/")
 
     msg = await _ws(client, 5, type="ev_planner/set_image", target_id=TESLA, image_id=None)
-    assert msg["result"] == {"replaced": second}
+    assert msg["result"] == {"unused": [second]}
     msg = await _ws(client, 6, type="ev_planner/set_image", target_id="nope", image_id=first)
     assert not msg["success"]
     msg = await _ws(client, 7, type="ev_planner/set_image", target_id=TESLA, image_id="../etc")
