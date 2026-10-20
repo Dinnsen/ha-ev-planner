@@ -1147,7 +1147,7 @@ class Household(DataUpdateCoordinator[None]):
 
     @property
     def _danish(self) -> bool:
-        language = self.settings.get("language")
+        language = str(self.settings.get("language") or "auto")
         if language in ("da", "en"):
             return language == "da"
         return str(self.hass.config.language or "").lower().startswith("da")
