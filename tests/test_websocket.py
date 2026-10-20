@@ -153,7 +153,15 @@ async def test_guest_commands(
 
     msg = await _ws(client, 9, type="ev_planner/settings", settings={"bill_price": 2.5, "payment_text": "MobilePay"})
     assert msg["success"]
-    assert init_integration.runtime_data.settings == {"bill_price": 2.5, "payment_text": "MobilePay"}
+    assert init_integration.runtime_data.settings == {
+        "bill_price": 2.5,
+        "payment_text": "MobilePay",
+        "language": "auto",
+    }
+    msg = await _ws(client, 90, type="ev_planner/settings", settings={"language": "da"})
+    assert msg["success"] and init_integration.runtime_data.settings["language"] == "da"
+    msg = await _ws(client, 91, type="ev_planner/settings", settings={"language": "fr"})
+    assert not msg["success"]
 
 
 async def test_cut_out_photos(

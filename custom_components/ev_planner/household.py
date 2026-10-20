@@ -103,7 +103,8 @@ TICK = timedelta(minutes=1)
 ENFORCE_AFTER_PLUG_IN = timedelta(minutes=3)
 # A session without a charging sensor ends when the charge level has not risen for this long.
 IDLE_END = timedelta(minutes=30)
-SETTINGS_DEFAULTS: dict[str, Any] = {"bill_price": None, "payment_text": ""}
+# language: the language of notifications; "auto" follows Home Assistant's language.
+SETTINGS_DEFAULTS: dict[str, Any] = {"bill_price": None, "payment_text": "", "language": "auto"}
 TRIP_TARGET = re.compile(r"(\d{2,3})\s*%")
 TOGGLE_DOMAINS = ("switch", "input_boolean", "light", "fan")
 
@@ -1142,6 +1143,9 @@ class Household(DataUpdateCoordinator[None]):
 
     @property
     def _danish(self) -> bool:
+        language = self.settings.get("language")
+        if language in ("da", "en"):
+            return language == "da"
         return str(self.hass.config.language or "").lower().startswith("da")
 
     def _text(self, key: str, **values: Any) -> str:

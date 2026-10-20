@@ -142,6 +142,7 @@ SETTINGS_SCHEMA = vol.Schema(
     {
         vol.Optional("bill_price"): vol.Any(None, vol.All(vol.Coerce(float), vol.Range(min=0))),
         vol.Optional("payment_text"): vol.All(cv.string, vol.Length(max=200)),
+        vol.Optional("language"): vol.In(["auto", "da", "en"]),
     }
 )
 

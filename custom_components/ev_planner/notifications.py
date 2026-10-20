@@ -26,6 +26,9 @@ PANEL_PATH = "/ev-planner"
 COLOR_CHARGE = "#00B894"
 COLOR_WARN = "#E9B949"
 COLOR_ERROR = "#E4572E"
+# On iOS a notification's icon is a glyph (notification_icon_color) on a round
+# badge (color); a white glyph shows on any of the colours above.
+COLOR_GLYPH = "#FFFFFF"
 
 
 def service_name(service: str) -> str:
@@ -92,7 +95,7 @@ class Notifier:
                     "url": PANEL_PATH,
                     "clickAction": PANEL_PATH,
                     "notification_icon": icon,
-                    "notification_icon_color": color,
+                    "notification_icon_color": COLOR_GLYPH,
                     "color": color,
                 }
                 if actions:

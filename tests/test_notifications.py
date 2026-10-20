@@ -81,6 +81,9 @@ async def test_plug_in_reminder(
     assert len(reminders) == 1
     assert "Tesla" in reminders[0]["title"]
     assert reminders[0]["data"]["notification_icon"] == "mdi:ev-plug-type2"
+    # A white glyph on a coloured badge (iOS draws both in the colours given).
+    assert reminders[0]["data"]["notification_icon_color"] == "#FFFFFF"
+    assert reminders[0]["data"]["color"] != "#FFFFFF"
     actions = [action["action"] for action in reminders[0]["data"]["actions"]]
     assert actions == [f"EV_PLANNER_CHARGE_NOW_{TESLA}", f"EV_PLANNER_FOLLOW_PLAN_{TESLA}"]
     # With the cheapest price of the coming day (0.3 at 02:00).
@@ -96,6 +99,20 @@ async def test_plug_in_reminder(
     hass.states.async_set(CABLE, "on")
     await settle(hass, freezer)
     assert {"message": "clear_notification", "data": {"tag": f"evp_reminder_{TESLA}"}} in notify.calls
+
+
+async def test_notifications_in_the_chosen_language(
+    hass: HomeAssistant, notify: NotifyCalls, household: MockConfigEntry, freezer: FrozenDateTimeFactory
+) -> None:
+    assert hass.config.language == "en"
+    await household.runtime_data.async_update_settings({"language": "da"})
+    hass.states.async_set(CABLE, "off")
+    hass.states.async_set(SOC, "40")
+    await _switch(hass, "switch.tesla_plug_in_reminder")
+    await settle(hass, freezer)
+    await move(hass, freezer, dt_util.now() + timedelta(minutes=1))
+    reminders = [call for call in notify.calls if call.get("data", {}).get("tag") == f"evp_reminder_{TESLA}"]
+    assert reminders and "Billigste pris: 0,30 kr./kWh" in reminders[0]["message"]
 
 
 async def test_reminder_without_a_plan_and_not_when_charged_enough(

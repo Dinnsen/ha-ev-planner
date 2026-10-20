@@ -278,6 +278,12 @@ const TEXT = {
     efficiency: "Ladeeffektivitet",
     efficiency_hint: "Andelen af strømmen, der ender i batteriet. 90 % passer til de fleste biler.",
     settings_sources: "Opsætning",
+    settings_notifications: "Notifikationer",
+    notify_language: "Sprog i notifikationer",
+    notify_language_hint: "Automatisk følger Home Assistants sprog (Indstillinger → System → Generelt).",
+    lang_auto: "Automatisk",
+    lang_da: "Dansk",
+    lang_en: "English",
     price_sensor: "Prissensor",
     notify_phones: "Mobiler",
     widgets_refresh: "Opdater widgets",
@@ -580,6 +586,12 @@ const TEXT = {
     efficiency: "Charging efficiency",
     efficiency_hint: "The share of the energy that ends up in the battery. 90 % suits most cars.",
     settings_sources: "Setup",
+    settings_notifications: "Notifications",
+    notify_language: "Language of notifications",
+    notify_language_hint: "Automatic follows Home Assistant's language (Settings → System → General).",
+    lang_auto: "Automatic",
+    lang_da: "Dansk",
+    lang_en: "English",
     price_sensor: "Price sensor",
     notify_phones: "Phones",
     widgets_refresh: "Refresh widgets",
@@ -3342,6 +3354,17 @@ class EvPlannerPanel extends HTMLElement {
           <small>${this._t("payment_hint")}</small></label>
       </section>
       <section class="panel">
+        <h2>${ICONS.bell}<span>${this._t("settings_notifications")}</span></h2>
+        <div class="field col"><span>${this._t("notify_language")}</span>
+          <div class="chips">${["auto", "da", "en"]
+            .map((code) => {
+              const on = (settings.language || "auto") === code;
+              return `<button data-act="notify-lang" data-lang="${code}" data-f="nl-${code}" class="${on ? "on" : ""}" aria-pressed="${on}">${this._t(`lang_${code}`)}</button>`;
+            })
+            .join("")}</div>
+          <small>${this._t("notify_language_hint")}</small></div>
+      </section>
+      <section class="panel">
         <h2>${ICONS.guest}<span>${this._t("settings_guest")}</span></h2>
         <label class="field col"><span>${this._t("efficiency")} <b class="eff-value">${Math.round(eff)} %</b></span>
           <input id="g-efficiency" type="range" min="50" max="100" step="1" value="${esc(eff)}">
@@ -3419,6 +3442,10 @@ class EvPlannerPanel extends HTMLElement {
           else days.add(button.dataset.day);
           this._vchange({ reminder_days: WEEKDAYS.filter((day) => days.has(day)) });
         }
+        break;
+      case "notify-lang":
+        button.blur();
+        this._saveSettings({ language: button.dataset.lang });
         break;
       case "notify-to":
         if (s) {
