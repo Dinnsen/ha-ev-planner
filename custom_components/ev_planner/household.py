@@ -849,13 +849,20 @@ class Household(DataUpdateCoordinator[None]):
             self.async_save()
             if entry and vehicle.settings.get(SET_NOTIFY_DONE) and self.notifier.enabled:
                 soc = vehicle.current_soc
+                # Stopped short of the target: say so, and when it goes on.
+                full = soc is None or soc >= vehicle.target - 1 or vehicle.connected is False
+                plan = vehicle.plan
+                resume = plan.start if plan is not None and plan.start is not None and plan.start > now else None
+                key = "done" if full else "paused_until" if resume is not None else "paused"
                 await self.notifier.send(
                     title=vehicle.name,
                     message=self._text(
-                        "done",
+                        key,
                         soc=self._num(soc, 0) if soc is not None else "?",
                         energy=self._num(entry["energy"], 1),
                         cost=self._money(entry["cost"]),
+                        target=self._num(vehicle.target, 0),
+                        window=self._window(resume, plan.end if plan is not None else None),
                     ),
                     tag=tag_for("done", vehicle.vehicle_id),
                     to=vehicle.notify_to,
@@ -1225,6 +1232,8 @@ TEXT_EN: dict[str, str] = {
     "problem_pause": "{name} should be paused, but it is still charging. Check the car and the charger.",
     "reminder_cheapest": "Cheapest price: {price}/kWh ({when}).",
     "done": "Charged to {soc} %: {energy} kWh for {cost}.",
+    "paused": "Paused at {soc} % of {target} %: {energy} kWh for {cost} so far.",
+    "paused_until": "Paused at {soc} % of {target} %: {energy} kWh for {cost} so far. Charges on {window}.",
     "live_planned": "Charging to {target} %, ready by {deadline}",
     "live_low_soc": "Low battery: charging right away",
     "live_low_price": "Cheap power: charging now",
@@ -1240,6 +1249,8 @@ TEXT_DA: dict[str, str] = {
     "problem_pause": "{name} skulle holde pause, men lader stadig. Tjek bilen og laderen.",
     "reminder_cheapest": "Billigste pris: {price}/kWh ({when}).",
     "done": "Ladet til {soc} %: {energy} kWh for {cost}.",
+    "paused": "Pause ved {soc} % af {target} %: {energy} kWh for {cost} indtil nu.",
+    "paused_until": "Pause ved {soc} % af {target} %: {energy} kWh for {cost} indtil nu. Lader videre {window}.",
     "live_planned": "Lader til {target} %, klar kl. {deadline}",
     "live_low_soc": "Lavt batteri: lader med det samme",
     "live_low_price": "Billig strøm: lader nu",

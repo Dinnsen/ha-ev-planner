@@ -344,6 +344,23 @@ def _need_for_hours(need: ChargeNeed, hours: float) -> ChargeNeed:
 # Planning
 
 
+def no_deadline_end(prices: Sequence[PriceSlot], now: datetime) -> datetime:
+    """How far a plan without a deadline looks ahead.
+
+    Only as far as the published prices: waiting for a forecast price is a
+    bet that may not come true, and a forecast reaching a little further
+    every minute pushed a started charge on to the next night. At most one
+    day ahead, and always to the end of a price slot, so the end does not
+    creep forward minute by minute and drag the plan along with it.
+    """
+    published = [slot for slot in prices if not slot.forecast] or list(prices)
+    end = min(published[-1].end, now + NO_DEADLINE_HORIZON)
+    for slot in prices:
+        if slot.start < end < slot.end:
+            return max(slot.start, now)
+    return end
+
+
 def plan_vehicle(
     prices: Sequence[PriceSlot],
     car: Car,
@@ -369,9 +386,7 @@ def plan_vehicle(
     last_price_end = prices[-1].end
     if deadline is not None and last_price_end < deadline:
         raise PlanError("not_enough_prices")
-    # Without a deadline, look one day ahead. Some price sensors carry a
-    # forecast a week ahead, and a plan for next Sunday helps nobody.
-    end = deadline if deadline is not None else min(last_price_end, now + NO_DEADLINE_HORIZON)
+    end = deadline if deadline is not None else no_deadline_end(prices, now)
     start = window_start(now, earliest, deadline)
     window = cut_slots(limit_slots(list(prices), start, end), blocked)
     if not window:

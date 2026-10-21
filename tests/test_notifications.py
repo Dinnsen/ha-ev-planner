@@ -234,6 +234,8 @@ async def test_live_notification_while_charging_and_message_when_done(
     done = [c for c in notify.calls if c.get("data", {}).get("tag") == f"evp_done_{TESLA}"]
     assert done and done[0]["data"]["notification_icon"] == "mdi:battery-charging-100"
     assert "kWh" in done[0]["message"]
+    # Stopped short of the target, so it does not say "charged".
+    assert done[0]["message"].startswith("Paused at 56 % of 80 %")
     assert hass.states.get("sensor.tesla_energy_this_month").state != "0.0"
     history = household.runtime_data.vehicles[TESLA].history
     assert history and history[0]["energy"] > 0

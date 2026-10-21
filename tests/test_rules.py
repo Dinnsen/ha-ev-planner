@@ -17,6 +17,7 @@ from custom_components.ev_planner.rules import (
     effective_ceiling,
     in_segments,
     next_deadline,
+    no_deadline_end,
     parse_hhmm,
     plan_vehicle,
     segments_cost,
@@ -177,6 +178,72 @@ def test_plan_without_deadline_looks_one_day_ahead() -> None:
     plan = plan_vehicle(slots(week), CAR, Rules(), NOW, deadline=None)
     assert plan.segments[0]["start"] < NOW + timedelta(hours=24)
     assert plan.segments[-1]["end"] <= NOW + timedelta(hours=24)
+
+
+def test_plan_without_deadline_does_not_wait_for_a_forecast() -> None:
+    """Last night: published prices to midnight, a cheaper forecast after it.
+
+    The plan must charge in tonight's cheapest published hours, and not move
+    a little further into tomorrow's forecast every few minutes.
+    """
+    midnight = datetime(2026, 10, 21, 0, 0, tzinfo=TZ)
+    tonight = slots(
+        [
+            1.77,
+            1.75,
+            1.67,
+            1.74,
+            1.75,
+            1.77,
+            2.14,
+            2.43,
+            2.57,
+            2.59,
+            2.46,
+            2.3,
+            2.17,
+            2.09,
+            2.08,
+            2.24,
+            2.48,
+            3.02,
+            2.92,
+            2.98,
+            2.75,
+            2.16,
+            2.05,
+            1.85,
+        ],
+        midnight,
+    )
+    tomorrow = [
+        PriceSlot(s.start + timedelta(days=1), s.end + timedelta(days=1), price, True)
+        for s, price in zip(tonight, [1.1, 1.03, 0.97, 0.92, 0.86, 0.8, 0.92, 1.04, *[1.2] * 16], strict=True)
+    ]
+    prices = [*tonight, *tomorrow]
+    car = Car(soc=46, target=100, capacity=52.5, power=11, efficiency=0.9)
+    plans = [
+        plan_vehicle(prices, car, Rules(), midnight + timedelta(minutes=minutes), deadline=None)
+        for minutes in (0, 3, 6, 61, 173)
+    ]
+    for plan in plans:
+        assert plan.segments[-1]["end"] <= midnight + timedelta(days=1)
+    assert plans[0].segments == plans[1].segments == plans[2].segments
+    # Tonight's cheap hours (02-04 is the cheapest), never tomorrow's forecast.
+    assert midnight + timedelta(hours=1) <= plans[0].segments[0]["start"] < midnight + timedelta(hours=2)
+    assert plans[0].segments[-1]["end"] <= midnight + timedelta(hours=5)
+    # Half-way through the night it still charges tonight.
+    assert plans[4].segments[0]["start"] < midnight + timedelta(hours=4)
+    assert plans[4].segments[-1]["end"] <= midnight + timedelta(hours=6)
+
+
+def test_no_deadline_end() -> None:
+    week = slots([1.0] * 48)
+    # A whole slot, never part of one.
+    assert no_deadline_end(week, NOW + timedelta(minutes=20)) == NOW + timedelta(hours=24)
+    # Only forecasts: they are all there is.
+    forecast = [PriceSlot(s.start, s.end, s.price, True) for s in slots([1.0] * 3)]
+    assert no_deadline_end(forecast, NOW) == NOW + timedelta(hours=3)
 
 
 def test_opportunistic_ignores_forecast() -> None:
