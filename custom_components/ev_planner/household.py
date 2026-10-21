@@ -862,7 +862,7 @@ class Household(DataUpdateCoordinator[None]):
                         energy=self._num(entry["energy"], 1),
                         cost=self._money(entry["cost"]),
                         target=self._num(vehicle.target, 0),
-                        window=self._window(resume, plan.end if plan is not None else None),
+                        window=self._plan_windows(plan) if resume is not None and plan is not None else "-",
                     ),
                     tag=tag_for("done", vehicle.vehicle_id),
                     to=vehicle.notify_to,
@@ -985,7 +985,7 @@ class Household(DataUpdateCoordinator[None]):
                 "reminder_plan",
                 name=vehicle.name,
                 soc=self._num(soc, 0),
-                window=self._window(plan.start, plan.end),
+                window=self._plan_windows(plan),
                 energy=self._num(plan.energy, 0),
                 cost=self._money(plan.cost),
             )
@@ -1179,14 +1179,39 @@ class Household(DataUpdateCoordinator[None]):
         local = dt_util.as_local(moment)
         return local.strftime("%H.%M") if self._danish else local.strftime("%H:%M")
 
+    def _day(self, moment: datetime, now: datetime) -> str:
+        """``i nat``, ``i morgen`` or nothing (today), before a time."""
+        local, today = dt_util.as_local(moment), dt_util.as_local(now)
+        days = (local.date() - today.date()).days
+        if days <= 0:
+            return ""
+        if days == 1 and local.hour < 6 and today.hour >= 12:
+            return "i nat " if self._danish else "tonight "
+        if days == 1:
+            return "i morgen " if self._danish else "tomorrow "
+        return f"{local.day}/{local.month} " if self._danish else f"{local.month}/{local.day} "
+
     def _window(self, start: datetime | None, end: datetime | None) -> str:
         if start is None or end is None:
             return "-"
+        return f"{self._day(start, dt_util.now())}{self._time(start)}-{self._time(end)}"
+
+    def _plan_windows(self, plan: Any) -> str:
+        """A plan's charging periods, e.g. ``i nat 04.00-04.41 og i morgen 12.00-14.00``."""
+        segments = list(plan.segments)
+        if not segments:
+            return "-"
         now = dt_util.now()
-        day = ""
-        if dt_util.as_local(start).date() != now.date():
-            day = "i morgen " if self._danish else "tomorrow "
-        return f"{day}{self._time(start)}-{self._time(end)}"
+        parts: list[str] = []
+        last_day: str | None = None
+        for segment in segments[:3]:
+            day = self._day(segment["start"], now)
+            parts.append(f"{day if day != last_day else ''}{self._time(segment['start'])}-{self._time(segment['end'])}")
+            last_day = day
+        if len(segments) > 3:
+            parts[-1] = f"{parts[-1]} …"
+        joiner = " og " if self._danish else " and "
+        return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + joiner + parts[-1]
 
     # ------------------------------------------------------------------
     # For the panel and entities

@@ -162,6 +162,11 @@ def test_status_while_waiting() -> None:
     vehicle.plan_error = None
     vehicle.plan = _plan(vehicle)
     assert vehicle.status() == "planned"
+    # Charging anyway, e.g. started from the charger's app.
+    vehicle.charging = True
+    assert vehicle.status() == "charging"
+    vehicle.connected = False
+    assert vehicle.status() == "planned"
 
 
 def test_summary() -> None:

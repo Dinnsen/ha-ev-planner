@@ -407,6 +407,10 @@ class Vehicle:
             return REASON_STATUS[decision.reason]
         if decision.reason in ("unplugged", "away"):
             return STATUS_UNPLUGGED
+        # Waiting, but the car charges anyway (started from its app or the
+        # charger's, or a car EV Planner cannot control): say so.
+        if self.charging is True and self.connected is not False:
+            return STATUS_CHARGING
         # Waiting: a plan ahead, or why there is none.
         if self.current_soc is None:
             return STATUS_NO_SOC

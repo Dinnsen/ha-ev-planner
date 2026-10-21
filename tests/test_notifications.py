@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.const import ATTR_ENTITY_ID
@@ -118,6 +119,35 @@ async def test_notifications_in_the_chosen_language(
     await household.runtime_data.async_update_settings({"language": "en"})
     assert household.runtime_data.status_text("unplugged") == "Not plugged in"
     assert household.runtime_data.status_text("10.00-11.00") == "10.00-11.00"
+
+
+async def test_plan_periods_in_words(
+    hass: HomeAssistant, household: MockConfigEntry, freezer: FrozenDateTimeFactory
+) -> None:
+    zone = dt_util.get_default_time_zone()
+    freezer.move_to(datetime(2026, 10, 21, 16, 0, tzinfo=zone))
+    day = datetime(2026, 10, 22, tzinfo=zone)
+    plan = SimpleNamespace(
+        segments=[
+            {"start": day.replace(hour=4), "end": day.replace(hour=4, minute=41)},
+            {"start": day.replace(hour=12), "end": day.replace(hour=14)},
+        ]
+    )
+    runtime = household.runtime_data
+    assert runtime._plan_windows(plan) == "tonight 04:00-04:41 and tomorrow 12:00-14:00"
+    await runtime.async_update_settings({"language": "da"})
+    assert runtime._plan_windows(plan) == "i nat 04.00-04.41 og i morgen 12.00-14.00"
+    later = SimpleNamespace(
+        segments=[
+            {"start": day.replace(day=24, hour=h), "end": day.replace(day=24, hour=h + 1)} for h in range(1, 9, 2)
+        ]
+    )
+    assert runtime._plan_windows(later) == "24/10 01.00-02.00, 03.00-04.00 og 05.00-06.00 …"
+    assert runtime._plan_windows(SimpleNamespace(segments=[])) == "-"
+    assert (
+        runtime._window(datetime(2026, 10, 21, 18, 0, tzinfo=zone), datetime(2026, 10, 21, 19, 0, tzinfo=zone))
+        == "18.00-19.00"
+    )
 
 
 async def test_reminder_without_a_plan_and_not_when_charged_enough(
