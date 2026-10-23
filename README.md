@@ -21,7 +21,7 @@ EV Planner charges your household's electric cars when power is cheapest, and st
 
 EV Planner is built from [EV Guest](https://github.com/Dinnsen/EV-Guest) (the planner, the price clock and the guest flow) and does everything [EV Smart Charging](https://github.com/jonasbkarlsson/ev_smart_charging) does, and more.
 
-**Contents:** [Features](#features) · [Requirements](#requirements) · [Installation](#installation) · [Setup](#setup) · [Moving from EV Smart Charging](#moving-from-ev-smart-charging) · [The panel](#the-panel) · [Notifications](#notifications) · [Widgets](#widgets) · [Entities](#entities) · [Actions](#actions) · [How it works](#how-it-works) · [Limitations](#known-limitations) · [Troubleshooting](#troubleshooting) · [Removal](#removing-the-integration)
+**Contents:** [Features](#features) · [Requirements](#requirements) · [Installation](#installation) · [Setup](#setup) · [Moving from EV Smart Charging](#moving-from-ev-smart-charging) · [The panel](#the-panel) · [Dashboard cards](#dashboard-cards) · [Notifications](#notifications) · [Widgets](#widgets) · [Entities](#entities) · [Actions](#actions) · [How it works](#how-it-works) · [Limitations](#known-limitations) · [Troubleshooting](#troubleshooting) · [Removal](#removing-the-integration)
 
 ## Features
 
@@ -86,6 +86,33 @@ Run both for a while with **who starts and stops charging** set to *neither* in 
 - **Guest:** the guest car, as in EV Guest.
 - **History:** per car and month, and the guest history with bills.
 - **Settings:** billing guests, data sources, and the home-screen app (`/ev_planner_app/app.html`).
+
+Each page has its own address, so you can link straight to it: `/ev-planner/car/<id>`, `/ev-planner/charger/<id>`, `/ev-planner/guest`, `/ev-planner/history` and `/ev-planner/settings`. A charger's page (tap its name on the overview) shows what it is doing, who is next and the cars that use it. In the home-screen app the same pages open with `app.html#car/<id>` and so on.
+
+## Dashboard cards
+
+<img src="docs/images/cards-en.png" alt="EV Planner's cards on a phone dashboard, and the pop-up for a car" width="100%">
+
+EV Planner brings five cards for your own dashboards. They come with the integration – there is no resource to add and nothing to install in HACS – and are under **Add card** (search for *EV Planner*), with a visual editor where you pick the car or the charger. They use the panel's own drawing, so they look and update exactly like it.
+
+| Card | | Size |
+| --- | --- | --- |
+| **Household** `custom:ev-planner-household-card` | All cars, the guest and the chargers on one line, each with its charge level and status. For a front page with little room. | Full width |
+| **Car** `custom:ev-planner-car-card` | One car: battery, target, when it charges, the cost and the savings. | Half width |
+| **Car, large** `custom:ev-planner-car-large-card` | The car card from EV Planner's overview: small price clock, battery and the mode buttons, which work on the card. | Full width |
+| **Guest** `custom:ev-planner-guest-card` | *Add guest* when there is none, then the plate, the car, the plan and the cost, with *Stop charging* while it charges and *Bill* when it is done. | Half width |
+| **Charger** `custom:ev-planner-charger-card` | One charger: what it is doing, for whom, and who is next. | Half width |
+
+**Tapping a card** opens a pop-up with that car's, the guest's or the charger's page: the price clock, the battery with handles, ready by, the weekly plan and the plan type for a car; everything for the guest; and the cars on a charger, which you can tap to go on. Rules and notifications stay in EV Planner – the pop-up's **Open in EV Planner** goes there. The pop-up is Home Assistant's own dialog, so it opens above everything (also from inside a Bubble Card pop-up) and closes with the back button or by pulling it down on a phone.
+
+```yaml
+type: custom:ev-planner-car-card
+vehicle: 01M59TAC12D9P50SH4HK4RN1JA   # the editor fills this in
+name: Tesla                           # optional
+tap_action: popup                     # popup (default), panel or none
+```
+
+`tap_action: panel` opens EV Planner on that car, charger or the guest instead of the pop-up. The household card has `show_cars`, `show_guest` and `show_chargers` (all `true` by default).
 
 ## Notifications
 

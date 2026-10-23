@@ -49,6 +49,40 @@ const TEXT = {
     car_plugged: "Bil tilsluttet",
     car_unplugged: "Ingen bil",
 
+    // Charger page, pop-ups and dashboard cards
+    charger_cars: "Biler på laderen",
+    charger_no_cars: "Ingen biler bruger denne lader.",
+    charger_free: "Ledig",
+    charger_next: "Næste: {name} kl. {time}",
+    open_charger: "Åbn {name}",
+    back_to: "Tilbage",
+    open_in_panel: "Åbn i EV Planner",
+    more_in_panel: "Regler, ugeplan og påmindelser finder du i EV Planner.",
+    guest_add: "Tilføj gæst",
+    guest_plan_line: "{time} · {cost}",
+    card_household: "EV Planner – husstand",
+    card_household_desc: "Alle biler, gæsten og laderne på én linje.",
+    card_car: "EV Planner – bil",
+    card_car_desc: "En bil: batteri, mål, start og pris.",
+    card_car_large: "EV Planner – bil, stor",
+    card_car_large_desc: "Som bilkortet i EV Planner: prisur, batteri og tilstand.",
+    card_guest: "EV Planner – gæst",
+    card_guest_desc: "Gæstebilen: tilføj gæst, plan og opladning.",
+    card_charger: "EV Planner – lader",
+    card_charger_desc: "En lader: hvem der lader, og hvem der er næste.",
+    card_missing: "EV Planner er ikke sat op.",
+    card_unknown: "Findes ikke længere i EV Planner: {id}",
+    ed_vehicle: "Bil",
+    ed_charger: "Lader",
+    ed_tap: "Tryk på kortet",
+    ed_name: "Navn (valgfrit)",
+    ed_show_cars: "Vis bilerne",
+    ed_show_guest: "Vis gæsten",
+    ed_show_chargers: "Vis laderne",
+    tap_popup: "Åbn pop-up",
+    tap_panel: "Åbn EV Planner",
+    tap_none: "Ingenting",
+
     // Vehicle statuses (const.py VEHICLE_STATUS_OPTIONS)
     vstatus_off: "Fra",
     vstatus_paused: "Pause",
@@ -361,6 +395,40 @@ const TEXT = {
     holder_guest: "the guest",
     car_plugged: "Car plugged in",
     car_unplugged: "No car",
+
+    // Charger page, pop-ups and dashboard cards
+    charger_cars: "Cars on this charger",
+    charger_no_cars: "No car uses this charger.",
+    charger_free: "Free",
+    charger_next: "Next: {name} at {time}",
+    open_charger: "Open {name}",
+    back_to: "Back",
+    open_in_panel: "Open in EV Planner",
+    more_in_panel: "Rules, the weekly plan and reminders are in EV Planner.",
+    guest_add: "Add guest",
+    guest_plan_line: "{time} · {cost}",
+    card_household: "EV Planner – household",
+    card_household_desc: "All cars, the guest and the chargers on one line.",
+    card_car: "EV Planner – car",
+    card_car_desc: "One car: battery, target, start and cost.",
+    card_car_large: "EV Planner – car, large",
+    card_car_large_desc: "Like the car card in EV Planner: price clock, battery and mode.",
+    card_guest: "EV Planner – guest",
+    card_guest_desc: "The guest car: add a guest, the plan and charging.",
+    card_charger: "EV Planner – charger",
+    card_charger_desc: "One charger: who charges and who is next.",
+    card_missing: "EV Planner is not set up.",
+    card_unknown: "No longer in EV Planner: {id}",
+    ed_vehicle: "Car",
+    ed_charger: "Charger",
+    ed_tap: "Tapping the card",
+    ed_name: "Name (optional)",
+    ed_show_cars: "Show the cars",
+    ed_show_guest: "Show the guest",
+    ed_show_chargers: "Show the chargers",
+    tap_popup: "Opens a pop-up",
+    tap_panel: "Opens EV Planner",
+    tap_none: "Does nothing",
 
     vstatus_off: "Off",
     vstatus_paused: "Paused",
@@ -1025,6 +1093,10 @@ class EvPlannerPanel extends HTMLElement {
     const tab = this._read(TAB_KEY);
     this._tab = TABS.includes(tab) ? tab : "cars";
     this._carId = this._read(CAR_KEY) || null;
+    // A charger's page, the route Home Assistant opened the panel on, and the view of a pop-up.
+    this._chargerId = null;
+    this._routePath = null;
+    this._embed = null;
     this._state = null;
     this._busy = null;
     this._message = null;
@@ -1070,6 +1142,66 @@ class EvPlannerPanel extends HTMLElement {
     this._panel = panel;
   }
 
+  /* The path after /ev-planner: /car/<id>, /charger/<id>, /guest, /history or /settings.
+     Dashboard cards link straight to a car, a charger or the guest this way. */
+  set route(route) {
+    this._route = route;
+    const path = String(route?.path || "");
+    if (path === this._routePath) return;
+    this._routePath = path;
+    if (!this._embed) this._applyPath(path);
+  }
+
+  /* Shown in a pop-up from a dashboard card: one view ("car/<id>", "guest", "charger/<id>")
+     without the header and tabs. Nothing is remembered for the panel. */
+  set embed(embed) {
+    this._embed = embed?.view ? { view: String(embed.view) } : null;
+    this.toggleAttribute("embed", Boolean(this._embed));
+    if (this._embed) this._applyPath(this._embed.view);
+  }
+
+  _applyPath(path) {
+    const [kind, raw] = String(path || "").replace(/^\/+/, "").split("/");
+    const id = raw ? decodeURIComponent(raw) : null;
+    if (kind === "car" && id) [this._tab, this._carId, this._chargerId] = ["cars", id, null];
+    else if (kind === "charger" && id) [this._tab, this._carId, this._chargerId] = ["cars", null, id];
+    else if (TABS.includes(kind)) [this._tab, this._carId, this._chargerId] = [kind, null, null];
+    else return false;
+    this._dropDraft();
+    this._markDrilled();
+    if (this._state && this.shadowRoot.querySelector(".content")) {
+      this._render();
+      this.shadowRoot.querySelector(".content").scrollTop = 0;
+    }
+    return true;
+  }
+
+  /* The path of what is shown now, as in _applyPath. */
+  get _path() {
+    if (this._tab === "cars" && this._carId) return `car/${encodeURIComponent(this._carId)}`;
+    if (this._tab === "cars" && this._chargerId) return `charger/${encodeURIComponent(this._chargerId)}`;
+    return this._tab;
+  }
+
+  /* Keep the address bar on what is shown, so a reload or a shared link opens the same page. */
+  _syncPath() {
+    if (this._embed) {
+      this._markDrilled();
+      return;
+    }
+    const prefix = this._route?.prefix;
+    if (!prefix || typeof history === "undefined") return;
+    const path = this._path === "cars" ? "" : `/${this._path}`;
+    this._routePath = path;
+    if (location.pathname !== `${prefix}${path}`) history.replaceState(history.state, "", `${prefix}${path}${location.search}`);
+  }
+
+  /* In a pop-up, a back button appears once you move on from the view it opened on. */
+  _markDrilled() {
+    if (!this._embed) return;
+    this.toggleAttribute("drilled", this._path !== this._embed.view.replace(/^\/+/, ""));
+  }
+
   connectedCallback() {
     clearInterval(this._tick);
     this._tick = setInterval(() => this._state && this._onTick(), 30000);
@@ -1100,6 +1232,7 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   _write(key, value) {
+    if (this._embed) return;
     try {
       if (value) localStorage.setItem(key, value);
       else localStorage.removeItem(key);
@@ -1138,6 +1271,7 @@ class EvPlannerPanel extends HTMLElement {
     const first = !this._state;
     this._state = state;
     if (this._carId && !this._car(this._carId)) this._openCar(null, { render: false });
+    if (this._chargerId && !this._charger(this._chargerId)) this._chargerId = null;
     if (first) {
       this._render();
       return;
@@ -1177,6 +1311,7 @@ class EvPlannerPanel extends HTMLElement {
   _onTick() {
     if (this._tab === "cars" && !this._carId) this._render();
     else this._renderLive();
+    this._markDrilled();
   }
 
   async _ws(type, data = {}) {
@@ -1207,6 +1342,14 @@ class EvPlannerPanel extends HTMLElement {
     return this._tab === "cars" && this._carId ? this._car(this._carId) : null;
   }
 
+  _charger(id) {
+    return this._chargers.find((c) => c.id === id) || null;
+  }
+
+  get _currentCharger() {
+    return this._tab === "cars" && !this._carId && this._chargerId ? this._charger(this._chargerId) : null;
+  }
+
   /* The car's settings with the changes not stored yet. */
   _vs(v) {
     const draft = this._vdraftId === v.id ? this._vdraft : {};
@@ -1218,7 +1361,7 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   _viewKey() {
-    if (this._tab === "cars") return this._carId ? `car:${this._carId}` : "cars";
+    if (this._tab === "cars") return this._carId ? `car:${this._carId}` : this._chargerId ? `charger:${this._chargerId}` : "cars";
     return this._tab;
   }
 
@@ -1282,14 +1425,18 @@ class EvPlannerPanel extends HTMLElement {
   _setTab(tab) {
     if (!TABS.includes(tab)) return;
     this._tab = tab;
+    this._chargerId = null;
     this._write(TAB_KEY, tab);
+    this._syncPath();
     this._render();
     this.shadowRoot.querySelector(".content").scrollTop = 0;
   }
 
   _openCar(id, { render = true } = {}) {
     this._carId = id;
+    if (id) this._chargerId = null;
     this._write(CAR_KEY, id || "");
+    if (render) this._syncPath();
     this._dropDraft();
     this._schedDay = null;
     this._customTime.car = false;
@@ -1297,6 +1444,26 @@ class EvPlannerPanel extends HTMLElement {
       this._render();
       this.shadowRoot.querySelector(".content").scrollTop = 0;
     }
+  }
+
+  _openCharger(id) {
+    this._tab = "cars";
+    this._chargerId = id;
+    this._carId = null;
+    this._write(CAR_KEY, "");
+    this._syncPath();
+    this._render();
+    this.shadowRoot.querySelector(".content").scrollTop = 0;
+  }
+
+  /* Back from a car or charger page: in a pop-up to the view it opened on, else to the cars. */
+  _back() {
+    if (this._embed) {
+      this._applyPath(this._embed.view);
+      return;
+    }
+    if (this._carId) this._openCar(null);
+    else this._openCharger(null);
   }
 
   _dropDraft() {
@@ -1532,6 +1699,7 @@ class EvPlannerPanel extends HTMLElement {
     else if (this._tab === "history") content.innerHTML = this._historyHtml();
     else if (this._tab === "settings") content.innerHTML = this._settingsHtml();
     else if (car) content.innerHTML = this._carPageHtml(car);
+    else if (this._currentCharger) content.innerHTML = this._chargerPageHtml(this._currentCharger);
     else content.innerHTML = this._overviewHtml();
     if (this._tab === "guest") {
       this._bindBattery();
@@ -1564,6 +1732,7 @@ class EvPlannerPanel extends HTMLElement {
       button.addEventListener("click", () => {
         // The Cars tab from a car page goes back to the overview.
         if (button.dataset.tab === "cars" && this._tab === "cars" && this._carId) this._openCar(null);
+        else if (button.dataset.tab === "cars" && this._tab === "cars" && this._chargerId) this._openCharger(null);
         else this._setTab(button.dataset.tab);
       }),
     );
@@ -1867,11 +2036,57 @@ class EvPlannerPanel extends HTMLElement {
           const model = c.model?.startsWith("generic_") ? this._t(`model_${c.model}`) : c.model_title;
           const details = [model, isNum(c.power) ? `${this._num(c.power)} kW` : "", plugged].filter(Boolean).join(" · ");
           return `<li class="ctl-${esc(c.control || "released")}">${this._photoHtml(c.id, c.image, chargerArt(c.style), { small: true, original: c.image_original })}
-            <div><strong><i aria-hidden="true"></i>${esc(c.name)}</strong><span>${esc(details)}</span></div>
+            <button class="ch-open" data-act="open-charger" data-id="${esc(c.id)}" data-f="ch-${esc(c.id)}" aria-label="${esc(this._t("open_charger", { name: c.name }))}"><strong><i aria-hidden="true"></i>${esc(c.name)}</strong><span>${esc(details)}</span></button>
             <b>${esc(text)}</b></li>`;
         })
         .join("")}</ul>
     </section>`;
+  }
+
+  /* What a charger is doing, in words: "Lader for Mercedes EQB", "Ledig". */
+  _chargerStateText(c) {
+    const state = this._t(`charger_${c.control || "released"}`);
+    const holder = c.holder === "guest" ? this._t("holder_guest") : c.holder;
+    if (holder && c.control !== "released") return this._t("charger_for", { state, name: holder });
+    return c.control === "released" ? this._t("charger_free") : state;
+  }
+
+  /* The car that charges next on a charger: the earliest plan still to come. */
+  _chargerNext(c) {
+    const now = Date.now();
+    const plans = this._cars
+      .filter((v) => v.charger?.id === c.id && hasSegments(v.plan))
+      .map((v) => ({ name: v.name, start: v.plan.segments.find((seg) => new Date(seg.end).getTime() > now)?.start }))
+      .filter((item) => item.start);
+    const g = this._guest;
+    if (g && g.charger?.id === c.id && hasSegments(g.plan) && g.status === "planned") {
+      const start = g.plan.segments.find((seg) => new Date(seg.end).getTime() > now)?.start;
+      if (start) plans.push({ name: this._t("holder_guest"), start });
+    }
+    plans.sort((a, b) => new Date(a.start) - new Date(b.start));
+    return plans[0] || null;
+  }
+
+  _chargerPageHtml(c) {
+    const cars = this._cars.filter((v) => v.charger?.id === c.id);
+    const g = this._guest;
+    const model = c.model?.startsWith("generic_") ? this._t(`model_${c.model}`) : c.model_title;
+    const plugged = c.connected === true ? this._t("car_plugged") : c.connected === false ? this._t("car_unplugged") : "";
+    const details = [model, isNum(c.power) ? `${this._num(c.power)} kW` : "", plugged].filter(Boolean).join(" · ");
+    const next = this._chargerNext(c);
+    const tone = c.control === "charge" ? "teal" : c.control === "pause" ? "sand" : "grey";
+    return `<div class="page stack charger-page" data-id="${esc(c.id)}">
+      <header class="car-head">
+        <button class="icon back" data-act="back" data-f="back" aria-label="${this._t("back_to")}">${ICONS.back}</button>
+        ${this._photoHtml(c.id, c.image, chargerArt(c.style), { wide: true, original: c.image_original })}
+        <div class="car-title"><h1>${esc(c.name)}</h1><span>${esc(details)}</span></div>
+        <span class="pill ${tone}">${esc(this._chargerStateText(c))}</span>
+      </header>
+      ${next ? `<p class="charger-next">${ICONS.plan}<span>${esc(this._t("charger_next", { name: next.name, time: this._time(next.start) }))}</span></p>` : ""}
+      <h2 class="section-title">${ICONS.car}<span>${this._t("charger_cars")}</span></h2>
+      ${cars.length ? `<div class="cars-grid">${cars.map((v) => this._carCardHtml(v)).join("")}</div>` : `<p class="hint">${this._t("charger_no_cars")}</p>`}
+      ${g && (!g.charger || g.charger.id === c.id) ? `<div class="side-grid">${this._guestCardHtml()}</div>` : ""}
+    </div>`;
   }
 
   // ------------------------------------------------------------------ the price clock (shared)
@@ -3404,7 +3619,10 @@ class EvPlannerPanel extends HTMLElement {
         this._openCar(id);
         break;
       case "back":
-        this._openCar(null);
+        this._back();
+        break;
+      case "open-charger":
+        this._openCharger(id);
         break;
       case "tab":
         this._setTab(button.dataset.tab);
@@ -3675,7 +3893,14 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 }
 
 /* ---------- layout */
-.content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px 20px calc(32px + var(--evp-safe-bottom)); }
+.content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 20px 20px calc(32px + var(--evp-safe-bottom)); }
+/* The home-screen app: the page never bounces or moves, only the content scrolls. */
+:host([app]) .content { overscroll-behavior: none; }
+/* In a pop-up from a dashboard card: one view, without the header and the tabs. */
+:host([embed]) header.bar { display: none; }
+:host([embed]) .content { padding-bottom: calc(24px + var(--evp-safe-bottom)); }
+:host([embed]:not([drilled])) .car-head .back { display: none; }
+:host([embed]) .car-page .rules, :host([embed]) .car-page .notify, :host([embed]) .car-page > .prices { display: none; }
 .page {
   display: grid; gap: 18px; align-content: start;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
@@ -3814,6 +4039,13 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .chargers li.ctl-charge strong > i { background: var(--evp-b); opacity: 1; box-shadow: 0 0 0 0 color-mix(in srgb, var(--evp-b) 70%, transparent); animation: ping 1.6s ease-out infinite; }
 .chargers li.ctl-pause strong > i { background: var(--evp-sand); opacity: 1; }
 .chargers li div { display: grid; min-width: 0; }
+.ch-open { display: grid; min-width: 0; padding: 0; border: 0; background: transparent; text-align: left; cursor: pointer; border-radius: 8px; color: inherit; }
+.ch-open:focus-visible { outline: 2px solid var(--evp-accent); outline-offset: 2px; }
+.ch-open span { color: var(--evp-soft); font-size: 13px; }
+.charger-page .car-head .photo-pick > svg.art { width: 70%; height: 70%; }
+.charger-page .car-head .pill { white-space: normal; text-align: left; }
+.charger-next { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--evp-ink); font-weight: 500; }
+.charger-next svg { width: 20px; height: 20px; flex: none; fill: none; stroke: var(--evp-a); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .chargers li span { color: var(--evp-soft); font-size: 13px; }
 .chargers li b { font-weight: 500; font-size: 14px; text-align: right; }
 
@@ -4176,9 +4408,16 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
   .segmented.modes .m-off span { display: none; }
   .week .day span { font-size: 11px; }
 }
+/* Touch screens: fields of at least 16 px, so iOS does not zoom in when one is tapped. */
+@media (pointer: coarse) {
+  input:not(#plate), select, textarea { font-size: 16px; }
+}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
 }
 `;
 
 if (!customElements.get("ev-planner-panel")) customElements.define("ev-planner-panel", EvPlannerPanel);
+
+// Shared with the dashboard cards (ev-planner-cards.js), so they look and read exactly like the panel.
+export { EvPlannerPanel, TEXT, STYLE, ICONS, MARK, MODES, chargerArt, esc, clamp, isNum, hasSegments, cssId };

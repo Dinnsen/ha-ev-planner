@@ -22,9 +22,16 @@ async def test_register_and_remove_panel(hass: HomeAssistant) -> None:
     with (
         patch.object(panel.panel_custom, "async_register_panel", side_effect=fake_register) as add,
         patch.object(panel.frontend, "async_remove_panel") as remove,
+        patch.object(panel.frontend, "add_extra_js_url") as add_js,
+        patch.object(panel.frontend, "remove_extra_js_url") as remove_js,
     ):
         await panel.async_register_panel(hass)
         await panel.async_register_panel(hass)  # second EV Planner: nothing new
+
+        # The dashboard cards are loaded once, with the version against old copies in the cache.
+        add_js.assert_called_once()
+        cards_url = add_js.call_args.args[1]
+        assert cards_url.startswith("/ev_planner_static/ev-planner-cards.js?v=")
 
         hass.http.async_register_static_paths.assert_awaited_once()
         paths = hass.http.async_register_static_paths.call_args.args[0]
@@ -42,6 +49,7 @@ async def test_register_and_remove_panel(hass: HomeAssistant) -> None:
 
         panel.async_unregister_panel(hass)
         remove.assert_called_once_with(hass, "ev-planner")
+        remove_js.assert_called_once_with(hass, cards_url)
 
         hass.data[frontend.DATA_PANELS].clear()
         panel.async_unregister_panel(hass)  # already gone
