@@ -2,6 +2,25 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
 
+## [0.8.0] - 2026-10-23
+
+### Added
+- **Cards for your own dashboards**, included in the integration – no resource to add, nothing to install in HACS. Under *Add card* (search *EV Planner*), with a visual editor:
+  - **Household:** all cars, the guest and the chargers on one line, with charge level and status.
+  - **Car:** one car with battery, target, when it charges, cost and savings.
+  - **Car, large:** the car card from EV Planner's overview, with the price clock and the mode buttons, which work on the card.
+  - **Guest:** *Add guest*, then the plate, the car, the plan and the cost, with *Stop charging* and *Bill*.
+  - **Charger:** what it is doing, for whom, and who is next.
+  - **Bubble:** a car, the guest or a charger as one Bubble Card button, with Bubble Card's measures and `--bubble-*` variables: the charge level fills it like a slider, with the target marked, and sub-buttons for the cost and the mode (a menu with *Smart*, *Charge now*, *Pause*, *Off*), *Add*/*Stop*/*Bill* for the guest and the power for a charger.
+  The cards use the panel's own drawing and texts, so they look and update exactly like it, and all cards on a page share one connection.
+- **The cards and the pop-up follow the theme:** Home Assistant's card and dialog variables, Bubble Card's variables (also for the pop-up, so it matches Bubble pop-ups), and Theme Studio's glass blur, raised surface, chip radius and pop-up border and shadow.
+- **A pop-up from every card** (`tap_action: popup`, the default) with the page of that car, the guest or the charger: price clock, battery with handles, ready by, weekly plan and plan type for a car, and everything for the guest. It is Home Assistant's own dialog, so it opens above everything, also inside a Bubble Card pop-up, and closes with the back button or by pulling it down. `tap_action: panel` opens EV Planner on that page instead.
+- **A page per charger** in the panel (tap its name on the overview): what it is doing, who is next and the cars that use it.
+- **Addresses for the panel's pages:** `/ev-planner/car/<id>`, `/ev-planner/charger/<id>`, `/ev-planner/guest`, `/ev-planner/history`, `/ev-planner/settings`. The address follows what is shown, so a reload or a link opens the same page. In the home-screen app: `app.html#car/<id>` and so on.
+
+### Fixed
+- **The home-screen app no longer moves on iPhone.** Tapping a time or number field on a car's page (14 px text) made iOS zoom in, after which the whole page could be dragged around. Fields are now 16 px on touch screens, the app cannot zoom, the page itself never scrolls or bounces – only its content scrolls – and pull to refresh only starts at the very top, not when you scroll back up.
+
 ## [0.7.6] - 2026-10-21
 
 ### Fixed
