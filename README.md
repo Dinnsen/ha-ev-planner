@@ -93,7 +93,7 @@ Each page has its own address, so you can link straight to it: `/ev-planner/car/
 
 <img src="docs/images/cards-en.png" alt="EV Planner's cards on a phone dashboard, and the pop-up for a car" width="100%">
 
-EV Planner brings five cards for your own dashboards. They come with the integration – there is no resource to add and nothing to install in HACS – and are under **Add card** (search for *EV Planner*), with a visual editor where you pick the car or the charger. They use the panel's own drawing, so they look and update exactly like it.
+EV Planner brings six cards for your own dashboards. They come with the integration – there is no resource to add and nothing to install in HACS – and are under **Add card** (search for *EV Planner*), with a visual editor where you pick the car or the charger. They use the panel's own drawing, so they look and update exactly like it.
 
 | Card | | Size |
 | --- | --- | --- |
@@ -102,6 +102,7 @@ EV Planner brings five cards for your own dashboards. They come with the integra
 | **Car, large** `custom:ev-planner-car-large-card` | The car card from EV Planner's overview: small price clock, battery and the mode buttons, which work on the card. | Full width |
 | **Guest** `custom:ev-planner-guest-card` | *Add guest* when there is none, then the plate, the car, the plan and the cost, with *Stop charging* while it charges and *Bill* when it is done. | Half width |
 | **Charger** `custom:ev-planner-charger-card` | One charger: what it is doing, for whom, and who is next. | Half width |
+| **Bubble** `custom:ev-planner-bubble-card` | A car, the guest or a charger as one [Bubble Card](https://github.com/Clooos/Bubble-Card) button, to sit among your Bubble cards. See below. | One row |
 
 **Tapping a card** opens a pop-up with that car's, the guest's or the charger's page: the price clock, the battery with handles, ready by, the weekly plan and the plan type for a car; everything for the guest; and the cars on a charger, which you can tap to go on. Rules and notifications stay in EV Planner – the pop-up's **Open in EV Planner** goes there. The pop-up is Home Assistant's own dialog, so it opens above everything (also from inside a Bubble Card pop-up) and closes with the back button or by pulling it down on a phone.
 
@@ -113,6 +114,31 @@ tap_action: popup                     # popup (default), panel or none
 ```
 
 `tap_action: panel` opens EV Planner on that car, charger or the guest instead of the pop-up. The household card has `show_cars`, `show_guest` and `show_chargers` (all `true` by default).
+
+### The Bubble card
+
+<img src="docs/images/bubble-en.png" alt="EV Planner's Bubble cards for two cars, the guest and a charger in a Theme Studio theme, light and dark" width="100%">
+
+The Bubble card has Bubble Card's measures (one 50 px row, round icon, name and state, sub-buttons on the right) and reads the same `--bubble-*` variables, so a theme that styles Bubble Card styles it too. Bubble Card does not have to be installed.
+
+- **A car:** the charge level fills the button like a Bubble slider, a thin line marks the target, and a light runs through the fill while it charges. The sub-buttons are the plan's cost and the mode, which opens a menu with *Smart*, *Charge now*, *Pause* and *Off*.
+- **The guest:** *Add* when there is none; then the plate, the car, the status and the levels, with *Stop* while it charges and *Bill* when it is done.
+- **A charger:** whom it charges for, or who is next, and the power while it charges – then the whole button is filled, like a Bubble switch that is on.
+
+```yaml
+type: custom:ev-planner-bubble-card
+vehicle: 01M59TAC12D9P50SH4HK4RN1JA   # or charger: <id>, or guest: true
+```
+
+### Themes
+
+The cards follow your theme without card-mod:
+
+- **Home Assistant's own variables** for the cards (`--ha-card-background`, `--ha-card-border-radius`, `--ha-card-box-shadow`, `--ha-card-border-*`) and the pop-up (`--ha-dialog-surface-background`, `--ha-dialog-border-radius`, `--ha-dialog-scrim-backdrop-filter`, `--mdc-dialog-scrim-color`).
+- **Bubble Card's variables** for the Bubble card and the mode menu (`--bubble-main-background-color`, `--bubble-button-main-background-color`, `--bubble-accent-color`, `--bubble-sub-button-background-color`, `--bubble-border-radius`, `--bubble-box-shadow`, `--bubble-border`, ...), and `--bubble-pop-up-background-color` and `--bubble-pop-up-border-radius` for the pop-up, so it matches your Bubble pop-ups.
+- **[Theme Studio](https://github.com/Dinnsen/theme-studio)'s variables:** the glass blur (`--theme-studio-card-backdrop-filter`) on the cards (not the Bubble card, as Bubble Card has none) and the pop-up, the raised surface (`--theme-studio-soft-background-color`) and the chip radius (`--theme-studio-chip-radius`) for the chips and icons inside the cards, and the pop-up's border and shadow (`--theme-studio-popup-border-css`, `--theme-studio-popup-shadow-css`).
+
+Without them, the cards look as in Home Assistant's default theme.
 
 ## Notifications
 

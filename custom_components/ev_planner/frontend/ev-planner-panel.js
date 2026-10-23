@@ -70,6 +70,13 @@ const TEXT = {
     card_guest_desc: "Gæstebilen: tilføj gæst, plan og opladning.",
     card_charger: "EV Planner – lader",
     card_charger_desc: "En lader: hvem der lader, og hvem der er næste.",
+    card_bubble: "EV Planner – Bubble",
+    card_bubble_desc: "En bil, gæsten eller en lader som en Bubble Card-knap.",
+    ed_show: "Vis",
+    bubble_starts: "starter {time}",
+    bubble_until: "lader til {time}",
+    bubble_add: "Tilføj",
+    bubble_stop: "Stop",
     card_missing: "EV Planner er ikke sat op.",
     card_unknown: "Findes ikke længere i EV Planner: {id}",
     ed_vehicle: "Bil",
@@ -417,6 +424,13 @@ const TEXT = {
     card_guest_desc: "The guest car: add a guest, the plan and charging.",
     card_charger: "EV Planner – charger",
     card_charger_desc: "One charger: who charges and who is next.",
+    card_bubble: "EV Planner – Bubble",
+    card_bubble_desc: "A car, the guest or a charger as a Bubble Card button.",
+    ed_show: "Show",
+    bubble_starts: "starts {time}",
+    bubble_until: "charging until {time}",
+    bubble_add: "Add",
+    bubble_stop: "Stop",
     card_missing: "EV Planner is not set up.",
     card_unknown: "No longer in EV Planner: {id}",
     ed_vehicle: "Car",
@@ -3897,6 +3911,7 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 /* The home-screen app: the page never bounces or moves, only the content scrolls. */
 :host([app]) .content { overscroll-behavior: none; }
 /* In a pop-up from a dashboard card: one view, without the header and the tabs. */
+:host([embed]) { background: none; }
 :host([embed]) header.bar { display: none; }
 :host([embed]) .content { padding-bottom: calc(24px + var(--evp-safe-bottom)); }
 :host([embed]:not([drilled])) .car-head .back { display: none; }
@@ -4420,4 +4435,4 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 if (!customElements.get("ev-planner-panel")) customElements.define("ev-planner-panel", EvPlannerPanel);
 
 // Shared with the dashboard cards (ev-planner-cards.js), so they look and read exactly like the panel.
-export { EvPlannerPanel, TEXT, STYLE, ICONS, MARK, MODES, chargerArt, esc, clamp, isNum, hasSegments, cssId };
+export { EvPlannerPanel, TEXT, STYLE, ICONS, MARK, MODES, MODE_ICONS, chargerArt, esc, clamp, isNum, hasSegments, cssId };
