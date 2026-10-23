@@ -2,6 +2,10 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
 
+## [1.0.0] - 2026-10-23
+
+The first stable version, for HACS' default list. Nothing changed since 0.8.0: settings, plans and history carry over, and 0.8.0 can be installed again.
+
 ## [0.8.0] - 2026-10-23
 
 ### Added
