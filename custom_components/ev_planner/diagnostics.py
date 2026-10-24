@@ -44,6 +44,8 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: EVPlann
                     "limited": vehicle.plan.limited,
                     "min_only": vehicle.plan.min_only,
                     "short": vehicle.plan.short,
+                    "joined": vehicle.plan.joined,
+                    "joined_extra": vehicle.plan.joined_extra,
                 },
                 "last_sent": vehicle.last_sent,
                 "control_error": vehicle.control_error,

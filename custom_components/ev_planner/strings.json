@@ -336,6 +336,9 @@
       "price_ceiling": {
         "name": "Price ceiling"
       },
+      "join_within": {
+        "name": "One period price difference"
+      },
       "low_price_level": {
         "name": "Low price"
       },
@@ -529,6 +532,9 @@
       },
       "use_earliest_start": {
         "name": "Earliest start"
+      },
+      "join_period": {
+        "name": "Finish in one period"
       },
       "continuous": {
         "name": "One period"

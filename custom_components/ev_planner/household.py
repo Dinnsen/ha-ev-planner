@@ -549,6 +549,24 @@ class Household(DataUpdateCoordinator[None]):
 
         return sorted(self.vehicles.values(), key=key)
 
+    def reserved_for(self, vehicle: Vehicle) -> list[Segment]:
+        """What the other cars at home on the same charger have planned.
+
+        Finishing in one go (``join_within``) never takes these, so a car does
+        not charge on into the other car's cheap hours.
+        """
+        if not vehicle.charger_id:
+            return []
+        return [
+            segment
+            for other in self.vehicles.values()
+            if other.vehicle_id != vehicle.vehicle_id
+            and other.charger_id == vehicle.charger_id
+            and other.plan is not None
+            and other.home is not False
+            for segment in other.plan.segments
+        ]
+
     def plan_one(self, vehicle: Vehicle, now: datetime, blocked: list[Segment]) -> None:
         """Make the car's plan. A plan that is charging now is kept until its period ends."""
         vehicle.deadline = vehicle.next_deadline(now)
@@ -573,6 +591,7 @@ class Household(DataUpdateCoordinator[None]):
                 earliest=vehicle.earliest_start,
                 continuous=vehicle.continuous,
                 blocked=blocked,
+                reserved=self.reserved_for(vehicle),
             )
             vehicle.plan_error = None
             vehicle.plan_done = False
@@ -628,15 +647,21 @@ class Household(DataUpdateCoordinator[None]):
 
     async def _async_tick(self, now: datetime) -> None:
         now = dt_util.now()
+        replan = False
         for vehicle in self.vehicles.values():
             # A plan that has just ended: plan again from the new charge level.
             if vehicle.plan is not None and vehicle.plan.end is not None and vehicle.plan.end <= now:
                 vehicle.plan_done = True
-                self.schedule_recalculate(force=True)
+                replan = True
             if vehicle.deadline is not None and vehicle.deadline <= now:
-                self.schedule_recalculate(force=True)
+                replan = True
             self._count_time(vehicle, now)
-        await self.async_evaluate(now)
+        if replan:
+            # Planned again before acting, so a car that goes on charging (finishing in
+            # one go) is not paused and started again in between.
+            await self.async_recalculate(force=True)
+        else:
+            await self.async_evaluate(now)
         await self._async_reminders(now)
 
     def _count_time(self, vehicle: Vehicle, now: datetime) -> None:

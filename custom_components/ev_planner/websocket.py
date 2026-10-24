@@ -35,6 +35,8 @@ from .const import (
     SET_EARLIEST_START,
     SET_EFFICIENCY,
     SET_FOLLOW_LEVEL,
+    SET_JOIN_ENABLED,
+    SET_JOIN_WITHIN,
     SET_KEEP_ON,
     SET_LIVE,
     SET_LOW_PRICE_ENABLED,
@@ -100,6 +102,8 @@ VEHICLE_SCHEMA = vol.Schema(
         vol.Optional(SET_EARLIEST_START): _hhmm,
         vol.Optional(SET_USE_EARLIEST_START): cv.boolean,
         vol.Optional(SET_CONTINUOUS): cv.boolean,
+        vol.Optional(SET_JOIN_ENABLED): cv.boolean,
+        vol.Optional(SET_JOIN_WITHIN): vol.All(vol.Coerce(float), vol.Range(min=0, max=2)),
         vol.Optional(SET_CEILING_ENABLED): cv.boolean,
         vol.Optional(SET_CEILING): PRICE,
         vol.Optional(SET_LOW_PRICE_ENABLED): cv.boolean,
@@ -204,6 +208,8 @@ def plan_state(plan: VehiclePlan | None) -> dict[str, Any] | None:
         "limited": plan.limited,
         "min_only": plan.min_only,
         "short": plan.short,
+        "joined": plan.joined,
+        "joined_extra": _r(plan.joined_extra),
     }
 
 

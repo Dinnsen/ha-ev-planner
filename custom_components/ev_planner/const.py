@@ -100,6 +100,9 @@ SET_SCHEDULE: Final = "schedule"
 SET_EARLIEST_START: Final = "earliest_start"
 SET_USE_EARLIEST_START: Final = "use_earliest_start"
 SET_CONTINUOUS: Final = "continuous"
+# Split plans: one period instead, when that costs at most this much more per kWh.
+SET_JOIN_ENABLED: Final = "join_period"
+SET_JOIN_WITHIN: Final = "join_within"
 SET_CEILING_ENABLED: Final = "price_ceiling_enabled"
 SET_CEILING: Final = "price_ceiling"
 SET_LOW_PRICE_ENABLED: Final = "low_price_charging"
@@ -151,6 +154,8 @@ DEFAULT_VEHICLE_SETTINGS: Final[dict[str, object]] = {
     SET_EARLIEST_START: "18:00",
     SET_USE_EARLIEST_START: False,
     SET_CONTINUOUS: False,
+    SET_JOIN_ENABLED: False,
+    SET_JOIN_WITHIN: 0.05,
     SET_CEILING_ENABLED: False,
     SET_CEILING: 2.0,
     SET_LOW_PRICE_ENABLED: False,
