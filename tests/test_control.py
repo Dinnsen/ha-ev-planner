@@ -279,20 +279,28 @@ async def test_missing_control_entity(
 async def test_battery_capacity_from_the_car(
     hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
 ) -> None:
-    """A capacity sensor replaces the number from the setup while it has a value."""
+    """A capacity sensor replaces the number from the setup while it has a value.
+
+    Before the car has shown its speed, the capacity and the power estimate it:
+    30 % of 75 kWh at 10 kW takes 2.25 hours, of 60 kWh 1.8 hours.
+    """
     set_prices(hass, now, NIGHT)
     set_tesla(hass)
     hass.states.async_set("sensor.tesla_capacity", "75000", {"unit_of_measurement": "Wh"})
-    entry = entry_with(vehicle_sub(TESLA, "Tesla", tesla_data(capacity_entity="sensor.tesla_capacity", charger=None)))
+    entry = entry_with(
+        vehicle_sub(
+            TESLA, "Tesla", tesla_data(capacity_entity="sensor.tesla_capacity", charger=None, imported_speed=None)
+        )
+    )
     await _setup(hass, freezer, entry)
     tesla = entry.runtime_data.vehicles[TESLA]
     assert tesla.capacity == 75
-    assert tesla.plan is not None and tesla.plan.energy == pytest.approx(25)
+    assert tesla.plan is not None and tesla.plan.energy == pytest.approx(22.5)
 
     hass.states.async_set("sensor.tesla_capacity", "unavailable")
     await settle(hass, freezer)
     assert tesla.capacity == 60
-    assert tesla.plan is not None and tesla.plan.energy == pytest.approx(20)
+    assert tesla.plan is not None and tesla.plan.energy == pytest.approx(18)
 
 
 async def test_unknown_location_counts_as_away(

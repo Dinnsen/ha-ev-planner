@@ -24,6 +24,8 @@ from .const import (
     CONF_CONTROL,
     CONF_CONTROL_ENTITY,
     CONF_HOME_ENTITY,
+    CONF_IMPORTED_SPEED,
+    CONF_POWER_ENTITY,
     CONF_SOC_ENTITY,
     CONF_TARGET_ENTITY,
     CONF_UNPLUGGED_STATES,
@@ -46,7 +48,6 @@ from .const import (
     SET_CEILING_ENABLED,
     SET_CONTINUOUS,
     SET_EARLIEST_START,
-    SET_EFFICIENCY,
     SET_FOLLOW_LEVEL,
     SET_JOIN_ENABLED,
     SET_JOIN_WITHIN,
@@ -80,12 +81,16 @@ from .const import (
     STATUS_PLANNED,
     STATUS_UNPLUGGED,
 )
+from .learning import SOURCE_ESTIMATED, SOURCE_IMPORTED, SOURCE_LEARNED, SOURCE_MEASURING, ChargeMeter, Learned
+from .planner import estimated_speed
 from .rules import Decision, Rules, VehiclePlan, next_deadline, parse_hhmm
 
 CHARGING_STATES = {"on", "charging", "true", "yes", "active"}
 # A single charge level step above this is a glitch (or a car swap), not charging.
 MAX_SOC_STEP = 60.0
 MONTHS_KEPT = 24
+# Settings of older versions that are no longer used.
+RETIRED_SETTINGS = ("charging_efficiency",)
 
 REASON_STATUS = {
     "off": STATUS_OFF,
@@ -175,6 +180,12 @@ class Vehicle:
     connected: bool | None = None
     home: bool | None = None
     charging: bool | None = None
+    # Charging power in kW as the car reports it, when it does.
+    power_from_car: float | None = None
+
+    # What the car has shown of its charging speed and power.
+    meter: ChargeMeter = field(default_factory=ChargeMeter)
+    learned: Learned = field(default_factory=Learned)
 
     # Planning
     plan: VehiclePlan | None = None
@@ -200,6 +211,8 @@ class Vehicle:
     history: list[dict[str, Any]] = field(default_factory=list)
     last_soc_seen: float | None = None
     last_rise: datetime | None = None
+    # When the car's power reading last counted energy.
+    power_counted_at: datetime | None = None
 
     # Notifications
     live_active: bool = False
@@ -216,6 +229,9 @@ class Vehicle:
         initial = dict(imported) if isinstance(imported, Mapping) else {}
         self.settings = {**DEFAULT_VEHICLE_SETTINGS, **initial, **(self.settings or {})}
         self.settings[SET_SCHEDULE] = dict(self.settings.get(SET_SCHEDULE) or {})
+        for key in RETIRED_SETTINGS:
+            self.settings.pop(key, None)
+        self.learned.check_basis(self.basis)
 
     # ------------------------------------------------------------------
     # Configuration
@@ -242,9 +258,49 @@ class Vehicle:
         return to_float(self.config.get(CONF_CHARGE_POWER)) or DEFAULT_CHARGE_POWER
 
     @property
-    def efficiency(self) -> float:
-        value = to_float(self.settings.get(SET_EFFICIENCY)) or 90.0
-        return min(1.0, max(0.5, value / 100))
+    def power_entity(self) -> str | None:
+        return self.config.get(CONF_POWER_ENTITY) or None
+
+    @property
+    def basis(self) -> tuple[float, float]:
+        """The battery capacity and charging power from the car's setup."""
+        capacity = to_float(self.config.get(CONF_BATTERY_CAPACITY)) or DEFAULT_BATTERY_CAPACITY
+        return (capacity, self.configured_power)
+
+    @property
+    def imported_speed(self) -> float | None:
+        """The charging speed (% per hour) EV Smart Charging had for the car."""
+        speed = to_float(self.config.get(CONF_IMPORTED_SPEED))
+        return speed if speed is not None and speed > 0 else None
+
+    def charge_speed(self, power: float) -> tuple[float, str]:
+        """The charging speed to plan with (% per hour), and where it comes from.
+
+        The charge that is going on, once it has shown enough; else what the
+        car has taught before; else EV Smart Charging's figure; else the
+        charging power against the battery capacity.
+        """
+        if (speed := self.meter.speed) is not None:
+            return speed, SOURCE_MEASURING
+        if self.learned.speed is not None:
+            return self.learned.speed, SOURCE_LEARNED
+        if (speed := self.imported_speed) is not None:
+            return speed, SOURCE_IMPORTED
+        return estimated_speed(self.capacity, power), SOURCE_ESTIMATED
+
+    def finish_measurement(self, *, unplugged: bool = False) -> bool:
+        """Learn from what the car has shown, once it is enough or the car is unplugged.
+
+        A charge that rose less than enough is kept and measured on, so a
+        plan in several periods counts as one charge. Returns True when
+        something was learned.
+        """
+        if self.meter.speed is None and not unplugged:
+            return False
+        learned_power = self.meter.power is not None
+        learned_speed = self.learned.add(self.meter)
+        self.meter = ChargeMeter()
+        return learned_speed or learned_power
 
     @property
     def soc_entity(self) -> str | None:
@@ -477,14 +533,15 @@ class Vehicle:
         for key in sorted(self.months)[:-MONTHS_KEPT]:
             self.months.pop(key, None)
 
-    def soc_energy(self, old: float | None, new: float | None) -> float:
-        """Grid energy implied by a rise in the charge level."""
-        if old is None or new is None:
+    @staticmethod
+    def soc_energy(old: float | None, new: float | None, speed: float, power: float) -> float:
+        """Energy drawn for a rise in the charge level: the charging time it took at ``power``."""
+        if old is None or new is None or speed <= 0:
             return 0.0
         step = new - old
         if step <= 0 or step > MAX_SOC_STEP:
             return 0.0
-        return step / 100 * self.capacity / self.efficiency
+        return step / speed * power
 
     def start_session(self, now: datetime, reason: str) -> None:
         if self.session is None:
@@ -529,6 +586,8 @@ class Vehicle:
             "reminders_sent": self.reminders_sent,
             "reminded_at": self.reminded_at.isoformat() if self.reminded_at else None,
             "plan_done": self.plan_done,
+            "meter": self.meter.to_dict(),
+            "learned": self.learned.to_dict(),
         }
 
     def load(self, data: Mapping[str, Any] | None) -> None:
@@ -538,6 +597,8 @@ class Vehicle:
         if isinstance(settings, Mapping):
             self.settings = {**DEFAULT_VEHICLE_SETTINGS, **settings}
             self.settings[SET_SCHEDULE] = dict(self.settings.get(SET_SCHEDULE) or {})
+            for key in RETIRED_SETTINGS:
+                self.settings.pop(key, None)
         months = data.get("months")
         if isinstance(months, Mapping):
             self.months = {
@@ -561,3 +622,8 @@ class Vehicle:
         at = data.get("reminded_at")
         self.reminded_at = datetime.fromisoformat(at) if isinstance(at, str) else None
         self.plan_done = bool(data.get("plan_done"))
+        self.meter = ChargeMeter.from_dict(data.get("meter"))
+        self.learned = Learned.from_dict(data.get("learned"))
+        if self.learned.check_basis(self.basis):
+            # The capacity or power was changed: what was measured with the old one goes too.
+            self.meter = ChargeMeter()

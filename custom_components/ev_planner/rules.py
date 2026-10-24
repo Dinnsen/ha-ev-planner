@@ -98,8 +98,8 @@ class Car:
     """Usable battery capacity (kWh)."""
     power: float
     """Charging power drawn from the grid (kW)."""
-    efficiency: float
-    """Share (0-1] of the grid energy that reaches the battery."""
+    speed: float | None = None
+    """Charge level gained per hour (%), as the car has shown it; None estimates it from the power."""
 
 
 @dataclass(slots=True)
@@ -439,7 +439,7 @@ def plan_vehicle(
     """
     if not prices:
         raise PlanError("no_price_data")
-    need = charge_need(car.soc, car.target, car.capacity, car.power, car.efficiency)
+    need = charge_need(car.soc, car.target, car.capacity, car.power, speed=car.speed)
     last_price_end = prices[-1].end
     if deadline is not None and last_price_end < deadline:
         raise PlanError("not_enough_prices")
@@ -470,7 +470,7 @@ def plan_vehicle(
         # The ceiling (or the time left) does not allow the whole charge.
         min_need = None
         if rules.min_soc > car.soc + EPSILON:
-            min_need = charge_need(car.soc, min(rules.min_soc, car.target), car.capacity, car.power, car.efficiency)
+            min_need = charge_need(car.soc, min(rules.min_soc, car.target), car.capacity, car.power, speed=car.speed)
         if min_need is not None and slot_hours(allowed) + EPSILON < min_need.hours:
             min_only = True
             if slot_hours(window) + EPSILON >= min_need.hours:
@@ -503,7 +503,7 @@ def plan_vehicle(
         minutes=planned.minutes,
         mode=mode,
         speed=need.speed_pct_per_hour,
-        end_soc=min(100.0, car.soc + planned.battery_kwh / car.capacity * 100),
+        end_soc=min(100.0, car.soc + planned.hours * need.speed_pct_per_hour),
         charge_now_cost=charge_now_cost,
         ceiling=ceiling,
         opportunistic=opportunistic,

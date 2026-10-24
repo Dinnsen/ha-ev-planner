@@ -56,7 +56,7 @@ class ChargeNeed:
     battery_kwh: float
     """Energy that ends up in the battery."""
     grid_kwh: float
-    """Energy taken from the grid, including charging losses."""
+    """Energy the car draws: charging time at the charging power."""
     hours: float
     """Exact charging time at the charger power."""
     minutes: int
@@ -84,26 +84,40 @@ class Plan:
         return max(0.0, self.charge_now_cost - self.cost)
 
 
-def charge_need(soc: float, limit: float, battery_kwh: float, charger_kw: float, efficiency: float) -> ChargeNeed:
+def estimated_speed(battery_kwh: float, charger_kw: float) -> float:
+    """Charge level gained per hour (%) before a car has shown its real speed."""
+    return charger_kw / battery_kwh * 100 if battery_kwh > 0 else 0.0
+
+
+def charge_need(
+    soc: float,
+    limit: float,
+    battery_kwh: float,
+    charger_kw: float,
+    *,
+    speed: float | None = None,
+) -> ChargeNeed:
     """Energy and time needed to charge from ``soc`` to ``limit`` (both in %).
 
-    ``efficiency`` is the share (0-1] of the grid energy that reaches the
-    battery. The charger power is what the charger draws from the grid.
+    The time comes from the charging speed in % per hour: the speed the car
+    has shown, or ``charger_kw`` against ``battery_kwh`` when it has shown
+    none. The energy is what the car draws in that time at ``charger_kw``, so
+    charging losses are part of the speed and need no separate figure.
     """
-    if battery_kwh <= 0 or charger_kw <= 0 or not 0 < efficiency <= 1 or not 0 <= soc <= 100 or not 0 <= limit <= 100:
+    if speed is None:
+        speed = estimated_speed(battery_kwh, charger_kw)
+    if battery_kwh <= 0 or charger_kw <= 0 or speed <= 0 or not 0 <= soc <= 100 or not 0 <= limit <= 100:
         raise PlanError("invalid_input")
     if limit <= soc:
         raise PlanError("limit_not_above_soc")
 
-    battery = battery_kwh * (limit - soc) / 100
-    grid = battery / efficiency
-    hours = grid / charger_kw
+    hours = (limit - soc) / speed
     return ChargeNeed(
-        battery_kwh=battery,
-        grid_kwh=grid,
+        battery_kwh=battery_kwh * (limit - soc) / 100,
+        grid_kwh=hours * charger_kw,
         hours=hours,
         minutes=ceil(hours * 60 - EPSILON),
-        speed_pct_per_hour=charger_kw * efficiency / battery_kwh * 100,
+        speed_pct_per_hour=speed,
     )
 
 

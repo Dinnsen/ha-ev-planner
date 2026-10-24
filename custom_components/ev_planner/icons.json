@@ -68,9 +68,6 @@
       "follow_level": {
         "default": "mdi:chart-line-variant"
       },
-      "charging_efficiency": {
-        "default": "mdi:percent-circle-outline"
-      },
       "reminder_soc": {
         "default": "mdi:battery-alert"
       },
@@ -85,9 +82,6 @@
       },
       "guest_charger_power": {
         "default": "mdi:ev-station"
-      },
-      "guest_charging_efficiency": {
-        "default": "mdi:percent-circle-outline"
       },
       "reminder_price": {
         "default": "mdi:cash-clock"

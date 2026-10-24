@@ -100,7 +100,7 @@
           },
           "data_description": {
             "name": "Fx Tesla Model 3.",
-            "battery_capacity": "Brugbar kapacitet i kWh. Bruges, når bilen ikke selv oplyser den."
+            "battery_capacity": "Brugbar kapacitet i kWh. Bruges, når bilen ikke selv melder den. Sammen med ladeeffekten giver den det første bud på ladehastigheden; derefter afgør bilens egne ladninger den."
           },
           "sections": {
             "sensors": {
@@ -113,7 +113,8 @@
                 "connected_entity": "Tilsluttet",
                 "unplugged_states": "Tilstande, der betyder ikke tilsluttet",
                 "home_entity": "Hjemme",
-                "charging_entity": "Lader"
+                "charging_entity": "Lader",
+                "power_entity": "Ladeeffekt"
               },
               "data_description": {
                 "soc_entity": "Bilens batteriniveau (%). Uden den sætter du niveauet selv.",
@@ -122,7 +123,8 @@
                 "connected_entity": "En entitet, der viser om bilen er sat til, fx en ladekabel-sensor.",
                 "unplugged_states": "Standard: off, disconnected, unplugged. For en status-sensor fx 3.",
                 "home_entity": "Valgfri. EV Planner handler kun, når bilen er hjemme.",
-                "charging_entity": "Valgfri. Viser om bilen lader (on/charging eller en effekt over 0). Bruges til at tjekke, at ladningen startede."
+                "charging_entity": "Valgfri. Viser om bilen lader (on/charging eller en effekt over 0). Bruges til at tjekke, at ladningen startede.",
+                "power_entity": "Valgfri. Bilens egen sensor for ladeeffekt (kW). EV Planner lærer effekten af den og tæller energien med den."
               }
             },
             "charging": {
@@ -135,7 +137,7 @@
                 "control_entity": "Bilens ladekontakt"
               },
               "data_description": {
-                "charge_power": "Hvad bilen trækker fra nettet, når den lader hjemme (kW).",
+                "charge_power": "Hvad bilen trækker, når den lader hjemme (kW). Et udgangspunkt: en bil med en sensor for ladeeffekt måles i stedet.",
                 "charger": "Ladepunktet bilen bruger. Biler på samme ladepunkt deler det.",
                 "control": "Vælg bilen, laderen eller ingen af dem.",
                 "control_entity": "Skal udfyldes, når bilen starter og stopper ladningen, fx switch.model3_charge."
@@ -164,7 +166,7 @@
           },
           "data_description": {
             "name": "Fx Tesla Model 3.",
-            "battery_capacity": "Brugbar kapacitet i kWh. Bruges, når bilen ikke selv oplyser den."
+            "battery_capacity": "Brugbar kapacitet i kWh. Bruges, når bilen ikke selv melder den. Sammen med ladeeffekten giver den det første bud på ladehastigheden; derefter afgør bilens egne ladninger den."
           },
           "sections": {
             "sensors": {
@@ -177,7 +179,8 @@
                 "connected_entity": "Tilsluttet",
                 "unplugged_states": "Tilstande, der betyder ikke tilsluttet",
                 "home_entity": "Hjemme",
-                "charging_entity": "Lader"
+                "charging_entity": "Lader",
+                "power_entity": "Ladeeffekt"
               },
               "data_description": {
                 "soc_entity": "Bilens batteriniveau (%). Uden den sætter du niveauet selv.",
@@ -186,7 +189,8 @@
                 "connected_entity": "En entitet, der viser om bilen er sat til, fx en ladekabel-sensor.",
                 "unplugged_states": "Standard: off, disconnected, unplugged. For en status-sensor fx 3.",
                 "home_entity": "Valgfri. EV Planner handler kun, når bilen er hjemme.",
-                "charging_entity": "Valgfri. Viser om bilen lader (on/charging eller en effekt over 0). Bruges til at tjekke, at ladningen startede."
+                "charging_entity": "Valgfri. Viser om bilen lader (on/charging eller en effekt over 0). Bruges til at tjekke, at ladningen startede.",
+                "power_entity": "Valgfri. Bilens egen sensor for ladeeffekt (kW). EV Planner lærer effekten af den og tæller energien med den."
               }
             },
             "charging": {
@@ -199,7 +203,7 @@
                 "control_entity": "Bilens ladekontakt"
               },
               "data_description": {
-                "charge_power": "Hvad bilen trækker fra nettet, når den lader hjemme (kW).",
+                "charge_power": "Hvad bilen trækker, når den lader hjemme (kW). Et udgangspunkt: en bil med en sensor for ladeeffekt måles i stedet.",
                 "charger": "Ladepunktet bilen bruger. Biler på samme ladepunkt deler det.",
                 "control": "Vælg bilen, laderen eller ingen af dem.",
                 "control_entity": "Skal udfyldes, når bilen starter og stopper ladningen, fx switch.model3_charge."
@@ -351,9 +355,6 @@
       "follow_level": {
         "name": "Følg pris-niveau"
       },
-      "charging_efficiency": {
-        "name": "Ladeeffektivitet"
-      },
       "reminder_soc": {
         "name": "Påmind under"
       },
@@ -377,9 +378,6 @@
       },
       "guest_charger_power": {
         "name": "Ladeeffekt"
-      },
-      "guest_charging_efficiency": {
-        "name": "Ladeeffektivitet"
       }
     },
     "select": {

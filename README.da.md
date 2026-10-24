@@ -17,7 +17,8 @@ EV Planner er bygget på [EV Guest](https://github.com/Dinnsen/EV-Guest) (planl�
 
 - **Så mange biler og ladepunkter, I har.** Biler og ladepunkter tilføjes på integrationens side. Biler på samme ladepunkt deler det: den, der skal være klar først, får det først, og en gæst har det under gæstesessionen.
 - **I vælger per bil, hvem der starter og stopper ladningen:** bilen (dens ladekontakt), laderen (dens kontakt) eller ingen – så planlægger EV Planner, minder jer om stikket og udsender en *Ladestyring*-sensor til egne automationer.
-- **Den billigste plan** ud fra kvarter- eller timepriser: minutpræcis, én periode eller de billigste perioder, med ladetab, pris og besparelse.
+- **Den billigste plan** ud fra kvarter- eller timepriser: minutpræcis, én periode eller de billigste perioder, med pris og besparelse.
+- **Lærer hvor hurtigt hver bil lader.** Planen regnes ud fra den ladehastighed i % pr. time, bilen selv viser. En bil, der trækker mindre end indstillet, eller et batteri, der ikke har den størrelse, I troede, får stadig en plan, der er lang nok. Intet at indstille: ingen effektivitet, intet gætteri. En ladning tæller, når niveauet er steget mindst 30 %, og under ladningen følger planen den hastighed, bilen viser. Med bilens sensor for ladeeffekt lærer EV Planner også effekten og tæller energien med den.
 - **Klar kl.** et tidspunkt, per ugedag, eller efter en tur i kalenderen ("Aarhus 90 %" lader til 90 %).
 - **Regler fra EV Smart Charging:** minimumsniveau uanset pris, prisloft, lad ved lav pris, lad ved lavt batteri, opportunistisk ladning, tidligste start og hold laderen tændt (forvarmning fra nettet).
 - **Lad færdig i ét stræk:** Når det højst koster et valgt beløb mere pr. kWh (fx 0,05 kr.) at lade videre nu eller i én periode end den billigste plan, lader bilen færdig i ét stræk i stedet for at stoppe ved daggry og lade det sidste næste nat for et par øre mindre. En anden bil, der er sat til samme lader, beholder de timer, den har planlagt. En bil uden stik holder ingen timer fri, for på en lader med ét kabel er det bilen, der er sat til, der lader i sin plan.
@@ -37,7 +38,7 @@ Tilføj `https://github.com/Dinnsen/ha-ev-planner` som brugerdefineret repositor
 
 1. **Indstillinger → Enheder og tjenester → Tilføj integration → EV Planner.** Vælg prissensor og valuta. MotorAPI-nøglen bruges kun til gæstebiler.
 2. **Tilføj ladepunkt** for hvert ladepunkt. Vælg laderens enhed i Home Assistant og/eller mærke og model, så udfylder EV Planner effekt, kontakt, energimåler og *bil tilsluttet*-sensor, som I kan rette.
-3. **Tilføj bil** for hver bil (alle biler sættes op ens): batterikapacitet (et tal eller en sensor fra bilen), bilens sensorer (alle valgfri), ladeeffekt, ladepunkt, og hvem der starter og stopper ladningen. Har I EV Smart Charging, kan I starte fra den bil derfra.
+3. **Tilføj bil** for hver bil (alle biler sættes op ens): batterikapacitet (et tal eller en sensor fra bilen), bilens sensorer (alle valgfri, også ladeeffekt i kW), ladeeffekt (et udgangspunkt, indtil bilen har vist den), ladepunkt, og hvem der starter og stopper ladningen. Har I EV Smart Charging, kan I starte fra den bil derfra – også med dens ladehastighed i % pr. time.
 4. **Konfigurer**: hvilke mobiler der får beskeder, og om iOS-widgets skal opdateres.
 
 ## Fra EV Smart Charging

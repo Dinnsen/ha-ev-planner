@@ -29,7 +29,7 @@ TZ = ZoneInfo("Europe/Copenhagen")
 NOW = datetime(2026, 10, 19, 20, 0, tzinfo=TZ)
 # Hourly prices from 20:00 to 07:00 next morning, cheapest 01-04.
 NIGHT = [1.8, 1.5, 1.2, 1.0, 0.9, 0.4, 0.3, 0.35, 0.8, 1.1, 1.6]
-CAR = Car(soc=50, target=80, capacity=60, power=10, efficiency=1.0)  # 18 kWh = 1.8 h
+CAR = Car(soc=50, target=80, capacity=60, power=10)  # 18 kWh = 1.8 h
 
 
 def slots(prices: list[float], start: datetime = NOW, minutes: int = 60) -> list[PriceSlot]:
@@ -176,7 +176,7 @@ def test_plan_joins_a_split_plan_when_one_period_costs_little_more() -> None:
     night = datetime(2026, 10, 24, 0, 0, tzinfo=TZ)
     # 00-24 on Saturday: 02-06 cheapest, then 23:00 just below the hours around the night.
     day = [0.47, 0.47, 0.41, 0.42, 0.41, 0.42, 0.53, 0.66, *[0.7] * 13, 0.6, 0.58, 0.45]
-    car = Car(soc=13, target=100, capacity=50, power=10, efficiency=1.0)  # 43.5 kWh = 4.35 h
+    car = Car(soc=13, target=100, capacity=50, power=10)  # 43.5 kWh = 4.35 h
     prices = slots(day, night)
 
     split = plan_vehicle(prices, car, Rules(), night, deadline=None)
@@ -202,7 +202,7 @@ def test_join_goes_on_charging_when_now_costs_little_more() -> None:
     """
     six = datetime(2026, 10, 24, 6, 0, tzinfo=TZ)
     rest = [0.53, 0.66, *[0.7] * 14, 0.58, 0.45]  # 06:00-23:59
-    car = Car(soc=81, target=100, capacity=50, power=10, efficiency=1.0)  # 9.5 kWh = 0.95 h
+    car = Car(soc=81, target=100, capacity=50, power=10)  # 9.5 kWh = 0.95 h
     prices = slots(rest, six)
     wait = plan_vehicle(prices, car, Rules(join_within=0.05), six, deadline=None)
     assert hhmm(wait.segments)[0][0] == "23:00" and not wait.joined
@@ -216,7 +216,7 @@ def test_join_leaves_the_other_cars_cheap_hours() -> None:
     """The other car on the charger has 06:00-07:00 planned: no going on charging into it."""
     six = datetime(2026, 10, 24, 6, 0, tzinfo=TZ)
     rest = [0.53, 0.66, *[0.7] * 14, 0.58, 0.45]
-    car = Car(soc=81, target=100, capacity=50, power=10, efficiency=1.0)
+    car = Car(soc=81, target=100, capacity=50, power=10)
     other = [{"start": six + timedelta(minutes=30), "end": six + timedelta(hours=1)}]
     plan = plan_vehicle(slots(rest, six), car, Rules(join_within=0.5), six, deadline=None, reserved=other)
     assert not any(seg["start"] < other[0]["end"] and other[0]["start"] < seg["end"] for seg in plan.segments)
@@ -286,7 +286,7 @@ def test_plan_without_deadline_does_not_wait_for_a_forecast() -> None:
         for s, price in zip(tonight, [1.1, 1.03, 0.97, 0.92, 0.86, 0.8, 0.92, 1.04, *[1.2] * 16], strict=True)
     ]
     prices = [*tonight, *tomorrow]
-    car = Car(soc=46, target=100, capacity=52.5, power=11, efficiency=0.9)
+    car = Car(soc=46, target=100, capacity=52.5, power=11, speed=11 * 0.9 / 52.5 * 100)
     plans = [
         plan_vehicle(prices, car, Rules(), midnight + timedelta(minutes=minutes), deadline=None)
         for minutes in (0, 3, 6, 61, 173)
@@ -324,7 +324,7 @@ def test_plan_errors() -> None:
         plan_vehicle([], CAR, Rules(), NOW, deadline=DEADLINE)
     with pytest.raises(PlanError, match="not_enough_prices"):
         plan_vehicle(slots(NIGHT[:3]), CAR, Rules(), NOW, deadline=DEADLINE)
-    full = Car(soc=80, target=80, capacity=60, power=10, efficiency=1.0)
+    full = Car(soc=80, target=80, capacity=60, power=10)
     with pytest.raises(PlanError, match="limit_not_above_soc"):
         plan_vehicle(slots(NIGHT), full, Rules(), NOW, deadline=DEADLINE)
     everything = [{"start": NOW - timedelta(hours=1), "end": DEADLINE}]
@@ -358,7 +358,7 @@ def test_ceiling_too_low_for_the_whole_charge() -> None:
 
 
 def test_minimum_level_is_reached_whatever_the_price() -> None:
-    car = Car(soc=20, target=80, capacity=60, power=10, efficiency=1.0)
+    car = Car(soc=20, target=80, capacity=60, power=10)
     plan = plan_vehicle(slots(NIGHT), car, Rules(ceiling=0.3, min_soc=50), NOW, deadline=DEADLINE)
     assert plan.min_only
     # 30 % of 60 kWh = 18 kWh = 1.8 h at the cheapest prices, ignoring the ceiling.
@@ -366,7 +366,7 @@ def test_minimum_level_is_reached_whatever_the_price() -> None:
 
 
 def test_minimum_level_without_enough_time() -> None:
-    car = Car(soc=10, target=80, capacity=60, power=10, efficiency=1.0)
+    car = Car(soc=10, target=80, capacity=60, power=10)
     soon = NOW + timedelta(hours=1)
     plan = plan_vehicle(slots(NIGHT), car, Rules(ceiling=0.1, min_soc=50), NOW, deadline=soon)
     assert plan.min_only and plan.short

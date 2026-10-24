@@ -6,7 +6,7 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import config_validation as cv, device_registry as dr
+from homeassistant.helpers import config_validation as cv, device_registry as dr, entity_registry as er
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 
@@ -18,6 +18,9 @@ from .websocket import async_register_websocket
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
+# Entities of older versions that are gone, by the end of their unique id.
+RETIRED_ENTITIES = ("_charging_efficiency",)
+
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Register the actions and the panel's websocket commands."""
@@ -28,6 +31,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: EVPlannerConfigEntry) -> bool:
     """Set up the household with its cars, chargers and guest."""
+    _remove_retired_entities(hass, entry)
     household = Household(hass, entry)
     await household.async_initialize()
     entry.runtime_data = household
@@ -36,6 +40,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: EVPlannerConfigEntry) ->
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     await async_register_panel(hass)
     return True
+
+
+def _remove_retired_entities(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Remove entities that an update has made unused, so none is left unavailable."""
+    registry = er.async_get(hass)
+    for entity in er.async_entries_for_config_entry(registry, entry.entry_id):
+        if entity.unique_id.endswith(RETIRED_ENTITIES):
+            registry.async_remove(entity.entity_id)
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
