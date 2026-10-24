@@ -355,9 +355,8 @@ def _select_joined(
     in the cheapest single period when that is. Returns the segments, the plan
     mode and what it costs more than the cheapest plan (0 for the cheapest).
 
-    ``reserved`` are the periods other cars on the same charger have planned:
-    finishing in one go never takes them, so the other car still gets its
-    cheap hours.
+    ``reserved`` are the periods other cars plugged in on the same charger
+    have planned: finishing in one go never takes them.
     """
     cheapest, cheapest_cost = select_split(slots, need, power)
     if need.grid_kwh <= EPSILON or not cheapest:

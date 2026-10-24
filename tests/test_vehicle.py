@@ -236,3 +236,27 @@ def test_energy_sessions_months_and_store() -> None:
     again.load(None)
     again.load({"session": {"start": "bad"}, "last_sent": "nonsense", "months": {"x": 1}})
     assert again.session is None and again.last_sent is None
+
+
+def test_only_a_plugged_in_car_keeps_its_hours_from_finishing_in_one_go() -> None:
+    """One charger, one cable: the car that is plugged in charges in its own plan."""
+    from types import SimpleNamespace
+
+    from custom_components.ev_planner.household import Household
+
+    tesla = Vehicle("v1", "Tesla", {"charger": "c1"})
+    mercedes = Vehicle("v2", "Mercedes", {"charger": "c1"})
+    elsewhere = Vehicle("v3", "Other", {"charger": "c2"})
+    hours = [{"start": NOW, "end": NOW + timedelta(hours=1)}]
+    for car in (mercedes, elsewhere):
+        car.plan = plan_vehicle(
+            [PriceSlot(NOW, NOW + timedelta(hours=3), 1.0)], Car(50, 60, 60, 10, 1.0), Rules(), NOW, deadline=None
+        )
+    household = SimpleNamespace(vehicles={"v1": tesla, "v2": mercedes, "v3": elsewhere})
+
+    mercedes.connected, elsewhere.connected = False, True
+    assert Household.reserved_for(household, tesla) == []  # at home without a cable: nothing reserved
+    mercedes.connected = True
+    assert Household.reserved_for(household, tesla) == mercedes.plan.segments
+    assert hours[0]["start"] == mercedes.plan.segments[0]["start"]
+    assert Household.reserved_for(household, Vehicle("v4", "No charger", {})) == []

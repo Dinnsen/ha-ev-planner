@@ -2,10 +2,15 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
 
+## [1.1.1] - 2026-10-24
+
+### Fixed
+- **Finish in one go only keeps clear of a car that is plugged in.** 1.1.0 also kept clear of the periods of a car at home without a cable, which on a charger with one cable stopped the car that is plugged in from finishing. Now the car that is plugged in charges in its own plan, as before.
+
 ## [1.1.0] - 2026-10-24
 
 ### Added
-- **Finish in one go** (*Lad færdig i ét stræk*), per car under *Rules*, and as `switch.<car>_finish_in_one_period` and `number.<car>_one_period_price_difference`: when charging on now, or in one period, costs at most the set amount more per kWh than the cheapest plan (0.05 by default), the car charges in one go instead of stopping at dawn and finishing the next night for a few øre less. The plan says so, with what it costs more. It never takes the periods another car on the same charger has planned, so that car still gets its cheap hours.
+- **Finish in one go** (*Lad færdig i ét stræk*), per car under *Rules*, and as `switch.<car>_finish_in_one_period` and `number.<car>_one_period_price_difference`: when charging on now, or in one period, costs at most the set amount more per kWh than the cheapest plan (0.05 by default), the car charges in one go instead of stopping at dawn and finishing the next night for a few øre less. The plan says so, with what it costs more. It never takes the periods another car plugged in on the same charger has planned.
 
 ### Changed
 - When a plan ends, the car is planned again before EV Planner acts, so a car that goes on charging is not paused and started again in between.
