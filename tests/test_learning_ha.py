@@ -176,3 +176,37 @@ async def test_the_old_efficiency_entities_are_removed(
     assert registry.async_get(old.entity_id) is None
     assert registry.async_get(guest.entity_id) is None
     assert registry.async_get("number.tesla_target") is not None
+
+
+async def test_without_a_level_sensor_the_set_level_moves_at_the_speed(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    """An hour at the imported 15 %/h and 10 kW: 50 % → 65 %, 10 kWh."""
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass)
+    entry = await _setup(
+        hass, freezer, entry_with(charger_sub(), vehicle_sub(TESLA, "Tesla", tesla_data(soc_entity=None)))
+    )
+    tesla = entry.runtime_data.vehicles[TESLA]
+    assert tesla.current_soc == 50
+    await _mode(hass, "charge_now")
+    hass.states.async_set(CHARGING, "on")
+    await settle(hass, freezer)
+    start = dt_util.now()
+    for minute in range(1, 61):
+        await move(hass, freezer, start + timedelta(minutes=minute))
+    assert tesla.current_soc == pytest.approx(65, abs=0.6)
+    assert tesla.session is not None
+    assert tesla.session.energy == pytest.approx(10, abs=0.4)
+
+
+def test_power_readings_in_kw() -> None:
+    from homeassistant.core import State
+
+    from custom_components.ev_planner.household import power_value
+
+    assert power_value(None) is None
+    assert power_value(State(POWER, "unavailable")) is None
+    assert power_value(State(POWER, "9.6", {"unit_of_measurement": "kW"})) == 9.6
+    assert power_value(State(POWER, "9600", {"unit_of_measurement": "W"})) == 9.6
+    assert power_value(State(POWER, "0.0096", {"unit_of_measurement": "MW"})) == pytest.approx(9.6)
