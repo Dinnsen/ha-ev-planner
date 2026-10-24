@@ -36,6 +36,7 @@ const TEXT = {
     note_short: "Ikke tid nok til at nå målet før kl. {time}.",
     note_short_plain: "Ikke tid nok til at nå målet før fristen.",
     note_opportunistic: "Opportunistisk: prisloftet er {price} lige nu.",
+    note_joined: "Lader færdig i ét stræk: {extra} mere end den billigste plan.",
     guest_card: "Gæst",
     guest_none: "Ingen gæst lige nu",
     guest_start: "Start gæsteopladning",
@@ -159,6 +160,9 @@ const TEXT = {
     opp_follow_hint: "Prisloftet bliver {pct} af den sidste kendte pris.",
     opp_needs_ceiling: "Kræver et prisloft.",
     opp_level: "Niveau",
+    rule_join: "Lad færdig i ét stræk",
+    rule_join_hint: "Lad videre eller i én periode, når det højst koster så meget mere pr. kWh end den billigste plan. Den anden bil på laderen beholder sine timer.",
+    rule_join_continuous: "Plantypen er Én periode, så bilen lader allerede i ét stræk.",
     rule_keep_on: "Hold laderen tændt",
     rule_keep_on_hint: "Efter planen, så bilen kan forvarme fra nettet.",
     rule_earliest: "Tidligste start",
@@ -390,6 +394,7 @@ const TEXT = {
     note_short: "Not enough time to reach the target by {time}.",
     note_short_plain: "Not enough time to reach the target before the deadline.",
     note_opportunistic: "Opportunistic: the price ceiling is {price} right now.",
+    note_joined: "Finishing in one go: {extra} more than the cheapest plan.",
     guest_card: "Guest",
     guest_none: "No guest right now",
     guest_start: "Start guest charging",
@@ -511,6 +516,9 @@ const TEXT = {
     opp_follow_hint: "The ceiling becomes {pct} of the last known price.",
     opp_needs_ceiling: "Needs a price ceiling.",
     opp_level: "Level",
+    rule_join: "Finish in one go",
+    rule_join_hint: "Charge on, or in one period, when that costs at most this much more per kWh than the cheapest plan. The other car on the charger keeps its hours.",
+    rule_join_continuous: "The plan type is One period, so the car charges in one go already.",
     rule_keep_on: "Keep the charger on",
     rule_keep_on_hint: "After the plan, so the car can precondition from the grid.",
     rule_earliest: "Earliest start",
@@ -1897,6 +1905,7 @@ class EvPlannerPanel extends HTMLElement {
         notes.push(["warn", deadline ? this._t("note_short", { time: this._time(deadline) }) : this._t("note_short_plain")]);
       }
       if (!compact && plan.opportunistic && isNum(plan.ceiling)) notes.push(["info", this._t("note_opportunistic", { price: this._money(plan.ceiling) })]);
+      if (!compact && plan.joined) notes.push(["info", this._t("note_joined", { extra: this._money(plan.joined_extra || 0) })]);
     }
     if (!notes.length) return compact ? "" : `<div class="notes"></div>`;
     return `<div class="notes">${notes
@@ -2846,6 +2855,7 @@ class EvPlannerPanel extends HTMLElement {
     return [
       "min_soc", "price_ceiling_enabled", "price_ceiling", "low_price_charging", "low_price_level", "low_soc_charging", "low_soc_level",
       "opportunistic", "opportunistic_level", "follow_level", "keep_charger_on", "use_earliest_start", "earliest_start", "charging_efficiency",
+      "join_period", "join_within", "continuous",
     ].map((key) => s[key]);
   }
 
@@ -2903,6 +2913,15 @@ class EvPlannerPanel extends HTMLElement {
         hint: this._t("rule_low_soc_hint"),
         off: !s.low_soc_charging,
         control: `${s.low_soc_charging ? this._valueHtml("low_soc_level", s.low_soc_level, { unit: "%", label: this._t("rule_low_soc") }) : ""}${this._switchHtml("low_soc_charging", s.low_soc_charging, this._t("rule_low_soc"))}`,
+      }),
+    );
+    rows.push(
+      this._ruleRow({
+        icon: "plan",
+        title: this._t("rule_join"),
+        hint: s.continuous ? this._t("rule_join_continuous") : this._t("rule_join_hint"),
+        off: !s.join_period || s.continuous,
+        control: `${s.join_period && !s.continuous ? this._valueHtml("join_within", s.join_within, { unit: price, step: 0.01, min: 0, max: 2, label: this._t("rule_join") }) : ""}${this._switchHtml("join_period", s.join_period, this._t("rule_join"))}`,
       }),
     );
     rows.push(this._opportunisticHtml(s));

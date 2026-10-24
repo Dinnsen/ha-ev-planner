@@ -48,6 +48,8 @@ from .const import (
     SET_EARLIEST_START,
     SET_EFFICIENCY,
     SET_FOLLOW_LEVEL,
+    SET_JOIN_ENABLED,
+    SET_JOIN_WITHIN,
     SET_KEEP_ON,
     SET_LOW_PRICE_ENABLED,
     SET_LOW_PRICE_LEVEL,
@@ -372,6 +374,7 @@ class Vehicle:
             low_price_level=to_float(s.get(SET_LOW_PRICE_LEVEL)) if s.get(SET_LOW_PRICE_ENABLED) else None,
             low_soc_level=to_float(s.get(SET_LOW_SOC_LEVEL)) if s.get(SET_LOW_SOC_ENABLED) else None,
             keep_on=bool(s.get(SET_KEEP_ON)),
+            join_within=max(0.0, to_float(s.get(SET_JOIN_WITHIN)) or 0.0) if s.get(SET_JOIN_ENABLED) else None,
         )
 
     @property

@@ -35,6 +35,7 @@ from .planner import (
     Segment,
     ceil_minute,
     charge_need,
+    contiguous_runs,
     energy_cost,
     limit_slots,
     merge_segments,
@@ -83,6 +84,8 @@ class Rules:
     """Charge right away while the charge level is below this."""
     keep_on: bool = False
     """Keep the charger on after the plan, so the car can precondition from the grid."""
+    join_within: float | None = None
+    """Finish in one go (from now, or in one period) when that costs at most this much more per kWh than the cheapest plan (None: off)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,6 +129,10 @@ class VehiclePlan:
     """True when only the minimum charge level is planned (the ceiling allows too little)."""
     short: bool = False
     """True when there is not enough time before the deadline to reach the target."""
+    joined: bool = False
+    """True when ``join_within`` chose one period over the cheapest plan."""
+    joined_extra: float = 0.0
+    """What that one period costs more than the cheapest plan."""
 
     @property
     def savings(self) -> float | None:
@@ -328,6 +335,56 @@ def _select(slots: list[PriceSlot], need: ChargeNeed, power: float, continuous: 
     return segments, MODE_SPLIT
 
 
+def _overlaps(segments: Iterable[Segment], others: Iterable[Segment]) -> bool:
+    return any(a["start"] < b["end"] and b["start"] < a["end"] for a in segments for b in others)
+
+
+def _select_joined(
+    slots: list[PriceSlot],
+    need: ChargeNeed,
+    power: float,
+    within: float,
+    now: datetime,
+    reserved: Sequence[Segment] = (),
+) -> tuple[list[Segment], str, float]:
+    """The cheapest plan, or one that finishes sooner when it costs at most ``within`` more per kWh.
+
+    A split plan may stop at dawn and finish the next night for a few øre less.
+    With ``within`` the car instead charges in one go: from now when that is
+    within ``within`` per kWh of the cheapest plan (it goes on charging), else
+    in the cheapest single period when that is. Returns the segments, the plan
+    mode and what it costs more than the cheapest plan (0 for the cheapest).
+
+    ``reserved`` are the periods other cars on the same charger have planned:
+    finishing in one go never takes them, so the other car still gets its
+    cheap hours.
+    """
+    cheapest, cheapest_cost = select_split(slots, need, power)
+    if need.grid_kwh <= EPSILON or not cheapest:
+        return cheapest, MODE_SPLIT, 0.0
+    free = cut_slots(slots, reserved)
+    candidates: list[tuple[list[Segment], float]] = []
+    run = contiguous_runs(free)[0] if free else []
+    if run and run[0].start <= now + timedelta(minutes=1):
+        end = run[0].start + timedelta(hours=need.hours)
+        if end <= run[-1].end + timedelta(seconds=1):
+            from_now: list[Segment] = [{"start": run[0].start, "end": end}]
+            candidates.append((from_now, segments_cost(run, from_now, power)))
+    if len(merge_segments(cheapest)) > 1:
+        joined, joined_cost = select_continuous(free, need, power)
+        if joined:
+            candidates.append((joined, joined_cost))
+    for segments, cost in candidates:
+        if _overlaps(segments, reserved):
+            continue
+        extra = cost - cheapest_cost
+        if extra / need.grid_kwh <= within + EPSILON:
+            if merge_segments(segments) == merge_segments(cheapest):
+                break  # the cheapest plan is this already
+            return segments, MODE_CONTINUOUS, max(0.0, extra)
+    return cheapest, MODE_SPLIT, 0.0
+
+
 def _need_for_hours(need: ChargeNeed, hours: float) -> ChargeNeed:
     """The same need, but charging only ``hours``."""
     share = hours / need.hours if need.hours > EPSILON else 0.0
@@ -371,6 +428,7 @@ def plan_vehicle(
     earliest: time | None = None,
     continuous: bool = False,
     blocked: Iterable[Segment] = (),
+    reserved: Iterable[Segment] = (),
 ) -> VehiclePlan:
     """The cheapest plan for one car under its rules.
 
@@ -398,8 +456,16 @@ def plan_vehicle(
     limited = False
     min_only = False
 
+    joined = False
+    joined_extra = 0.0
     if slot_hours(allowed) + EPSILON >= need.hours:
-        segments, mode = _select(list(allowed), need, car.power, continuous)
+        if not continuous and rules.join_within is not None:
+            segments, mode, joined_extra = _select_joined(
+                list(allowed), need, car.power, rules.join_within, now, list(reserved)
+            )
+            joined = mode == MODE_CONTINUOUS
+        else:
+            segments, mode = _select(list(allowed), need, car.power, continuous)
         hours = need.hours
     else:
         # The ceiling (or the time left) does not allow the whole charge.
@@ -445,6 +511,8 @@ def plan_vehicle(
         limited=limited,
         min_only=min_only,
         short=short,
+        joined=joined,
+        joined_extra=joined_extra,
     )
 
 

@@ -2,6 +2,14 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
 
+## [1.1.0] - 2026-10-24
+
+### Added
+- **Finish in one go** (*Lad færdig i ét stræk*), per car under *Rules*, and as `switch.<car>_finish_in_one_period` and `number.<car>_one_period_price_difference`: when charging on now, or in one period, costs at most the set amount more per kWh than the cheapest plan (0.05 by default), the car charges in one go instead of stopping at dawn and finishing the next night for a few øre less. The plan says so, with what it costs more. It never takes the periods another car on the same charger has planned, so that car still gets its cheap hours.
+
+### Changed
+- When a plan ends, the car is planned again before EV Planner acts, so a car that goes on charging is not paused and started again in between.
+
 ## [1.0.0] - 2026-10-23
 
 The first stable version, for HACS' default list. Nothing changed since 0.8.0: settings, plans and history carry over, and 0.8.0 can be installed again.

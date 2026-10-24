@@ -167,6 +167,71 @@ def test_plan_one_period() -> None:
     assert len(plan.segments) == 1
 
 
+def test_plan_joins_a_split_plan_when_one_period_costs_little_more() -> None:
+    """Last night: 02-06 cheapest, the last hour cheapest tomorrow evening.
+
+    With "finish in one period" the car charges in one go when that costs at
+    most the set amount more per kWh, and splits as before when it costs more.
+    """
+    night = datetime(2026, 10, 24, 0, 0, tzinfo=TZ)
+    # 00-24 on Saturday: 02-06 cheapest, then 23:00 just below the hours around the night.
+    day = [0.47, 0.47, 0.41, 0.42, 0.41, 0.42, 0.53, 0.66, *[0.7] * 13, 0.6, 0.58, 0.45]
+    car = Car(soc=13, target=100, capacity=50, power=10, efficiency=1.0)  # 43.5 kWh = 4.35 h
+    prices = slots(day, night)
+
+    split = plan_vehicle(prices, car, Rules(), night, deadline=None)
+    assert split.mode == "split" and len(split.segments) == 2
+    assert not split.joined and split.joined_extra == 0
+
+    joined = plan_vehicle(prices, car, Rules(join_within=0.05), night, deadline=None)
+    assert joined.mode == "continuous" and len(joined.segments) == 1
+    assert joined.joined
+    assert joined.joined_extra == pytest.approx(joined.cost - split.cost)
+    assert 0 < joined.joined_extra / joined.energy <= 0.05
+    assert joined.end_soc == pytest.approx(100)
+
+    # A difference above the setting keeps the split plan.
+    strict = plan_vehicle(prices, car, Rules(join_within=0.001), night, deadline=None)
+    assert strict.mode == "split" and not strict.joined
+
+
+def test_join_goes_on_charging_when_now_costs_little_more() -> None:
+    """06:00, the car not full yet: 06-07 costs 0.53, tonight's 23:00 0.45.
+
+    Within 0.10 per kWh the car goes on charging now; within 0.05 it waits.
+    """
+    six = datetime(2026, 10, 24, 6, 0, tzinfo=TZ)
+    rest = [0.53, 0.66, *[0.7] * 14, 0.58, 0.45]  # 06:00-23:59
+    car = Car(soc=81, target=100, capacity=50, power=10, efficiency=1.0)  # 9.5 kWh = 0.95 h
+    prices = slots(rest, six)
+    wait = plan_vehicle(prices, car, Rules(join_within=0.05), six, deadline=None)
+    assert hhmm(wait.segments)[0][0] == "23:00" and not wait.joined
+    go_on = plan_vehicle(prices, car, Rules(join_within=0.1), six, deadline=None)
+    assert hhmm(go_on.segments) == [("06:00", "06:57")]
+    assert go_on.joined and go_on.mode == "continuous"
+    assert go_on.joined_extra == pytest.approx(go_on.cost - wait.cost)
+
+
+def test_join_leaves_the_other_cars_cheap_hours() -> None:
+    """The other car on the charger has 06:00-07:00 planned: no going on charging into it."""
+    six = datetime(2026, 10, 24, 6, 0, tzinfo=TZ)
+    rest = [0.53, 0.66, *[0.7] * 14, 0.58, 0.45]
+    car = Car(soc=81, target=100, capacity=50, power=10, efficiency=1.0)
+    other = [{"start": six + timedelta(minutes=30), "end": six + timedelta(hours=1)}]
+    plan = plan_vehicle(slots(rest, six), car, Rules(join_within=0.5), six, deadline=None, reserved=other)
+    assert not any(seg["start"] < other[0]["end"] and other[0]["start"] < seg["end"] for seg in plan.segments)
+    assert hhmm(plan.segments) != [("06:00", "06:57")]
+
+
+def test_join_leaves_plans_that_are_one_period_already() -> None:
+    plan = plan_vehicle(slots(NIGHT), CAR, Rules(join_within=0.5), NOW, deadline=DEADLINE)
+    assert hhmm(plan.segments) == [("02:00", "03:48")]
+    assert plan.mode == "split" and not plan.joined
+    # "One period" chosen by the user is not "joined".
+    chosen = plan_vehicle(slots(NIGHT), CAR, Rules(join_within=0.5), NOW, deadline=DEADLINE, continuous=True)
+    assert chosen.mode == "continuous" and not chosen.joined
+
+
 def test_plan_without_deadline_uses_all_known_prices() -> None:
     plan = plan_vehicle(slots(NIGHT), CAR, Rules(), NOW, deadline=None)
     assert hhmm(plan.segments) == [("02:00", "03:48")]

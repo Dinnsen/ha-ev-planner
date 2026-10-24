@@ -336,6 +336,9 @@
       "price_ceiling": {
         "name": "Prisloft"
       },
+      "join_within": {
+        "name": "Prisforskel for ét stræk"
+      },
       "low_price_level": {
         "name": "Lav pris"
       },
@@ -529,6 +532,9 @@
       },
       "use_earliest_start": {
         "name": "Tidligste start"
+      },
+      "join_period": {
+        "name": "Lad færdig i ét stræk"
       },
       "continuous": {
         "name": "Én periode"

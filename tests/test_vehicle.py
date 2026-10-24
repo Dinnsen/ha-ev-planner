@@ -104,9 +104,12 @@ def test_rules_from_settings() -> None:
             "min_soc": 30,
             "keep_charger_on": True,
             "opportunistic": "lower_ceiling",
+            "join_period": True,
+            "join_within": 0.08,
         }
     )
     rules = vehicle.rules()
+    assert rules.join_within == 0.08
     assert rules.ceiling == 1.5 and rules.low_price_level == 0.2 and rules.low_soc_level == 15
     assert rules.min_soc == 30 and rules.keep_on and rules.opportunistic == "lower_ceiling"
 
