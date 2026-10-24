@@ -51,6 +51,9 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: EVPlann
                 "control_error": vehicle.control_error,
                 "problem": vehicle.problem,
                 "months": vehicle.months,
+                "charging_figures": household.charging_figures(vehicle),
+                "meter": vehicle.meter.to_dict(),
+                "learned": vehicle.learned.to_dict(),
             }
             for vehicle_id, vehicle in household.vehicles.items()
         },

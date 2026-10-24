@@ -27,7 +27,8 @@ EV Planner is built from [EV Guest](https://github.com/Dinnsen/EV-Guest) (the pl
 
 - **Any number of cars and chargers.** Cars and chargers are added on the integration's page. Cars on the same charger share it: the one that must be ready first gets it first, and a guest has it during the guest session.
 - **You choose who starts and stops charging, per car:** the car (its charge switch), the charger (its switch), or neither – then EV Planner plans, reminds and publishes a *Charger control* sensor for your own automations.
-- **The cheapest plan** from 15-minute or hourly prices: minute by minute, one period or the cheapest periods, with charging losses, cost and savings.
+- **The cheapest plan** from 15-minute or hourly prices: minute by minute, one period or the cheapest periods, with cost and savings.
+- **Learns how fast each car charges.** Plans are made from the charging speed in % per hour that the car itself shows, so a car that draws less than its setting, or a battery that is not the size you expected, still gets a plan that is long enough. Nothing to set: no efficiency, no guessing.
 - **Ready by** a time, per weekday, or by a trip in a calendar ("Aarhus 90 %" charges to 90 %).
 - **Rules from EV Smart Charging:** minimum level whatever the price, price ceiling, charge at a low price, charge at a low battery, opportunistic charging (lower the ceiling when cheap prices are coming, or follow the last known price), earliest start, keep the charger on after the plan (precondition from the grid).
 - **Finish in one go:** when charging on now, or in one period, costs at most a set amount more per kWh than the cheapest plan (e.g. 0.05), the car is charged in one go instead of stopping at dawn and finishing the next night for a few øre less. Another car plugged in on the same charger keeps the hours it has planned; a car that is not plugged in reserves nothing, since on a charger with one cable the car that is plugged in charges in its own plan.
@@ -67,7 +68,8 @@ Manually: download `ev_planner.zip` from the [latest release](https://github.com
 | Charge level, Charge limit | The car's sensors. A *number* charge limit is also changed when you change the target in EV Planner. Without a charge level sensor you set the level yourself. |
 | Plugged in, States that mean unplugged | E.g. a cable binary sensor, or a status sensor where `3` means unplugged. |
 | At home, Charging | Optional. EV Planner only acts at home; *Charging* is used to check that charging started. |
-| Charging power, Charger | What the car draws at home, and the charger it uses. |
+| Charging power (sensor) | Optional. The car's own charging power sensor in kW (W is converted), e.g. `sensor.model3_charger_power`. EV Planner learns the power from it and counts the energy with it. |
+| Charging power, Charger | What the car draws at home – a starting point until the car has shown it – and the charger it uses. |
 | Who starts and stops charging | **The car** (choose its charge switch), **the charger** (the charger needs a switch), or **neither**. |
 | Calendar, Keyword | Optional. Trips in the calendar set when the car must be ready. |
 
@@ -75,7 +77,7 @@ Manually: download `ev_planner.zip` from the [latest release](https://github.com
 
 ## Moving from EV Smart Charging
 
-When you add a car, EV Planner offers to start from a car in EV Smart Charging: it copies the sensors, the charge switch and the settings (price ceiling, minimum level, low price, low battery, opportunistic, keep charger on, ready by, earliest start). EV Smart Charging is not changed.
+When you add a car, EV Planner offers to start from a car in EV Smart Charging: it copies the sensors, the charge switch, the charging speed in % per hour and the settings (price ceiling, minimum level, low price, low battery, opportunistic, keep charger on, ready by, earliest start). EV Smart Charging is not changed.
 
 Run both for a while with **who starts and stops charging** set to *neither* in EV Planner and compare the plans in the panel. Then set it to the car or the charger, turn off *Smart charging activated* in EV Smart Charging, and remove EV Smart Charging when you are happy.
 
@@ -210,7 +212,17 @@ A car without a ready-by time looks at most 24 hours ahead, and price forecasts 
 
 Every car is planned again when prices, its charge level, target, connection or settings change, and when a plan ends. A plan that is charging right now is kept until its period ends, so it never moves away under the car. Cars on the same charger are planned in order of their deadline; the periods of the first are not used by the next, and *Finish in one go* never takes the planned periods of another car that is plugged in. Each minute EV Planner decides what each car should do now – charge for a low level or a low price, follow the plan, keep the charger on, or pause – and switches only when that changes, or for a few minutes after the car is plugged in (many cars start charging by themselves). A charge you start yourself is left alone until the plan changes.
 
-Without a charge level sensor, the level you set is moved forward while the car charges. Energy and cost per month come from the rising charge level (or the charging time without a sensor).
+### Charging speed
+
+The charging time comes from the charging speed in % per hour, the way EV Smart Charging plans:
+
+1. **Before the car has shown anything:** the charging power against the battery capacity (11 kW and 77 kWh is 14.3 %/h), or the speed a car imported from EV Smart Charging had.
+2. **Learned:** after a charge in which the level rose at least **30 %**, the speed it showed is learned. It is measured over the time the car actually charged, so a plan in several periods counts as one charge. A new charge moves the learned speed 30 % of the way, so one odd night does not take over.
+3. **While charging:** once the charge going on has risen 30 %, the plan follows the speed it shows, so a car charged with another current is followed the same night.
+
+A rise of 30 % or more is needed because charge levels come in steps: over a few percent, a car that reports whole percent can be far off. Changing the car's battery capacity or charging power in its setup starts learning over. The status sensor shows the speed and where it comes from (`charge_speed`, `charge_speed_source`: `estimated`, `imported`, `learned` or `measuring`, and `charge_speed_learned_from`).
+
+The energy and cost are the charging time at the charging power – what the car draws, losses included. With the car's charging power sensor, the power is learned too (`charge_power`, `charge_power_source`), and the energy per month is counted from that sensor. Without it, the energy comes from the rising charge level, and without a charge level sensor from the charging time; the level you set yourself is then moved forward at the charging speed.
 
 ## Known limitations
 

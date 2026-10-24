@@ -45,7 +45,6 @@ from .const import (
     GUEST_CHARGING,
     GUEST_COMPLETED,
     GUEST_CONTINUOUS,
-    GUEST_EFFICIENCY,
     GUEST_LIMIT,
     GUEST_PLANNED,
     GUEST_PLATE,
@@ -116,7 +115,6 @@ PLAN_INPUT_KEYS = (
     GUEST_LIMIT,
     GUEST_BATTERY,
     GUEST_POWER,
-    GUEST_EFFICIENCY,
     GUEST_READY_BY,
     GUEST_USE_READY_BY,
     GUEST_CONTINUOUS,
@@ -162,7 +160,6 @@ class GuestSession:
             GUEST_READY_BY: "07:00",
             GUEST_USE_READY_BY: True,
             GUEST_CONTINUOUS: True,
-            GUEST_EFFICIENCY: 90.0,
             GUEST_CHARGER: None,
         }
         self.results: dict[str, Any] = {
@@ -423,10 +420,9 @@ class GuestSession:
             capacity = float(inputs[GUEST_BATTERY])
             power = float(inputs[GUEST_POWER])
             limit = float(inputs[GUEST_LIMIT])
-            efficiency = float(inputs.get(GUEST_EFFICIENCY) or 90.0) / 100
         except (KeyError, TypeError, ValueError) as err:
             raise PlanError(ERROR_INVALID_INPUT) from err
-        return charge_need(soc, limit, capacity, power, efficiency), power
+        return charge_need(soc, limit, capacity, power), power
 
     def make_plan(self, inputs: Mapping[str, Any], now: datetime | None = None) -> tuple[Plan, list[PriceSlot]]:
         """Plan with the given inputs; raises PlanError. Nothing is stored."""

@@ -23,7 +23,8 @@ def test_defaults_and_config() -> None:
     vehicle = make()
     assert vehicle.capacity == 60
     assert vehicle.configured_power == 10
-    assert vehicle.efficiency == pytest.approx(0.9)
+    assert vehicle.charge_speed(10) == (pytest.approx(10 / 60 * 100), "estimated")
+    assert vehicle.basis == (60, 10)
     assert vehicle.control == "none"
     assert vehicle.charger_id is None
     assert vehicle.mode == "smart"
@@ -126,7 +127,7 @@ def test_deadline_and_earliest_start() -> None:
 
 def _plan(vehicle: Vehicle):
     prices = [PriceSlot(NOW + timedelta(hours=i), NOW + timedelta(hours=i + 1), 1.0) for i in range(11)]
-    car = Car(soc=50, target=80, capacity=60, power=10, efficiency=1.0)
+    car = Car(soc=50, target=80, capacity=60, power=10)
     return plan_vehicle(prices, car, Rules(), NOW, deadline=NOW + timedelta(hours=11))
 
 
@@ -204,10 +205,12 @@ def test_charge_now_falls_back_to_smart() -> None:
 
 def test_energy_sessions_months_and_store() -> None:
     vehicle = make()
-    assert vehicle.soc_energy(None, 50) == 0
-    assert vehicle.soc_energy(50, 49) == 0
-    assert vehicle.soc_energy(10, 90) == 0  # a jump, not charging
-    assert vehicle.soc_energy(50, 60) == pytest.approx(6 / 0.9)
+    assert vehicle.soc_energy(None, 50, 15, 9) == 0
+    assert vehicle.soc_energy(50, 49, 15, 9) == 0
+    assert vehicle.soc_energy(10, 90, 15, 9) == 0  # a jump, not charging
+    # 10 % at 15 %/h is 40 minutes of charging at 9 kW.
+    assert vehicle.soc_energy(50, 60, 15, 9) == pytest.approx(6)
+    assert vehicle.soc_energy(50, 60, 0, 9) == 0
     vehicle.add_energy(NOW, 0, 1.0)
     assert vehicle.month(NOW)["energy"] == 0
     vehicle.start_session(NOW, "planned")
@@ -250,7 +253,7 @@ def test_only_a_plugged_in_car_keeps_its_hours_from_finishing_in_one_go() -> Non
     hours = [{"start": NOW, "end": NOW + timedelta(hours=1)}]
     for car in (mercedes, elsewhere):
         car.plan = plan_vehicle(
-            [PriceSlot(NOW, NOW + timedelta(hours=3), 1.0)], Car(50, 60, 60, 10, 1.0), Rules(), NOW, deadline=None
+            [PriceSlot(NOW, NOW + timedelta(hours=3), 1.0)], Car(50, 60, 60, 10), Rules(), NOW, deadline=None
         )
     household = SimpleNamespace(vehicles={"v1": tesla, "v2": mercedes, "v3": elsewhere})
 
@@ -260,3 +263,80 @@ def test_only_a_plugged_in_car_keeps_its_hours_from_finishing_in_one_go() -> Non
     assert Household.reserved_for(household, tesla) == mercedes.plan.segments
     assert hours[0]["start"] == mercedes.plan.segments[0]["start"]
     assert Household.reserved_for(household, Vehicle("v4", "No charger", {})) == []
+
+
+def test_the_speed_to_plan_with() -> None:
+    vehicle = make()
+    assert vehicle.charge_speed(9.6) == (pytest.approx(16), "estimated")
+    imported = make(imported_speed=15.6)
+    assert imported.charge_speed(9.6) == (15.6, "imported")
+    imported.learned.speed, imported.learned.speed_count = 17.1, 1
+    assert imported.charge_speed(9.6) == (17.1, "learned")
+    # A charge that has risen enough is followed while it goes on.
+    for minute in range(1, 151):
+        imported.meter.tick(60, True, 9.6)
+        if minute % 5 == 0:
+            imported.meter.reading(20 + 20 * minute / 60)
+    speed, source = imported.charge_speed(9.6)
+    assert source == "measuring" and speed == pytest.approx(20, rel=0.01)
+
+
+def test_a_charge_teaches_the_car_once_it_rose_enough() -> None:
+    vehicle = make()
+    for minute in range(1, 61):
+        vehicle.meter.tick(60, True, 9.6)
+        if minute % 5 == 0:
+            vehicle.meter.reading(20 + 17 * minute / 60)
+    assert vehicle.finish_measurement() is False  # 17 % so far: measured on
+    assert vehicle.meter.rise > 0
+    for minute in range(61, 151):
+        vehicle.meter.tick(60, True, 9.6)
+        if minute % 5 == 0:
+            vehicle.meter.reading(20 + 17 * minute / 60)
+    assert vehicle.finish_measurement() is True
+    assert vehicle.learned.speed == pytest.approx(17, rel=0.01)
+    assert vehicle.learned.power == pytest.approx(9.6)
+    assert vehicle.meter.rise == 0
+
+    # Unplugged after a short charge: the power is learned, the speed is not.
+    for minute in range(1, 31):
+        vehicle.meter.tick(60, True, 10.0)
+        if minute % 5 == 0:
+            vehicle.meter.reading(60 + 17 * minute / 60)
+    assert vehicle.finish_measurement(unplugged=True) is True
+    assert vehicle.learned.speed_count == 1 and vehicle.learned.power_count == 2
+    assert vehicle.finish_measurement(unplugged=True) is False
+
+
+def test_learning_is_stored_and_dropped_when_the_setup_changes() -> None:
+    vehicle = make()
+    vehicle.learned.speed, vehicle.learned.speed_count = 17.0, 2
+    vehicle.meter.tick(60, True)
+    vehicle.meter.reading(40)
+    stored = vehicle.to_store()
+
+    again = make()
+    again.load(stored)
+    assert again.learned.speed == 17 and again.learned.speed_count == 2
+    assert again.meter.first_soc == 40
+
+    changed = make(charge_power=9.6)
+    changed.load(stored)
+    assert changed.learned.speed is None and changed.learned.basis == (60, 9.6)
+    assert changed.meter.first_soc is None
+
+
+def test_the_retired_efficiency_setting_is_dropped() -> None:
+    vehicle = make(imported_settings={"charging_efficiency": 85})
+    assert "charging_efficiency" not in vehicle.settings
+    vehicle.load({"settings": {"charging_efficiency": 90, "target_soc": 70}})
+    assert "charging_efficiency" not in vehicle.settings
+    assert vehicle.settings["target_soc"] == 70
+
+
+def test_power_entity_and_imported_speed_from_the_setup() -> None:
+    vehicle = make(power_entity="sensor.model3_charger_power", imported_speed="bad")
+    assert vehicle.power_entity == "sensor.model3_charger_power"
+    assert vehicle.imported_speed is None
+    assert make(imported_speed=0).imported_speed is None
+    assert make().power_entity is None

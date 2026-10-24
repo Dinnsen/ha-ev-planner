@@ -17,7 +17,7 @@ import re
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN, UnitOfEnergy
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN, UnitOfEnergy, UnitOfPower
 from homeassistant.core import CALLBACK_TYPE, Event, EventStateChangedData, HomeAssistant, State, callback
 from homeassistant.exceptions import HomeAssistantError, ServiceNotFound, ServiceValidationError
 from homeassistant.helpers import issue_registry as ir
@@ -90,6 +90,7 @@ from .const import (
     WIDGET_MIN_INTERVAL,
 )
 from .guest import GuestSession
+from .learning import MIN_POWER_KW
 from .notifications import COLOR_CHARGE, COLOR_ERROR, COLOR_WARN, Notifier, tag_for
 from .planner import PlanError, PriceSlot, Segment, segments_to_schedule
 from .prices import extract_price_slots
@@ -157,6 +158,19 @@ def meter_value(state: State | None) -> float | None:
     if unit == UnitOfEnergy.WATT_HOUR:
         return value / 1000
     if unit == UnitOfEnergy.MEGA_WATT_HOUR:
+        return value * 1000
+    return value
+
+
+def power_value(state: State | None) -> float | None:
+    """A power reading in kW."""
+    value = state_float(state)
+    if value is None or state is None:
+        return None
+    unit = state.attributes.get("unit_of_measurement")
+    if unit == UnitOfPower.WATT:
+        return value / 1000
+    if unit == UnitOfPower.MEGA_WATT:
         return value * 1000
     return value
 
@@ -477,6 +491,8 @@ class Household(DataUpdateCoordinator[None]):
         entity_id = event.data["entity_id"]
         if entity_id == vehicle.soc_entity and vehicle.soc is not None:
             self._count_soc(vehicle, old_soc, vehicle.soc, now)
+        if vehicle.connected is False and was_connected is True and vehicle.finish_measurement(unplugged=True):
+            self.async_save()
         if vehicle.connected is True and was_connected is False:
             # Many cars start charging as soon as they are plugged in: for a few
             # minutes, make sure the car does what the plan says.
@@ -492,11 +508,16 @@ class Household(DataUpdateCoordinator[None]):
         vehicle.last_soc_seen = new
         if vehicle.connected is False or vehicle.home is False:
             return
-        kwh = vehicle.soc_energy(previous, new)
+        vehicle.meter.reading(new)
+        power = self.vehicle_power(vehicle)
+        speed, _source = vehicle.charge_speed(power)
+        kwh = vehicle.soc_energy(previous, new, speed, power)
         if kwh > 0:
             vehicle.last_rise = now
             vehicle.start_session(now, vehicle.decision.reason)
-            vehicle.add_energy(now, kwh, current_price(self.price_slots(now), now))
+            # A car that reports its power has its energy counted by that, every minute.
+            if not self._power_counted(vehicle, now):
+                vehicle.add_energy(now, kwh, current_price(self.price_slots(now), now))
             self.async_save()
 
     @callback
@@ -579,8 +600,8 @@ class Household(DataUpdateCoordinator[None]):
             soc=soc,
             target=vehicle.target,
             capacity=vehicle.capacity,
-            power=self.vehicle_power(vehicle),
-            efficiency=vehicle.efficiency,
+            power=(power := self.vehicle_power(vehicle)),
+            speed=vehicle.charge_speed(power)[0],
         )
         try:
             vehicle.plan = plan_vehicle(
@@ -603,10 +624,29 @@ class Household(DataUpdateCoordinator[None]):
         vehicle.planned_at = now
 
     def vehicle_power(self, vehicle: Vehicle) -> float:
-        """The car's charging power, at most what its charger can give."""
+        """The car's charging power: what it has shown, else its setting, at most what its charger can give."""
+        return self.vehicle_power_source(vehicle)[0]
+
+    def charging_figures(self, vehicle: Vehicle) -> dict[str, Any]:
+        """The speed and power the car is planned with, and where they come from."""
+        power, power_source = self.vehicle_power_source(vehicle)
+        speed, speed_source = vehicle.charge_speed(power)
+        return {
+            "charge_speed": round(speed, 1),
+            "charge_speed_source": speed_source,
+            "charge_speed_learned_from": vehicle.learned.speed_count,
+            "charge_power": round(power, 2),
+            "charge_power_source": power_source,
+            "measured_rise": round(vehicle.meter.rise, 1),
+        }
+
+    def vehicle_power_source(self, vehicle: Vehicle) -> tuple[float, str]:
+        """The car's charging power (kW), and whether it was "learned" or "configured"."""
+        if vehicle.learned.power is not None:
+            return vehicle.learned.power, "learned"
         charger = self.chargers.get(vehicle.charger_id or "")
         power = vehicle.configured_power
-        return min(power, charger.power) if charger is not None else power
+        return (min(power, charger.power) if charger is not None else power), "configured"
 
     def blocked_for(self, vehicle: Vehicle, now: datetime) -> list[Segment]:
         """Periods others have on the car's charger: the guest, and plugged-in cars planned before it."""
@@ -666,17 +706,40 @@ class Household(DataUpdateCoordinator[None]):
         await self._async_reminders(now)
 
     def _count_time(self, vehicle: Vehicle, now: datetime) -> None:
-        """Without a charge level sensor, charging time is the only measure of energy."""
-        if vehicle.has_soc_sensor or not self._is_charging(vehicle):
+        """A minute of charging: for the measurement, and for the energy when nothing else counts it.
+
+        A car that reports its charging power is counted by that. Without a
+        power reading, the rising charge level counts the energy; without a
+        charge level sensor, the charging time at the charging power does,
+        and moves the manual charge level on at the charging speed.
+        """
+        charging = self._is_charging(vehicle) and vehicle.at_home is not False
+        reading = power_value(self.hass.states.get(vehicle.power_entity)) if vehicle.power_entity else None
+        vehicle.power_from_car = reading
+        hours = TICK.total_seconds() / 3600
+        vehicle.meter.tick(TICK.total_seconds(), charging, reading)
+        if not charging:
             return
-        power = self.vehicle_power(vehicle)
-        kwh = power * TICK.total_seconds() / 3600
+        if reading is not None and reading >= MIN_POWER_KW:
+            vehicle.power_counted_at = now
+            kwh = reading * hours
+        elif vehicle.has_soc_sensor:
+            self.async_save()
+            return
+        else:
+            kwh = self.vehicle_power(vehicle) * hours
         vehicle.start_session(now, vehicle.decision.reason)
         vehicle.add_energy(now, kwh, current_price(self.price_slots(now), now))
-        soc = to_float(vehicle.settings.get(SET_MANUAL_SOC)) or 0.0
-        gained = kwh * vehicle.efficiency / vehicle.capacity * 100
-        vehicle.settings[SET_MANUAL_SOC] = round(min(100.0, soc + gained), 2)
+        if not vehicle.has_soc_sensor:
+            speed, _source = vehicle.charge_speed(self.vehicle_power(vehicle))
+            soc = to_float(vehicle.settings.get(SET_MANUAL_SOC)) or 0.0
+            vehicle.settings[SET_MANUAL_SOC] = round(min(100.0, soc + speed * hours), 2)
         self.async_save()
+
+    @staticmethod
+    def _power_counted(vehicle: Vehicle, now: datetime) -> bool:
+        """Whether the car's power reading counts its energy right now."""
+        return vehicle.power_counted_at is not None and now - vehicle.power_counted_at <= 2 * TICK
 
     def _is_charging(self, vehicle: Vehicle) -> bool:
         if vehicle.connected is False:
@@ -872,6 +935,8 @@ class Household(DataUpdateCoordinator[None]):
             await self.notifier.clear(tag_for("live", vehicle.vehicle_id), to=vehicle.notify_to)
         if vehicle.session is not None:
             entry = vehicle.end_session(now)
+            # A charge that rose enough teaches the car's speed; a smaller one is measured on.
+            vehicle.finish_measurement()
             self.async_save()
             if entry and vehicle.settings.get(SET_NOTIFY_DONE) and self.notifier.enabled:
                 soc = vehicle.current_soc

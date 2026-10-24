@@ -100,7 +100,7 @@
           },
           "data_description": {
             "name": "For example Tesla Model 3.",
-            "battery_capacity": "Usable capacity in kWh. Used when the car does not report it itself."
+            "battery_capacity": "Usable capacity in kWh. Used when the car does not report it itself. With the charging power, it gives the first estimate of the charging speed; after that, the car's own charges decide."
           },
           "sections": {
             "sensors": {
@@ -113,7 +113,8 @@
                 "connected_entity": "Plugged in",
                 "unplugged_states": "States that mean unplugged",
                 "home_entity": "At home",
-                "charging_entity": "Charging"
+                "charging_entity": "Charging",
+                "power_entity": "Charging power"
               },
               "data_description": {
                 "soc_entity": "The car's battery level (%). Without it, you set the level by hand.",
@@ -122,7 +123,8 @@
                 "connected_entity": "An entity that shows whether the car is plugged in, e.g. a charge cable sensor.",
                 "unplugged_states": "Default: off, disconnected, unplugged. For a status sensor, e.g. 3.",
                 "home_entity": "Optional. EV Planner only acts while the car is home.",
-                "charging_entity": "Optional. Shows whether the car is charging (on/charging, or a power above 0). Used to check that charging started."
+                "charging_entity": "Optional. Shows whether the car is charging (on/charging, or a power above 0). Used to check that charging started.",
+                "power_entity": "Optional. The car's own charging power sensor (kW). EV Planner learns the power from it and counts the energy with it."
               }
             },
             "charging": {
@@ -135,7 +137,7 @@
                 "control_entity": "The car's charge switch"
               },
               "data_description": {
-                "charge_power": "What the car draws from the grid when charging at home (kW).",
+                "charge_power": "What the car draws when charging at home (kW). A starting point: a car with a charging power sensor is measured instead.",
                 "charger": "The charger the car uses. Cars on the same charger share it.",
                 "control": "Choose the car, the charger, or neither.",
                 "control_entity": "Needed when the car starts and stops charging, e.g. switch.model3_charge."
@@ -164,7 +166,7 @@
           },
           "data_description": {
             "name": "For example Tesla Model 3.",
-            "battery_capacity": "Usable capacity in kWh. Used when the car does not report it itself."
+            "battery_capacity": "Usable capacity in kWh. Used when the car does not report it itself. With the charging power, it gives the first estimate of the charging speed; after that, the car's own charges decide."
           },
           "sections": {
             "sensors": {
@@ -177,7 +179,8 @@
                 "connected_entity": "Plugged in",
                 "unplugged_states": "States that mean unplugged",
                 "home_entity": "At home",
-                "charging_entity": "Charging"
+                "charging_entity": "Charging",
+                "power_entity": "Charging power"
               },
               "data_description": {
                 "soc_entity": "The car's battery level (%). Without it, you set the level by hand.",
@@ -186,7 +189,8 @@
                 "connected_entity": "An entity that shows whether the car is plugged in, e.g. a charge cable sensor.",
                 "unplugged_states": "Default: off, disconnected, unplugged. For a status sensor, e.g. 3.",
                 "home_entity": "Optional. EV Planner only acts while the car is home.",
-                "charging_entity": "Optional. Shows whether the car is charging (on/charging, or a power above 0). Used to check that charging started."
+                "charging_entity": "Optional. Shows whether the car is charging (on/charging, or a power above 0). Used to check that charging started.",
+                "power_entity": "Optional. The car's own charging power sensor (kW). EV Planner learns the power from it and counts the energy with it."
               }
             },
             "charging": {
@@ -199,7 +203,7 @@
                 "control_entity": "The car's charge switch"
               },
               "data_description": {
-                "charge_power": "What the car draws from the grid when charging at home (kW).",
+                "charge_power": "What the car draws when charging at home (kW). A starting point: a car with a charging power sensor is measured instead.",
                 "charger": "The charger the car uses. Cars on the same charger share it.",
                 "control": "Choose the car, the charger, or neither.",
                 "control_entity": "Needed when the car starts and stops charging, e.g. switch.model3_charge."
@@ -351,9 +355,6 @@
       "follow_level": {
         "name": "Follow price level"
       },
-      "charging_efficiency": {
-        "name": "Charging efficiency"
-      },
       "reminder_soc": {
         "name": "Remind below"
       },
@@ -377,9 +378,6 @@
       },
       "guest_charger_power": {
         "name": "Charging power"
-      },
-      "guest_charging_efficiency": {
-        "name": "Charging efficiency"
       }
     },
     "select": {

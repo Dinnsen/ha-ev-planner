@@ -295,7 +295,9 @@ async def test_add_a_car_from_ev_smart_charging(hass: HomeAssistant, init_integr
     values, settings = esc_import(hass, esc.entry_id)
     assert values["control"] == "car"
     assert values["control_entity"] == CHARGE_SWITCH
-    assert values["charge_power"] == 12.0
+    # The speed comes along as it is; the power is not made up from it.
+    assert values["imported_speed"] == 16.0
+    assert "charge_power" not in values
     assert settings["price_ceiling_enabled"] is True
     assert settings["price_ceiling"] == 1.4
     assert settings["opportunistic"] == "lower_ceiling"
@@ -322,6 +324,31 @@ async def test_add_a_car_from_ev_smart_charging(hass: HomeAssistant, init_integr
     new = next(sub for sub in init_integration.subentries.values() if sub.title == "Tesla 2")
     assert new.data["imported_from"] == esc.entry_id
     assert new.data["imported_settings"]["price_ceiling"] == 1.4
+    assert new.data["imported_speed"] == 16.0
+    assert init_integration.runtime_data.vehicles[new.subentry_id].charge_speed(11) == (16.0, "imported")
+
+    # Reconfigured with the same capacity and power, the speed stays; with another power it goes.
+    for power, kept in ((12, True), (9.6, False)):
+        result = await init_integration.start_subentry_reconfigure_flow(hass, new.subentry_id)
+        result = await hass.config_entries.subentries.async_configure(
+            result["flow_id"],
+            {
+                "name": "Tesla 2",
+                "battery_capacity": 75,
+                "sensors": {"soc_entity": SOC, "target_entity": "number.tesla_charge_limit"},
+                "charging": {
+                    "charge_power": power,
+                    "charger": CARPORT,
+                    "control": "car",
+                    "control_entity": CHARGE_SWITCH,
+                },
+                "trips": {},
+            },
+        )
+        assert result["type"] is FlowResultType.ABORT
+        await hass.async_block_till_done()
+        new = init_integration.subentries[new.subentry_id]
+        assert ("imported_speed" in new.data) is kept
 
     # Already imported: straight to the form.
     result = await _start_vehicle_flow(hass, init_integration)

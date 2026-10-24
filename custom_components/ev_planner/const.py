@@ -69,6 +69,10 @@ CONF_CHARGER: Final = "charger"
 CONF_CONTROL: Final = "control"
 CONF_CONTROL_ENTITY: Final = "control_entity"
 CONF_CHARGING_ENTITY: Final = "charging_entity"
+# The car's own charging power sensor (kW), to learn the power and count the energy.
+CONF_POWER_ENTITY: Final = "power_entity"
+# The charging speed (% per hour) of a car imported from EV Smart Charging.
+CONF_IMPORTED_SPEED: Final = "imported_speed"
 CONF_CALENDAR_ENTITY: Final = "calendar_entity"
 CONF_CALENDAR_KEYWORD: Final = "calendar_keyword"
 
@@ -113,7 +117,6 @@ SET_OPPORTUNISTIC: Final = "opportunistic"
 SET_OPPORTUNISTIC_LEVEL: Final = "opportunistic_level"
 SET_FOLLOW_LEVEL: Final = "follow_level"
 SET_KEEP_ON: Final = "keep_charger_on"
-SET_EFFICIENCY: Final = "charging_efficiency"
 SET_REMINDER: Final = "reminder"
 SET_REMINDER_TIME: Final = "reminder_time"
 SET_REMINDER_SOC: Final = "reminder_soc"
@@ -166,7 +169,6 @@ DEFAULT_VEHICLE_SETTINGS: Final[dict[str, object]] = {
     SET_OPPORTUNISTIC_LEVEL: 50.0,
     SET_FOLLOW_LEVEL: 90.0,
     SET_KEEP_ON: False,
-    SET_EFFICIENCY: 90.0,
     SET_REMINDER: False,
     SET_REMINDER_TIME: "16:00",
     SET_REMINDER_SOC: 60.0,
@@ -271,7 +273,6 @@ GUEST_LIMIT: Final = "charge_limit"
 GUEST_READY_BY: Final = "charge_completion_time"
 GUEST_USE_READY_BY: Final = "use_completion_time"
 GUEST_CONTINUOUS: Final = "continuous_charging_preferred"
-GUEST_EFFICIENCY: Final = "charging_efficiency"
 GUEST_CHARGER: Final = "charger"
 
 RELEASE_PLAN_END: Final = "plan_end"

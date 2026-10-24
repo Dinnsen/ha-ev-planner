@@ -108,12 +108,21 @@ def tesla_data(**extra: Any) -> dict[str, Any]:
         "control": "car",
         "control_entity": CHARGE_SWITCH,
         "charger": CARPORT,
+        # The speed EV Smart Charging had for the car: 15 %/h, so 30 % takes two hours.
+        "imported_speed": 15.0,
         **extra,
     }
 
 
 def mercedes_data(**extra: Any) -> dict[str, Any]:
-    return {"battery_capacity": 66.5, "charge_power": 11.0, "control": "none", "charger": CARPORT, **extra}
+    return {
+        "battery_capacity": 66.5,
+        "charge_power": 11.0,
+        "control": "none",
+        "charger": CARPORT,
+        "imported_speed": 11 * 0.9 / 66.5 * 100,
+        **extra,
+    }
 
 
 def carport_data(**extra: Any) -> dict[str, Any]:

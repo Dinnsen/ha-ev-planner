@@ -319,9 +319,13 @@ const TEXT = {
     bill_rate_hint: "Tom: brug den faktiske elpris fra planen eller elmåleren.",
     payment_text: "Betalingsoplysninger",
     payment_hint: "Kommer med i afregningen, fx MobilePay-nummer.",
-    settings_guest: "Gæsteopladning",
-    efficiency: "Ladeeffektivitet",
-    efficiency_hint: "Andelen af strømmen, der ender i batteriet. 90 % passer til de fleste biler.",
+    charge_speed: "Ladehastighed",
+    speed_measuring: "målt på denne ladning",
+    speed_learned: "lært af {count} ladninger",
+    speed_learned_one: "lært af 1 ladning",
+    speed_imported: "fra EV Smart Charging",
+    speed_estimated: "anslået, lærer når bilen er ladet 30 %",
+    power_learned: "målt",
     settings_sources: "Opsætning",
     settings_notifications: "Notifikationer",
     notify_language: "Sprog i notifikationer",
@@ -672,9 +676,13 @@ const TEXT = {
     bill_rate_hint: "Empty: use the actual price from the plan or the energy meter.",
     payment_text: "Payment details",
     payment_hint: "Added to the bill, e.g. a phone number for payment.",
-    settings_guest: "Guest charging",
-    efficiency: "Charging efficiency",
-    efficiency_hint: "The share of the energy that ends up in the battery. 90 % suits most cars.",
+    charge_speed: "Charging speed",
+    speed_measuring: "measured on this charge",
+    speed_learned: "learned from {count} charges",
+    speed_learned_one: "learned from 1 charge",
+    speed_imported: "from EV Smart Charging",
+    speed_estimated: "estimated, learns once the car has charged 30 %",
+    power_learned: "measured",
     settings_sources: "Setup",
     settings_notifications: "Notifications",
     notify_language: "Language of notifications",
@@ -2743,7 +2751,11 @@ class EvPlannerPanel extends HTMLElement {
       JSON.stringify([schedule, s.ready_by, s.use_ready_by, this._schedDay, lang]),
       this._scheduleHtml(s),
     );
-    this._patch(root.querySelector(".car-info"), JSON.stringify([v.calendar, v.control_source, v.charger, v.power, v.capacity, lang]), this._carInfoHtml(v));
+    this._patch(
+      root.querySelector(".car-info"),
+      JSON.stringify([v.calendar, v.control_source, v.charger, v.power, v.capacity, v.charge_speed, v.charge_speed_source, v.charge_speed_learned_from, v.charge_power_source, lang]),
+      this._carInfoHtml(v),
+    );
     this._patch(root.querySelector(".rules-body"), JSON.stringify([this._ruleValues(s), this._currency, lang]), this._rulesHtml(v, s));
     this._patch(
       root.querySelector(".notify-body"),
@@ -2842,19 +2854,27 @@ class EvPlannerPanel extends HTMLElement {
     const source = this._t(`control_${v.control_source || "none"}`);
     const charger = [
       v.charger?.name,
-      isNum(v.power) ? `${this._num(v.power)} kW` : "",
+      isNum(v.power) ? `${this._num(v.power)} kW${v.charge_power_source === "learned" ? ` (${this._t("power_learned")})` : ""}` : "",
       isNum(v.capacity) ? `${this._t("battery_size")} ${this._kwh(v.capacity, 1)}` : "",
     ]
       .filter(Boolean)
       .join(" · ");
     lines.push(`<p class="info-line">${ICONS.charger}<span>${this._t("control_source")}: <b>${esc(source)}</b>${charger ? ` · ${esc(charger)}` : ""}</span></p>`);
+    if (isNum(v.charge_speed)) {
+      const count = Number(v.charge_speed_learned_from) || 0;
+      const from =
+        v.charge_speed_source === "learned"
+          ? count === 1 ? this._t("speed_learned_one") : this._t("speed_learned", { count })
+          : this._t(`speed_${v.charge_speed_source || "estimated"}`);
+      lines.push(`<p class="info-line">${ICONS.charge}<span>${this._t("charge_speed")}: <b>${this._num(v.charge_speed)} %/${this._t("hours_short")}</b> · ${esc(from)}</span></p>`);
+    }
     return lines.join("");
   }
 
   _ruleValues(s) {
     return [
       "min_soc", "price_ceiling_enabled", "price_ceiling", "low_price_charging", "low_price_level", "low_soc_charging", "low_soc_level",
-      "opportunistic", "opportunistic_level", "follow_level", "keep_charger_on", "use_earliest_start", "earliest_start", "charging_efficiency",
+      "opportunistic", "opportunistic_level", "follow_level", "keep_charger_on", "use_earliest_start", "earliest_start",
       "join_period", "join_within", "continuous",
     ].map((key) => s[key]);
   }
@@ -2943,10 +2963,6 @@ class EvPlannerPanel extends HTMLElement {
         control: `${s.use_earliest_start ? `<label class="chip-input time on"><input type="time" step="900" data-set="earliest_start" data-type="time" value="${esc(s.earliest_start || "18:00")}" aria-label="${this._t("rule_earliest")}"></label>` : ""}${this._switchHtml("use_earliest_start", s.use_earliest_start, this._t("rule_earliest"))}`,
       }),
     );
-    const eff = isNum(s.charging_efficiency) ? Number(s.charging_efficiency) : 90;
-    rows.push(`<label class="field col eff-field"><span>${this._t("efficiency")} <b class="eff-value">${Math.round(eff)} %</b></span>
-        <input type="range" min="50" max="100" step="1" value="${eff}" data-set="charging_efficiency" data-range="1" aria-label="${this._t("efficiency")}">
-        <small>${this._t("efficiency_hint")}</small></label>`);
     return rows.join("");
   }
 
@@ -3384,7 +3400,6 @@ class EvPlannerPanel extends HTMLElement {
       "charge_limit",
       "battery_capacity",
       "charger_power",
-      "charging_efficiency",
       "charge_completion_time",
       "use_completion_time",
       "continuous_charging_preferred",
@@ -3589,7 +3604,6 @@ class EvPlannerPanel extends HTMLElement {
     const settings = s.settings || {};
     const config = s.config || {};
     const notify = config.notify || [];
-    const eff = this._gin.charging_efficiency ?? 90;
     const appUrl = `${location.origin}${this._panel?.config?.app_url || "/ev_planner_app"}/app.html`;
     return `<div class="page settings-page">
       <section class="panel">
@@ -3611,12 +3625,6 @@ class EvPlannerPanel extends HTMLElement {
             })
             .join("")}</div>
           <small>${this._t("notify_language_hint")}</small></div>
-      </section>
-      <section class="panel">
-        <h2>${ICONS.guest}<span>${this._t("settings_guest")}</span></h2>
-        <label class="field col"><span>${this._t("efficiency")} <b class="eff-value">${Math.round(eff)} %</b></span>
-          <input id="g-efficiency" type="range" min="50" max="100" step="1" value="${esc(eff)}">
-          <small>${this._t("efficiency_hint")}</small></label>
       </section>
       <section class="panel">
         <h2>${ICONS.settings}<span>${this._t("settings_sources")}</span></h2>
@@ -3829,8 +3837,6 @@ class EvPlannerPanel extends HTMLElement {
       this._saveSettings({ bill_price: el.value === "" ? null : Number(el.value) });
     } else if (el.id === "payment-text") {
       this._saveSettings({ payment_text: el.value });
-    } else if (el.id === "g-efficiency") {
-      this._gcommit({ charging_efficiency: Number(el.value) }).then(() => this._toast(this._t("saved")));
     }
   }
 
@@ -3839,8 +3845,6 @@ class EvPlannerPanel extends HTMLElement {
     if (el.id === "plate") {
       el.value = el.value.toUpperCase();
     } else if (el.type === "range") {
-      const label = el.closest(".field")?.querySelector(".eff-value");
-      if (label) label.textContent = `${el.value} %`;
       if (el.dataset.set) this._setFromInput(el, false);
     }
   }
@@ -4184,7 +4188,6 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .rule.wide { grid-template-columns: 28px 1fr; }
 .opp-level { display: inline-flex; align-items: center; gap: 8px; color: var(--evp-soft); font-size: 14px; }
 .inline-values { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; color: var(--evp-soft); font-size: 14px; }
-.eff-field { margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--evp-line); }
 .switch { position: relative; flex: none; width: 46px; height: 28px; border-radius: 999px; border: 0; padding: 0; cursor: pointer; background: color-mix(in srgb, var(--evp-ink) 18%, transparent); transition: background .2s; }
 .switch i { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .2s cubic-bezier(.2,.8,.2,1); }
 .switch[aria-checked="true"] { background: linear-gradient(90deg, #00B894, #A3E635); }

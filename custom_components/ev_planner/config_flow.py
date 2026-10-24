@@ -39,11 +39,13 @@ from .const import (
     CONF_ENERGY_ENTITY,
     CONF_HOME_ENTITY,
     CONF_IMPORTED_FROM,
+    CONF_IMPORTED_SPEED,
     CONF_MODEL,
     CONF_MOTORAPI_KEY,
     CONF_NOTIFY,
     CONF_PLATE_PROVIDER,
     CONF_POWER,
+    CONF_POWER_ENTITY,
     CONF_PRICE_ENTITY,
     CONF_SOC_ENTITY,
     CONF_SOURCE,
@@ -111,6 +113,7 @@ HOME_SELECTOR = selector.EntitySelector(
 )
 SWITCH_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain=["switch", "input_boolean"]))
 ENERGY_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", device_class="energy"))
+POWER_ENTITY_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", device_class="power"))
 CAPACITY_ENTITY_SELECTOR = selector.EntitySelector(
     selector.EntitySelectorConfig(domain=["sensor", "number", "input_number"])
 )
@@ -345,9 +348,10 @@ def esc_import(hass: HomeAssistant, entry_id: str) -> tuple[dict[str, Any], dict
         CONF_CONTROL: CONTROL_CAR if charger_entity else CONTROL_NONE,
         CONF_CONTROL_ENTITY: charger_entity or None,
     }
+    # EV Smart Charging plans with a speed in % per hour: the car starts out with that.
     speed = _float(_esc_state(hass, entry_id, "number", "charging_speed"))
-    if speed:
-        values[CONF_CHARGE_POWER] = round(speed * DEFAULT_BATTERY_CAPACITY / 100, 1)
+    if speed and speed > 0:
+        values[CONF_IMPORTED_SPEED] = speed
 
     def on(key: str) -> bool:
         return _esc_state(hass, entry_id, "switch", key) == "on"
@@ -405,6 +409,7 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
         self._suggested: dict[str, Any] = {}
         self._imported_from: str | None = None
         self._imported_settings: dict[str, Any] = {}
+        self._imported_speed: float | None = None
 
     def _charger_options(self) -> list[selector.SelectOptionDict]:
         entry = self._get_entry()
@@ -440,6 +445,7 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
                             opt(CONF_UNPLUGGED_STATES): STATES_SELECTOR,
                             opt(CONF_HOME_ENTITY): HOME_SELECTOR,
                             opt(CONF_CHARGING_ENTITY): ANY_ENTITY_SELECTOR,
+                            opt(CONF_POWER_ENTITY): POWER_ENTITY_SELECTOR,
                         }
                     ),
                     {"collapsed": False},
@@ -505,6 +511,7 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
             if source != SOURCE_MANUAL and source in candidates:
                 self._imported_from = source
                 self._suggested, self._imported_settings = esc_import(self.hass, source)
+                self._imported_speed = self._suggested.pop(CONF_IMPORTED_SPEED, None)
             return await self.async_step_details()
         options = [selector.SelectOptionDict(value=SOURCE_MANUAL, label="-")]
         options.extend(selector.SelectOptionDict(value=eid, label=title) for eid, title in candidates.items())
@@ -529,6 +536,8 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
                 if self._imported_from:
                     stored[CONF_IMPORTED_FROM] = self._imported_from
                     stored[CONF_IMPORTED_SETTINGS] = self._imported_settings
+                    if self._imported_speed:
+                        stored[CONF_IMPORTED_SPEED] = self._imported_speed
                 return self.async_create_entry(title=data[CONF_NAME], data=stored)
             self._suggested = data
         return self.async_show_form(
@@ -548,6 +557,11 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
                 for key in (CONF_IMPORTED_FROM, CONF_IMPORTED_SETTINGS):
                     if key in subentry.data:
                         stored[key] = subentry.data[key]
+                # EV Smart Charging's speed goes with the capacity and power it came with.
+                if CONF_IMPORTED_SPEED in subentry.data and all(
+                    stored.get(key) == subentry.data.get(key) for key in (CONF_BATTERY_CAPACITY, CONF_CHARGE_POWER)
+                ):
+                    stored[CONF_IMPORTED_SPEED] = subentry.data[CONF_IMPORTED_SPEED]
                 return self.async_update_and_abort(self._get_entry(), subentry, title=data[CONF_NAME], data=stored)
             values = data
         else:

@@ -284,6 +284,7 @@ class VehicleSensor(VehicleEntity, SensorEntity):
                 "not_enough_time": plan.short if plan else False,
                 "plan_mode": plan.mode if plan else None,
                 "one_period_extra": round(plan.joined_extra, 2) if plan and plan.joined else None,
+                **self.coordinator.charging_figures(vehicle),
                 "control": vehicle.control,
                 "control_error": vehicle.control_error,
             }

@@ -2,6 +2,20 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
 
+## [1.2.0] - 2026-10-24
+
+### Added
+- **EV Planner learns how fast each car charges.** Plans are made from the charging speed in % per hour that the car shows, like EV Smart Charging, instead of from the battery capacity, the charging power and a guessed efficiency. A charge in which the level rose at least 30 % teaches the speed, measured over the time the car actually charged; a new charge moves it 30 % of the way. Once a charge has risen 30 %, the plan follows the speed it shows. Until a car has shown anything, the charging power against the battery capacity is the estimate. The status sensor shows `charge_speed`, `charge_speed_source` and `charge_speed_learned_from`, and the panel shows the speed under the car.
+- **Charging power sensor** (optional) for a car: its own charging power in kW. EV Planner learns the power from it (`charge_power`, `charge_power_source`) and counts the energy per month with it.
+
+### Changed
+- The energy and cost of a plan are the charging time at the charging power.
+- A car imported from EV Smart Charging starts with its speed in % per hour. Its charging power is no longer worked out from that speed with an assumed 75 kWh battery, which gave cars too high a power.
+- Changing a car's battery capacity or charging power in its setup starts learning over.
+
+### Removed
+- **Charging efficiency**, for cars and the guest, with `number.<car>_charging_efficiency` and `number.guest_car_charging_efficiency`. The speed the car shows includes its losses. The entities are removed on update.
+
 ## [1.1.1] - 2026-10-24
 
 ### Fixed
