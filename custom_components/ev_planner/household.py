@@ -550,10 +550,11 @@ class Household(DataUpdateCoordinator[None]):
         return sorted(self.vehicles.values(), key=key)
 
     def reserved_for(self, vehicle: Vehicle) -> list[Segment]:
-        """What the other cars at home on the same charger have planned.
+        """What the other cars plugged in on the same charger have planned.
 
-        Finishing in one go (``join_within``) never takes these, so a car does
-        not charge on into the other car's cheap hours.
+        Finishing in one go (``join_within``) never takes these. A car that is
+        not plugged in reserves nothing: on a charger with one cable the car
+        that is plugged in charges in its own plan.
         """
         if not vehicle.charger_id:
             return []
@@ -563,7 +564,7 @@ class Household(DataUpdateCoordinator[None]):
             if other.vehicle_id != vehicle.vehicle_id
             and other.charger_id == vehicle.charger_id
             and other.plan is not None
-            and other.home is not False
+            and other.connected is True
             for segment in other.plan.segments
         ]
 
