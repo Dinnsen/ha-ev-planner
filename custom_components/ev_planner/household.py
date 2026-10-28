@@ -592,6 +592,7 @@ class Household(DataUpdateCoordinator[None]):
     def plan_one(self, vehicle: Vehicle, now: datetime, blocked: list[Segment]) -> None:
         """Make the car's plan. A plan that is charging now is kept until its period ends."""
         vehicle.deadline = vehicle.next_deadline(now)
+        vehicle.plan_restored = False
         soc = vehicle.current_soc
         if soc is None:
             vehicle.plan, vehicle.plan_error = None, None
@@ -673,7 +674,11 @@ class Household(DataUpdateCoordinator[None]):
             if charger_id and self.guest.charger_id == charger_id and self.guest.session_active(now):
                 blocked.extend(self.guest.segments)
             active = vehicle.plan is not None and in_segments(vehicle.plan.segments, now)
-            if force or not active or vehicle.decision.control != CONTROL_CHARGE:
+            # A plan charging now is kept; after a restart, the stored plan the car was charging in.
+            charging_in_plan = vehicle.decision.control == CONTROL_CHARGE or (
+                vehicle.plan_restored and vehicle.last_sent == CONTROL_CHARGE
+            )
+            if force or not active or not charging_in_plan:
                 self.plan_one(vehicle, now, blocked)
             if charger_id and vehicle.plan is not None and vehicle.connected is True:
                 taken.setdefault(charger_id, []).extend(vehicle.plan.segments)
@@ -777,6 +782,9 @@ class Household(DataUpdateCoordinator[None]):
                 if changed:
                     self._watch_verify(vehicle)
                 await self._async_session(vehicle, now)
+                if not self._states_unknown(vehicle):
+                    # Acted on with what the car says: from now on the plan is an ordinary one.
+                    vehicle.plan_restored = False
         if apply and self._started:
             await self._async_apply_guest(now)
             self._maybe_refresh_widgets(now)
@@ -917,7 +925,19 @@ class Household(DataUpdateCoordinator[None]):
     # ------------------------------------------------------------------
     # Sessions, live notifications and widgets
 
+    @staticmethod
+    def _states_unknown(vehicle: Vehicle) -> bool:
+        """Whether the car's own sensors are unavailable, e.g. while its integration starts."""
+        return (
+            (vehicle.charging_entity is not None and vehicle.charging is None)
+            or (vehicle.connected_entity is not None and vehicle.connected is None)
+            or (vehicle.home_entity is not None and vehicle.home is None)
+        )
+
     async def _async_session(self, vehicle: Vehicle, now: datetime) -> None:
+        if self._states_unknown(vehicle):
+            # Not known whether it charges: a charge going on is neither ended nor reported.
+            return
         if vehicle.charging is not None or vehicle.control != CONTROL_NONE:
             charging = self._is_charging(vehicle)
         else:
@@ -926,6 +946,12 @@ class Household(DataUpdateCoordinator[None]):
             charging = rising and vehicle.connected is not False
         if charging:
             vehicle.start_session(now, vehicle.decision.reason)
+            if vehicle.pause_notice:
+                # Charging again: the "paused" message is no longer true.
+                vehicle.pause_notice = False
+                self.async_save()
+                if self.notifier.enabled:
+                    await self.notifier.clear(tag_for("done", vehicle.vehicle_id), to=vehicle.notify_to)
             if vehicle.settings.get(SET_LIVE) and self.notifier.enabled:
                 await self._async_live(vehicle, now)
             return
@@ -945,6 +971,7 @@ class Household(DataUpdateCoordinator[None]):
                 plan = vehicle.plan
                 resume = plan.start if plan is not None and plan.start is not None and plan.start > now else None
                 key = "done" if full else "paused_until" if resume is not None else "paused"
+                vehicle.pause_notice = key != "done"
                 await self.notifier.send(
                     title=vehicle.name,
                     message=self._text(

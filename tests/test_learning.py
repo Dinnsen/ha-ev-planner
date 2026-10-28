@@ -57,11 +57,25 @@ def test_a_pause_between_periods_does_not_count() -> None:
 
 def test_a_falling_level_starts_the_measurement_over() -> None:
     meter = ChargeMeter()
-    charge(meter, 60, 50, 20)
+    charge(meter, 60, 50, 20, 10)
+    meter.reading(69.5)  # a small dip is noise, not a new start
+    assert meter.first_soc is not None and meter.rise > 15
     meter.reading(30)  # driven off without being seen unplugged
-    assert meter.first_soc == 30 and meter.rise == 0
-    meter.reading(29.5)  # a small dip is noise, not a new start
-    assert meter.first_soc == 30
+    assert meter == ChargeMeter()
+    meter.reading(29)  # not charging yet: left out
+    assert meter.first_soc is None
+
+
+def test_time_without_charging_before_a_charge_is_not_measured() -> None:
+    """A car that warms up from the battery (active, but the level falls) and later charges."""
+    meter = ChargeMeter()
+    for _ in range(12):
+        meter.tick(MINUTE, True, 3)
+    meter.reading(60)
+    meter.reading(58.5)
+    assert meter == ChargeMeter()
+    charge(meter, 180, 58, 13)
+    assert meter.speed == pytest.approx(13, rel=0.01)
 
 
 def test_an_impossible_speed_is_left_out() -> None:

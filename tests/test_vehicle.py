@@ -340,3 +340,37 @@ def test_power_entity_and_imported_speed_from_the_setup() -> None:
     assert vehicle.imported_speed is None
     assert make(imported_speed=0).imported_speed is None
     assert make().power_entity is None
+
+
+def test_the_plan_is_stored_so_it_survives_a_restart() -> None:
+    vehicle = make()
+    vehicle.plan = _plan(vehicle)
+    vehicle.plan.joined, vehicle.plan.joined_extra, vehicle.plan.ceiling = True, 0.4, 2.5
+    vehicle.pause_notice = True
+    again = make()
+    again.load(vehicle.to_store())
+    assert again.plan is not None
+    assert again.plan.to_dict() == vehicle.plan.to_dict()
+    assert again.plan.start == vehicle.plan.start
+    assert again.plan_restored is True
+    assert again.pause_notice is True
+
+    nothing = make()
+    nothing.load({"plan": None})
+    assert nothing.plan is None and nothing.plan_restored is False
+
+
+@pytest.mark.parametrize(
+    "stored",
+    [
+        "x",
+        {"segments": [{"start": "bad", "end": "bad"}]},
+        {"segments": [{"start": "2026-10-19T20:00:00", "end": "2026-10-19T21:00:00"}]},  # no time zone
+        {"segments": [{"start": "2026-10-19T21:00:00+01:00", "end": "2026-10-19T20:00:00+01:00"}]},
+        {"segments": [], "cost": "x"},
+    ],
+)
+def test_an_unreadable_stored_plan_is_dropped(stored) -> None:
+    from custom_components.ev_planner.rules import VehiclePlan
+
+    assert VehiclePlan.from_dict(stored) is None

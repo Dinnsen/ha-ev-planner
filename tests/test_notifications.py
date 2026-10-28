@@ -299,3 +299,37 @@ async def test_widgets_are_refreshed_when_a_status_changes(
     assert notify.calls.count({"message": "update_widgets"}) == count
     await move(hass, freezer, dt_util.now() + timedelta(minutes=16))
     assert notify.calls.count({"message": "update_widgets"}) == count + 1
+
+
+async def test_the_pause_message_goes_when_the_car_charges_again(
+    hass: HomeAssistant, notify: NotifyCalls, household: MockConfigEntry, freezer: FrozenDateTimeFactory
+) -> None:
+    tesla = household.runtime_data.vehicles[TESLA]
+    clear = {"message": "clear_notification", "data": {"tag": f"evp_done_{TESLA}"}}
+    await _switch(hass, "switch.tesla_notify_when_charged")
+    await hass.services.async_call(
+        "select", "select_option", {ATTR_ENTITY_ID: "select.tesla_mode", "option": "charge_now"}, blocking=True
+    )
+    hass.states.async_set(CHARGING, "on")
+    await settle(hass, freezer)
+    hass.states.async_set(SOC, "55")
+    await settle(hass, freezer)
+
+    hass.states.async_set(CHARGING, "off")
+    await hass.services.async_call(
+        "select", "select_option", {ATTR_ENTITY_ID: "select.tesla_mode", "option": "pause"}, blocking=True
+    )
+    await settle(hass, freezer)
+    done = [c for c in notify.calls if c.get("data", {}).get("tag") == f"evp_done_{TESLA}"]
+    assert done and done[0]["message"].startswith("Paused at 55 % of 80 %")
+    assert tesla.pause_notice is True
+    assert clear not in notify.calls
+
+    # Charging again: the message is no longer true, so it is removed.
+    await hass.services.async_call(
+        "select", "select_option", {ATTR_ENTITY_ID: "select.tesla_mode", "option": "charge_now"}, blocking=True
+    )
+    hass.states.async_set(CHARGING, "on")
+    await settle(hass, freezer)
+    assert clear in notify.calls
+    assert tesla.pause_notice is False

@@ -24,6 +24,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from math import ceil
+from typing import Any
 
 from .planner import (
     EPSILON,
@@ -152,6 +153,61 @@ class VehiclePlan:
     @property
     def end(self) -> datetime | None:
         return self.segments[-1]["end"] if self.segments else None
+
+    def to_dict(self) -> dict[str, Any]:
+        """The plan for storage, so a plan that is charging survives a restart."""
+        return {
+            "segments": [{"start": seg["start"].isoformat(), "end": seg["end"].isoformat()} for seg in self.segments],
+            "cost": self.cost,
+            "energy": self.energy,
+            "battery_energy": self.battery_energy,
+            "minutes": self.minutes,
+            "mode": self.mode,
+            "speed": self.speed,
+            "end_soc": self.end_soc,
+            "charge_now_cost": self.charge_now_cost,
+            "ceiling": self.ceiling,
+            "opportunistic": self.opportunistic,
+            "limited": self.limited,
+            "min_only": self.min_only,
+            "short": self.short,
+            "joined": self.joined,
+            "joined_extra": self.joined_extra,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Any) -> VehiclePlan | None:
+        """A stored plan; None when it is missing or unreadable."""
+        if not isinstance(data, Mapping):
+            return None
+        try:
+            segments: list[Segment] = []
+            for item in data["segments"]:
+                start, end = datetime.fromisoformat(item["start"]), datetime.fromisoformat(item["end"])
+                if start.tzinfo is None or end <= start:
+                    return None
+                segments.append({"start": start, "end": end})
+            optional = {key: data.get(key) for key in ("charge_now_cost", "ceiling")}
+            return cls(
+                segments=segments,
+                cost=float(data["cost"]),
+                energy=float(data["energy"]),
+                battery_energy=float(data["battery_energy"]),
+                minutes=int(data["minutes"]),
+                mode=str(data["mode"]),
+                speed=float(data["speed"]),
+                end_soc=float(data["end_soc"]),
+                charge_now_cost=None if optional["charge_now_cost"] is None else float(optional["charge_now_cost"]),
+                ceiling=None if optional["ceiling"] is None else float(optional["ceiling"]),
+                opportunistic=bool(data.get("opportunistic")),
+                limited=bool(data.get("limited")),
+                min_only=bool(data.get("min_only")),
+                short=bool(data.get("short")),
+                joined=bool(data.get("joined")),
+                joined_extra=float(data.get("joined_extra") or 0.0),
+            )
+        except (KeyError, TypeError, ValueError):
+            return None
 
 
 @dataclass(frozen=True, slots=True)
