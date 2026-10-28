@@ -197,6 +197,8 @@ class Vehicle:
     planned_at: datetime | None = None
     decision: Decision = field(default_factory=lambda: Decision(CONTROL_RELEASED, "off"))
     plan_done: bool = False
+    # The plan came from storage (Home Assistant restarted) and has not been acted on yet.
+    plan_restored: bool = False
 
     # Control
     last_sent: str | None = None
@@ -223,6 +225,8 @@ class Vehicle:
     # Reminders sent on ``reminded_on`` (0: checked, but not sent), and when the last one went.
     reminders_sent: int = 0
     reminded_at: datetime | None = None
+    # A "paused" message is on the phones; it is removed when the car charges again.
+    pause_notice: bool = False
 
     def __post_init__(self) -> None:
         imported = self.config.get("imported_settings")
@@ -586,6 +590,8 @@ class Vehicle:
             "reminders_sent": self.reminders_sent,
             "reminded_at": self.reminded_at.isoformat() if self.reminded_at else None,
             "plan_done": self.plan_done,
+            "plan": self.plan.to_dict() if self.plan is not None else None,
+            "pause_notice": self.pause_notice,
             "meter": self.meter.to_dict(),
             "learned": self.learned.to_dict(),
         }
@@ -622,6 +628,9 @@ class Vehicle:
         at = data.get("reminded_at")
         self.reminded_at = datetime.fromisoformat(at) if isinstance(at, str) else None
         self.plan_done = bool(data.get("plan_done"))
+        self.plan = VehiclePlan.from_dict(data.get("plan"))
+        self.plan_restored = self.plan is not None
+        self.pause_notice = bool(data.get("pause_notice"))
         self.meter = ChargeMeter.from_dict(data.get("meter"))
         self.learned = Learned.from_dict(data.get("learned"))
         if self.learned.check_basis(self.basis):

@@ -2,6 +2,14 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
 
+## [1.2.1] - 2026-10-28
+
+### Fixed
+- **A restart no longer pauses a charge.** The plan is stored, so a car charging when Home Assistant restarts (for example for an update) goes on in the plan it was charging in. Before, the plan was made again and could only start at the next whole minute, so the car was paused for a minute or two and a "paused" message was sent.
+- While a car's own sensors are unavailable (its integration is starting), a charge going on is neither ended nor reported as paused.
+- **The "paused" message is removed when the car charges again**, so it never stays on the phones while the car charges.
+- **Learning:** a falling charge level starts the measurement over completely. Time a car was active without charging (warming up from the battery) no longer counts towards the next learned speed.
+
 ## [1.2.0] - 2026-10-24
 
 ### Added

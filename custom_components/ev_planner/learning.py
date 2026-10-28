@@ -90,14 +90,24 @@ class ChargeMeter:
         """
         if self.charging_seconds <= 0:
             return
-        if self.first_soc is None or (self.last_soc is not None and soc < self.last_soc - 1):
-            # The first reading, or the level fell (a glitch, or the car drove off
-            # without being seen unplugged): measure from here.
+        if self.last_soc is not None and soc < self.last_soc - 1:
+            # The level fell: the car was used without charging (driven off without
+            # being seen unplugged, or warmed up from the battery). Start over, so
+            # that time is not counted; the next charge is measured from its own start.
+            self.reset()
+            return
+        if self.first_soc is None:
             self.first_soc, self.first_seconds = soc, self.charging_seconds
             self.last_soc, self.last_seconds = soc, self.charging_seconds
             return
         if self.last_soc is None or soc > self.last_soc:
             self.last_soc, self.last_seconds = soc, self.charging_seconds
+
+    def reset(self) -> None:
+        """Forget everything measured so far."""
+        self.charging_seconds = self.first_seconds = self.last_seconds = 0.0
+        self.first_soc = self.last_soc = None
+        self.power_kwh = self.power_seconds = 0.0
 
     @property
     def rise(self) -> float:
