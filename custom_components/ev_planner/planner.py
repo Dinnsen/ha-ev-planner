@@ -15,6 +15,11 @@ from math import ceil
 # replaces an earlier one only because of floating point noise.
 EPSILON = 1e-9
 
+# Charging is planned in whole blocks of this many minutes, like EV Smart Charging
+# plans in whole quarters: no period of a minute or two, and a little to spare
+# for the time a car takes to start.
+BLOCK_MINUTES = 15
+
 MODE_CONTINUOUS = "continuous"
 MODE_SPLIT = "split"
 MODE_NOW = "now"
@@ -101,8 +106,10 @@ def charge_need(
 
     The time comes from the charging speed in % per hour: the speed the car
     has shown, or ``charger_kw`` against ``battery_kwh`` when it has shown
-    none. The energy is what the car draws in that time at ``charger_kw``, so
-    charging losses are part of the speed and need no separate figure.
+    none, rounded up to whole blocks of ``BLOCK_MINUTES``. The energy is what
+    the car draws in that time at ``charger_kw``, so charging losses are part
+    of the speed and need no separate figure. A car stops by itself at its
+    limit, so the block that is not needed in full costs nothing.
     """
     if speed is None:
         speed = estimated_speed(battery_kwh, charger_kw)
@@ -111,7 +118,8 @@ def charge_need(
     if limit <= soc:
         raise PlanError("limit_not_above_soc")
 
-    hours = (limit - soc) / speed
+    blocks = ceil((limit - soc) / speed * 60 / BLOCK_MINUTES - EPSILON)
+    hours = blocks * BLOCK_MINUTES / 60
     return ChargeNeed(
         battery_kwh=battery_kwh * (limit - soc) / 100,
         grid_kwh=hours * charger_kw,
@@ -121,19 +129,20 @@ def charge_need(
     )
 
 
-def ceil_minute(moment: datetime) -> datetime:
-    """``moment`` rounded up to a whole minute."""
-    whole = moment.replace(second=0, microsecond=0)
-    return whole if whole == moment else whole + timedelta(minutes=1)
+def floor_minute(moment: datetime) -> datetime:
+    """``moment`` at the start of its minute."""
+    return moment.replace(second=0, microsecond=0)
 
 
 def limit_slots(slots: list[PriceSlot], start: datetime, end: datetime | None) -> list[PriceSlot]:
-    """Cut slots to the period from ``start`` (rounded up to a minute) to ``end``.
+    """Cut slots to the period from ``start`` (from the start of its minute) to ``end``.
 
-    The slot that is running now is kept from ``start``, so a plan can begin
-    right away instead of at the next whole slot.
+    The slot that is running now is kept from the minute that is running, so
+    a plan can begin right away. A plan made again in the middle of a minute
+    therefore still holds that minute: a period that has begun never moves
+    on to the next minute.
     """
-    start = ceil_minute(start)
+    start = floor_minute(start)
     result: list[PriceSlot] = []
     for slot in slots:
         begin = max(slot.start, start)
@@ -265,7 +274,7 @@ def make_plan(
     # Charging straight away, with every price known (deadline ignored).
     upcoming = limit_slots(prices, now, None)
     charge_now_cost = None
-    if upcoming and upcoming[0].start == ceil_minute(now):
+    if upcoming and upcoming[0].start == floor_minute(now):
         begin = upcoming[0].start
         charge_now_cost = energy_cost(upcoming, begin, begin + timedelta(hours=need.hours), power_kw)
 
@@ -286,7 +295,7 @@ def charge_now_plan(prices: list[PriceSlot], need: ChargeNeed, power_kw: float, 
     last price is priced only as far as the prices go.
     """
     # From the start of this minute, so the charger is told to charge right away.
-    begin = now.replace(second=0, microsecond=0)
+    begin = floor_minute(now)
     finish = begin + timedelta(hours=need.hours)
     cost = 0.0
     for slot in prices:

@@ -47,16 +47,18 @@ CONTINUOUS = [1.80, 1.50, 0.40, 0.30, 0.20, 0.25, 0.90, 1.10, 1.30, 1.40, 1.60]
 
 
 def test_charge_need_estimated_and_from_the_speed() -> None:
+    # 4 h 12 min at 14.29 %/h, planned in whole quarters: 4 h 15 min.
     estimated = charge_need(20, 80, 77, 11)
-    assert estimated.minutes == 252
+    assert estimated.minutes == 255
+    assert estimated.hours == pytest.approx(4.25)
     assert estimated.speed_pct_per_hour == pytest.approx(14.29, rel=1e-3)
-    assert estimated.grid_kwh == pytest.approx(46.2)
+    assert estimated.grid_kwh == pytest.approx(46.75)
 
     # A car that has shown 12.86 %/h: the time from the speed, the energy is that time at 11 kW.
     need = charge_need(20, 80, 77, 11, speed=11 * 0.9 / 77 * 100)
     assert need.battery_kwh == pytest.approx(46.2)
-    assert need.grid_kwh == pytest.approx(51.33, rel=1e-3)
-    assert need.minutes == 280
+    assert need.grid_kwh == pytest.approx(52.25)
+    assert need.minutes == 285
     assert need.speed_pct_per_hour == pytest.approx(12.86, rel=1e-3)
 
 
@@ -81,8 +83,8 @@ def test_charge_need_rejects_bad_input(args, key) -> None:
 def test_continuous_picks_cheapest_block() -> None:
     segments, cost = select_continuous(_slots(CONTINUOUS), charge_need(20, 80, 77, 11), 11)
 
-    assert _hhmm(segments) == [("22:00", "02:12")]
-    assert cost == pytest.approx(14.63, rel=1e-3)
+    assert _hhmm(segments) == [("22:00", "02:15")]
+    assert cost == pytest.approx(11 * (0.4 + 0.3 + 0.2 + 0.25 + 0.25 * 0.9))
 
 
 def test_continuous_can_end_with_a_slot() -> None:
@@ -125,9 +127,9 @@ def test_split_puts_part_slot_on_next_cheapest_and_joins_it() -> None:
 
     segments, cost = select_split(slots, charge_need(20, 80, 77, 11), 11)
 
-    # Full hours at 0.10, 0.20, 0.30 and 1.30; 0.2 h at 1.40 joined to 01:00.
-    assert cost == pytest.approx(23.98, rel=1e-3)
-    assert _hhmm(segments) == [("21:00", "22:00"), ("23:00", "00:00"), ("00:48", "03:00")]
+    # Full hours at 0.10, 0.20, 0.30 and 1.30; a quarter at 1.40 joined to 01:00.
+    assert cost == pytest.approx(11 * (0.1 + 0.2 + 0.3 + 1.3 + 0.25 * 1.4))
+    assert _hhmm(segments) == [("21:00", "22:00"), ("23:00", "00:00"), ("00:45", "03:00")]
 
 
 def test_split_part_slot_starts_its_slot_when_next_is_not_charging() -> None:
@@ -148,13 +150,13 @@ def test_split_without_enough_slots_returns_nothing() -> None:
     assert select_split(_slots([1.0]), _need(2), 11) == ([], 0.0)
 
 
-def test_limit_slots_starts_the_current_slot_now() -> None:
+def test_limit_slots_starts_the_current_slot_from_this_minute() -> None:
     now = START + timedelta(minutes=10, seconds=5)
 
     slots = limit_slots(_slots([0.1, 5.0]), now, START + timedelta(hours=1, minutes=30))
 
     assert [(slot.start.strftime("%H:%M"), slot.end.strftime("%H:%M")) for slot in slots] == [
-        ("20:11", "21:00"),
+        ("20:10", "21:00"),
         ("21:00", "21:30"),
     ]
 
@@ -171,10 +173,11 @@ def test_make_plan_with_savings() -> None:
     plan = make_plan(_slots(CONTINUOUS), need, 11, START, START + timedelta(hours=11), TWO_DAYS, True)
 
     assert plan.mode == "continuous"
-    assert plan.cost == pytest.approx(19.25)
-    assert plan.charge_now_cost == pytest.approx(11 * (1.8 + 1.5 + 0.4 + 0.3 + 0.2 * 2 / 3))
+    # 4 h 45 min from 22:00.
+    assert plan.cost == pytest.approx(11 * (0.4 + 0.3 + 0.2 + 0.25 + 0.75 * 0.9))
+    assert plan.charge_now_cost == pytest.approx(11 * (1.8 + 1.5 + 0.4 + 0.3 + 0.2 * 0.75))
     assert plan.savings == pytest.approx(plan.charge_now_cost - plan.cost)
-    assert plan.average_price == pytest.approx(19.25 / need.grid_kwh)
+    assert plan.average_price == pytest.approx(plan.cost / need.grid_kwh)
 
 
 def test_make_plan_split_mode() -> None:

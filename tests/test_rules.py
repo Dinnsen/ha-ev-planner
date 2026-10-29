@@ -29,7 +29,7 @@ TZ = ZoneInfo("Europe/Copenhagen")
 NOW = datetime(2026, 10, 19, 20, 0, tzinfo=TZ)
 # Hourly prices from 20:00 to 07:00 next morning, cheapest 01-04.
 NIGHT = [1.8, 1.5, 1.2, 1.0, 0.9, 0.4, 0.3, 0.35, 0.8, 1.1, 1.6]
-CAR = Car(soc=50, target=80, capacity=60, power=10)  # 18 kWh = 1.8 h
+CAR = Car(soc=50, target=80, capacity=60, power=10)  # 1.8 h, planned as 2 h (whole quarters)
 
 
 def slots(prices: list[float], start: datetime = NOW, minutes: int = 60) -> list[PriceSlot]:
@@ -151,9 +151,9 @@ def test_segments_cost_and_current_price() -> None:
 
 def test_plan_picks_the_cheapest_hours_before_the_deadline() -> None:
     plan = plan_vehicle(slots(NIGHT), CAR, Rules(), NOW, deadline=DEADLINE)
-    assert hhmm(plan.segments) == [("02:00", "03:48")]
+    assert hhmm(plan.segments) == [("02:00", "04:00")]
     assert plan.mode == "split"
-    assert plan.energy == pytest.approx(18)
+    assert plan.energy == pytest.approx(20)
     assert plan.end_soc == pytest.approx(80)
     assert plan.savings is not None and plan.savings > 0
     assert plan.average_price is not None
@@ -176,7 +176,7 @@ def test_plan_joins_a_split_plan_when_one_period_costs_little_more() -> None:
     night = datetime(2026, 10, 24, 0, 0, tzinfo=TZ)
     # 00-24 on Saturday: 02-06 cheapest, then 23:00 just below the hours around the night.
     day = [0.47, 0.47, 0.41, 0.42, 0.41, 0.42, 0.53, 0.66, *[0.7] * 13, 0.6, 0.58, 0.45]
-    car = Car(soc=13, target=100, capacity=50, power=10)  # 43.5 kWh = 4.35 h
+    car = Car(soc=13, target=100, capacity=50, power=10)  # 4.35 h, planned as 4.5 h
     prices = slots(day, night)
 
     split = plan_vehicle(prices, car, Rules(), night, deadline=None)
@@ -202,12 +202,12 @@ def test_join_goes_on_charging_when_now_costs_little_more() -> None:
     """
     six = datetime(2026, 10, 24, 6, 0, tzinfo=TZ)
     rest = [0.53, 0.66, *[0.7] * 14, 0.58, 0.45]  # 06:00-23:59
-    car = Car(soc=81, target=100, capacity=50, power=10)  # 9.5 kWh = 0.95 h
+    car = Car(soc=81, target=100, capacity=50, power=10)  # 0.95 h, planned as 1 h
     prices = slots(rest, six)
     wait = plan_vehicle(prices, car, Rules(join_within=0.05), six, deadline=None)
     assert hhmm(wait.segments)[0][0] == "23:00" and not wait.joined
     go_on = plan_vehicle(prices, car, Rules(join_within=0.1), six, deadline=None)
-    assert hhmm(go_on.segments) == [("06:00", "06:57")]
+    assert hhmm(go_on.segments) == [("06:00", "07:00")]
     assert go_on.joined and go_on.mode == "continuous"
     assert go_on.joined_extra == pytest.approx(go_on.cost - wait.cost)
 
@@ -220,12 +220,12 @@ def test_join_leaves_the_other_cars_cheap_hours() -> None:
     other = [{"start": six + timedelta(minutes=30), "end": six + timedelta(hours=1)}]
     plan = plan_vehicle(slots(rest, six), car, Rules(join_within=0.5), six, deadline=None, reserved=other)
     assert not any(seg["start"] < other[0]["end"] and other[0]["start"] < seg["end"] for seg in plan.segments)
-    assert hhmm(plan.segments) != [("06:00", "06:57")]
+    assert hhmm(plan.segments) != [("06:00", "07:00")]
 
 
 def test_join_leaves_plans_that_are_one_period_already() -> None:
     plan = plan_vehicle(slots(NIGHT), CAR, Rules(join_within=0.5), NOW, deadline=DEADLINE)
-    assert hhmm(plan.segments) == [("02:00", "03:48")]
+    assert hhmm(plan.segments) == [("02:00", "04:00")]
     assert plan.mode == "split" and not plan.joined
     # "One period" chosen by the user is not "joined".
     chosen = plan_vehicle(slots(NIGHT), CAR, Rules(join_within=0.5), NOW, deadline=DEADLINE, continuous=True)
@@ -234,7 +234,7 @@ def test_join_leaves_plans_that_are_one_period_already() -> None:
 
 def test_plan_without_deadline_uses_all_known_prices() -> None:
     plan = plan_vehicle(slots(NIGHT), CAR, Rules(), NOW, deadline=None)
-    assert hhmm(plan.segments) == [("02:00", "03:48")]
+    assert hhmm(plan.segments) == [("02:00", "04:00")]
 
 
 def test_plan_without_deadline_looks_one_day_ahead() -> None:
@@ -341,12 +341,12 @@ def test_plan_short_of_time_charges_all_it_can() -> None:
 
 
 def test_ceiling_that_still_allows_the_whole_charge() -> None:
-    # Only the 0.30 and 0.35 hours are at or below the ceiling: 2 h ≥ 1.8 h, so the target is reached.
+    # Only the 0.30 and 0.35 hours are at or below the ceiling: 2 h is enough, so the target is reached.
     plan = plan_vehicle(slots(NIGHT), CAR, Rules(ceiling=0.35), NOW, deadline=DEADLINE)
     assert not plan.limited
     assert plan.ceiling == 0.35
-    assert hhmm(plan.segments) == [("02:00", "03:48")]
-    assert plan.energy == pytest.approx(18)
+    assert hhmm(plan.segments) == [("02:00", "04:00")]
+    assert plan.energy == pytest.approx(20)
 
 
 def test_ceiling_too_low_for_the_whole_charge() -> None:
@@ -361,8 +361,8 @@ def test_minimum_level_is_reached_whatever_the_price() -> None:
     car = Car(soc=20, target=80, capacity=60, power=10)
     plan = plan_vehicle(slots(NIGHT), car, Rules(ceiling=0.3, min_soc=50), NOW, deadline=DEADLINE)
     assert plan.min_only
-    # 30 % of 60 kWh = 18 kWh = 1.8 h at the cheapest prices, ignoring the ceiling.
-    assert plan.energy == pytest.approx(18)
+    # 30 % of 60 kWh: 1.8 h, planned as 2 h at the cheapest prices, ignoring the ceiling.
+    assert plan.energy == pytest.approx(20)
 
 
 def test_minimum_level_without_enough_time() -> None:
@@ -441,3 +441,42 @@ def _decide(**kwargs):
 def test_decide(kwargs, control, reason) -> None:
     decision = _decide(**kwargs)
     assert (decision.control, decision.reason) == (control, reason)
+
+
+def test_the_night_of_28_october_charges_in_whole_blocks_without_creeping() -> None:
+    """Almost the same price all night: the plan is in whole quarters, and a period that has begun stays put."""
+    midnight = datetime(2026, 10, 29, 0, 0, tzinfo=TZ)
+    prices = slots([2.25, 2.252, 2.239, 2.263, 2.3, 2.4], midnight)
+    car = Car(soc=38, target=60, capacity=60, power=10, speed=16.9)  # 78 minutes
+    deadline = midnight + timedelta(hours=6)
+
+    plan = plan_vehicle(prices, car, Rules(), midnight - timedelta(hours=1), deadline=deadline)
+    assert plan.minutes == 90
+    assert plan.segments == [
+        {"start": midnight, "end": midnight + timedelta(minutes=30)},
+        {"start": midnight + timedelta(hours=2), "end": midnight + timedelta(hours=3)},
+    ]
+
+    # Planned again in the middle of a minute, when charging now is the cheapest: from that minute.
+    cheap_now = slots([2.2, 2.252, 2.239, 2.263, 2.3, 2.4], midnight)
+    now = midnight + timedelta(minutes=20, seconds=40)
+    car = Car(soc=43.6, target=60, capacity=60, power=10, speed=16.9)
+    again = plan_vehicle(cheap_now, car, Rules(), now, deadline=deadline)
+    first = again.segments[0]
+    assert first["start"] == midnight + timedelta(minutes=20)
+    assert first["start"] <= now < first["end"]
+    later = plan_vehicle(cheap_now, car, Rules(), now + timedelta(seconds=10), deadline=deadline)
+    assert later.segments[0]["start"] == first["start"]
+
+    # A minute short after the first period: a whole quarter, at the cheapest price, not a minute now.
+    short = plan_vehicle(
+        prices,
+        Car(soc=59.8, target=60, capacity=60, power=10, speed=16.9),
+        Rules(),
+        midnight + timedelta(minutes=30, seconds=5),
+        deadline=deadline,
+    )
+    assert short.minutes == 15
+    assert short.segments == [
+        {"start": midnight + timedelta(hours=2), "end": midnight + timedelta(hours=2, minutes=15)}
+    ]

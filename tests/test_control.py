@@ -282,7 +282,7 @@ async def test_battery_capacity_from_the_car(
     """A capacity sensor replaces the number from the setup while it has a value.
 
     Before the car has shown its speed, the capacity and the power estimate it:
-    30 % of 75 kWh at 10 kW takes 2.25 hours, of 60 kWh 1.8 hours.
+    30 % of 75 kWh at 10 kW takes 2.25 hours, of 60 kWh 1.8 hours, planned as 2 (whole quarters).
     """
     set_prices(hass, now, NIGHT)
     set_tesla(hass)
@@ -300,7 +300,7 @@ async def test_battery_capacity_from_the_car(
     hass.states.async_set("sensor.tesla_capacity", "unavailable")
     await settle(hass, freezer)
     assert tesla.capacity == 60
-    assert tesla.plan is not None and tesla.plan.energy == pytest.approx(18)
+    assert tesla.plan is not None and tesla.plan.energy == pytest.approx(20)
 
 
 async def test_unknown_location_counts_as_away(
