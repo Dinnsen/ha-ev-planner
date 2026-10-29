@@ -27,7 +27,7 @@ EV Planner is built from [EV Guest](https://github.com/Dinnsen/EV-Guest) (the pl
 
 - **Any number of cars and chargers.** Cars and chargers are added on the integration's page. Cars on the same charger share it: the one that must be ready first gets it first, and a guest has it during the guest session.
 - **You choose who starts and stops charging, per car:** the car (its charge switch), the charger (its switch), or neither – then EV Planner plans, reminds and publishes a *Charger control* sensor for your own automations.
-- **The cheapest plan** from 15-minute or hourly prices: minute by minute, one period or the cheapest periods, with cost and savings.
+- **The cheapest plan** from 15-minute or hourly prices: in whole quarters of an hour (like EV Smart Charging), one period or the cheapest periods, with cost and savings. A car stops by itself at its limit, so the quarter it does not need in full costs nothing.
 - **Learns how fast each car charges.** Plans are made from the charging speed in % per hour that the car itself shows, so a car that draws less than its setting, or a battery that is not the size you expected, still gets a plan that is long enough. Nothing to set: no efficiency, no guessing.
 - **Ready by** a time, per weekday, or by a trip in a calendar ("Aarhus 90 %" charges to 90 %).
 - **Rules from EV Smart Charging:** minimum level whatever the price, price ceiling, charge at a low price, charge at a low battery, opportunistic charging (lower the ceiling when cheap prices are coming, or follow the last known price), earliest start, keep the charger on after the plan (precondition from the grid).

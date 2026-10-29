@@ -34,10 +34,10 @@ from .planner import (
     PlanError,
     PriceSlot,
     Segment,
-    ceil_minute,
     charge_need,
     contiguous_runs,
     energy_cost,
+    floor_minute,
     limit_slots,
     merge_segments,
     price_at,
@@ -547,7 +547,7 @@ def plan_vehicle(
 
     charge_now_cost = None
     upcoming = limit_slots(list(prices), now, None)
-    if upcoming and upcoming[0].start == ceil_minute(now):
+    if upcoming and upcoming[0].start == floor_minute(now):
         begin = upcoming[0].start
         charge_now_cost = energy_cost(upcoming, begin, begin + timedelta(hours=planned.hours), car.power)
 
@@ -559,7 +559,7 @@ def plan_vehicle(
         minutes=planned.minutes,
         mode=mode,
         speed=need.speed_pct_per_hour,
-        end_soc=min(100.0, car.soc + planned.hours * need.speed_pct_per_hour),
+        end_soc=min(car.target, 100.0, car.soc + planned.hours * need.speed_pct_per_hour),
         charge_now_cost=charge_now_cost,
         ceiling=ceiling,
         opportunistic=opportunistic,

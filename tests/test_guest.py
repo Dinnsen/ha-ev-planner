@@ -153,9 +153,9 @@ async def test_guest_charge_now_is_saved_in_the_history(
     assert guest.plan_start == now.replace(second=0)
     assert guest.plan_info is not None and guest.plan_info["mode"] == "now"
     assert guest.results["savings"] == 0
-    # 20 % -> 80 % of 77 kWh at 11 kW: 4 h 12 min.
-    assert guest.results["charge_time"] == 252
-    assert guest.plan_end == now + timedelta(minutes=252)
+    # 20 % -> 80 % of 77 kWh at 11 kW: 4 h 12 min, planned in whole quarters.
+    assert guest.results["charge_time"] == 255
+    assert guest.plan_end == now + timedelta(minutes=255)
     await settle(hass, freezer)
     assert _state(hass, STATUS).state == "charging"
     assert switches.calls[-1] == ("turn_on", CHARGER_SWITCH)
@@ -198,14 +198,14 @@ async def test_stopping_the_guest_charge(
     assert guest.history == []
 
     await _press(hass, "charge_now")
-    assert guest.results["charge_time"] == 252
-    await move(hass, freezer, now + timedelta(minutes=63))
+    assert guest.results["charge_time"] == 255
+    await move(hass, freezer, now + timedelta(minutes=63.75))
     await _press(hass, "stop_charging")
     await settle(hass, freezer)
     # A quarter of the charge was done, and that is what the history says.
     assert _state(hass, STATUS).state == "stopped"
     assert guest.history[0]["stopped"] is True
-    assert guest.history[0]["energy"] == pytest.approx(round(guest.results["energy"] * 63 / 252, 2), abs=0.02)
+    assert guest.history[0]["energy"] == pytest.approx(round(guest.results["energy"] * 63.75 / 255, 2), abs=0.02)
     # The charger stays paused for the guest car while it is plugged in.
     assert _state(hass, CONTROL).state == "pause"
     assert [call for call in switches.calls if call[1] == CHARGER_SWITCH][-1] == ("turn_off", CHARGER_SWITCH)

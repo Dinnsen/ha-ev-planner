@@ -2,6 +2,14 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
 
+## [1.2.2] - 2026-10-29
+
+### Fixed
+- **A charge no longer starts and stops every few minutes.** A plan made again in the middle of a minute could only begin at the next minute, so a period that had begun moved on a minute each time the plan was made again, and the car was switched on for a few seconds every three minutes. A plan now begins from the minute that is running.
+
+### Changed
+- **Charging is planned in whole quarters of an hour**, like EV Smart Charging: no period of a minute or two, and a little to spare for the time a car takes to start. A car stops by itself at its limit, so the quarter it does not need in full costs nothing. Plan cost and energy are for the planned time.
+
 ## [1.2.1] - 2026-10-28
 
 ### Fixed
