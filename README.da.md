@@ -5,6 +5,16 @@
   </picture>
 </p>
 
+<p align="center">
+  <a href="https://github.com/Dinnsen/ha-ev-planner/releases"><img alt="Version" src="https://img.shields.io/github/v/release/Dinnsen/ha-ev-planner?style=flat-square&label=version&color=00B894"></a>
+  <a href="https://github.com/Dinnsen/ha-ev-planner/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/Dinnsen/ha-ev-planner/total?style=flat-square&label=downloads&color=00B894"></a>
+  <a href="https://hacs.xyz"><img alt="HACS" src="https://img.shields.io/badge/HACS-custom-41BDF5?style=flat-square"></a>
+  <img alt="Home Assistant 2026.3+" src="https://img.shields.io/badge/Home%20Assistant-2026.3%2B-18BCF2?style=flat-square&logo=homeassistant&logoColor=white">
+  <a href="https://github.com/Dinnsen/ha-ev-planner/actions/workflows/tests.yml"><img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/Dinnsen/ha-ev-planner/tests.yml?branch=main&style=flat-square&label=tests"></a>
+  <a href="LICENSE"><img alt="Licens: MIT" src="https://img.shields.io/badge/licens-MIT-97ca00?style=flat-square"></a>
+  <a href="https://buymeacoffee.com/dinnsen"><img alt="Buy Me a Coffee" src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-ffdd00?style=flat-square&logo=buymeacoffee&logoColor=black"></a>
+</p>
+
 # EV Planner til Home Assistant
 
 🇬🇧 [Read in English](README.md)

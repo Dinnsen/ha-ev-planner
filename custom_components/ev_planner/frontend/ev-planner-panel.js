@@ -3930,11 +3930,17 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 }
 
 /* ---------- layout */
-.content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 20px 20px calc(32px + var(--evp-safe-bottom)); }
+.content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px 20px calc(32px + var(--evp-safe-bottom)); }
+/* In Home Assistant's sidebar the box around the panel has no height of its own, so
+   "100%" would let the panel grow with its content and the page scroll instead of the
+   content (on a PC the mouse wheel then did nothing). Fill the screen instead, less the
+   safe areas Home Assistant pads that box with. */
+:host(:not([app]):not([embed])) { height: calc(100dvh - var(--safe-area-inset-top, 0px) - var(--safe-area-inset-bottom, 0px)); }
 /* The home-screen app: the page never bounces or moves, only the content scrolls. */
 :host([app]) .content { overscroll-behavior: none; }
 /* In a pop-up from a dashboard card: one view, without the header and the tabs. */
 :host([embed]) { background: none; }
+:host([embed]) .content { overscroll-behavior: contain; }
 :host([embed]) header.bar { display: none; }
 :host([embed]) .content { padding-bottom: calc(24px + var(--evp-safe-bottom)); }
 :host([embed]:not([drilled])) .car-head .back { display: none; }
