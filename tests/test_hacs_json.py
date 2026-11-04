@@ -8,6 +8,9 @@ def test_hacs_json_shape():
     data = json.loads(Path("hacs.json").read_text())
     assert data["country"] == "DK"
     assert data["homeassistant"] == "2026.3.0"
+    # HACS installs the release zip, so GitHub counts the downloads (the badge in the README).
+    assert data["zip_release"] is True
+    assert data["filename"] == "ev_planner.zip"
 
 
 def test_single_integration_manifest():

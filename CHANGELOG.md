@@ -2,6 +2,14 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
 
+## [1.2.3] - 2026-11-04
+
+### Fixed
+- **Scrolling with the mouse wheel in the panel on a PC** (#6). In Home Assistant's sidebar the box around the panel has no height of its own, so the panel grew with its content and the page scrolled instead of the panel; on a PC the mouse wheel then did nothing, only dragging the scroll bar worked. The panel now fills the screen, and its content scrolls under the header as intended. A new page also starts at the top again.
+
+### Changed
+- HACS installs EV Planner from the release zip, so the downloads are counted. The README shows the downloads and a Buy Me a Coffee link.
+
 ## [1.2.2] - 2026-10-29
 
 ### Fixed

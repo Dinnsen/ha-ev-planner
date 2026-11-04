@@ -2,5 +2,7 @@
   "name": "EV Planner",
   "content_in_root": false,
   "country": "DK",
-  "homeassistant": "2026.3.0"
+  "homeassistant": "2026.3.0",
+  "zip_release": true,
+  "filename": "ev_planner.zip"
 }
