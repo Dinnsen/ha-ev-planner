@@ -127,7 +127,8 @@ async def test_a_household_of_1x_is_moved_with_everything_in_it(
     assert hass.states.get(status.entity_id) is not None
     device = devices.async_get(car.id)
     assert device is not None and device.identifiers == {(DOMAIN, TESLA)}
-    assert device.config_entries == {entry.entry_id}
+    assert device.config_entry_id == entry.entry_id
+    assert device.config_subentry_id == TESLA
     guest_device = devices.async_get(guest.id)
     assert guest_device is not None and guest_device.identifiers == {(DOMAIN, f"{entry.entry_id}_guest")}
 

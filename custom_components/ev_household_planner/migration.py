@@ -108,7 +108,7 @@ async def async_take_over(hass: HomeAssistant, entry: ConfigEntry) -> None:
                 DOMAIN,
                 new_config_entry_id=new_id,
                 new_config_subentry_id=item.config_subentry_id,
-                new_unique_id=unique_id,
+                **({"new_unique_id": unique_id} if unique_id != item.unique_id else {}),
             )
         except ValueError as err:
             _LOGGER.warning("Could not move %s to EV Planner: %s", item.entity_id, err)
@@ -118,14 +118,23 @@ async def async_take_over(hass: HomeAssistant, entry: ConfigEntry) -> None:
             (DOMAIN, _new_id(value, old_id, new_id)) if domain == OLD_DOMAIN else (domain, value)
             for domain, value in device.identifiers
         }
-        for subentry_id in device.config_entries_subentries.get(old_id, {None}):
+        if hasattr(device, "config_entry_id"):
+            # A device belongs to one config entry (and subentry): move it.
+            devices.async_update_device(
+                device.id,
+                new_config_entry_id=new_id,
+                new_config_subentry_id=device.config_subentry_id,
+                new_identifiers=identifiers,
+            )
+            continue
+        for subentry_id in device.config_entries_subentries.get(old_id, {None}):  # pragma: no cover - before 2026.10
             devices.async_update_device(
                 device.id,
                 add_config_entry_id=new_id,
                 add_config_subentry_id=subentry_id,
                 new_identifiers=identifiers,
             )
-        devices.async_update_device(device.id, remove_config_entry_id=old_id)
+        devices.async_update_device(device.id, remove_config_entry_id=old_id)  # pragma: no cover
 
     # 4. The 1.x household itself.
     if old is not None:
