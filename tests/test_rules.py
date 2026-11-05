@@ -7,8 +7,8 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from custom_components.ev_planner.planner import PlanError, PriceSlot
-from custom_components.ev_planner.rules import (
+from custom_components.ev_household_planner.planner import PlanError, PriceSlot
+from custom_components.ev_household_planner.rules import (
     Car,
     Rules,
     current_price,

@@ -8,7 +8,7 @@ ignore = ["E501"]
 
 [tool.ruff.lint.isort]
 force-sort-within-sections = true
-known-first-party = ["custom_components.ev_planner"]
+known-first-party = ["custom_components.ev_household_planner"]
 known-third-party = ["homeassistant"]
 combine-as-imports = true
 split-on-trailing-comma = false
@@ -20,7 +20,7 @@ testpaths = ["tests"]
 pythonpath = ["."]
 
 [tool.coverage.run]
-source = ["custom_components.ev_planner"]
+source = ["custom_components.ev_household_planner"]
 
 [tool.coverage.report]
 show_missing = true
@@ -28,7 +28,7 @@ skip_covered = true
 
 [tool.mypy]
 python_version = "3.14"
-files = ["custom_components/ev_planner"]
+files = ["custom_components/ev_household_planner"]
 strict = true
 # Home Assistant re-exports names from its packages without __all__.
 implicit_reexport = true

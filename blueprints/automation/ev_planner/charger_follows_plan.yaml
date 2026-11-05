@@ -28,7 +28,7 @@ blueprint:
           selector:
             entity:
               filter:
-                - integration: ev_planner
+                - integration: ev_household_planner
                   domain: sensor
                   device_class: enum
     charger:

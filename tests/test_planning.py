@@ -8,9 +8,9 @@ from homeassistant.core import State
 from homeassistant.util import dt as dt_util
 import pytest
 
-from custom_components.ev_planner.guest import next_completion, parse_segments, serialize_segments
-from custom_components.ev_planner.household import meter_value
-from custom_components.ev_planner.planner import (
+from custom_components.ev_household_planner.guest import next_completion, parse_segments, serialize_segments
+from custom_components.ev_household_planner.household import meter_value
+from custom_components.ev_household_planner.planner import (
     ChargeNeed,
     PlanError,
     PriceSlot,
@@ -24,7 +24,7 @@ from custom_components.ev_planner.planner import (
     select_continuous,
     select_split,
 )
-from custom_components.ev_planner.prices import extract_price_slots
+from custom_components.ev_household_planner.prices import extract_price_slots
 
 START = datetime.fromisoformat("2026-04-09T20:00:00+02:00")
 TWO_DAYS = timedelta(hours=48)

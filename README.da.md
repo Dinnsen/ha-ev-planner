@@ -42,7 +42,20 @@ EV Planner er bygget på [EV Guest](https://github.com/Dinnsen/EV-Guest) (planl�
 
 ## Installation
 
-Tilføj `https://github.com/Dinnsen/ha-ev-planner` som brugerdefineret repository i HACS (type **Integration**), hent **EV Planner** og genstart Home Assistant.
+1. Søg efter **EV Planner** i HACS, og hent den.
+2. Genstart Home Assistant.
+
+Finder HACS den ikke: tilføj `https://github.com/Dinnsen/ha-ev-planner` som brugerdefineret repository i HACS (type **Integration**), og hent den derfra.
+
+### Opdatering fra EV Planner 1.x
+
+Fra version 2.0 er EV Planners domæne `ev_household_planner` (før `ev_planner`, som en anden integration i HACS bruger). Navnet, panelet, kortene og entitets-id'erne er de samme.
+
+1. Opdatér EV Planner i HACS, og genstart Home Assistant. EV Planner 1.x kører videre indtil næste trin.
+2. **Indstillinger → Enheder og tjenester → Tilføj integration → EV Planner.** EV Planner tilbyder at flytte husstanden fra 1.x: opsætning, biler, ladepunkter, indstillinger, planer, historik, læring og billeder, og entiteterne med deres entitets-id'er, så dashboards og automationer, der bruger dem, virker som før.
+3. Slet mappen `config/custom_components/ev_planner`, og genstart Home Assistant. En reparation minder dig om det, så længe den ligger der.
+
+Handlingerne hedder nu `ev_household_planner.*` i stedet for `ev_planner.*`: ret automationer og scripts, der bruger dem.
 
 ## Opsætning
 

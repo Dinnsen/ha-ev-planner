@@ -8,7 +8,7 @@ from homeassistant.components import frontend
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ev_planner import panel
+from custom_components.ev_household_planner import panel
 
 
 async def test_register_and_remove_panel(hass: HomeAssistant) -> None:
@@ -31,12 +31,13 @@ async def test_register_and_remove_panel(hass: HomeAssistant) -> None:
         # The dashboard cards are loaded once, with the version against old copies in the cache.
         add_js.assert_called_once()
         cards_url = add_js.call_args.args[1]
-        assert cards_url.startswith("/ev_planner_static/ev-planner-cards.js?v=")
+        assert cards_url.startswith("/ev_household_planner_static/ev-planner-cards.js?v=")
 
-        hass.http.async_register_static_paths.assert_awaited_once()
-        paths = hass.http.async_register_static_paths.call_args.args[0]
+        # The panel files, and the home-screen app at the address it had in 1.x.
+        assert hass.http.async_register_static_paths.await_count == 2
+        paths = [path for call in hass.http.async_register_static_paths.call_args_list for path in call.args[0]]
         assert [(path.url_path, path.cache_headers) for path in paths] == [
-            ("/ev_planner_static", True),
+            ("/ev_household_planner_static", True),
             ("/ev_planner_app", False),
         ]
         add.assert_called_once()
@@ -44,7 +45,7 @@ async def test_register_and_remove_panel(hass: HomeAssistant) -> None:
         assert kwargs["frontend_url_path"] == "ev-planner"
         assert kwargs["webcomponent_name"] == "ev-planner-panel"
         version = kwargs["config"]["version"]
-        assert kwargs["module_url"] == f"/ev_planner_static/ev-planner-panel.js?v={version}"
+        assert kwargs["module_url"] == f"/ev_household_planner_static/ev-planner-panel.js?v={version}"
         assert kwargs["require_admin"] is False
 
         panel.async_unregister_panel(hass)
@@ -66,3 +67,15 @@ async def test_panel_follows_entries(
     await hass.async_block_till_done()
 
     unregister.assert_called_once()
+
+
+async def test_the_app_address_served_by_1x_already(hass: HomeAssistant) -> None:
+    """The moment a 1.x household is moved here, 1.x still serves the app's address."""
+    hass.http = MagicMock()
+    hass.http.async_register_static_paths = AsyncMock(side_effect=[None, ValueError("already served")])
+    with (
+        patch.object(panel.panel_custom, "async_register_panel") as add,
+        patch.object(panel.frontend, "add_extra_js_url"),
+    ):
+        await panel.async_register_panel(hass)
+    add.assert_called_once()

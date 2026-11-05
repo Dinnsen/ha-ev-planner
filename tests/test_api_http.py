@@ -8,8 +8,8 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import pytest
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from custom_components.ev_planner import api
-from custom_components.ev_planner.const import (
+from custom_components.ev_household_planner import api
+from custom_components.ev_household_planner.const import (
     MOTORAPI_BASE_URL,
     NHTSA_DECODE_URL,
     OPEN_EV_DATA_FALLBACK_URL,

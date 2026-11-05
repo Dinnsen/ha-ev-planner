@@ -15,7 +15,12 @@ from homeassistant.util import dt as dt_util
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ev_planner.api import BatteryLookupResult, PlateAuthError, PlateLookupFailed, VehicleLookupResult
+from custom_components.ev_household_planner.api import (
+    BatteryLookupResult,
+    PlateAuthError,
+    PlateLookupFailed,
+    VehicleLookupResult,
+)
 
 from .conftest import (
     CARPORT,
@@ -173,7 +178,7 @@ async def test_guest_charge_now_is_saved_in_the_history(
     assert guest.history[0]["measured_energy"] == pytest.approx(10.0)
 
     # Also as an action, and the plan it replaces goes to the history first.
-    await hass.services.async_call("ev_planner", "guest_charge_now", {}, blocking=True)
+    await hass.services.async_call("ev_household_planner", "guest_charge_now", {}, blocking=True)
     assert guest.plan_start is not None
     await hass.services.async_call(
         "number", "set_value", {ATTR_ENTITY_ID: "number.guest_car_charge_level", "value": 90}, blocking=True
@@ -219,7 +224,7 @@ async def test_stopping_the_guest_charge(
     # A plan that has not started is simply dropped.
     await _press(hass, "make_plan")
     assert guest.plan_start is not None and guest.plan_start > dt_util.now()
-    await hass.services.async_call("ev_planner", "guest_stop", {}, blocking=True)
+    await hass.services.async_call("ev_household_planner", "guest_stop", {}, blocking=True)
     assert guest.segments == []
     assert _state(hass, STATUS).state == "ready"
 
@@ -317,9 +322,12 @@ async def test_guest_lookup(hass: HomeAssistant, guest_household: MockConfigEntr
     )
     battery = BatteryLookupResult(battery_capacity=77.4, source="open", match_score=92, raw={})
     with (
-        patch("custom_components.ev_planner.guest.async_lookup_vehicle", AsyncMock(return_value=car)),
-        patch("custom_components.ev_planner.guest.async_decode_vin_nhtsa", AsyncMock(return_value=None)),
-        patch("custom_components.ev_planner.guest.async_lookup_battery_open_ev_data", AsyncMock(return_value=battery)),
+        patch("custom_components.ev_household_planner.guest.async_lookup_vehicle", AsyncMock(return_value=car)),
+        patch("custom_components.ev_household_planner.guest.async_decode_vin_nhtsa", AsyncMock(return_value=None)),
+        patch(
+            "custom_components.ev_household_planner.guest.async_lookup_battery_open_ev_data",
+            AsyncMock(return_value=battery),
+        ),
     ):
         await _press(hass, "look_up")
     assert household.guest.results["car_brand"] == "Kia"
@@ -328,7 +336,7 @@ async def test_guest_lookup(hass: HomeAssistant, guest_household: MockConfigEntr
 
     with (
         patch(
-            "custom_components.ev_planner.guest.async_lookup_vehicle",
+            "custom_components.ev_household_planner.guest.async_lookup_vehicle",
             AsyncMock(side_effect=PlateLookupFailed("vehicle_not_found")),
         ),
         pytest.raises(ServiceValidationError),
@@ -336,7 +344,7 @@ async def test_guest_lookup(hass: HomeAssistant, guest_household: MockConfigEntr
         await _press(hass, "look_up")
     with (
         patch(
-            "custom_components.ev_planner.guest.async_lookup_vehicle",
+            "custom_components.ev_household_planner.guest.async_lookup_vehicle",
             AsyncMock(side_effect=PlateLookupFailed("timeout")),
         ),
         pytest.raises(HomeAssistantError),
@@ -344,7 +352,10 @@ async def test_guest_lookup(hass: HomeAssistant, guest_household: MockConfigEntr
         await _press(hass, "look_up")
     assert _state(hass, "sensor.guest_car_car").state == "unavailable"
     with (
-        patch("custom_components.ev_planner.guest.async_lookup_vehicle", AsyncMock(side_effect=PlateAuthError("bad"))),
+        patch(
+            "custom_components.ev_household_planner.guest.async_lookup_vehicle",
+            AsyncMock(side_effect=PlateAuthError("bad")),
+        ),
         pytest.raises(ServiceValidationError),
     ):
         await _press(hass, "look_up")

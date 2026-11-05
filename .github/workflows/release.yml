@@ -1,7 +1,7 @@
 name: Release
 
 # A new version in manifest.json on main is released: the workflow creates
-# the tag v<version>, builds ev_planner.zip and publishes the GitHub release
+# the tag v<version>, builds ev_household_planner.zip and publishes the GitHub release
 # with that version's section of the changelog. Pushing a tag works too.
 
 on:
@@ -9,7 +9,7 @@ on:
     branches:
       - main
     paths:
-      - custom_components/ev_planner/manifest.json
+      - custom_components/ev_household_planner/manifest.json
       - .github/workflows/release.yml
     tags:
       - "v*"
@@ -31,7 +31,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version=$(python3 -c "import json; print(json.load(open('custom_components/ev_planner/manifest.json'))['version'])")
+          version=$(python3 -c "import json; print(json.load(open('custom_components/ev_household_planner/manifest.json'))['version'])")
           echo "VERSION=$version" >> "$GITHUB_ENV"
           if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "${GITHUB_REF_NAME#v}" != "$version" ]; then
             echo "::error::manifest.json version $version does not match tag $GITHUB_REF_NAME"
@@ -55,13 +55,13 @@ jobs:
       - name: Build zip
         if: env.SKIP != '1'
         run: |
-          cd custom_components/ev_planner
-          zip -r "$GITHUB_WORKSPACE/ev_planner.zip" . -x "__pycache__/*"
+          cd custom_components/ev_household_planner
+          zip -r "$GITHUB_WORKSPACE/ev_household_planner.zip" . -x "__pycache__/*"
 
       - name: Publish the release
         if: env.SKIP != '1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v$VERSION" ev_planner.zip \
+          gh release create "v$VERSION" ev_household_planner.zip \
             --target "$GITHUB_SHA" --title "EV Planner $VERSION" --notes-file notes.md

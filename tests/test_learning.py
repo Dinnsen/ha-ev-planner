@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from custom_components.ev_planner.learning import MIN_RISE, ChargeMeter, Learned, blend
+from custom_components.ev_household_planner.learning import MIN_RISE, ChargeMeter, Learned, blend
 
 MINUTE = 60.0
 

@@ -42,6 +42,10 @@
         "data_description": {
           "motorapi_api_key": "Optional, for looking up guest cars by license plate. Get a free key at motorapi.dk."
         }
+      },
+      "migrate": {
+        "title": "Move EV Planner 1.x here",
+        "description": "EV Planner 1.x is installed with the household **{title}** ({cars} cars, {chargers} chargers). From version 2.0 EV Planner has a new domain, `ev_household_planner`, because another integration in HACS uses `ev_planner`.\n\nSubmit to move everything here: the setup, the cars and chargers, settings, plans, history, learning and photos. The entities keep their entity ids, so dashboards and automations that use them go on working. Actions are now called `ev_household_planner.*`.\n\nThe 1.x household is removed afterwards. Delete the folder `custom_components/ev_planner` and restart Home Assistant."
       }
     },
     "error": {
@@ -750,6 +754,10 @@
     "price_entity_missing": {
       "title": "EV Planner price sensor is missing",
       "description": "{title} uses the price sensor `{entity_id}`, which does not exist. Choose another sensor under Reconfigure."
+    },
+    "old_version_files": {
+      "title": "Delete the files of EV Planner 1.x",
+      "description": "EV Planner now has the domain `ev_household_planner`. The files of EV Planner 1.x are still in `{path}`. Delete that folder and restart Home Assistant, so the old version can never run next to the new one. If the household has not been moved yet: add EV Planner under **Settings → Devices & services** first, and it is moved with everything in it."
     }
   }
 }

@@ -2,6 +2,17 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
 
+## [2.0.0] - 2026-11-05
+
+### Changed – read this when you update from 1.x
+- **New domain: `ev_household_planner`** (it was `ev_planner`, which another integration in HACS' default list uses, installing to the same folder). The name EV Planner, the panel, the dashboard cards, the home-screen app and the entity ids stay the same.
+- **Moving from 1.x:** update in HACS and restart; EV Planner 1.x goes on working. Then add EV Planner under *Settings → Devices & services*: it offers to move the 1.x household with everything in it – setup, cars, chargers, settings, plans, history, learning, photos – and the entities with their entity ids, so dashboards and automations that use them go on working. Delete `config/custom_components/ev_planner` afterwards and restart; a repair reminds you while it is there.
+- **Actions** are now `ev_household_planner.*` instead of `ev_planner.*`: change automations and scripts that call them. The blueprint picks the new domain's sensors.
+- Installation through HACS search comes first in the README; the custom repository is the fallback.
+
+### Rolling back
+- Install 1.2.3 again in HACS: until the household is moved, 1.x is untouched.
+
 ## [1.2.3] - 2026-11-04
 
 ### Fixed

@@ -51,14 +51,26 @@ EV Planner is built from [EV Guest](https://github.com/Dinnsen/EV-Guest) (the pl
 
 [![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Dinnsen&repository=ha-ev-planner&category=integration)
 
-1. Add `https://github.com/Dinnsen/ha-ev-planner` as a custom repository in HACS (type **Integration**), or use the button above.
-2. Download **EV Planner** and restart Home Assistant.
+1. In HACS, search for **EV Planner** and download it (or use the button above).
+2. Restart Home Assistant.
 
-Manually: download `ev_planner.zip` from the [latest release](https://github.com/Dinnsen/ha-ev-planner/releases) and unzip it into `config/custom_components/ev_planner`.
+If HACS does not find it: add `https://github.com/Dinnsen/ha-ev-planner` as a custom repository in HACS (type **Integration**) and download it from there.
+
+Manually: download `ev_household_planner.zip` from the [latest release](https://github.com/Dinnsen/ha-ev-planner/releases) and unzip it into `config/custom_components/ev_household_planner`.
+
+### Updating from EV Planner 1.x
+
+From version 2.0 EV Planner's domain is `ev_household_planner` (it was `ev_planner`, which another integration in HACS uses). The name, the panel, the cards and the entity ids stay the same.
+
+1. Update EV Planner in HACS and restart Home Assistant. EV Planner 1.x goes on working until the next step.
+2. **Settings → Devices & services → Add integration → EV Planner.** EV Planner offers to move the 1.x household: the setup, cars, chargers, settings, plans, history, learning and photos, and the entities with their entity ids, so dashboards and automations that use the entities go on working.
+3. Delete the folder `config/custom_components/ev_planner` and restart Home Assistant. A repair reminds you while it is there.
+
+Actions are now called `ev_household_planner.*` instead of `ev_planner.*`: change automations and scripts that call them.
 
 ## Setup
 
-[![Open your Home Assistant instance and start setting up EV Planner.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=ev_planner)
+[![Open your Home Assistant instance and start setting up EV Planner.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=ev_household_planner)
 
 1. **Settings → Devices & services → Add integration → EV Planner.** Choose the price sensor and the currency. The MotorAPI key is only for looking up guest cars by license plate.
 2. On EV Planner's page, **Add charger** for each charge point. Pick its device in Home Assistant (Easee, Zaptec, Wallbox, Peblar, Ohme, OCPP, ...) and/or its brand and model: EV Planner then fills in the power, the switch, the energy meter and the *car plugged in* sensor for you to check. About 40 chargers are known, plus a wall charger, a charging post, a portable charger and a household socket.
@@ -184,9 +196,9 @@ Per charger: `sensor.<charger>_charger_control` (what the charger should do, and
 
 ## Actions
 
-- `ev_planner.set_mode` – set a car's mode (`vehicle`: the car's device, `mode`).
-- `ev_planner.recalculate` – plan every car again now.
-- `ev_planner.guest_lookup`, `ev_planner.guest_plan`, `ev_planner.guest_charge_now`, `ev_planner.guest_stop`, `ev_planner.new_guest` – the guest car. *Charge now* charges right away to the target, whatever the price, and is saved in the history like a plan. *Stop* ends a charge that is running: the history gets what was charged, and the charger stays paused until the guest car is unplugged (without a plugged-in sensor: until the charge would have ended).
+- `ev_household_planner.set_mode` – set a car's mode (`vehicle`: the car's device, `mode`).
+- `ev_household_planner.recalculate` – plan every car again now.
+- `ev_household_planner.guest_lookup`, `ev_household_planner.guest_plan`, `ev_household_planner.guest_charge_now`, `ev_household_planner.guest_stop`, `ev_household_planner.new_guest` – the guest car. *Charge now* charges right away to the target, whatever the price, and is saved in the history like a plan. *Stop* ends a charge that is running: the history gets what was charged, and the charger stays paused until the guest car is unplugged (without a plugged-in sensor: until the charge would have ended).
 
 ## Photos
 

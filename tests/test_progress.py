@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-from custom_components.ev_planner.planner import Segment
-from custom_components.ev_planner.progress import SOURCE_METER, SOURCE_PLAN, charged_time, plan_progress
+from custom_components.ev_household_planner.planner import Segment
+from custom_components.ev_household_planner.progress import SOURCE_METER, SOURCE_PLAN, charged_time, plan_progress
 
 START = datetime(2026, 4, 9, 20, tzinfo=UTC)
 # 20 % → 80 % of 77 kWh at 11 kW: 46.2 kWh in 252 minutes.
