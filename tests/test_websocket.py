@@ -12,9 +12,9 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
-from custom_components.ev_planner.const import DOMAIN
-from custom_components.ev_planner.diagnostics import async_get_config_entry_diagnostics
-from custom_components.ev_planner.websocket import _notify_name
+from custom_components.ev_household_planner.const import DOMAIN
+from custom_components.ev_household_planner.diagnostics import async_get_config_entry_diagnostics
+from custom_components.ev_household_planner.websocket import _notify_name
 
 from .conftest import CARPORT, MERCEDES, TESLA, settle
 
@@ -29,7 +29,7 @@ async def test_state(
     hass: HomeAssistant, init_integration: MockConfigEntry, hass_ws_client: WebSocketGenerator
 ) -> None:
     client = await hass_ws_client(hass)
-    msg = await _ws(client, 1, type="ev_planner/state")
+    msg = await _ws(client, 1, type="ev_household_planner/state")
     assert msg["success"]
     state = msg["result"]
     assert state["currency"] == "DKK"
@@ -48,7 +48,7 @@ async def test_state(
     assert state["guest"]["status"] == "ready"
     assert state["guest"]["charger"]["name"] == "Carport"
 
-    msg = await _ws(client, 2, type="ev_planner/state", entry_id="nope")
+    msg = await _ws(client, 2, type="ev_household_planner/state", entry_id="nope")
     assert not msg["success"]
     assert msg["error"]["code"] == "entry_not_found"
 
@@ -60,7 +60,7 @@ async def test_subscribe_and_vehicle_settings(
     freezer: FrozenDateTimeFactory,
 ) -> None:
     client = await hass_ws_client(hass)
-    await client.send_json({"id": 1, "type": "ev_planner/subscribe"})
+    await client.send_json({"id": 1, "type": "ev_household_planner/subscribe"})
     assert (await client.receive_json())["success"]
     event = await client.receive_json()
     assert event["event"]["vehicles"][1]["name"] == "Tesla"
@@ -68,7 +68,7 @@ async def test_subscribe_and_vehicle_settings(
     await client.send_json(
         {
             "id": 2,
-            "type": "ev_planner/vehicle_set",
+            "type": "ev_household_planner/vehicle_set",
             "vehicle_id": MERCEDES,
             "settings": {"manual_soc": 30, "schedule": {"tue": "none", "wed": "08:30"}, "continuous": True},
         }
@@ -87,7 +87,7 @@ async def test_subscribe_and_vehicle_settings(
     assert mercedes.settings["schedule"] == {"tue": "none", "wed": "08:30"}
 
     await client.send_json(
-        {"id": 3, "type": "ev_planner/vehicle_set", "vehicle_id": "nope", "settings": {"mode": "pause"}}
+        {"id": 3, "type": "ev_household_planner/vehicle_set", "vehicle_id": "nope", "settings": {"mode": "pause"}}
     )
     for _ in range(10):
         msg = await client.receive_json()
@@ -104,7 +104,7 @@ async def test_vehicle_preview(
     msg = await _ws(
         client,
         1,
-        type="ev_planner/vehicle_preview",
+        type="ev_household_planner/vehicle_preview",
         vehicle_id=TESLA,
         settings={"target_soc": 90, "ready_by": "06:00"},
     )
@@ -114,7 +114,9 @@ async def test_vehicle_preview(
     # Nothing was stored.
     assert init_integration.runtime_data.vehicles[TESLA].settings["ready_by"] == "07:00"
 
-    msg = await _ws(client, 2, type="ev_planner/vehicle_preview", vehicle_id=TESLA, settings={"target_soc": 40})
+    msg = await _ws(
+        client, 2, type="ev_household_planner/vehicle_preview", vehicle_id=TESLA, settings={"target_soc": 40}
+    )
     assert msg["result"]["plan"] is None
     assert msg["result"]["error"] == "limit_not_above_soc"
 
@@ -123,44 +125,46 @@ async def test_guest_commands(
     hass: HomeAssistant, init_integration: MockConfigEntry, hass_ws_client: WebSocketGenerator
 ) -> None:
     client = await hass_ws_client(hass)
-    msg = await _ws(client, 1, type="ev_planner/guest_set", inputs={"license_plate": " ab 1 ", "soc": 30})
+    msg = await _ws(client, 1, type="ev_household_planner/guest_set", inputs={"license_plate": " ab 1 ", "soc": 30})
     assert msg["success"]
     guest = init_integration.runtime_data.guest
     assert guest.inputs["license_plate"] == "AB 1"
 
-    msg = await _ws(client, 2, type="ev_planner/guest_preview", inputs={"charge_limit": 90})
+    msg = await _ws(client, 2, type="ev_household_planner/guest_preview", inputs={"charge_limit": 90})
     assert msg["success"] and msg["result"]["energy"] > 0
-    msg = await _ws(client, 3, type="ev_planner/guest_preview", inputs={"charge_limit": 10})
+    msg = await _ws(client, 3, type="ev_household_planner/guest_preview", inputs={"charge_limit": 10})
     assert msg["result"] == {"error": "limit_not_above_soc"}
 
-    msg = await _ws(client, 4, type="ev_planner/guest_plan")
+    msg = await _ws(client, 4, type="ev_household_planner/guest_plan")
     assert msg["success"]
     assert guest.status() == "planned"
-    msg = await _ws(client, 5, type="ev_planner/guest_lookup")
+    msg = await _ws(client, 5, type="ev_household_planner/guest_lookup")
     assert not msg["success"]
     assert msg["error"]["code"] == "motorapi_key_missing"
-    msg = await _ws(client, 6, type="ev_planner/guest_new")
+    msg = await _ws(client, 6, type="ev_household_planner/guest_new")
     assert msg["success"]
     assert guest.status() == "ready"
 
     guest.history = [{"id": "a"}, {"id": "b"}]
-    msg = await _ws(client, 7, type="ev_planner/delete_history", history_id="a")
+    msg = await _ws(client, 7, type="ev_household_planner/delete_history", history_id="a")
     assert msg["success"] and guest.history == [{"id": "b"}]
     tesla = init_integration.runtime_data.vehicles[TESLA]
     tesla.history = [{"id": "x"}]
-    msg = await _ws(client, 8, type="ev_planner/delete_history", vehicle_id=TESLA)
+    msg = await _ws(client, 8, type="ev_household_planner/delete_history", vehicle_id=TESLA)
     assert msg["success"] and tesla.history == []
 
-    msg = await _ws(client, 9, type="ev_planner/settings", settings={"bill_price": 2.5, "payment_text": "MobilePay"})
+    msg = await _ws(
+        client, 9, type="ev_household_planner/settings", settings={"bill_price": 2.5, "payment_text": "MobilePay"}
+    )
     assert msg["success"]
     assert init_integration.runtime_data.settings == {
         "bill_price": 2.5,
         "payment_text": "MobilePay",
         "language": "auto",
     }
-    msg = await _ws(client, 90, type="ev_planner/settings", settings={"language": "da"})
+    msg = await _ws(client, 90, type="ev_household_planner/settings", settings={"language": "da"})
     assert msg["success"] and init_integration.runtime_data.settings["language"] == "da"
-    msg = await _ws(client, 91, type="ev_planner/settings", settings={"language": "fr"})
+    msg = await _ws(client, 91, type="ev_household_planner/settings", settings={"language": "fr"})
     assert not msg["success"]
 
 
@@ -172,17 +176,17 @@ async def test_cut_out_photos(
     client = await hass_ws_client(hass)
     photo, cut, recut, other = "a" * 32, "b" * 32, "c" * 32, "d" * 32
     household = init_integration.runtime_data
-    msg = await _ws(client, 1, type="ev_planner/restore_image", target_id=TESLA)
+    msg = await _ws(client, 1, type="ev_household_planner/restore_image", target_id=TESLA)
     assert not msg["success"]
-    await _ws(client, 2, type="ev_planner/set_image", target_id=TESLA, image_id=photo)
+    await _ws(client, 2, type="ev_household_planner/set_image", target_id=TESLA, image_id=photo)
     # A cut-out keeps the photo it was made from.
-    msg = await _ws(client, 3, type="ev_planner/set_image", target_id=TESLA, image_id=cut, cutout=True)
+    msg = await _ws(client, 3, type="ev_household_planner/set_image", target_id=TESLA, image_id=cut, cutout=True)
     assert msg["result"] == {"unused": []}
     assert household.images[TESLA] == cut and household.originals[TESLA] == photo
-    state = (await _ws(client, 4, type="ev_planner/state"))["result"]
+    state = (await _ws(client, 4, type="ev_household_planner/state"))["result"]
     assert state["vehicles"][1]["image_original"] == f"/api/image/serve/{photo}/original"
     # Cutting again replaces the cut-out, never the photo.
-    msg = await _ws(client, 5, type="ev_planner/set_image", target_id=TESLA, image_id=recut, cutout=True)
+    msg = await _ws(client, 5, type="ev_household_planner/set_image", target_id=TESLA, image_id=recut, cutout=True)
     assert msg["result"] == {"unused": [cut]}
     assert household.originals[TESLA] == photo
 
@@ -194,20 +198,20 @@ async def test_cut_out_photos(
 
     # Undo: the photo is back, the cut-out is no longer used.
     client = await hass_ws_client(hass)
-    msg = await _ws(client, 6, type="ev_planner/restore_image", target_id=TESLA)
+    msg = await _ws(client, 6, type="ev_household_planner/restore_image", target_id=TESLA)
     assert msg["result"] == {"unused": [recut]}
     assert household.images == {TESLA: photo} and household.originals == {}
-    msg = await _ws(client, 7, type="ev_planner/restore_image", target_id="nope")
+    msg = await _ws(client, 7, type="ev_household_planner/restore_image", target_id="nope")
     assert not msg["success"]
 
     # A new photo drops both the cut-out and the photo it was made from.
-    await _ws(client, 8, type="ev_planner/set_image", target_id=TESLA, image_id=cut, cutout=True)
-    msg = await _ws(client, 9, type="ev_planner/set_image", target_id=TESLA, image_id=other)
+    await _ws(client, 8, type="ev_household_planner/set_image", target_id=TESLA, image_id=cut, cutout=True)
+    msg = await _ws(client, 9, type="ev_household_planner/set_image", target_id=TESLA, image_id=other)
     assert msg["result"] == {"unused": [cut, photo]}
     assert household.originals == {}
     # A photo another car still shows is not dropped.
-    await _ws(client, 10, type="ev_planner/set_image", target_id=CARPORT, image_id=other)
-    msg = await _ws(client, 11, type="ev_planner/set_image", target_id=TESLA, image_id=None)
+    await _ws(client, 10, type="ev_household_planner/set_image", target_id=CARPORT, image_id=other)
+    msg = await _ws(client, 11, type="ev_household_planner/set_image", target_id=TESLA, image_id=None)
     assert msg["result"] == {"unused": []}
 
 
@@ -219,15 +223,15 @@ async def test_images(
 ) -> None:
     client = await hass_ws_client(hass)
     first, second = "a" * 32, "b" * 32
-    msg = await _ws(client, 1, type="ev_planner/set_image", target_id=TESLA, image_id=first)
+    msg = await _ws(client, 1, type="ev_household_planner/set_image", target_id=TESLA, image_id=first)
     assert msg["success"] and msg["result"] == {"unused": []}
-    msg = await _ws(client, 2, type="ev_planner/set_image", target_id=TESLA, image_id=second)
+    msg = await _ws(client, 2, type="ev_household_planner/set_image", target_id=TESLA, image_id=second)
     assert msg["result"] == {"unused": [first]}
-    msg = await _ws(client, 3, type="ev_planner/set_image", target_id=CARPORT, image_id=first)
+    msg = await _ws(client, 3, type="ev_household_planner/set_image", target_id=CARPORT, image_id=first)
     assert msg["success"]
     await hass.async_block_till_done()
 
-    state = (await _ws(client, 4, type="ev_planner/state"))["result"]
+    state = (await _ws(client, 4, type="ev_household_planner/state"))["result"]
     assert state["vehicles"][1]["image"] == f"/api/image/serve/{second}/512x512"
     assert state["vehicles"][1]["image_original"] is None
     assert state["vehicles"][0]["image"] is None
@@ -239,11 +243,11 @@ async def test_images(
     carport = hass.states.get("sensor.carport_charger_control")
     assert carport is not None and carport.attributes["entity_picture"].startswith("/api/image/serve/")
 
-    msg = await _ws(client, 5, type="ev_planner/set_image", target_id=TESLA, image_id=None)
+    msg = await _ws(client, 5, type="ev_household_planner/set_image", target_id=TESLA, image_id=None)
     assert msg["result"] == {"unused": [second]}
-    msg = await _ws(client, 6, type="ev_planner/set_image", target_id="nope", image_id=first)
+    msg = await _ws(client, 6, type="ev_household_planner/set_image", target_id="nope", image_id=first)
     assert not msg["success"]
-    msg = await _ws(client, 7, type="ev_planner/set_image", target_id=TESLA, image_id="../etc")
+    msg = await _ws(client, 7, type="ev_household_planner/set_image", target_id=TESLA, image_id="../etc")
     assert not msg["success"]
 
     # Kept across a restart.
@@ -251,7 +255,7 @@ async def test_images(
     await hass.async_block_till_done()
     assert init_integration.runtime_data.images == {CARPORT: first}
 
-    msg = await _ws(client, 8, type="ev_planner/guest_charge_now")
+    msg = await _ws(client, 8, type="ev_household_planner/guest_charge_now")
     assert msg["success"]
     assert init_integration.runtime_data.guest.status() == "charging"
 

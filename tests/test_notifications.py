@@ -12,7 +12,7 @@ from homeassistant.util import dt as dt_util
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ev_planner.notifications import is_mobile_app, service_name, tag_for
+from custom_components.ev_household_planner.notifications import is_mobile_app, service_name, tag_for
 
 from .conftest import (
     CABLE,

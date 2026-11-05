@@ -42,6 +42,10 @@
         "data_description": {
           "motorapi_api_key": "Valgfri, til at slå gæstebiler op på nummerpladen. Få en gratis nøgle på motorapi.dk."
         }
+      },
+      "migrate": {
+        "title": "Flyt EV Planner 1.x hertil",
+        "description": "EV Planner 1.x er installeret med husstanden **{title}** ({cars} biler, {chargers} ladepunkter). Fra version 2.0 har EV Planner et nyt domæne, `ev_household_planner`, fordi en anden integration i HACS bruger `ev_planner`.\n\nTryk Send for at flytte det hele hertil: opsætningen, biler og ladepunkter, indstillinger, planer, historik, læring og billeder. Entiteterne beholder deres entitets-id'er, så dashboards og automationer, der bruger dem, virker som før. Handlingerne hedder nu `ev_household_planner.*`.\n\nHusstanden i 1.x fjernes bagefter. Slet mappen `custom_components/ev_planner`, og genstart Home Assistant."
       }
     },
     "error": {
@@ -750,6 +754,10 @@
     "price_entity_missing": {
       "title": "EV Planners prissensor mangler",
       "description": "{title} bruger prissensoren `{entity_id}`, som ikke findes. Vælg en anden sensor under Omkonfigurer."
+    },
+    "old_version_files": {
+      "title": "Slet filerne fra EV Planner 1.x",
+      "description": "EV Planner har nu domænet `ev_household_planner`. Filerne fra EV Planner 1.x ligger stadig i `{path}`. Slet mappen, og genstart Home Assistant, så den gamle version aldrig kan køre ved siden af den nye. Er husstanden ikke flyttet endnu: tilføj EV Planner under **Indstillinger → Enheder og tjenester** først, så flyttes den med det hele."
     }
   }
 }

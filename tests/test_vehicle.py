@@ -7,9 +7,9 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from custom_components.ev_planner.planner import PriceSlot
-from custom_components.ev_planner.rules import Car, Decision, Rules, plan_vehicle
-from custom_components.ev_planner.vehicle import Vehicle, is_charging_state, month_key, to_float
+from custom_components.ev_household_planner.planner import PriceSlot
+from custom_components.ev_household_planner.rules import Car, Decision, Rules, plan_vehicle
+from custom_components.ev_household_planner.vehicle import Vehicle, is_charging_state, month_key, to_float
 
 TZ = ZoneInfo("Europe/Copenhagen")
 NOW = datetime(2026, 10, 19, 20, 0, tzinfo=TZ)
@@ -245,7 +245,7 @@ def test_only_a_plugged_in_car_keeps_its_hours_from_finishing_in_one_go() -> Non
     """One charger, one cable: the car that is plugged in charges in its own plan."""
     from types import SimpleNamespace
 
-    from custom_components.ev_planner.household import Household
+    from custom_components.ev_household_planner.household import Household
 
     tesla = Vehicle("v1", "Tesla", {"charger": "c1"})
     mercedes = Vehicle("v2", "Mercedes", {"charger": "c1"})
@@ -371,6 +371,6 @@ def test_the_plan_is_stored_so_it_survives_a_restart() -> None:
     ],
 )
 def test_an_unreadable_stored_plan_is_dropped(stored) -> None:
-    from custom_components.ev_planner.rules import VehiclePlan
+    from custom_components.ev_household_planner.rules import VehiclePlan
 
     assert VehiclePlan.from_dict(stored) is None

@@ -10,11 +10,13 @@ def test_hacs_json_shape():
     assert data["homeassistant"] == "2026.3.0"
     # HACS installs the release zip, so GitHub counts the downloads (the badge in the README).
     assert data["zip_release"] is True
-    assert data["filename"] == "ev_planner.zip"
+    assert data["filename"] == "ev_household_planner.zip"
 
 
 def test_single_integration_manifest():
     """HACS finds the integration by the only file named *manifest.json in the repository."""
     root = Path(__file__).resolve().parent.parent
     manifests = [p for p in root.rglob("*manifest.json") if ".git" not in p.parts and "node_modules" not in p.parts]
-    assert [p.relative_to(root).as_posix() for p in manifests] == ["custom_components/ev_planner/manifest.json"]
+    assert [p.relative_to(root).as_posix() for p in manifests] == [
+        "custom_components/ev_household_planner/manifest.json"
+    ]

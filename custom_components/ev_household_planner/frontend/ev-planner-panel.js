@@ -1276,7 +1276,7 @@ class EvPlannerPanel extends HTMLElement {
     const connection = this._hass?.connection;
     if (!connection) return;
     try {
-      this._unsub = await connection.subscribeMessage((event) => this._onState(event), { type: "ev_planner/subscribe" });
+      this._unsub = await connection.subscribeMessage((event) => this._onState(event), { type: "ev_household_planner/subscribe" });
     } catch (err) {
       this._showError(err);
     }
@@ -1513,7 +1513,7 @@ class EvPlannerPanel extends HTMLElement {
       b.classList.toggle("on", b.dataset.mode === mode);
       b.setAttribute("aria-checked", b.dataset.mode === mode);
     });
-    await this._run("mode", "ev_planner/vehicle_set", { vehicle_id: id, settings: { mode } });
+    await this._run("mode", "ev_household_planner/vehicle_set", { vehicle_id: id, settings: { mode } });
   }
 
   /* A car setting changed: preview the plan now, store it shortly after. */
@@ -1541,7 +1541,7 @@ class EvPlannerPanel extends HTMLElement {
     if (!id || !Object.keys(changes).length) return;
     this._vcommitting = true;
     try {
-      await this._ws("ev_planner/vehicle_set", { vehicle_id: id, settings: changes });
+      await this._ws("ev_household_planner/vehicle_set", { vehicle_id: id, settings: changes });
     } catch (err) {
       this._showError(err);
     }
@@ -1562,7 +1562,7 @@ class EvPlannerPanel extends HTMLElement {
     const ask = JSON.stringify([id, settings]);
     this._vpreviewAsk = ask;
     try {
-      const result = await this._ws("ev_planner/vehicle_preview", { vehicle_id: id, settings });
+      const result = await this._ws("ev_household_planner/vehicle_preview", { vehicle_id: id, settings });
       if (this._vpreviewAsk !== ask) return;
       this._vpreview = { id, ...result };
     } catch {
@@ -1572,14 +1572,14 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   async _saveSettings(settings) {
-    if (await this._run("settings", "ev_planner/settings", { settings })) this._toast(this._t("saved"));
+    if (await this._run("settings", "ev_household_planner/settings", { settings })) this._toast(this._t("saved"));
   }
 
   async _deleteHistory(vehicleId, historyId) {
     const data = {};
     if (vehicleId) data.vehicle_id = vehicleId;
     if (historyId) data.history_id = historyId;
-    await this._run("delete", "ev_planner/delete_history", data);
+    await this._run("delete", "ev_household_planner/delete_history", data);
   }
 
   // ------------------------------------------------------------------ formatting
@@ -1804,7 +1804,7 @@ class EvPlannerPanel extends HTMLElement {
     const list = cars.length
       ? `<div class="cars-grid">${cars.map((v) => this._carCardHtml(v)).join("")}</div>`
       : `<section class="empty panel">${MARK}<h2>${this._t("no_cars_title")}</h2><p>${this._t("no_cars_text")}</p>
-          <a class="btn primary" href="/config/integrations/integration/ev_planner" target="_top">${ICONS.plus}<span>${this._t("add_car")}</span></a></section>`;
+          <a class="btn primary" href="/config/integrations/integration/ev_household_planner" target="_top">${ICONS.plus}<span>${this._t("add_car")}</span></a></section>`;
     return `<div class="page stack">${list}
       <div class="side-grid">${this._guestCardHtml()}${this._chargersHtml()}</div></div>`;
   }
@@ -2001,7 +2001,7 @@ class EvPlannerPanel extends HTMLElement {
 
   async _undoPhoto(id) {
     await this._photoWork(id, null, async () => {
-      const result = await this._ws("ev_planner/restore_image", { target_id: id });
+      const result = await this._ws("ev_household_planner/restore_image", { target_id: id });
       this._dropImages(result?.unused);
       return "photo_restored";
     });
@@ -2028,7 +2028,7 @@ class EvPlannerPanel extends HTMLElement {
     const response = await this._hass.fetchWithAuth("/api/image/upload", { method: "POST", body: form });
     if (!response.ok) throw new Error((await response.text()) || String(response.status));
     const item = await response.json();
-    const result = await this._ws("ev_planner/set_image", { target_id: id, image_id: item.id, cutout });
+    const result = await this._ws("ev_household_planner/set_image", { target_id: id, image_id: item.id, cutout });
     this._dropImages(result?.unused);
     return result;
   }
@@ -2040,7 +2040,7 @@ class EvPlannerPanel extends HTMLElement {
 
   async _removePhoto(id) {
     try {
-      const result = await this._ws("ev_planner/set_image", { target_id: id, image_id: null });
+      const result = await this._ws("ev_household_planner/set_image", { target_id: id, image_id: null });
       this._dropImages(result?.unused);
       this._toast(this._t("photo_removed"));
     } catch (err) {
@@ -3023,7 +3023,7 @@ class EvPlannerPanel extends HTMLElement {
             })
             .join("")}</div><small class="hint">${this._t("notify_to_hint")}</small></div>`
         : "";
-    return `${missing ? `<p class="note-line warn">${ICONS.info}<span>${this._t("notify_missing")} <a href="/config/integrations/integration/ev_planner" target="_top">${this._t("open_integration")}</a></span></p>` : ""}
+    return `${missing ? `<p class="note-line warn">${ICONS.info}<span>${this._t("notify_missing")} <a href="/config/integrations/integration/ev_household_planner" target="_top">${this._t("open_integration")}</a></span></p>` : ""}
       ${this._ruleRow({
         icon: "bell",
         title: this._t("reminder"),
@@ -3330,12 +3330,12 @@ class EvPlannerPanel extends HTMLElement {
   async _lookup() {
     const plate = this.shadowRoot.querySelector("#plate")?.value ?? "";
     await this._gcommit({ license_plate: plate });
-    await this._run("lookup", "ev_planner/guest_lookup");
+    await this._run("lookup", "ev_household_planner/guest_lookup");
   }
 
   async _guestPlan() {
     await this._gcommit(this._gdraft);
-    if (await this._run("calculate", "ev_planner/guest_plan")) {
+    if (await this._run("calculate", "ev_household_planner/guest_plan")) {
       this._gpreview = null;
       this._renderLive();
     }
@@ -3343,7 +3343,7 @@ class EvPlannerPanel extends HTMLElement {
 
   async _guestChargeNow() {
     await this._gcommit(this._gdraft);
-    if (await this._run("charge_now", "ev_planner/guest_charge_now")) {
+    if (await this._run("charge_now", "ev_household_planner/guest_charge_now")) {
       this._gpreview = null;
       this._renderLive();
     }
@@ -3352,7 +3352,7 @@ class EvPlannerPanel extends HTMLElement {
   async _newGuest() {
     this._gdraft = {};
     this._gpreview = null;
-    await this._run("new_guest", "ev_planner/guest_new");
+    await this._run("new_guest", "ev_household_planner/guest_new");
   }
 
   /* Store changed guest inputs. While a plan exists, the change is shown as a preview first. */
@@ -3361,7 +3361,7 @@ class EvPlannerPanel extends HTMLElement {
     const changes = Object.fromEntries(Object.entries(inputs).filter(([, v]) => v !== undefined));
     if (!Object.keys(changes).length) return;
     try {
-      await this._ws("ev_planner/guest_set", { inputs: changes });
+      await this._ws("ev_household_planner/guest_set", { inputs: changes });
       for (const [key, value] of Object.entries(changes)) if (this._gdraft[key] === value) delete this._gdraft[key];
     } catch (err) {
       this._showError(err);
@@ -3385,7 +3385,7 @@ class EvPlannerPanel extends HTMLElement {
     const ask = JSON.stringify(inputs);
     this._gpreviewAsk = ask;
     try {
-      const result = await this._ws("ev_planner/guest_preview", { inputs: this._guestWsInputs(inputs) });
+      const result = await this._ws("ev_household_planner/guest_preview", { inputs: this._guestWsInputs(inputs) });
       if (this._gpreviewAsk !== ask) return;
       this._gpreview = result;
     } catch {
@@ -3633,7 +3633,7 @@ class EvPlannerPanel extends HTMLElement {
           <div><dt>${this._t("notify_phones")}</dt><dd>${notify.length ? notify.map((n) => `<code>${esc(n)}</code>`).join(" ") : this._t("not_set")}</dd></div>
           <div><dt>${this._t("widgets_refresh")}</dt><dd>${config.update_widgets ? this._t("on") : this._t("off")}</dd></div>
         </dl>
-        <p class="hint">${this._t("change_in_ha")} <a href="/config/integrations/integration/ev_planner" target="_top">${this._t("open_integration")}</a></p>
+        <p class="hint">${this._t("change_in_ha")} <a href="/config/integrations/integration/ev_household_planner" target="_top">${this._t("open_integration")}</a></p>
       </section>
       <section class="panel">
         <h2>${ICONS.share}<span>${this._t("app_title")}</span></h2>
@@ -3732,7 +3732,7 @@ class EvPlannerPanel extends HTMLElement {
         this._guestChargeNow();
         break;
       case "g-stop":
-        this._run("stop", "ev_planner/guest_stop");
+        this._run("stop", "ev_household_planner/guest_stop");
         break;
       case "photo":
         this._pickPhoto(id);

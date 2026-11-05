@@ -7,7 +7,7 @@ from typing import Final
 
 from homeassistant.const import Platform
 
-DOMAIN: Final = "ev_planner"
+DOMAIN: Final = "ev_household_planner"
 DEFAULT_NAME: Final = "EV Planner"
 MANUFACTURER: Final = "Dinnsen"
 DOCS_URL: Final = "https://github.com/Dinnsen/ha-ev-planner"

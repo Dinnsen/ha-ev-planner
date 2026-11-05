@@ -10,8 +10,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er, issue_registry as ir
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ev_planner import async_remove_config_entry_device
-from custom_components.ev_planner.const import DOMAIN
+from custom_components.ev_household_planner import async_remove_config_entry_device
+from custom_components.ev_household_planner.const import DOMAIN
 
 from .conftest import MERCEDES, NIGHT, TESLA, entry_with, set_prices, settle, vehicle_sub
 

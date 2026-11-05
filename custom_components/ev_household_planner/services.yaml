@@ -3,14 +3,14 @@ recalculate:
     config_entry_id:
       selector:
         config_entry:
-          integration: ev_planner
+          integration: ev_household_planner
 set_mode:
   fields:
     vehicle:
       required: true
       selector:
         device:
-          integration: ev_planner
+          integration: ev_household_planner
     mode:
       required: true
       selector:
@@ -26,28 +26,28 @@ guest_lookup:
     config_entry_id:
       selector:
         config_entry:
-          integration: ev_planner
+          integration: ev_household_planner
 guest_plan:
   fields:
     config_entry_id:
       selector:
         config_entry:
-          integration: ev_planner
+          integration: ev_household_planner
 guest_charge_now:
   fields:
     config_entry_id:
       selector:
         config_entry:
-          integration: ev_planner
+          integration: ev_household_planner
 guest_stop:
   fields:
     config_entry_id:
       selector:
         config_entry:
-          integration: ev_planner
+          integration: ev_household_planner
 new_guest:
   fields:
     config_entry_id:
       selector:
         config_entry:
-          integration: ev_planner
+          integration: ev_household_planner

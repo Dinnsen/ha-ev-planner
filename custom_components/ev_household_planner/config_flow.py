@@ -20,6 +20,7 @@ from homeassistant.helpers import entity_registry as er, selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
 
+from . import migration
 from .api import PlateAuthError, PlateLookupFailed, async_validate_plate_provider_credentials
 from .catalog import MODEL_AUTO, MODEL_OTHER, describe_device, get_model, model_options, suggest_entities
 from .const import (
@@ -199,6 +200,8 @@ class EVPlannerConfigFlow(ConfigFlow, domain=DOMAIN):
         return {SUBENTRY_VEHICLE: VehicleSubentryFlow, SUBENTRY_CHARGER: ChargerSubentryFlow}
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        if user_input is None and migration.old_entries(self.hass):
+            return await self.async_step_migrate()
         errors: dict[str, str] = {}
         if user_input is not None:
             errors = await _async_validate_connection(self.hass, user_input)
@@ -225,6 +228,15 @@ class EVPlannerConfigFlow(ConfigFlow, domain=DOMAIN):
             }
         )
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
+
+    async def async_step_migrate(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Move the household of EV Planner 1.x (domain ev_planner) here, with everything in it."""
+        await self.async_set_unique_id(DOMAIN)
+        self._abort_if_unique_id_configured()
+        old = migration.old_entries(self.hass)[0]
+        if user_input is not None:
+            return self.async_create_entry(**migration.entry_from_old(old))
+        return self.async_show_form(step_id="migrate", description_placeholders=dict(migration.describe(old)))
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Change the price sensor, country or MotorAPI key."""

@@ -12,9 +12,9 @@ from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ev_planner.api import PlateAuthError, PlateLookupFailed
-from custom_components.ev_planner.config_flow import esc_import
-from custom_components.ev_planner.const import DOMAIN
+from custom_components.ev_household_planner.api import PlateAuthError, PlateLookupFailed
+from custom_components.ev_household_planner.config_flow import esc_import
+from custom_components.ev_household_planner.const import DOMAIN
 
 from .conftest import CARPORT, CHARGE_SWITCH, NIGHT, PRICE_ENTITY, SOC, TESLA, set_prices
 
@@ -48,7 +48,7 @@ async def test_user_flow(hass: HomeAssistant, now: datetime) -> None:
 
 async def test_user_flow_checks_the_motorapi_key(hass: HomeAssistant, now: datetime) -> None:
     set_prices(hass, now, NIGHT)
-    target = "custom_components.ev_planner.config_flow.async_validate_plate_provider_credentials"
+    target = "custom_components.ev_household_planner.config_flow.async_validate_plate_provider_credentials"
     for side_effect, errors in (
         (PlateAuthError("invalid_auth"), {"motorapi_api_key": "invalid_auth"}),
         (PlateLookupFailed("timeout"), {"base": "timeout"}),
@@ -78,7 +78,7 @@ async def test_reconfigure_and_reauth(hass: HomeAssistant, init_integration: Moc
     assert result["reason"] == "reconfigure_successful"
 
     result = await init_integration.start_reauth_flow(hass)
-    target = "custom_components.ev_planner.config_flow.async_validate_plate_provider_credentials"
+    target = "custom_components.ev_household_planner.config_flow.async_validate_plate_provider_credentials"
     with patch(target, AsyncMock(side_effect=PlateAuthError("bad"))):
         result = await hass.config_entries.flow.async_configure(result["flow_id"], {"motorapi_api_key": "bad"})
     assert result["errors"] == {"motorapi_api_key": "invalid_auth"}

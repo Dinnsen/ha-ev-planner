@@ -12,6 +12,8 @@ from homeassistant.util import dt as dt_util
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.ev_household_planner.const import DOMAIN
+
 from .conftest import (
     CABLE,
     CHARGING,
@@ -162,11 +164,11 @@ async def test_the_old_efficiency_entities_are_removed(
     entry.add_to_hass(hass)
     registry = er.async_get(hass)
     old = registry.async_get_or_create(
-        "number", "ev_planner", f"{TESLA}_charging_efficiency", config_entry=entry, suggested_object_id="tesla_eff"
+        "number", DOMAIN, f"{TESLA}_charging_efficiency", config_entry=entry, suggested_object_id="tesla_eff"
     )
     guest = registry.async_get_or_create(
         "number",
-        "ev_planner",
+        DOMAIN,
         f"{entry.entry_id}_guest_guest_charging_efficiency",
         config_entry=entry,
         suggested_object_id="guest_eff",
@@ -203,7 +205,7 @@ async def test_without_a_level_sensor_the_set_level_moves_at_the_speed(
 def test_power_readings_in_kw() -> None:
     from homeassistant.core import State
 
-    from custom_components.ev_planner.household import power_value
+    from custom_components.ev_household_planner.household import power_value
 
     assert power_value(None) is None
     assert power_value(State(POWER, "unavailable")) is None

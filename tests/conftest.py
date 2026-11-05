@@ -14,7 +14,7 @@ from homeassistant.util import dt as dt_util
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
-from custom_components.ev_planner.const import DOMAIN
+from custom_components.ev_household_planner.const import DOMAIN
 
 PRICE_ENTITY = "sensor.energi_data_service"
 NOW = "2026-10-19T20:00:00+02:00"
@@ -50,8 +50,8 @@ def skip_panel_dependencies(hass: HomeAssistant) -> None:
 def mock_panel() -> Generator[tuple[AsyncMock, MagicMock]]:
     """Don't serve the panel files in tests (that needs the real frontend)."""
     with (
-        patch("custom_components.ev_planner.async_register_panel") as register,
-        patch("custom_components.ev_planner.async_unregister_panel") as unregister,
+        patch("custom_components.ev_household_planner.async_register_panel") as register,
+        patch("custom_components.ev_household_planner.async_unregister_panel") as unregister,
     ):
         yield register, unregister
 
@@ -219,7 +219,7 @@ def switches(hass: HomeAssistant) -> Generator[SwitchCalls]:
     async def fake(household: Any, entity_id: str, on: bool) -> str | None:
         return await calls.switch(household, entity_id, on)
 
-    with patch("custom_components.ev_planner.household.Household._async_switch", fake):
+    with patch("custom_components.ev_household_planner.household.Household._async_switch", fake):
         yield calls
 
 

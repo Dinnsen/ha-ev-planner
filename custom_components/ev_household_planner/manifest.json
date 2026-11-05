@@ -1,5 +1,5 @@
 {
-  "domain": "ev_planner",
+  "domain": "ev_household_planner",
   "name": "EV Planner",
   "codeowners": [
     "@Dinnsen"
@@ -19,5 +19,5 @@
   "quality_scale": "platinum",
   "requirements": [],
   "single_config_entry": true,
-  "version": "1.2.3"
+  "version": "2.0.0"
 }

@@ -1,6 +1,6 @@
 """Unit tests for EV Guest API helpers."""
 
-from custom_components.ev_planner import api
+from custom_components.ev_household_planner import api
 
 
 def test_clean_identifier_removes_spaces_and_symbols() -> None:

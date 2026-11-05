@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from homeassistant.components import frontend, panel_custom
@@ -12,10 +13,12 @@ from homeassistant.loader import async_get_integration
 from .const import DOMAIN
 
 PANEL_URL = "ev-planner"
-STATIC_URL = "/ev_planner_static"
+STATIC_URL = f"/{DOMAIN}_static"
+# The home-screen app keeps the address of 1.x, so an app already on a phone goes on working.
 APP_URL = "/ev_planner_app"
 WEBCOMPONENT = "ev-planner-panel"
 CARDS_MODULE = "ev-planner-cards"
+_LOGGER = logging.getLogger(__name__)
 _STATIC_KEY = f"{DOMAIN}_static_registered"
 _CARDS_KEY = f"{DOMAIN}_cards_url"
 
@@ -24,12 +27,17 @@ async def async_register_panel(hass: HomeAssistant) -> None:
     """Serve the panel files and add the panel to the sidebar."""
     if not hass.data.get(_STATIC_KEY):
         await hass.http.async_register_static_paths(
-            [
-                StaticPathConfig(STATIC_URL, str(Path(__file__).parent / "frontend"), True),
-                # Home-screen web app; not cached, so the launcher can change.
-                StaticPathConfig(APP_URL, str(Path(__file__).parent / "app"), False),
-            ]
+            [StaticPathConfig(STATIC_URL, str(Path(__file__).parent / "frontend"), True)]
         )
+        try:
+            # Home-screen web app; not cached, so the launcher can change.
+            await hass.http.async_register_static_paths(
+                [StaticPathConfig(APP_URL, str(Path(__file__).parent / "app"), False)]
+            )
+        except (RuntimeError, ValueError):
+            # Served by EV Planner 1.x already, the moment its household is moved here;
+            # the app only loads the panel, so it works as it is until Home Assistant restarts.
+            _LOGGER.debug("%s is served already", APP_URL)
         hass.data[_STATIC_KEY] = True
     version = (await async_get_integration(hass, DOMAIN)).version
     # The dashboard cards, loaded on every dashboard: no resource to add, nothing to install.

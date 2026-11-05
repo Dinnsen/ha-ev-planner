@@ -53,7 +53,7 @@ function startStore(store, hass) {
         store.error = null;
         store.listeners.forEach((listener) => listener());
       },
-      { type: "ev_planner/subscribe" },
+      { type: "ev_household_planner/subscribe" },
     )
     .then((unsub) => {
       store.unsub = unsub;
@@ -254,11 +254,11 @@ class EvPlannerCard extends HTMLElement {
     const act = el.dataset.act;
     if (act === "mode") {
       ev.stopPropagation();
-      this._call("ev_planner/vehicle_set", { vehicle_id: el.dataset.id, settings: { mode: el.dataset.mode } }, el);
+      this._call("ev_household_planner/vehicle_set", { vehicle_id: el.dataset.id, settings: { mode: el.dataset.mode } }, el);
       return;
     }
     if (act === "g-stop") {
-      this._call("ev_planner/guest_stop", {}, el);
+      this._call("ev_household_planner/guest_stop", {}, el);
       return;
     }
     if (act === "open-car") {
@@ -305,7 +305,7 @@ class EvPlannerCard extends HTMLElement {
 
   static async _firstState(hass) {
     try {
-      return await hass.callWS({ type: "ev_planner/state" });
+      return await hass.callWS({ type: "ev_household_planner/state" });
     } catch {
       return null;
     }
