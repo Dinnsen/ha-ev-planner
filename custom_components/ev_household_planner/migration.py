@@ -107,7 +107,8 @@ async def async_take_over(hass: HomeAssistant, entry: ConfigEntry) -> None:
                 item.entity_id,
                 DOMAIN,
                 new_config_entry_id=new_id,
-                new_config_subentry_id=item.config_subentry_id,
+                # The car's and charger's subentries keep their ids, so an entity keeps its subentry.
+                **({"new_config_subentry_id": item.config_subentry_id} if item.config_subentry_id else {}),
                 **({"new_unique_id": unique_id} if unique_id != item.unique_id else {}),
             )
         except ValueError as err:
