@@ -2,6 +2,14 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
 
+## [2.0.1] - 2026-11-08
+
+### Fixed
+- **Dashboard cards were as tall as the screen** (since 1.2.3). The cards share the panel's style, and the rule from 1.2.3 that makes the panel fill the screen reached the cards too. It now applies to the panel only; the panel still scrolls with the mouse wheel.
+
+### Changed
+- **HACS is the Marketplace** in Home Assistant 2026.11, and EV Planner is in its catalog: install it under *Settings → Marketplace* (search *EV Planner*). The README, the button and the texts say Marketplace; no custom repository is needed.
+
 ## [2.0.0] - 2026-11-05
 
 ### Changed – read this when you update from 1.x

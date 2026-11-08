@@ -1,7 +1,7 @@
 /* EV Planner – cards for your own dashboards.
 
    Loaded by the integration on every dashboard, so there is no resource to add and nothing
-   to install in HACS. The cards share the panel's code, texts and style (ev-planner-panel.js),
+   else to install. The cards share the panel's code, texts and style (ev-planner-panel.js),
    so the large car card is the very card on EV Planner's overview, and all cards on a page
    share one connection to EV Planner.
 

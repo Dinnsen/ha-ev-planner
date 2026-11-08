@@ -3935,7 +3935,7 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
    "100%" would let the panel grow with its content and the page scroll instead of the
    content (on a PC the mouse wheel then did nothing). Fill the screen instead, less the
    safe areas Home Assistant pads that box with. */
-:host(:not([app]):not([embed])) { height: calc(100dvh - var(--safe-area-inset-top, 0px) - var(--safe-area-inset-bottom, 0px)); }
+:host(ev-planner-panel:not([app]):not([embed])) { height: calc(100dvh - var(--safe-area-inset-top, 0px) - var(--safe-area-inset-bottom, 0px)); }
 /* The home-screen app: the page never bounces or moves, only the content scrolls. */
 :host([app]) .content { overscroll-behavior: none; }
 /* In a pop-up from a dashboard card: one view, without the header and the tabs. */
