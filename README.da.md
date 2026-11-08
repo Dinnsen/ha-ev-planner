@@ -8,7 +8,7 @@
 <p align="center">
   <a href="https://github.com/Dinnsen/ha-ev-planner/releases"><img alt="Version" src="https://img.shields.io/github/v/release/Dinnsen/ha-ev-planner?style=flat-square&label=version&color=00B894"></a>
   <a href="https://github.com/Dinnsen/ha-ev-planner/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/Dinnsen/ha-ev-planner/total?style=flat-square&label=downloads&color=00B894"></a>
-  <a href="https://hacs.xyz"><img alt="HACS" src="https://img.shields.io/badge/HACS-custom-41BDF5?style=flat-square"></a>
+  <a href="https://my.home-assistant.io/redirect/marketplace_repository/?owner=Dinnsen&repository=ha-ev-planner&category=integration"><img alt="Marketplace" src="https://img.shields.io/badge/Marketplace-default-41BDF5?style=flat-square&logo=homeassistant&logoColor=white"></a>
   <img alt="Home Assistant 2026.3+" src="https://img.shields.io/badge/Home%20Assistant-2026.3%2B-18BCF2?style=flat-square&logo=homeassistant&logoColor=white">
   <a href="https://github.com/Dinnsen/ha-ev-planner/actions/workflows/tests.yml"><img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/Dinnsen/ha-ev-planner/tests.yml?branch=main&style=flat-square&label=tests"></a>
   <a href="LICENSE"><img alt="Licens: MIT" src="https://img.shields.io/badge/licens-MIT-97ca00?style=flat-square"></a>
@@ -42,16 +42,18 @@ EV Planner er bygget på [EV Guest](https://github.com/Dinnsen/EV-Guest) (planl�
 
 ## Installation
 
-1. Søg efter **EV Planner** i HACS, og hent den.
-2. Genstart Home Assistant.
+[![Åbn EV Planner i Marketplace i din Home Assistant.](https://img.shields.io/badge/%C3%85bn%20i-Marketplace-41BDF5?style=for-the-badge&logo=homeassistant&logoColor=white)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=Dinnsen&repository=ha-ev-planner&category=integration)
 
-Finder HACS den ikke: tilføj `https://github.com/Dinnsen/ha-ev-planner` som brugerdefineret repository i HACS (type **Integration**), og hent den derfra.
+1. **Indstillinger → Marketplace**, søg efter **EV Planner**, og installér den (eller brug knappen ovenfor).
+2. Genstart Home Assistant, hvis den beder om det.
+
+Før Home Assistant 2026.11 hed Marketplace HACS: søg efter **EV Planner** der, og hent den.
 
 ### Opdatering fra EV Planner 1.x
 
-Fra version 2.0 er EV Planners domæne `ev_household_planner` (før `ev_planner`, som en anden integration i HACS bruger). Navnet, panelet, kortene og entitets-id'erne er de samme.
+Fra version 2.0 er EV Planners domæne `ev_household_planner` (før `ev_planner`, som en anden integration i Marketplace bruger). Navnet, panelet, kortene og entitets-id'erne er de samme.
 
-1. Opdatér EV Planner i HACS, og genstart Home Assistant. EV Planner 1.x kører videre indtil næste trin.
+1. Opdatér EV Planner i Marketplace, og genstart Home Assistant. EV Planner 1.x kører videre indtil næste trin.
 2. **Indstillinger → Enheder og tjenester → Tilføj integration → EV Planner.** EV Planner tilbyder at flytte husstanden fra 1.x: opsætning, biler, ladepunkter, indstillinger, planer, historik, læring og billeder, og entiteterne med deres entitets-id'er, så dashboards og automationer, der bruger dem, virker som før.
 3. Slet mappen `config/custom_components/ev_planner`, og genstart Home Assistant. En reparation minder dig om det, så længe den ligger der.
 
@@ -72,7 +74,7 @@ Når I tilføjer en bil, kan I starte fra en bil i EV Smart Charging: sensorer, 
 
 <img src="docs/images/cards-da.png" alt="EV Planners kort på et dashboard på telefonen, og pop-up'en for en bil" width="100%">
 
-EV Planner har seks kort til jeres egne dashboards. De følger med integrationen – der skal ikke tilføjes en ressource eller installeres noget i HACS – og findes under **Tilføj kort** (søg på *EV Planner*), med en visuel editor, hvor I vælger bil eller lader. De bruger panelets egen tegning, så de ser ud og opdateres præcis som det.
+EV Planner har seks kort til jeres egne dashboards. De følger med integrationen – der skal ikke tilføjes en ressource eller installeres andet – og findes under **Tilføj kort** (søg på *EV Planner*), med en visuel editor, hvor I vælger bil eller lader. De bruger panelets egen tegning, så de ser ud og opdateres præcis som det.
 
 | Kort | | Bredde |
 | --- | --- | --- |

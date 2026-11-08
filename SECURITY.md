@@ -4,7 +4,7 @@
 
 ## Supported versions
 
-Only the latest release gets fixes. Update through HACS.
+Only the latest release gets fixes. Update through the Marketplace (Settings → Marketplace).
 
 ## Reporting a vulnerability
 
@@ -23,7 +23,7 @@ What EV Planner does with your data is described under *Privacy* in the
 
 ## Sikkerhed
 
-Kun den nyeste udgivelse får rettelser. Opdatér via HACS.
+Kun den nyeste udgivelse får rettelser. Opdatér via Marketplace (Indstillinger → Marketplace).
 
 Opret **ikke** et offentligt issue. Rapportér sårbarheden privat via
 [GitHubs private sårbarhedsrapportering](https://github.com/Dinnsen/ha-ev-planner/security/advisories/new)

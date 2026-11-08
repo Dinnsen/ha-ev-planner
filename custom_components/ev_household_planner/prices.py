@@ -23,7 +23,7 @@ def extract_price_slots(state: State | None, now: datetime) -> list[PriceSlot]:
     - ``raw_today`` / ``raw_tomorrow`` / ``forecast`` lists with ``hour`` and
       ``price`` (Energi Data Service)
     - ``raw_today`` / ``raw_tomorrow`` lists with ``start``, ``end`` and
-      ``value`` (Nord Pool from HACS)
+      ``value`` (Nord Pool from the Marketplace)
     - ``today`` / ``tomorrow`` lists of prices starting at midnight
     """
     if state is None or state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):

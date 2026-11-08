@@ -8,7 +8,7 @@
 <p align="center">
   <a href="https://github.com/Dinnsen/ha-ev-planner/releases"><img alt="Version" src="https://img.shields.io/github/v/release/Dinnsen/ha-ev-planner?style=flat-square&label=version&color=00B894"></a>
   <a href="https://github.com/Dinnsen/ha-ev-planner/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/Dinnsen/ha-ev-planner/total?style=flat-square&label=downloads&color=00B894"></a>
-  <a href="https://hacs.xyz"><img alt="HACS" src="https://img.shields.io/badge/HACS-custom-41BDF5?style=flat-square"></a>
+  <a href="https://my.home-assistant.io/redirect/marketplace_repository/?owner=Dinnsen&repository=ha-ev-planner&category=integration"><img alt="Marketplace" src="https://img.shields.io/badge/Marketplace-default-41BDF5?style=flat-square&logo=homeassistant&logoColor=white"></a>
   <img alt="Home Assistant 2026.3+" src="https://img.shields.io/badge/Home%20Assistant-2026.3%2B-18BCF2?style=flat-square&logo=homeassistant&logoColor=white">
   <a href="https://github.com/Dinnsen/ha-ev-planner/actions/workflows/tests.yml"><img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/Dinnsen/ha-ev-planner/tests.yml?branch=main&style=flat-square&label=tests"></a>
   <a href="LICENSE"><img alt="Licence: MIT" src="https://img.shields.io/badge/licence-MIT-97ca00?style=flat-square"></a>
@@ -49,20 +49,20 @@ EV Planner is built from [EV Guest](https://github.com/Dinnsen/EV-Guest) (the pl
 
 ## Installation
 
-[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Dinnsen&repository=ha-ev-planner&category=integration)
+[![Open EV Planner in the Marketplace in your Home Assistant.](https://img.shields.io/badge/Open%20in-Marketplace-41BDF5?style=for-the-badge&logo=homeassistant&logoColor=white)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=Dinnsen&repository=ha-ev-planner&category=integration)
 
-1. In HACS, search for **EV Planner** and download it (or use the button above).
-2. Restart Home Assistant.
+1. **Settings → Marketplace**, search for **EV Planner** and install it (or use the button above).
+2. Restart Home Assistant if it asks you to.
 
-If HACS does not find it: add `https://github.com/Dinnsen/ha-ev-planner` as a custom repository in HACS (type **Integration**) and download it from there.
+Before Home Assistant 2026.11 the Marketplace was called HACS: search for **EV Planner** there and download it.
 
 Manually: download `ev_household_planner.zip` from the [latest release](https://github.com/Dinnsen/ha-ev-planner/releases) and unzip it into `config/custom_components/ev_household_planner`.
 
 ### Updating from EV Planner 1.x
 
-From version 2.0 EV Planner's domain is `ev_household_planner` (it was `ev_planner`, which another integration in HACS uses). The name, the panel, the cards and the entity ids stay the same.
+From version 2.0 EV Planner's domain is `ev_household_planner` (it was `ev_planner`, which another integration in the Marketplace uses). The name, the panel, the cards and the entity ids stay the same.
 
-1. Update EV Planner in HACS and restart Home Assistant. EV Planner 1.x goes on working until the next step.
+1. Update EV Planner in the Marketplace and restart Home Assistant. EV Planner 1.x goes on working until the next step.
 2. **Settings → Devices & services → Add integration → EV Planner.** EV Planner offers to move the 1.x household: the setup, cars, chargers, settings, plans, history, learning and photos, and the entities with their entity ids, so dashboards and automations that use the entities go on working.
 3. Delete the folder `config/custom_components/ev_planner` and restart Home Assistant. A repair reminds you while it is there.
 
@@ -110,7 +110,7 @@ Each page has its own address, so you can link straight to it: `/ev-planner/car/
 
 <img src="docs/images/cards-en.png" alt="EV Planner's cards on a phone dashboard, and the pop-up for a car" width="100%">
 
-EV Planner brings six cards for your own dashboards. They come with the integration – there is no resource to add and nothing to install in HACS – and are under **Add card** (search for *EV Planner*), with a visual editor where you pick the car or the charger. They use the panel's own drawing, so they look and update exactly like it.
+EV Planner brings six cards for your own dashboards. They come with the integration – there is no resource to add and nothing else to install – and are under **Add card** (search for *EV Planner*), with a visual editor where you pick the car or the charger. They use the panel's own drawing, so they look and update exactly like it.
 
 | Card | | Size |
 | --- | --- | --- |
@@ -253,4 +253,4 @@ The energy and cost are the charging time at the charging power – what the car
 
 ## Removing the integration
 
-Remove EV Planner under **Settings → Devices & services**. Its settings, plans and history are deleted with it. Remove it from HACS and restart Home Assistant. Your cars and chargers are not changed.
+Remove EV Planner under **Settings → Devices & services**. Its settings, plans and history are deleted with it. Remove it in the Marketplace and restart Home Assistant. Your cars and chargers are not changed.

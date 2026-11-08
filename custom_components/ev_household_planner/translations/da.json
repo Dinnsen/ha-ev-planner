@@ -45,7 +45,7 @@
       },
       "migrate": {
         "title": "Flyt EV Planner 1.x hertil",
-        "description": "EV Planner 1.x er installeret med husstanden **{title}** ({cars} biler, {chargers} ladepunkter). Fra version 2.0 har EV Planner et nyt domæne, `ev_household_planner`, fordi en anden integration i HACS bruger `ev_planner`.\n\nTryk Send for at flytte det hele hertil: opsætningen, biler og ladepunkter, indstillinger, planer, historik, læring og billeder. Entiteterne beholder deres entitets-id'er, så dashboards og automationer, der bruger dem, virker som før. Handlingerne hedder nu `ev_household_planner.*`.\n\nHusstanden i 1.x fjernes bagefter. Slet mappen `custom_components/ev_planner`, og genstart Home Assistant."
+        "description": "EV Planner 1.x er installeret med husstanden **{title}** ({cars} biler, {chargers} ladepunkter). Fra version 2.0 har EV Planner et nyt domæne, `ev_household_planner`, fordi en anden integration i Marketplace bruger `ev_planner`.\n\nTryk Send for at flytte det hele hertil: opsætningen, biler og ladepunkter, indstillinger, planer, historik, læring og billeder. Entiteterne beholder deres entitets-id'er, så dashboards og automationer, der bruger dem, virker som før. Handlingerne hedder nu `ev_household_planner.*`.\n\nHusstanden i 1.x fjernes bagefter. Slet mappen `custom_components/ev_planner`, og genstart Home Assistant."
       }
     },
     "error": {

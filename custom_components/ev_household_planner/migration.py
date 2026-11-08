@@ -1,7 +1,7 @@
 """Moving a household from EV Planner 1.x (domain ``ev_planner``) to this domain.
 
 EV Planner 1.x used the domain ``ev_planner``, which another integration in
-HACS' default list uses too. From 2.0 the domain is ``ev_household_planner``.
+the Marketplace (formerly HACS) uses too. From 2.0 the domain is ``ev_household_planner``.
 Adding EV Planner again finds the 1.x household and moves it here:
 
 * the setup: price sensor, options, and every car and charger with the same
