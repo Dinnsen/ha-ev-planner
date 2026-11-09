@@ -71,6 +71,7 @@ from .const import (
     MODES,
     PLANNING_HORIZON,
     PROBLEM_RECHECK,
+    REASON_WAITING,
     RECALCULATE_DELAY,
     REMINDER_MAX_REPEATS,
     SET_DAY_TARGETS,
@@ -106,6 +107,7 @@ from .planner import PlanError, PriceSlot, Segment, segments_to_schedule
 from .prices import extract_price_slots
 from .rules import (
     Car,
+    Decision,
     current_price,
     decide,
     fallback_plan,
@@ -316,6 +318,7 @@ class Household(DataUpdateCoordinator[None]):
         """Once Home Assistant runs: check the price sensor, read calendars, and start acting."""
         self._started = True
         self._check_price_entity()
+        self.supply.async_start()
         self.config_entry.async_create_task(self.hass, self._async_after_start(), f"{DOMAIN} start")
 
     async def _async_after_start(self) -> None:
@@ -331,6 +334,7 @@ class Household(DataUpdateCoordinator[None]):
         if self._widgets_timer is not None:
             self._widgets_timer()
             self._widgets_timer = None
+        self.supply.async_stop()
         for cancel in self._unplug_timers.values():
             cancel()
         self._unplug_timers.clear()
@@ -1053,6 +1057,9 @@ class Household(DataUpdateCoordinator[None]):
                 plan_done=vehicle.plan_done,
                 charger_free=not self.guest_holds(vehicle.charger_id, now),
             )
+            if decision.control == CONTROL_CHARGE and self.supply.holds_off(vehicle, now):
+                # The guard paused it: the house needs the current for a while.
+                decision = Decision(CONTROL_PAUSE, REASON_WAITING)
             changed = decision != vehicle.decision
             vehicle.decision = decision
             if apply and self._started:
@@ -1067,6 +1074,12 @@ class Household(DataUpdateCoordinator[None]):
             await self.supply.async_apply(now)
             await self._async_apply_guest(now)
             self._maybe_refresh_widgets(now)
+        self.async_update_listeners()
+
+    async def async_pause_for_house(self, vehicle: Vehicle) -> None:
+        """The guard: stop this car now, as the house needs the current."""
+        vehicle.decision = Decision(CONTROL_PAUSE, REASON_WAITING)
+        await self._async_apply(vehicle, force=False)
         self.async_update_listeners()
 
     def control_entity(self, vehicle: Vehicle) -> str | None:

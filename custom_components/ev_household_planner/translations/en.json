@@ -85,13 +85,15 @@
               "supply_limit": "Limit per phase",
               "supply_phases": "Phases",
               "supply_meter": "Meter: current per phase",
-              "supply_reserve": "The house without a meter"
+              "supply_reserve": "The house without a meter",
+              "supply_guard": "Guard: turn the cars down at once"
             },
             "data_description": {
               "supply_limit": "The most the house may draw per phase, e.g. 23 A on a 25 A supply, or the circuit the chargers share. 0 turns it off.",
               "supply_phases": "How many phases the supply and the cars charge on.",
               "supply_meter": "Current sensors (A) for the phases, e.g. from a HAN/P1 reader, a Shelly EM or an Equalizer. EV Planner learns what the house draws hour by hour.",
-              "supply_reserve": "Without a meter: what the house is expected to draw per phase."
+              "supply_reserve": "Without a meter: what the house is expected to draw per phase.",
+              "supply_guard": "When the meter shows more than the limit, lower the cars right away (the last in line first) and raise them again after a few minutes. Not a fuse: leave it off if an Equalizer or the charger already balances the load."
             }
           }
         }
@@ -168,7 +170,7 @@
                 "charger": "The charger the car uses. Cars on the same charger share it.",
                 "control": "Choose the car, the charger, or neither.",
                 "control_entity": "Needed when the car starts and stops charging, e.g. switch.model3_charge.",
-                "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit. With it, cars on a shared supply share the current; without it they take turns."
+                "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit, or any sensor of an Easee charger (EV Planner then uses Easee's own action). With it, cars on a shared supply share the current; without it they take turns."
               }
             },
             "trips": {
@@ -236,7 +238,7 @@
                 "charger": "The charger the car uses. Cars on the same charger share it.",
                 "control": "Choose the car, the charger, or neither.",
                 "control_entity": "Needed when the car starts and stops charging, e.g. switch.model3_charge.",
-                "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit. With it, cars on a shared supply share the current; without it they take turns."
+                "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit, or any sensor of an Easee charger (EV Planner then uses Easee's own action). With it, cars on a shared supply share the current; without it they take turns."
               }
             },
             "trips": {
@@ -300,7 +302,7 @@
             "energy_entity": "Optional. The charger's total energy (kWh), to measure what the guest used.",
             "connected_entity": "Optional. Ends the guest session when the guest car is unplugged.",
             "unplugged_states": "Default: off.",
-            "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit. With it, cars on a shared supply share the current; without it they take turns."
+            "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit, or any sensor of an Easee charger (EV Planner then uses Easee's own action). With it, cars on a shared supply share the current; without it they take turns."
           }
         },
         "reconfigure": {
@@ -323,7 +325,7 @@
             "energy_entity": "Optional. The charger's total energy (kWh), to measure what the guest used.",
             "connected_entity": "Optional. Ends the guest session when the guest car is unplugged.",
             "unplugged_states": "Default: off.",
-            "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit. With it, cars on a shared supply share the current; without it they take turns."
+            "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit, or any sensor of an Easee charger (EV Planner then uses Easee's own action). With it, cars on a shared supply share the current; without it they take turns."
           }
         }
       }

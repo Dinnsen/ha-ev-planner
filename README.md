@@ -272,6 +272,8 @@ Remove EV Planner under **Settings → Devices & services**. Its settings, plans
 
 Several cars behind one fuse, or two chargers on one circuit: in the options, under *Shared supply*, set the most the house may draw per phase (for example 23 A on a 25 A supply), the phases, and a meter if you have one. EV Planner then plans the plugged-in cars together under that limit, cheapest slots first. The house comes first (learned from the meter, or a fixed reserve), every car first gets what it must have by its ready-by time, and then they fill up by priority. A car or charger with a current setting gets its share in amps; one that can only be switched on and off takes its turn. Plans aim to be done an hour early. EV Planner does not protect the fuse; keep your charger's own load balancing on.
 
+An Easee charger needs no number: pick any sensor of the charger as its charging current, and EV Planner uses Easee's own action (with a 30-minute time limit, renewed, so the charger falls back by itself if Home Assistant stops). Without an Equalizer, you can turn on the *guard*: it watches the meter and turns the cars down at once when the house needs more, and puts them at the least current if the meter stops reporting. It reacts in seconds, not milliseconds, and is not a fuse. The *Home* tab in the panel shows the house, the cars and who gets the current through the night.
+
 ## Thanks
 
 To [EV Smart Charging](https://github.com/jonasbkarlsson/ev_smart_charging) by Jonas Karlsson, which showed the way for price-driven charging in Home Assistant. Several of the rules and *Moving from EV Smart Charging* build on its ideas.

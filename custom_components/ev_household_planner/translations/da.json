@@ -85,13 +85,15 @@
               "supply_limit": "Grænse pr. fase",
               "supply_phases": "Faser",
               "supply_meter": "Måler: strøm pr. fase",
-              "supply_reserve": "Huset uden måler"
+              "supply_reserve": "Huset uden måler",
+              "supply_guard": "Vagt: skru bilerne ned med det samme"
             },
             "data_description": {
               "supply_limit": "Det mest, huset må trække pr. fase, fx 23 A på en 25 A stikledning, eller det kredsløb laderne deler. 0 slår det fra.",
               "supply_phases": "Hvor mange faser forsyningen og bilerne lader på.",
               "supply_meter": "Strømsensorer (A) for faserne, fx fra en HAN/P1-læser, en Shelly EM eller en Equalizer. EV Planner lærer, hvad huset trækker time for time.",
-              "supply_reserve": "Uden måler: hvad huset forventes at trække pr. fase."
+              "supply_reserve": "Uden måler: hvad huset forventes at trække pr. fase.",
+              "supply_guard": "Når måleren viser mere end grænsen, sætter EV Planner bilerne ned med det samme (den bagerste i køen først) og op igen efter et par minutter. Ikke en sikring: lad den være slået fra, hvis en Equalizer eller laderen selv fordeler strømmen."
             }
           }
         }
@@ -168,7 +170,7 @@
                 "charger": "Ladepunktet bilen bruger. Biler på samme ladepunkt deler det.",
                 "control": "Vælg bilen, laderen eller ingen af dem.",
                 "control_entity": "Skal udfyldes, når bilen starter og stopper ladningen, fx switch.model3_charge.",
-                "current_entity": "Et tal, der sætter ladestrømmen (A), fx bilens ladeampere eller laderens strømgrænse. Med det deler bilerne på en fælles forsyning strømmen; uden det lader de efter tur."
+                "current_entity": "Et tal, der sætter ladestrømmen (A), fx bilens ladeampere eller laderens strømgrænse, eller en vilkårlig sensor fra en Easee-lader (så bruger EV Planner Easees egen handling). Med det deler bilerne på en fælles forsyning strømmen; uden det lader de efter tur."
               }
             },
             "trips": {
@@ -236,7 +238,7 @@
                 "charger": "Ladepunktet bilen bruger. Biler på samme ladepunkt deler det.",
                 "control": "Vælg bilen, laderen eller ingen af dem.",
                 "control_entity": "Skal udfyldes, når bilen starter og stopper ladningen, fx switch.model3_charge.",
-                "current_entity": "Et tal, der sætter ladestrømmen (A), fx bilens ladeampere eller laderens strømgrænse. Med det deler bilerne på en fælles forsyning strømmen; uden det lader de efter tur."
+                "current_entity": "Et tal, der sætter ladestrømmen (A), fx bilens ladeampere eller laderens strømgrænse, eller en vilkårlig sensor fra en Easee-lader (så bruger EV Planner Easees egen handling). Med det deler bilerne på en fælles forsyning strømmen; uden det lader de efter tur."
               }
             },
             "trips": {
@@ -300,7 +302,7 @@
             "energy_entity": "Valgfri. Laderens samlede energi (kWh), til at måle hvad gæsten brugte.",
             "connected_entity": "Valgfri. Afslutter gæstesessionen, når gæstebilen tages ud.",
             "unplugged_states": "Standard: off.",
-            "current_entity": "Et tal, der sætter ladestrømmen (A), fx bilens ladeampere eller laderens strømgrænse. Med det deler bilerne på en fælles forsyning strømmen; uden det lader de efter tur."
+            "current_entity": "Et tal, der sætter ladestrømmen (A), fx bilens ladeampere eller laderens strømgrænse, eller en vilkårlig sensor fra en Easee-lader (så bruger EV Planner Easees egen handling). Med det deler bilerne på en fælles forsyning strømmen; uden det lader de efter tur."
           }
         },
         "reconfigure": {
@@ -323,7 +325,7 @@
             "energy_entity": "Valgfri. Laderens samlede energi (kWh), til at måle hvad gæsten brugte.",
             "connected_entity": "Valgfri. Afslutter gæstesessionen, når gæstebilen tages ud.",
             "unplugged_states": "Standard: off.",
-            "current_entity": "Et tal, der sætter ladestrømmen (A), fx bilens ladeampere eller laderens strømgrænse. Med det deler bilerne på en fælles forsyning strømmen; uden det lader de efter tur."
+            "current_entity": "Et tal, der sætter ladestrømmen (A), fx bilens ladeampere eller laderens strømgrænse, eller en vilkårlig sensor fra en Easee-lader (så bruger EV Planner Easees egen handling). Med det deler bilerne på en fælles forsyning strømmen; uden det lader de efter tur."
           }
         }
       }

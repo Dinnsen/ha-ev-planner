@@ -25,6 +25,12 @@ async def test_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory,
     for key, changes in run.current_changes.items():
         if changes > 6 * hours:
             broken.append(f"car {key}: the current changed {changes} times")
+        if run.most_per_hour.get(key, 0) > 12:
+            broken.append(f"car {key}: the current changed {run.most_per_hour[key]} times in one hour")
+    if night.guard and run.longest_over > night.latency + 2:
+        broken.append(
+            f"over the fuse for {run.longest_over} minutes in a row ({run.over_fuse} in all, {run.peak_over} A at worst)"
+        )
     if "shortage" in night.tags:
         first = next(car for car in night.cars if car.priority == "first")
         if not run.ready[first.key]:
@@ -40,6 +46,11 @@ async def test_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory,
                 broken.append(f"car {car.key} reached {run.soc_at_deadline.get(car.key)} % of {car.target} %")
     run.result.violations = broken
     run.result.changes_log = [f"car {k}: {round(v, 1)} % at the ready-by time" for k, v in run.soc_at_deadline.items()]
+    run.result.changes_log.append(
+        f"over the fuse: {run.over_fuse} min, longest {run.longest_over} min, worst {run.peak_over} A,"
+        f" {run.blind} min while the meter was out;"
+        f" current changes {run.current_changes}, busiest hour {run.most_per_hour}"
+    )
     out = os.environ.get("SIM_OUT")
     if out:
         with Path(out).open("a", encoding="utf-8") as file:
