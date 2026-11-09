@@ -257,6 +257,9 @@ async def test_the_guard_stops_a_car_when_even_the_least_is_too_much(
     supply = household.supply
     supply._sent.clear()
     hass.states.async_set(AMPS, "16", {"min": 6, "max": 16})
+    # As if the Tesla were charging in its slot.
+    hass.states.async_set(CHARGE_SWITCH, "on")
+    household.vehicles[TESLA].last_sent = None
     calls.clear()
     switches.calls.clear()
     # The oven and the kettle at once: 40 A, 17 over. 16 to 6 A is 10; the rest needs the car to stop.
@@ -265,6 +268,7 @@ async def test_the_guard_stops_a_car_when_even_the_least_is_too_much(
     assert [c.data["value"] for c in calls] == [6]
     assert ("turn_off", CHARGE_SWITCH) in switches.calls
     tesla = household.vehicles[TESLA]
+    assert tesla.decision.control == "pause" and tesla.decision.reason == "waiting"
     assert supply.holds_off(tesla, dt_util.now())
     # It waits, also while the meter shows little room, then starts again when there is room.
     later = dt_util.now() + GUARD_PAUSE + timedelta(seconds=1)
