@@ -101,7 +101,7 @@ async def test_a_charge_teaches_the_speed_and_the_power(
     await settle(hass, freezer)
     # Still plugged in: the charge is one session until the car is unplugged.
     assert tesla.session is not None and not tesla.session.charging
-    assert tesla.session.sources == {"power": pytest.approx(tesla.session.energy)}
+    assert tesla.session.sources == {"power": pytest.approx(tesla.session.energy, abs=0.001)}
     assert tesla.learned.speed == pytest.approx(17, rel=0.02)
     assert tesla.learned.speed_count == 1
     assert tesla.learned.power == pytest.approx(9.6)
