@@ -59,6 +59,7 @@ from .const import (
     CONF_PRICE_ENTITY,
     CONF_SOC_ENTITY,
     CONF_SOURCE,
+    CONF_SUPPLY_GUARD,
     CONF_SUPPLY_LIMIT,
     CONF_SUPPLY_METER,
     CONF_SUPPLY_PHASES,
@@ -148,7 +149,15 @@ HOME_SELECTOR = selector.EntitySelector(
     selector.EntitySelectorConfig(domain=["device_tracker", "person", "binary_sensor"])
 )
 SWITCH_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain=["switch", "input_boolean"]))
-CURRENT_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain=["number", "input_number"]))
+# A number, or any entity of an Easee charger: EV Planner then uses Easee's own action for the current.
+CURRENT_SELECTOR = selector.EntitySelector(
+    selector.EntitySelectorConfig(
+        filter=[
+            selector.EntityFilterSelectorConfig(domain=["number", "input_number"]),
+            selector.EntityFilterSelectorConfig(integration="easee", domain="sensor"),
+        ]
+    )
+)
 METER_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", multiple=True))
 AMPS_SELECTOR = selector.NumberSelector(
     selector.NumberSelectorConfig(min=0, max=200, step=1, unit_of_measurement="A", mode=selector.NumberSelectorMode.BOX)
@@ -366,6 +375,7 @@ class EVPlannerOptionsFlow(OptionsFlow):
                             vol.Optional(
                                 CONF_SUPPLY_RESERVE, default=options.get(CONF_SUPPLY_RESERVE, DEFAULT_SUPPLY_RESERVE)
                             ): AMPS_SELECTOR,
+                            vol.Optional(CONF_SUPPLY_GUARD, default=bool(options.get(CONF_SUPPLY_GUARD, False))): bool,
                         }
                     ),
                     {"collapsed": not options.get(CONF_SUPPLY_LIMIT)},

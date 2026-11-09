@@ -2,6 +2,18 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
 
+## [2.2.0b2] - 2026-11-09
+
+Beta: only those who show beta versions in the Marketplace get it.
+
+### Added
+- **The Home tab** in the panel, when a shared supply is set up: the grid, the house and the cars with the current flowing between them, how much of the limit is in use, and a timeline of who gets the current through the night, with a line on why.
+- **Easee chargers** are controlled through Easee's own action: pick any sensor of the charger as its charging current (no number is needed). EV Planner sets the charger's current with a time limit of 30 minutes and sends it again every 15, so the charger goes back to its own setting if Home Assistant stops.
+- **The guard** (options, *Shared supply*, off by default): with a meter and a current setting, EV Planner watches the meter and turns the cars down at once when the house and the cars draw more than the limit, the last in line first, and lets the plan raise them again after two minutes. If the meter stops reporting, the cars go to the least they can take until it is back. It is not a fuse: leave it off if an Equalizer or the charger already balances the load.
+
+### Development
+- The simulator runs nights without an Equalizer, where only the guard turns the cars down: a house with a washing machine, a dryer, a kettle and a water heater during the night, the same with Easee's cloud delay, a meter that drops out for 40 minutes, and the same night without the guard for comparison. A guard that leaves the house over the fuse for more than two minutes after the delay, or changes a car's current more than 12 times in an hour, fails the run.
+
 ## [2.2.0b1] - 2026-11-09
 
 Beta: only those who show beta versions in the Marketplace get it.

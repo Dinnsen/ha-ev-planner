@@ -316,6 +316,7 @@ class Household(DataUpdateCoordinator[None]):
         """Once Home Assistant runs: check the price sensor, read calendars, and start acting."""
         self._started = True
         self._check_price_entity()
+        self.supply.async_start()
         self.config_entry.async_create_task(self.hass, self._async_after_start(), f"{DOMAIN} start")
 
     async def _async_after_start(self) -> None:
@@ -331,6 +332,7 @@ class Household(DataUpdateCoordinator[None]):
         if self._widgets_timer is not None:
             self._widgets_timer()
             self._widgets_timer = None
+        self.supply.async_stop()
         for cancel in self._unplug_timers.values():
             cancel()
         self._unplug_timers.clear()

@@ -99,6 +99,8 @@ CONF_SUPPLY_LIMIT: Final = "supply_limit"
 CONF_SUPPLY_PHASES: Final = "supply_phases"
 CONF_SUPPLY_METER: Final = "supply_meter"
 CONF_SUPPLY_RESERVE: Final = "supply_reserve"
+# Shared supply: lower the cars at once when the house draws more than planned (needs a meter and a current setting).
+CONF_SUPPLY_GUARD: Final = "supply_guard"
 DEFAULT_SUPPLY_RESERVE: Final = 6.0
 CONF_ENERGY_ENTITY: Final = "energy_entity"
 

@@ -1,9 +1,13 @@
 """Two cars behind one fuse, minute by minute, with a house that draws what it draws.
 
-The fuse is guarded the way an Easee Equalizer does it: what the house leaves
-is shared evenly between the cars that ask for current, never under 6 A.
-Car A has a current setting (EV Planner sets its amps); car B can only be
-switched on and off. The meter on the house reads the house and the cars.
+With an Equalizer, the fuse is guarded the way an Easee Equalizer does it:
+what the house leaves is shared evenly between the cars that ask for
+current, never under 6 A. Without one, the cars take what they are set to,
+and only EV Planner's guard turns them down when the house needs more.
+A car with a current setting gets its amps from EV Planner, through a number
+or through Easee's own action (with the cloud's delay); the others can only
+be switched on and off. The meter on the house reads the house and the cars,
+and can drop out for a while.
 """
 
 from __future__ import annotations
@@ -17,6 +21,7 @@ from unittest.mock import patch
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.config_entries import ConfigSubentryDataWithId
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
 from .model import MINUTE, Result
@@ -38,6 +43,7 @@ class SupplyCar:
     efficiency: float = 0.9
     adjustable: bool = False
     priority: str = "normal"
+    easee: bool = False  # the current goes through Easee's own action, not a number
 
     @property
     def entities(self) -> dict[str, str]:
@@ -50,6 +56,7 @@ class SupplyCar:
             "power": f"sensor.car_{k}_power",
             "switch": f"switch.car_{k}_charge",
             "amps": f"input_number.car_{k}_amps",
+            "easee": f"sensor.easee_{k}_dynamic_charger_limit",
         }
 
 
@@ -66,6 +73,14 @@ class SupplyNight:
     plug_in: str = "18:00"
     price: Callable[[datetime], float] | None = None
     tags: list[str] = field(default_factory=list)
+    equalizer: bool = True  # False: nothing but EV Planner keeps the cars under the fuse
+    guard: bool = False
+    latency: int = 0  # minutes before a new current reaches the car (Easee's cloud)
+    meter_gaps: list[tuple[str, str]] = field(default_factory=list)  # local times the meter is unavailable
+
+    def meter_lost(self, local: datetime) -> bool:
+        now = local.strftime("%H:%M")
+        return any((a <= now < b) if a <= b else (now >= a or now < b) for a, b in self.meter_gaps)
 
     def at(self, day: date, hhmm: str) -> datetime:
         return wall_time(day, time.fromisoformat(hhmm), ZONE).astimezone(UTC)
@@ -98,7 +113,7 @@ def _entry(night: SupplyNight) -> MockConfigEntry:
             "charger": charger,
         }
         if car.adjustable:
-            data["current_entity"] = e["amps"]
+            data["current_entity"] = e["easee"] if car.easee else e["amps"]
         subentries.append(
             ConfigSubentryDataWithId(
                 data=data, subentry_id=f"car_{car.key}", subentry_type="vehicle", title=f"Car {car.key}", unique_id=None
@@ -110,6 +125,7 @@ def _entry(night: SupplyNight) -> MockConfigEntry:
         "supply_limit": night.limit,
         "supply_phases": "3",
         "supply_reserve": 6,
+        "supply_guard": night.guard,
     }
     if night.meter:
         options["supply_meter"] = [METER]
@@ -153,6 +169,11 @@ class SupplyResult:
     soc_at_deadline: dict[str, float]
     over_limit: int  # slots EV Planner planned above its limit
     current_changes: dict[str, int]
+    over_fuse: int = 0  # minutes the house and the cars drew more than the fuse
+    longest_over: int = 0  # the longest of those stretches, in minutes
+    peak_over: float = 0.0  # amps above the fuse at worst
+    most_per_hour: dict[str, int] = field(default_factory=dict)  # current changes in the busiest hour
+    blind: int = 0  # minutes over the fuse while the meter was out
 
 
 async def run_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, night: SupplyNight) -> SupplyResult:
@@ -166,6 +187,8 @@ async def run_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, 
     amps_set = {car.key: car.max_amps for car in night.cars}
     commands: list[tuple[datetime, str]] = []
     current_changes = {car.key: 0 for car in night.cars}
+    change_times: dict[str, list[datetime]] = {car.key: [] for car in night.cars}
+    pending: list[tuple[datetime, str, float]] = []  # (reaches the car at, car, amps)
     clock = {"now": start}
 
     def publish_prices(moment: datetime) -> None:
@@ -190,14 +213,46 @@ async def run_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, 
                 hass.states.async_set(entity_id, "on" if on else "off")
         return None
 
+    def new_current(car: SupplyCar, amps: float, entity: str, attributes: dict[str, Any]) -> None:
+        current_changes[car.key] += 1
+        change_times[car.key].append(clock["now"])
+        if night.latency:
+            pending.append((clock["now"] + timedelta(minutes=night.latency), car.key, amps))
+        else:
+            amps_set[car.key] = amps
+        hass.states.async_set(entity, str(amps), attributes)
+
     async def set_amps(call: ServiceCall) -> None:
         for car in night.cars:
             if call.data["entity_id"] == car.entities["amps"]:
-                amps_set[car.key] = float(call.data["value"])
-                current_changes[car.key] += 1
-                hass.states.async_set(car.entities["amps"], str(call.data["value"]), {"min": 6, "max": car.max_amps})
+                new_current(car, float(call.data["value"]), car.entities["amps"], {"min": 6, "max": car.max_amps})
+
+    devices: dict[str, SupplyCar] = {}
+
+    async def set_easee(call: ServiceCall) -> None:
+        car = devices[call.data["device_id"]]
+        assert 0 <= call.data["current"] <= 32 and 0 <= call.data["time_to_live"] <= 1080
+        new_current(car, float(call.data["current"]), car.entities["easee"], {"unit_of_measurement": "A"})
 
     hass.services.async_register("input_number", "set_value", set_amps)
+    hass.services.async_register("easee", "set_charger_dynamic_limit", set_easee)
+    if any(car.easee for car in night.cars):
+        easee_entry = MockConfigEntry(domain="easee")
+        easee_entry.add_to_hass(hass)
+        for car in night.cars:
+            if car.easee:
+                device = dr.async_get(hass).async_get_or_create(
+                    config_entry_id=easee_entry.entry_id, identifiers={("easee", f"EH{car.key}")}
+                )
+                er.async_get(hass).async_get_or_create(
+                    "sensor",
+                    "easee",
+                    f"EH{car.key}_dynamic_charger_limit",
+                    device_id=device.id,
+                    config_entry=easee_entry,
+                    suggested_object_id=f"easee_{car.key}_dynamic_charger_limit",
+                )
+                devices[device.id] = car
     got = {car.key: 0.0 for car in night.cars}
 
     def publish(moment: datetime) -> None:
@@ -213,8 +268,12 @@ async def run_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, 
             hass.states.async_set(e["power"], str(round(got[car.key] * KW_PER_A, 2)), {"unit_of_measurement": "kW"})
             if car.adjustable and hass.states.get(e["amps"]) is None:
                 hass.states.async_set(e["amps"], str(car.max_amps), {"min": 6, "max": car.max_amps})
-        house = night.house(moment.astimezone(ZONE))
-        hass.states.async_set(METER, str(round(house + sum(got.values()), 1)), {"unit_of_measurement": "A"})
+        local = moment.astimezone(ZONE)
+        house = night.house(local)
+        if night.meter_lost(local):
+            hass.states.async_set(METER, "unavailable")
+        else:
+            hass.states.async_set(METER, str(round(house + sum(got.values()), 1)), {"unit_of_measurement": "A"})
 
     async def tick(moment: datetime) -> None:
         freezer.move_to(moment)
@@ -227,6 +286,8 @@ async def run_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, 
     entry = _entry(night)
     entry.add_to_hass(hass)
     over = 0
+    over_fuse = longest = run_over = blind = 0
+    peak = 0.0
     at_deadline: dict[str, float] = {}
     cost = energy = 0.0
     with patch(f"custom_components.{DOMAIN}.household.Household._async_switch", switch):
@@ -243,6 +304,9 @@ async def run_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, 
         moment = start
         while moment < end:
             clock["now"] = moment
+            for item in [p for p in pending if p[0] <= moment]:
+                amps_set[item[1]] = item[2]
+                pending.remove(item)
             house = night.house(moment.astimezone(ZONE))
             requests = [
                 (amps_set[c.key] if c.adjustable else c.max_amps)
@@ -250,7 +314,18 @@ async def run_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, 
                 else 0.0
                 for c in night.cars
             ]
-            given = share(requests, max(0.0, night.fuse - house))
+            given = share(requests, max(0.0, night.fuse - house)) if night.equalizer else requests
+            above = house + sum(given) - night.fuse
+            if above > 0.5 and night.meter_lost(moment.astimezone(ZONE)):
+                blind += 1  # nobody can see it: the cars are at the least they can take
+                run_over = 0
+            elif above > 0.5:
+                over_fuse += 1
+                run_over += 1
+                longest = max(longest, run_over)
+                peak = max(peak, above)
+            else:
+                run_over = 0
             for car, amps in zip(night.cars, given, strict=True):
                 got[car.key] = amps
                 wall = amps * KW_PER_A / 60
@@ -281,7 +356,13 @@ async def run_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, 
     result.on_time = all(ready.values())
     result.feasible = True
     result.goal = None
-    return SupplyResult(result, ready, at_deadline, over, current_changes)
+    busiest = {
+        key: max((sum(1 for t in times if a <= t < a + timedelta(hours=1)) for a in times), default=0)
+        for key, times in change_times.items()
+    }
+    return SupplyResult(
+        result, ready, at_deadline, over, current_changes, over_fuse, longest, round(peak, 1), busiest, blind
+    )
 
 
 # ----------------------------------------------------------------------
@@ -295,6 +376,24 @@ def _flat(amps: float) -> Callable[[datetime], float]:
 def _heat_pump(base: float, extra: float) -> Callable[[datetime], float]:
     """A house with a heat pump on a price plan: it runs in the cheap night hours."""
     return lambda local: base + (extra if local.hour in (1, 2, 3, 4) else 0.0)
+
+
+def _spiky(base: float) -> Callable[[datetime], float]:
+    """A house with a washing machine, a dryer, a kettle and a water heater during the night."""
+    spikes = [
+        ((1, 10), 20, 11.0),  # washing machine heating
+        ((2, 40), 40, 9.0),  # dryer
+        ((3, 30), 3, 9.0),  # kettle
+        ((4, 15), 30, 8.0),  # water heater
+        ((23, 5), 4, 9.0),  # kettle
+    ]
+
+    def house(local: datetime) -> float:
+        minute = local.hour * 60 + local.minute
+        extra = sum(amps for (h, m), length, amps in spikes if h * 60 + m <= minute < h * 60 + m + length)
+        return base + extra
+
+    return house
 
 
 def supply_nights() -> list[SupplyNight]:
@@ -327,5 +426,59 @@ def supply_nights() -> list[SupplyNight]:
             plug_in="22:00",
             ready_by="06:00",
             tags=["shortage"],
+        ),
+        # No Equalizer: the guard is all that turns the cars down when the house needs more.
+        SupplyNight(
+            "guard-spikes",
+            monday,
+            [SupplyCar("a", 20, 80, adjustable=True), SupplyCar("b", 25, 80, adjustable=True, priority="first")],
+            fuse=25,
+            limit=23,
+            house=_spiky(4),
+            plug_in="22:00",
+            equalizer=False,
+            guard=True,
+            tags=["guard"],
+        ),
+        SupplyNight(
+            "guard-spikes-easee-delay",
+            monday,
+            [
+                SupplyCar("a", 20, 80, adjustable=True, easee=True),
+                SupplyCar("b", 25, 80, adjustable=True, easee=True, priority="first"),
+            ],
+            fuse=25,
+            limit=23,
+            house=_spiky(4),
+            plug_in="22:00",
+            equalizer=False,
+            guard=True,
+            latency=1,
+            tags=["guard", "easee"],
+        ),
+        SupplyNight(
+            "guard-meter-drops-out",
+            monday,
+            [SupplyCar("a", 20, 80, adjustable=True), SupplyCar("b", 25, 80, adjustable=True)],
+            fuse=25,
+            limit=23,
+            house=_spiky(4),
+            plug_in="22:00",
+            equalizer=False,
+            guard=True,
+            meter_gaps=[("01:00", "01:40")],
+            tags=["guard", "meter-gap"],
+        ),
+        # The same spiky night without the guard, for comparison: here the fuse is on its own.
+        SupplyNight(
+            "spikes-without-guard",
+            monday,
+            [SupplyCar("a", 20, 80, adjustable=True), SupplyCar("b", 25, 80, adjustable=True, priority="first")],
+            fuse=25,
+            limit=23,
+            house=_spiky(4),
+            plug_in="22:00",
+            equalizer=False,
+            tags=["no-guard"],
         ),
     ]

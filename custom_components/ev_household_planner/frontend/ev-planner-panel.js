@@ -5,6 +5,24 @@
 const TEXT = {
   da: {
     tab_cars: "Biler",
+    tab_home: "Hjem",
+    home_title: "Hjemmet nu",
+    home_grid: "Elnettet",
+    home_house: "Huset",
+    home_limit: "Grænse {limit} pr. fase",
+    home_used: "{used} af {limit} i brug",
+    home_house_now: "Huset trækker {amps} nu",
+    home_house_expected: "Huset ventes at trække {amps}",
+    home_timeline: "Hvem får strømmen",
+    home_timeline_hint: "Huset først, så bilerne – under grænsen på {limit} pr. fase.",
+    home_why_first: "{name} lader først – den skal være klar kl. {time}.",
+    home_why_turns: "Bilerne lader efter tur, fordi der ikke er plads til begge.",
+    home_why_share: "Bilerne deler strømmen.",
+    home_why_short: "{name} mangler {kwh} – der er ikke strøm nok til hele målet.",
+    home_why_none: "Ingen biler skal lade lige nu.",
+    home_no_meter: "Uden måler regner EV Planner med, at huset trækker {amps}. Tilføj en måler i indstillingerne, så lærer den husets forbrug.",
+    home_idle: "venter",
+    home_guard: "Vagten holder øje med måleren og skruer bilerne ned med det samme, hvis huset pludselig skal bruge mere.",
     tab_guest: "Gæst",
     tab_history: "Historik",
     tab_settings: "Indstillinger",
@@ -424,6 +442,24 @@ const TEXT = {
   },
   en: {
     tab_cars: "Cars",
+    tab_home: "Home",
+    home_title: "The home now",
+    home_grid: "Grid",
+    home_house: "House",
+    home_limit: "Limit {limit} per phase",
+    home_used: "{used} of {limit} in use",
+    home_house_now: "The house draws {amps} now",
+    home_house_expected: "The house is expected to draw {amps}",
+    home_timeline: "Who gets the current",
+    home_timeline_hint: "The house first, then the cars – under the limit of {limit} per phase.",
+    home_why_first: "{name} charges first – it must be ready at {time}.",
+    home_why_turns: "The cars take turns, as there is no room for both.",
+    home_why_share: "The cars share the current.",
+    home_why_short: "{name} is {kwh} short – there is not enough current for the whole target.",
+    home_why_none: "No car needs to charge now.",
+    home_no_meter: "Without a meter EV Planner expects the house to draw {amps}. Add a meter in the settings and it learns what the house uses.",
+    home_idle: "waiting",
+    home_guard: "The guard watches the meter and turns the cars down at once if the house suddenly needs more.",
     tab_guest: "Guest",
     tab_history: "History",
     tab_settings: "Settings",
@@ -841,7 +877,7 @@ const DEADLINE_PRESETS = ["06:00", "07:00", "08:00"];
 const MODES = ["smart", "charge_now", "pause", "off"];
 const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 const OPPORTUNISTIC = ["off", "lower_ceiling", "follow_end_price"];
-const TABS = ["cars", "guest", "history", "settings"];
+const TABS = ["cars", "home", "guest", "history", "settings"];
 const TAB_KEY = "ev-planner-tab";
 const CAR_KEY = "ev-planner-car";
 const LEVEL_KEY = "ev-planner-level";
@@ -881,6 +917,8 @@ const ICONS = {
   copy: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="12" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h9"/></svg>',
   share: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M8 8l4-4 4 4M5 13v6h14v-6"/></svg>',
   close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  grid: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 8 21M12 3l4 18M7 8h10M6 13h12M9.5 21h5"/></svg>',
+  home: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11 12 4.5 20 11"/><path d="M6.5 9.5V19h11V9.5"/><path d="M12.6 11.5 10.5 15h3l-2.1 3.5"/></svg>',
   car: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 11.5 6.6 7a2 2 0 0 1 1.9-1.3h7a2 2 0 0 1 1.9 1.3L19 11.5"/><rect x="3.5" y="11.5" width="17" height="5.5" rx="1.5"/><path d="M6.5 17v2.5M17.5 17v2.5M7 14.2h.01M17 14.2h.01"/></svg>',
   guest: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19.5a5.5 5.5 0 0 1 11 0M18 8v6M15 11h6"/></svg>',
   plan: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" stroke-opacity=".35"/><path d="M12 3.5a8.5 8.5 0 0 1 8.5 8.5" stroke-width="2.6"/><path d="M12.6 8.3 10.2 12.3h3.2l-1.2 3.5"/></svg>',
@@ -1842,7 +1880,9 @@ class EvPlannerPanel extends HTMLElement {
     // Keep the focus on the same control across a fresh render.
     const focus = this.shadowRoot.activeElement?.dataset?.f;
     const car = this._currentCar;
+    if (this._tab === "home" && !this._state.supply) this._tab = "cars";
     if (this._tab === "guest") content.innerHTML = this._guestHtml();
+    else if (this._tab === "home") content.innerHTML = this._homeHtml();
     else if (this._tab === "history") content.innerHTML = this._historyHtml();
     else if (this._tab === "settings") content.innerHTML = this._settingsHtml();
     else if (car) content.innerHTML = this._carPageHtml(car);
@@ -1866,9 +1906,9 @@ class EvPlannerPanel extends HTMLElement {
   _renderTabs() {
     const nav = this.shadowRoot.querySelector(".tabs");
     const problems = this._cars.filter((v) => v.problem || v.control_error).length;
-    const html = TABS.map((tab) => {
+    const html = TABS.filter((tab) => tab !== "home" || this._state.supply).map((tab) => {
       const on = this._tab === tab;
-      const icon = { cars: "car", guest: "guest", history: "history", settings: "settings" }[tab];
+      const icon = { cars: "car", home: "home", guest: "guest", history: "history", settings: "settings" }[tab];
       const badge = tab === "cars" && problems ? `<em class="bad" aria-label="${problems}">${problems}</em>` : "";
       return `<button role="tab" data-tab="${tab}" aria-selected="${on}" class="${on ? "on" : ""}">${ICONS[icon]}<span>${this._t(`tab_${tab}`)}</span>${badge}</button>`;
     }).join("");
@@ -3714,6 +3754,98 @@ class EvPlannerPanel extends HTMLElement {
 
   // ------------------------------------------------------------------ history
 
+
+  /* ---------------------------------------------------------------- Home: the supply, the house and the cars */
+
+  _carColor(index) {
+    return ["var(--evp-a)", "var(--evp-b)", "var(--evp-coral)", "var(--evp-sand)"][index % 4];
+  }
+
+  _homeHtml() {
+    const supply = this._state.supply;
+    const amps = (a) => `${Math.round(Number(a))} A`;
+    const cars = this._cars.filter((v) => v.connected);
+    const now = (supply.timeline || [])[0];
+    const house = isNum(supply.house_now) ? Number(supply.house_now) : isNum(supply.house_expected) ? Number(supply.house_expected) : 0;
+    const carAmps = (v) => Number(supply.cars_now?.[v.id] ?? (v.charging ? supply.cars?.[v.id] : 0) ?? 0) || 0;
+    const used = house + cars.reduce((sum, v) => sum + carAmps(v), 0);
+    const limit = Number(supply.limit);
+    // The energy flow: the grid feeds the house, the house feeds the cars.
+    const W = 360, rowH = 100, H = Math.max(190, 30 + cars.length * rowH);
+    const carY = (i) => H / 2 - 12 + (i - (cars.length - 1) / 2) * rowH;
+    const node = (x, y, icon, label, value, color) => `<g class="fl-node" transform="translate(${x} ${y})">
+        <circle r="30" style="stroke:${color}"/><g class="fl-icon" transform="translate(-12 -14)">${ICONS[icon] || ""}</g>
+        <text class="fl-label" y="46" text-anchor="middle">${esc(label)}</text><text class="fl-value" y="62" text-anchor="middle">${esc(value)}</text></g>`;
+    const line = (x1, y1, x2, y2, a, color) => {
+      const live = a > 0.5;
+      const speed = live ? Math.max(0.6, 4 - a / 6).toFixed(2) : 0;
+      return `<path class="fl-line ${live ? "live" : ""}" d="M${x1} ${y1} C ${(x1 + x2) / 2} ${y1}, ${(x1 + x2) / 2} ${y2}, ${x2} ${y2}"
+        style="stroke:${color};stroke-width:${live ? 2 + Math.min(6, a / 3) : 1.5};${live ? `animation-duration:${speed}s` : ""}"/>`;
+    };
+    const houseY = H / 2 - 12;
+    let svg = line(70, houseY, 150, houseY, used, "var(--evp-soft)");
+    cars.forEach((v, i) => {
+      const y = carY(i);
+      svg += line(210, houseY, 290, y, carAmps(v), this._carColor(i));
+    });
+    svg += node(40, houseY, "grid", this._t("home_grid"), amps(used), "var(--evp-soft)");
+    svg += node(180, houseY, "home", this._t("home_house"), amps(house), "var(--evp-ink)");
+    cars.forEach((v, i) => {
+      const y = carY(i);
+      const a = carAmps(v);
+      svg += node(320, y, "car", v.name, a > 0.5 ? amps(a) : this._t("home_idle"), this._carColor(i));
+    });
+    const share = Math.min(1, used / limit);
+    const gauge = `<div class="home-gauge" role="img" aria-label="${esc(this._t("home_used", { used: amps(used), limit: amps(limit) }))}">
+        <div class="hg-house" style="width:${Math.min(100, (house / limit) * 100)}%"></div>${cars.map((v, i) => `<div style="width:${Math.min(100, (carAmps(v) / limit) * 100)}%;background:${this._carColor(i)}"></div>`).join("")}
+      </div><div class="home-gauge-text"><span>${esc(this._t("home_used", { used: amps(used), limit: amps(limit) }))}</span><span class="${share > 0.95 ? "bad-text" : ""}">${esc(this._t("home_limit", { limit: amps(limit) }))}</span></div>`;
+    // Who gets the current, slot by slot.
+    const rows = supply.timeline || [];
+    let chart = "";
+    if (rows.length) {
+      const cw = 340, ch = 150, bw = cw / rows.length;
+      const y = (a) => ch - (a / limit) * (ch - 10);
+      chart += `<line class="tl-limit" x1="0" x2="${cw}" y1="${y(limit)}" y2="${y(limit)}"/>`;
+      rows.forEach((r, i) => {
+        let top = ch;
+        const parts = [[r.house, "var(--evp-line)"], ...cars.map((v, j) => [r.cars?.[v.id] || 0, this._carColor(j)])];
+        for (const [a, color] of parts) {
+          if (!a) continue;
+          const h = (a / limit) * (ch - 10);
+          top -= h;
+          chart += `<rect x="${(i * bw + 1).toFixed(1)}" y="${top.toFixed(1)}" width="${Math.max(1, bw - 2).toFixed(1)}" height="${h.toFixed(1)}" rx="2" style="fill:${color}"/>`;
+        }
+        if (i % Math.max(1, Math.round(rows.length / 5)) === 0) chart += `<text class="tl-x" x="${(i * bw).toFixed(1)}" y="${ch + 14}">${esc(this._time(r.start))}</text>`;
+      });
+      chart = `<svg class="home-chart" viewBox="0 0 ${cw} ${ch + 18}" role="img" aria-label="${esc(this._t("home_timeline"))}">${chart}</svg>`;
+    }
+    // Why, in one line.
+    const why = [];
+    const charging = cars.filter((v) => rows.some((r) => r.cars?.[v.id]));
+    if (!charging.length) why.push(this._t("home_why_none"));
+    if (supply.guard) why.push(this._t("home_guard"));
+    else {
+      const first = [...charging].sort((a, b) => rows.findIndex((r) => r.cars?.[a.id]) - rows.findIndex((r) => r.cars?.[b.id]))[0];
+      const together = rows.some((r) => charging.filter((v) => r.cars?.[v.id]).length > 1);
+      if (charging.length > 1) why.push(together ? this._t("home_why_share") : this._t("home_why_turns"));
+      if (charging.length > 1 && first?.deadline) why.push(this._t("home_why_first", { name: first.name, time: this._time(first.deadline) }));
+    }
+    for (const v of cars) if (isNum(supply.short?.[v.id])) why.push(this._t("home_why_short", { name: v.name, kwh: this._kwh(supply.short[v.id]) }));
+    const legend = `<div class="home-legend"><span><i style="background:var(--evp-line)"></i>${esc(this._t("home_house"))}</span>${cars.map((v, i) => `<span><i style="background:${this._carColor(i)}"></i>${esc(v.name)}</span>`).join("")}</div>`;
+    return `<div class="home-page">
+      <section class="panel home-flow"><div class="panel-head"><h2>${esc(this._t("home_title"))}</h2></div>
+        <svg class="flowmap" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(this._t("home_title"))}">${svg}</svg>
+        ${gauge}
+        <p class="hint">${esc(isNum(supply.house_now) ? this._t("home_house_now", { amps: amps(supply.house_now) }) : supply.meter ? this._t("home_house_expected", { amps: amps(house) }) : this._t("home_no_meter", { amps: amps(house) }))}</p>
+      </section>
+      <section class="panel"><div class="panel-head"><h2>${esc(this._t("home_timeline"))}</h2></div>
+        <p class="hint">${esc(this._t("home_timeline_hint", { limit: amps(limit) }))}</p>
+        ${chart}${legend}
+        ${why.map((t) => `<p class="why">${esc(t)}</p>`).join("")}
+      </section>
+    </div>`;
+  }
+
   _historyHtml() {
     const cars = this._cars;
     const guestHistory = this._guest?.history || [];
@@ -4608,6 +4740,26 @@ input[type="text"], .unit-input { border: 1px solid var(--evp-line); border-radi
 .unit-input span { color: var(--evp-soft); white-space: nowrap; }
 .unit-input:focus-within { outline: 2px solid var(--evp-accent); outline-offset: 1px; }
 .unit-input.small { width: auto; padding: 0 10px; gap: 4px; border-radius: 999px; }
+
+.home-page { display: grid; gap: 14px; }
+.flowmap { width: 100%; height: auto; display: block; }
+.fl-node circle { fill: var(--evp-card); stroke-width: 2.5; }
+.fl-icon svg { width: 24px; height: 24px; fill: none; stroke: var(--evp-ink); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.fl-label { font-size: 12px; fill: var(--evp-soft); }
+.fl-value { font-size: 13px; font-weight: 600; fill: var(--evp-ink); font-variant-numeric: tabular-nums; }
+.fl-line { fill: none; opacity: .35; stroke-linecap: round; }
+.fl-line.live { opacity: 1; stroke-dasharray: 2 9; animation: evp-flow 2s linear infinite; }
+@keyframes evp-flow { to { stroke-dashoffset: -22; } }
+@media (prefers-reduced-motion: reduce) { .fl-line.live { animation: none; stroke-dasharray: none; } }
+.home-gauge { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: color-mix(in srgb, var(--evp-ink) 8%, transparent); margin-top: 6px; }
+.home-gauge .hg-house { background: var(--evp-line); }
+.home-gauge-text { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--evp-soft); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.bad-text { color: var(--evp-bad); }
+.home-chart { width: 100%; height: auto; display: block; margin-top: 6px; }
+.home-chart .tl-limit { stroke: var(--evp-bad); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.home-chart .tl-x { font-size: 10px; fill: var(--evp-soft); }
+.home-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--evp-soft); margin-top: 8px; }
+.home-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
   .rule-under { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px; }
 .unit-input.small input { width: 56px; flex: none; padding: 6px 0; text-align: right; font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
 .unit-input.small input::-webkit-outer-spin-button, .unit-input.small input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
