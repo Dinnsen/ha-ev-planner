@@ -74,6 +74,7 @@ from .const import (
 from .guest import GuestSession, serialize_segments
 from .household import EVPlannerConfigEntry, Household
 from .planner import PlanError
+from .prices import price_issue
 from .rules import VehiclePlan, parse_hhmm
 from .schema import vol
 from .vehicle import Vehicle
@@ -391,6 +392,7 @@ def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
         "now": now.isoformat(),
         "currency": household.currency,
         "prices": [{"start": s.start.isoformat(), "end": s.end.isoformat(), "price": s.price} for s in slots],
+        "price_issue": price_issue(household.price_slots(now), now),
         "vehicles": [vehicle_state(household, vehicle) for vehicle in vehicles],
         "chargers": chargers,
         "guest": guest_state(household, household.guest),

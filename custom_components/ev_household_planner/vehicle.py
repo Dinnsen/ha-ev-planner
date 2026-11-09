@@ -603,7 +603,7 @@ class Vehicle:
         # Waiting: a plan ahead, or why there is none.
         if self.current_soc is None:
             return STATUS_NO_SOC
-        if self.plan is not None and self.plan.segments:
+        if self.plan is not None and self.plan.segments and not self.plan.fallback:
             return STATUS_PLANNED
         if self.plan_error == "limit_not_above_soc":
             return STATUS_COMPLETED

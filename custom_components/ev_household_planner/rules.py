@@ -68,6 +68,8 @@ STABLE_KR = 0.5
 STABLE_SHARE = 0.02
 # Topping up before departure looks this much further back than the top-up takes, for cheaper hours.
 TOPUP_SLACK = timedelta(hours=2)
+# Without prices, the charge is planned to end this long before the deadline.
+FALLBACK_MARGIN = timedelta(minutes=30)
 
 WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 SCHEDULE_DEFAULT = "default"
@@ -516,7 +518,9 @@ def keep_previous(
     deadline, is free on the charger and under the ceiling, and costs at most
     ``STABLE_KR`` (or ``STABLE_SHARE`` of the plan) more at today's prices.
     """
-    if old is None or not old.segments or not new.segments or (old.mode, old.topup) != (new.mode, new.topup):
+    if old is None or old.fallback or not old.segments or not new.segments:
+        return new
+    if (old.mode, old.topup) != (new.mode, new.topup):
         return new
     start = floor_minute(now)
     left: list[Segment] = [
@@ -686,6 +690,34 @@ def plan_vehicle(
         joined_extra=joined_extra,
         early=early,
         topup=topup,
+    )
+
+
+def fallback_plan(car: Car, now: datetime, deadline: datetime | None) -> VehiclePlan | None:
+    """A plan for when the prices do not come: charge just in time for the deadline.
+
+    It ends ``FALLBACK_MARGIN`` before the deadline (or starts now, when
+    that is too late), so a price sensor that stops does not leave the car
+    empty in the morning. New prices replace it with a real plan, usually
+    long before it starts. None without a deadline or when nothing is needed.
+    """
+    if deadline is None or car.target <= car.soc + EPSILON:
+        return None
+    try:
+        need = charge_need(car.soc, car.target, car.capacity, car.power, speed=car.speed, curve=car.curve)
+    except PlanError:
+        return None
+    start = max(floor_minute(now), deadline - FALLBACK_MARGIN - timedelta(minutes=need.minutes))
+    return VehiclePlan(
+        segments=[{"start": start, "end": start + timedelta(minutes=need.minutes)}],
+        cost=0.0,
+        energy=need.grid_kwh,
+        battery_energy=need.battery_kwh,
+        minutes=need.minutes,
+        mode=MODE_CONTINUOUS,
+        speed=need.speed_pct_per_hour,
+        end_soc=min(car.target, 100.0),
+        fallback=True,
     )
 
 

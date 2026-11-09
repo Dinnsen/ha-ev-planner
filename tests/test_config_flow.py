@@ -21,7 +21,7 @@ from .conftest import CARPORT, CHARGE_SWITCH, NIGHT, PRICE_ENTITY, SOC, TESLA, s
 USER_INPUT = {
     "name": "Hjem",
     "price_entity": PRICE_ENTITY,
-    "country": "Denmark",
+    "country": "denmark",
     "motorapi_api_key": "",
     "currency": "DKK",
 }
@@ -39,6 +39,7 @@ async def test_user_flow(hass: HomeAssistant, now: datetime) -> None:
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == "Hjem"
     assert result["data"]["price_entity"] == PRICE_ENTITY
+    assert result["data"]["country"] == "Denmark"
     assert result["options"] == {"currency": "DKK", "notify_services": []}
 
     # Only one household.
@@ -72,7 +73,7 @@ async def test_reconfigure_and_reauth(hass: HomeAssistant, init_integration: Moc
     result = await init_integration.start_reconfigure_flow(hass)
     assert result["type"] is FlowResultType.FORM
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"price_entity": PRICE_ENTITY, "country": "Denmark", "motorapi_api_key": ""}
+        result["flow_id"], {"price_entity": PRICE_ENTITY, "country": "denmark", "motorapi_api_key": ""}
     )
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reconfigure_successful"
@@ -365,3 +366,20 @@ async def test_manual_choice_when_ev_smart_charging_exists(
     assert result["step_id"] == "user"
     result = await hass.config_entries.subentries.async_configure(result["flow_id"], {"source": "manual"})
     assert result["step_id"] == "details"
+
+
+async def test_another_country_works_without_plate_lookup(hass: HomeAssistant, now: datetime) -> None:
+    """Outside Denmark the key is not checked or used: guest cars are entered by hand."""
+    set_prices(hass, now, NIGHT)
+    target = "custom_components.ev_household_planner.config_flow.async_validate_plate_provider_credentials"
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    with patch(target, AsyncMock(side_effect=PlateAuthError("invalid_auth"))) as check:
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {**USER_INPUT, "country": "other", "motorapi_api_key": "key"}
+        )
+    assert check.call_count == 0
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"]["country"] == "other"
+    entry = hass.config_entries.async_get_entry(result["result"].entry_id)
+    await hass.async_block_till_done()
+    assert entry is not None and entry.runtime_data.motorapi_key == ""
