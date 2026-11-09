@@ -2,6 +2,30 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
 
+## [2.3.0b1] - 2026-11-09
+
+Beta: only those who show beta versions in the Marketplace get it.
+
+### Added
+- **The weather in the house's forecast.** Pick a weather entity under *Shared supply* (with only one, it is suggested). EV Planner learns how much more the house draws for each degree colder, from its own hours, and counts on the night's temperature: a cold night after mild weeks plans less for the cars and starts sooner, a mild night after cold weeks more. In the simulator a cold night was 3 A less wrong on average and both cars were ready; without the weather one stopped at 72 %.
+- **A heat pump.** Its power (shown in the Home tab), and a switch that holds it back: when even the least current is too much, the guard holds the heat pump back for at most 15 minutes, at most twice a night, before it stops a car. Off unless you pick the switch.
+- **The Energy dashboard is read by itself.** The grid's power, the sun, the home battery and the devices with their power show in the Home tab without choosing anything again. A device called *Heat pump* or *Varmepumpe* is the heat pump.
+- **The Home tab** shows what the home draws right now (grid, house, cars, sun, heat pump, the price and the temperature outside), tonight's plans of all cars on one line of time over the prices, today's use of the whole house with the cars' part of it, and the chargers.
+- **The house by day and by night.** The picture follows the sun: light by day, warm at dusk, dark at night with lit windows and a lamp over the garage.
+- **History by day, week, month and year**, for all, one car, one charger, the guests or the whole house (from Home Assistant's statistics), with numbers that count up, bars that grow and, for a year, every day as a square.
+- **What EV Planner has learned:** each car's charging speed, how it slows down near full, when it usually charges and with how much, extra time and how the last morning went; the house's day and its answer to the cold. With how sure it is.
+
+### Changed
+- **The car page has three views:** *Now* (the clock and the plan), *Rules* (tiles that say what is on and open as a sheet) and *History* (what it has learned and its charges).
+- **Settings are tiles** that open as sheets.
+- **The Cars tab shows only the cars.** The guest is under *Guest*, the chargers are in the Home tab.
+- **The price clock shows the price ceiling** as a thin ring, and says why some hours are faint: they are above the ceiling.
+- **Labels in the house picture are small** and sit straight above what they belong to; tap one for its name. The house stands in the middle of the picture, with more contrast.
+- *Repeat every* for the plug-in reminder is now called *Remind me again after*, and says what it does.
+
+### Fixed
+- The app could be moved sideways on a phone, and the page could show over the tab bar.
+
 ## [2.2.0b5] - 2026-11-09
 
 Beta: only those who show beta versions in the Marketplace get it.

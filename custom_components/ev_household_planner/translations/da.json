@@ -86,14 +86,20 @@
               "supply_phases": "Faser",
               "supply_meter": "Måler: strøm pr. fase",
               "supply_reserve": "Huset uden måler",
-              "supply_guard": "Vagt: skru bilerne ned med det samme"
+              "supply_guard": "Vagt: skru bilerne ned med det samme",
+              "weather_entity": "Vejret",
+              "heat_pump_power": "Varmepumpe: effekt",
+              "heat_pump_block": "Varmepumpe: hold tilbage"
             },
             "data_description": {
               "supply_limit": "Det mest, huset må trække pr. fase, fx 23 A på en 25 A stikledning, eller det kredsløb laderne deler. 0 slår det fra.",
               "supply_phases": "Hvor mange faser forsyningen og bilerne lader på.",
               "supply_meter": "Strømsensorer (A) for faserne, fx fra en HAN/P1-læser, en Shelly EM eller en Equalizer. EV Planner lærer, hvad huset trækker time for time.",
               "supply_reserve": "Uden måler: hvad huset forventes at trække pr. fase.",
-              "supply_guard": "Når måleren viser mere end grænsen, sætter EV Planner bilerne ned med det samme (den bagerste i køen først) og op igen efter et par minutter. Ikke en sikring: lad den være slået fra, hvis en Equalizer eller laderen selv fordeler strømmen."
+              "supply_guard": "Når måleren viser mere end grænsen, sætter EV Planner bilerne ned med det samme (den bagerste i køen først) og op igen efter et par minutter. Ikke en sikring: lad den være slået fra, hvis en Equalizer eller laderen selv fordeler strømmen.",
+              "weather_entity": "En vejr-enhed med timeprognose. EV Planner lærer, hvor meget mere huset bruger, når det er koldt, og regner med nattens temperatur.",
+              "heat_pump_power": "Varmepumpens effekt (W eller kW). Vises i fanen Hjem.",
+              "heat_pump_block": "En kontakt, der holder varmepumpen tilbage, når den er tændt (SG Ready eller spærring). Når der ikke er strøm nok, slår EV Planner den til i højst 15 minutter, højst to gange om natten, før en bil bliver stoppet."
             }
           },
           "solar": {

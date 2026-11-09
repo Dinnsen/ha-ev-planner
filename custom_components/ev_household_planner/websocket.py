@@ -415,6 +415,8 @@ def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
         "price_issue": price_issue(household.price_slots(now), now),
         "supply": household.supply.state(now),
         "solar": household.solar.state(now),
+        "heat_pump": household.supply.heat_pump_state(now),
+        "home": household.home.state(now),
         "vehicles": [vehicle_state(household, vehicle) for vehicle in vehicles],
         "chargers": chargers,
         "guest": guest_state(household, household.guest),
@@ -608,6 +610,27 @@ async def ws_settings(hass: HomeAssistant, connection: websocket_api.ActiveConne
 
 @websocket_api.websocket_command(
     {
+        vol.Required("type"): f"{DOMAIN}/history",
+        ENTRY: str,
+        vol.Required("period"): vol.In(["day", "week", "month", "year"]),
+        vol.Required("start"): str,
+        vol.Required("end"): str,
+    }
+)
+@websocket_api.async_response
+@_errors
+async def ws_history(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """The whole house from Home Assistant's statistics: what it bought in each hour, day or month."""
+    start = dt_util.parse_datetime(msg["start"])
+    end = dt_util.parse_datetime(msg["end"])
+    if start is None or end is None or end <= start:
+        raise HomeAssistantError("bad_period")
+    result = await _household(hass, msg).home.async_history(msg["period"], start, end)
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
         vol.Required("type"): f"{DOMAIN}/set_image",
         ENTRY: str,
         vol.Required("target_id"): str,
@@ -658,5 +681,6 @@ def async_register_websocket(hass: HomeAssistant) -> None:
         ws_restore_image,
         ws_delete_history,
         ws_settings,
+        ws_history,
     ):
         websocket_api.async_register_command(hass, command)

@@ -102,6 +102,7 @@ from .const import (
     WIDGET_MIN_INTERVAL,
 )
 from .guest import GuestSession
+from .home import HomeInfo
 from .learning import MIN_POWER_KW
 from .notifications import COLOR_CHARGE, COLOR_ERROR, COLOR_WARN, Notifier, tag_for
 from .planner import PlanError, PriceSlot, Segment, segments_to_schedule
@@ -234,6 +235,7 @@ class Household(DataUpdateCoordinator[None]):
         self._unplug_timers: dict[str, CALLBACK_TYPE] = {}
         self.supply = SupplyControl(self)
         self.solar = SolarControl(self)
+        self.home = HomeInfo(self)
         self._widgets_sent: datetime | None = None
         # The status words in Danish and English, for the summary line widgets show.
         self._status_texts: dict[str, dict[str, str]] = {}
@@ -285,6 +287,7 @@ class Household(DataUpdateCoordinator[None]):
         await self._async_load_status_texts()
         hass = self.hass
         start = dt_util.now()
+        await self.home.async_refresh(start, force=True)
         for vehicle in self.vehicles.values():
             self._read_vehicle(vehicle)
             vehicle.last_soc_seen = vehicle.soc if vehicle.soc is not None else vehicle.last_soc_seen
@@ -951,6 +954,10 @@ class Household(DataUpdateCoordinator[None]):
             self._count_time(vehicle, now)
         if self.supply.sample(now):
             self.async_save()
+        await self.supply.async_release_heat_pump(now)
+        await self.home.async_refresh(now)
+        if await self.supply.async_refresh_weather(now):
+            replan = True
         if await self.solar.async_refresh_forecast(now):
             replan = True
         # How the morning went, before the plan moves on to the next ready-by time.

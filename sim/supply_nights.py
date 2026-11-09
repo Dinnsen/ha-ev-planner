@@ -20,7 +20,7 @@ from unittest.mock import patch
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.config_entries import ConfigSubentryDataWithId
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
@@ -30,6 +30,9 @@ from .runner import DOMAIN, PRICE, version
 
 KW_PER_A = 3 * 230 / 1000
 METER = "sensor.sim_house_current"
+WEATHER = "weather.sim"
+HEAT_PUMP_POWER = "sensor.sim_heat_pump_power"
+HEAT_PUMP_BLOCK = "switch.sim_heat_pump_block"
 
 
 @dataclass(slots=True)
@@ -77,6 +80,12 @@ class SupplyNight:
     guard: bool = False
     latency: int = 0  # minutes before a new current reaches the car (Easee's cloud)
     meter_gaps: list[tuple[str, str]] = field(default_factory=list)  # local times the meter is unavailable
+    temperature: Callable[[datetime], float] | None = None  # outside, in °C, by local time
+    weather: bool = False  # EV Planner is given a weather entity with the forecast
+    history: dict[str, Any] | None = None  # the house forecast EV Planner has learned before the night
+    heat_pump: Callable[[datetime], float] | None = None  # the heat pump's amps per phase (on top of ``house``)
+    heat_pump_meter: bool = False  # EV Planner is given the heat pump's power
+    block: bool = False  # EV Planner may hold the heat pump back
 
     def meter_lost(self, local: datetime) -> bool:
         now = local.strftime("%H:%M")
@@ -129,6 +138,12 @@ def _entry(night: SupplyNight) -> MockConfigEntry:
     }
     if night.meter:
         options["supply_meter"] = [METER]
+    if night.weather:
+        options["weather_entity"] = WEATHER
+    if night.heat_pump_meter:
+        options["heat_pump_power"] = HEAT_PUMP_POWER
+    if night.block:
+        options["heat_pump_block"] = HEAT_PUMP_BLOCK
     return MockConfigEntry(
         domain=DOMAIN,
         title="EV Planner",
@@ -174,9 +189,32 @@ class SupplyResult:
     peak_over: float = 0.0  # amps above the fuse at worst
     most_per_hour: dict[str, int] = field(default_factory=dict)  # current changes in the busiest hour
     blind: int = 0  # minutes over the fuse while the meter was out
+    guard_events: int = 0  # times the guard turned a car down or stopped it
+    stops: int = 0  # times a car was switched off while it still needed charge
+    misses: list[float] = field(default_factory=list)  # each minute: the house's real amps less what the plan expected
+    blocks: list[int] = field(default_factory=list)  # each time the heat pump was held back: for how many minutes
 
 
-async def run_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, night: SupplyNight) -> SupplyResult:
+def _forecast(night: SupplyNight, moment: datetime) -> list[dict[str, Any]]:
+    """Hourly forecast from this hour, two days ahead (the weather service's answer)."""
+    assert night.temperature is not None
+    hour = moment.replace(minute=0, second=0, microsecond=0)
+    return [
+        {
+            "datetime": (hour + timedelta(hours=k)).isoformat(),
+            "temperature": round(night.temperature((hour + timedelta(hours=k, minutes=30)).astimezone(ZONE)), 1),
+            "condition": "cloudy",
+        }
+        for k in range(48)
+    ]
+
+
+async def run_supply_night(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    night: SupplyNight,
+    storage: dict[str, Any] | None = None,
+) -> SupplyResult:
     await hass.config.async_set_time_zone("Europe/Copenhagen")
     start = night.at(night.day, night.plug_in) - timedelta(minutes=30)
     deadline = night.at(night.day + timedelta(days=1), night.ready_by)
@@ -205,13 +243,37 @@ async def run_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, 
             },
         )
 
+    blocked: dict[str, datetime | None] = {"since": None}
+    blocks: list[int] = []
+    stops = 0
+
     async def switch(_household: Any, entity_id: str, on: bool) -> str | None:
+        nonlocal stops
+        if entity_id == HEAT_PUMP_BLOCK:
+            if on and blocked["since"] is None:
+                blocked["since"] = clock["now"]
+            elif not on and (since := blocked["since"]) is not None:
+                blocks.append(round((clock["now"] - since).total_seconds() / 60))
+                blocked["since"] = None
+            hass.states.async_set(entity_id, "on" if on else "off")
+            return None
         for car in night.cars:
             if entity_id == car.entities["switch"]:
+                if switch_on[car.key] and not on and socs[car.key] < car.target - 0.5:
+                    stops += 1
                 switch_on[car.key] = on
                 commands.append((clock["now"], car.key))
                 hass.states.async_set(entity_id, "on" if on else "off")
         return None
+
+    def heat_pump(local: datetime) -> float:
+        return 0.0 if night.heat_pump is None or blocked["since"] is not None else night.heat_pump(local)
+
+    async def get_forecasts(call: ServiceCall) -> ServiceResponse:
+        return {WEATHER: {"forecast": _forecast(night, clock["now"])}}
+
+    if night.temperature is not None:
+        hass.services.async_register("weather", "get_forecasts", get_forecasts, supports_response=SupportsResponse.ONLY)
 
     def new_current(car: SupplyCar, amps: float, entity: str, attributes: dict[str, Any]) -> None:
         current_changes[car.key] += 1
@@ -269,7 +331,18 @@ async def run_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, 
             if car.adjustable and hass.states.get(e["amps"]) is None:
                 hass.states.async_set(e["amps"], str(car.max_amps), {"min": 6, "max": car.max_amps})
         local = moment.astimezone(ZONE)
-        house = night.house(local)
+        house = night.house(local) + heat_pump(local)
+        if night.temperature is not None:
+            hass.states.async_set(
+                WEATHER, "cloudy", {"temperature": round(night.temperature(local), 1), "temperature_unit": "°C"}
+            )
+        if night.heat_pump is not None:
+            hass.states.async_set(
+                HEAT_PUMP_POWER,
+                str(round(heat_pump(local) * KW_PER_A * 1000)),
+                {"unit_of_measurement": "W", "device_class": "power"},
+            )
+            hass.states.async_set(HEAT_PUMP_BLOCK, "on" if blocked["since"] is not None else "off")
         if night.meter_lost(local):
             hass.states.async_set(METER, "unavailable")
         else:
@@ -285,6 +358,10 @@ async def run_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, 
     publish(start)
     entry = _entry(night)
     entry.add_to_hass(hass)
+    if night.history is not None and storage is not None:
+        key = f"{DOMAIN}.{entry.entry_id}"
+        storage[key] = {"version": 1, "minor_version": 1, "key": key, "data": {"supply_forecast": night.history}}
+    misses: list[float] = []
     over = 0
     over_fuse = longest = run_over = blind = 0
     peak = 0.0
@@ -307,7 +384,12 @@ async def run_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, 
             for item in [p for p in pending if p[0] <= moment]:
                 amps_set[item[1]] = item[2]
                 pending.remove(item)
-            house = night.house(moment.astimezone(ZONE))
+            house = night.house(moment.astimezone(ZONE)) + heat_pump(moment.astimezone(ZONE))
+            plan_now = getattr(getattr(household, "supply", None), "plan", None)
+            if plan_now is not None and night.at(night.day, night.plug_in) <= moment < deadline:
+                expected = next((e for s, en, _l, e in plan_now.capacity if s <= moment < en), None)
+                if expected is not None:
+                    misses.append(house - expected)
             requests = [
                 (amps_set[c.key] if c.adjustable else c.max_amps)
                 if switch_on[c.key] and moment >= night.at(night.day, night.plug_in) and socs[c.key] < c.target
@@ -346,8 +428,11 @@ async def run_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, 
                     used = sum(a for per in plan.amps.values() for st, _en, a in per if st == s)
                     if used + expected > limit + 1e-6:
                         over += 1
+        guard_events = int(getattr(getattr(household, "supply", None), "guard_events", 0) or 0)
         await hass.config_entries.async_unload(entry.entry_id)
         await hass.async_block_till_done()
+    if (since := blocked["since"]) is not None:
+        blocks.append(round((end - since).total_seconds() / 60))
 
     ready = {car.key: at_deadline.get(car.key, socs[car.key]) >= car.target - 0.5 for car in night.cars}
     result = Result(name=night.name, version=version(), tags=["supply", *night.tags], private=False)
@@ -361,7 +446,20 @@ async def run_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, 
         for key, times in change_times.items()
     }
     return SupplyResult(
-        result, ready, at_deadline, over, current_changes, over_fuse, longest, round(peak, 1), busiest, blind
+        result,
+        ready,
+        at_deadline,
+        over,
+        current_changes,
+        over_fuse,
+        longest,
+        round(peak, 1),
+        busiest,
+        blind,
+        guard_events,
+        stops,
+        misses,
+        blocks,
     )
 
 

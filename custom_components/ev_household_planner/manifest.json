@@ -2,7 +2,8 @@
   "domain": "ev_household_planner",
   "name": "EV Planner",
   "after_dependencies": [
-    "energy"
+    "energy",
+    "recorder"
   ],
   "codeowners": [
     "@Dinnsen"
@@ -22,5 +23,5 @@
   "quality_scale": "platinum",
   "requirements": [],
   "single_config_entry": true,
-  "version": "2.2.0b5"
+  "version": "2.3.0b1"
 }

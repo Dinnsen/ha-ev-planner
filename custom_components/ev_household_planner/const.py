@@ -101,6 +101,12 @@ CONF_SUPPLY_METER: Final = "supply_meter"
 CONF_SUPPLY_RESERVE: Final = "supply_reserve"
 # Shared supply: lower the cars at once when the house draws more than planned (needs a meter and a current setting).
 CONF_SUPPLY_GUARD: Final = "supply_guard"
+# The weather: a weather entity whose hourly forecast moves the house forecast with the temperature.
+CONF_WEATHER_ENTITY: Final = "weather_entity"
+# A heat pump: its power (shown, and part of the house), and a switch that holds it back (on) for a while
+# when the house and the cars need more than the limit, before a car is stopped.
+CONF_HEAT_PUMP_POWER: Final = "heat_pump_power"
+CONF_HEAT_PUMP_BLOCK: Final = "heat_pump_block"
 # The sun: a grid power sensor (W or kW, positive when the house buys) turns it on.
 CONF_GRID_POWER: Final = "grid_power"
 CONF_GRID_INVERTED: Final = "grid_power_inverted"
