@@ -72,6 +72,7 @@ from .const import (
     PROBLEM_RECHECK,
     RECALCULATE_DELAY,
     REMINDER_MAX_REPEATS,
+    SET_DAY_TARGETS,
     SET_LIVE,
     SET_MANUAL_SOC,
     SET_MODE,
@@ -102,7 +103,7 @@ from .learning import MIN_POWER_KW
 from .notifications import COLOR_CHARGE, COLOR_ERROR, COLOR_WARN, Notifier, tag_for
 from .planner import PlanError, PriceSlot, Segment, segments_to_schedule
 from .prices import extract_price_slots
-from .rules import Car, current_price, decide, in_segments, parse_hhmm, plan_vehicle
+from .rules import Car, current_price, decide, in_segments, keep_previous, parse_hhmm, plan_vehicle
 from .vehicle import Vehicle, is_charging_state, to_float
 
 _LOGGER = logging.getLogger(__name__)
@@ -607,8 +608,12 @@ class Household(DataUpdateCoordinator[None]):
             for segment in other.plan.segments
         ]
 
-    def plan_one(self, vehicle: Vehicle, now: datetime, blocked: list[Segment]) -> None:
-        """Make the car's plan. A plan that is charging now is kept until its period ends."""
+    def plan_one(self, vehicle: Vehicle, now: datetime, blocked: list[Segment], *, stable: bool = False) -> None:
+        """Make the car's plan. A plan that is charging now is kept until its period ends.
+
+        With ``stable`` (a new price or reading, not a changed setting) the plan
+        from before is kept when the new one would hardly be cheaper.
+        """
         vehicle.deadline = vehicle.next_deadline(now)
         vehicle.plan_restored = False
         if vehicle.deadline is None and vehicle.night is not None:
@@ -625,18 +630,23 @@ class Household(DataUpdateCoordinator[None]):
             speed=vehicle.charge_speed(power)[0],
             curve=vehicle.learned.speeds(),
         )
+        prices = self.price_slots(now)
+        aim = self._aim(vehicle, now)
         try:
-            vehicle.plan = plan_vehicle(
-                self.price_slots(now),
+            plan = plan_vehicle(
+                prices,
                 car,
                 vehicle.rules(),
                 now,
-                deadline=self._aim(vehicle, now),
+                deadline=aim,
                 earliest=vehicle.earliest_start,
                 continuous=vehicle.plan_continuous,
                 blocked=blocked,
                 reserved=self.reserved_for(vehicle),
             )
+            if stable:
+                plan = keep_previous(vehicle.plan, plan, prices, now, power=power, deadline=aim, blocked=blocked)
+            vehicle.plan = plan
             vehicle.plan_error = None
             vehicle.plan_done = False
             self._note_night(vehicle, now)
@@ -820,7 +830,7 @@ class Household(DataUpdateCoordinator[None]):
                 vehicle.plan_restored and vehicle.last_sent == CONTROL_CHARGE
             )
             if force or not active or not charging_in_plan:
-                self.plan_one(vehicle, now, blocked)
+                self.plan_one(vehicle, now, blocked, stable=not force)
             if charger_id and vehicle.plan is not None and vehicle.connected is True:
                 taken.setdefault(charger_id, []).extend(vehicle.plan.segments)
         await self.async_evaluate(now, apply=apply)
@@ -1493,6 +1503,8 @@ class Household(DataUpdateCoordinator[None]):
                 raise ServiceValidationError(translation_domain=DOMAIN, translation_key="invalid_mode")
             if key == SET_SCHEDULE:
                 value = {day: str(entry) for day, entry in dict(value or {}).items() if day in WEEKDAYS}
+            if key == SET_DAY_TARGETS:
+                value = {day: float(entry) for day, entry in dict(value or {}).items() if day in WEEKDAYS}
             if key == SET_TARGET_SOC and vehicle.target_entity:
                 await self._async_set_car_target(vehicle, float(value))
             if key == SET_MODE and value != vehicle.mode:

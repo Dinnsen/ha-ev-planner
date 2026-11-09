@@ -205,11 +205,16 @@ def energy_cost(slots: list[PriceSlot], start: datetime, end: datetime, power_kw
     return price_hours * power_kw
 
 
-def select_continuous(slots: list[PriceSlot], need: ChargeNeed, power_kw: float) -> tuple[list[Segment], float]:
-    """Cheapest single block. Tries blocks that start or end at a slot boundary."""
+def continuous_candidates(
+    slots: list[PriceSlot], need: ChargeNeed, power_kw: float
+) -> list[tuple[datetime, datetime, float]]:
+    """Every single block worth trying, earliest first: (start, end, cost).
+
+    Blocks start or end at a slot boundary; the cheapest block is always one of them.
+    """
     exact = timedelta(hours=need.hours)
     rounded = timedelta(minutes=need.minutes)
-    best: tuple[datetime, datetime, float] | None = None
+    result: list[tuple[datetime, datetime, float]] = []
     for run in contiguous_runs(slots):
         run_start, run_end = run[0].start, run[-1].end
         candidates: list[tuple[datetime, datetime, datetime]] = []
@@ -223,11 +228,36 @@ def select_continuous(slots: list[PriceSlot], need: ChargeNeed, power_kw: float)
         for begin, finish, energy_end in sorted(candidates):
             energy_start = energy_end - exact
             cost = energy_cost(run, energy_start, energy_end, power_kw)
-            if cost is not None and (best is None or cost < best[2] - EPSILON):
-                best = (begin, finish, cost)
+            if cost is not None:
+                result.append((begin, finish, cost))
+    return result
+
+
+def select_continuous(slots: list[PriceSlot], need: ChargeNeed, power_kw: float) -> tuple[list[Segment], float]:
+    """Cheapest single block; of blocks that cost the same, the earliest."""
+    best: tuple[datetime, datetime, float] | None = None
+    for begin, finish, cost in continuous_candidates(slots, need, power_kw):
+        if best is None or cost < best[2] - EPSILON:
+            best = (begin, finish, cost)
     if best is None:
         return [], 0.0
     return [{"start": best[0], "end": best[1]}], best[2]
+
+
+def fill_earliest(slots: list[PriceSlot], need: ChargeNeed) -> list[Segment]:
+    """``need`` in the earliest of ``slots`` (sorted by start); empty when they are not enough."""
+    remaining = need.hours
+    segments: list[Segment] = []
+    for slot in slots:
+        if remaining <= EPSILON:
+            break
+        if slot.hours <= remaining + EPSILON:
+            segments.append({"start": slot.start, "end": slot.end})
+            remaining -= slot.hours
+            continue
+        segments.append({"start": slot.start, "end": slot.start + timedelta(minutes=ceil(remaining * 60 - EPSILON))})
+        remaining = 0.0
+    return merge_segments(segments) if remaining <= EPSILON else []
 
 
 def select_split(slots: list[PriceSlot], need: ChargeNeed, power_kw: float) -> tuple[list[Segment], float]:

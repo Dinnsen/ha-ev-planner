@@ -495,3 +495,113 @@ def test_the_curve_gives_the_slow_top_its_time() -> None:
     assert need.speed_pct_per_hour == pytest.approx(10)
     # Without a curve, as before.
     assert charge_need(60, 100, 60, 10, speed=20).hours == 2
+
+
+# ----------------------------------------------------------------------
+# Charging early, topping up before departure, keeping a plan
+
+# The night gets a tenth of an øre cheaper every hour: the cheapest plan is the last hours.
+CREEPING = [1.006, 1.005, 1.004, 1.003, 1.002, 1.001, 1.0, 0.999, 0.998, 0.997, 0.996]
+
+
+def test_almost_the_same_price_charges_early_when_asked() -> None:
+    car = Car(soc=50, target=80, capacity=60, power=10, speed=15)  # 2 hours
+    late = plan_vehicle(slots(CREEPING), car, Rules(), NOW, deadline=DEADLINE)
+    assert hhmm(late.segments) == [("05:00", "07:00")]
+    early = plan_vehicle(slots(CREEPING), car, Rules(early_within=0.02), NOW, deadline=DEADLINE)
+    assert hhmm(early.segments) == [("20:00", "22:00")]
+    assert early.early and early.cost == pytest.approx(10 * (1.006 + 1.005))
+    # One period: the same.
+    early_one = plan_vehicle(slots(CREEPING), car, Rules(early_within=0.02), NOW, deadline=DEADLINE, continuous=True)
+    assert hhmm(early_one.segments) == [("20:00", "22:00")] and early_one.early
+    # A real difference is not given up.
+    night = plan_vehicle(slots(NIGHT), car, Rules(early_within=0.02), NOW, deadline=DEADLINE)
+    assert hhmm(night.segments) == hhmm(plan_vehicle(slots(NIGHT), car, Rules(), NOW, deadline=DEADLINE).segments)
+    assert night.early is False
+    # Up to the allowance per kWh: 0.2 kr/kWh more makes 01-03 good enough instead of 02-04.
+    allowed = plan_vehicle(slots(NIGHT), car, Rules(early_within=0.2), NOW, deadline=DEADLINE)
+    assert hhmm(allowed.segments) == [("01:00", "03:00")]
+
+
+def test_topping_up_just_before_departure() -> None:
+    # 20 %/h; to 80 % at the cheapest (01-02), the last 20 % in the hours before 07:00.
+    car = Car(soc=60, target=100, capacity=60, power=10, speed=20)
+    prices = slots([1.0, 1.0, 1.0, 1.0, 0.5, 0.1, 0.2, 0.3, 0.9, 0.8, 0.7])
+    usual = plan_vehicle(prices, car, Rules(), NOW, deadline=DEADLINE)
+    assert hhmm(usual.segments) == [("01:00", "03:00")]
+    topped = plan_vehicle(prices, car, Rules(topup_level=80), NOW, deadline=DEADLINE)
+    assert topped.topup
+    # The top-up looks at most three hours back (one hour plus two): 04-07, the cheapest is 06.
+    assert hhmm(topped.segments) == [("01:00", "02:00"), ("06:00", "07:00")]
+    assert topped.minutes == 120
+    # Already above the level: only the late part.
+    high = plan_vehicle(
+        prices, Car(soc=90, target=100, capacity=60, power=10, speed=20), Rules(topup_level=80), NOW, deadline=DEADLINE
+    )
+    assert hhmm(high.segments) == [("06:00", "06:30")]
+    # No deadline, or a target at the level: the usual plan.
+    assert not plan_vehicle(prices, car, Rules(topup_level=80), NOW, deadline=None).topup
+    assert not plan_vehicle(
+        prices, Car(soc=60, target=80, capacity=60, power=10, speed=20), Rules(topup_level=80), NOW, deadline=DEADLINE
+    ).topup
+    # The hours before the deadline are over the ceiling: the usual plan.
+    dear_morning = slots([1.0, 1.0, 1.0, 1.0, 0.5, 0.1, 0.2, 0.3, 5.0, 5.0, 5.0])
+    capped = plan_vehicle(dear_morning, car, Rules(topup_level=80, ceiling=2.0), NOW, deadline=DEADLINE)
+    assert not capped.topup and hhmm(capped.segments) == [("01:00", "03:00")]
+
+
+def test_topping_up_with_the_first_part_early() -> None:
+    car = Car(soc=60, target=100, capacity=60, power=10, speed=20)
+    topped = plan_vehicle(slots(CREEPING), car, Rules(topup_level=80, early_within=0.02), NOW, deadline=DEADLINE)
+    assert topped.topup and topped.early
+    assert hhmm(topped.segments) == [("20:00", "21:00"), ("06:00", "07:00")]
+
+
+def test_a_plan_is_kept_when_a_new_one_is_hardly_cheaper() -> None:
+    from custom_components.ev_household_planner.rules import keep_previous
+
+    car = Car(soc=50, target=80, capacity=60, power=10, speed=15)
+    old = plan_vehicle(slots(NIGHT), car, Rules(), NOW, deadline=DEADLINE)
+    assert hhmm(old.segments) == [("02:00", "04:00")]
+    # 01 gets a little cheaper than 03: a new plan would move for 0.3 kr.
+    cheaper = list(NIGHT)
+    cheaper[5] = 0.32
+    new = plan_vehicle(slots(cheaper), car, Rules(), NOW, deadline=DEADLINE)
+    assert hhmm(new.segments) == [("01:00", "03:00")]
+    kept = keep_previous(old, new, slots(cheaper), NOW, power=10, deadline=DEADLINE)
+    assert kept.kept and hhmm(kept.segments) == [("02:00", "04:00")]
+    assert kept.cost == pytest.approx(10 * (0.3 + 0.35))
+    # Much cheaper: the new plan.
+    cheaper[5] = 0.05
+    much = plan_vehicle(slots(cheaper), car, Rules(), NOW, deadline=DEADLINE)
+    assert keep_previous(old, much, slots(cheaper), NOW, power=10, deadline=DEADLINE) is much
+    # Not when the old one no longer fits: more to charge, a deadline before it, taken, or no prices for it.
+    more = plan_vehicle(
+        slots(cheaper), Car(soc=40, target=80, capacity=60, power=10, speed=15), Rules(), NOW, deadline=DEADLINE
+    )
+    assert keep_previous(old, more, slots(cheaper), NOW, power=10, deadline=DEADLINE) is more
+    new = plan_vehicle(slots([*NIGHT[:5], 0.32, *NIGHT[6:]]), car, Rules(), NOW, deadline=DEADLINE)
+    early_deadline = NOW.replace(hour=3) + timedelta(days=1)
+    assert keep_previous(old, new, slots(NIGHT), NOW, power=10, deadline=early_deadline) is new
+    blocked = [{"start": old.segments[0]["start"], "end": old.segments[0]["start"] + timedelta(minutes=15)}]
+    assert keep_previous(old, new, slots(NIGHT), NOW, power=10, deadline=DEADLINE, blocked=blocked) is new
+    assert keep_previous(old, new, slots(NIGHT[:6]), NOW, power=10, deadline=DEADLINE) is new
+    assert keep_previous(None, new, slots(NIGHT), NOW, power=10, deadline=DEADLINE) is new
+    # Over the ceiling of the new plan.
+    capped = plan_vehicle(slots([*NIGHT[:5], 0.32, *NIGHT[6:]]), car, Rules(ceiling=0.33), NOW, deadline=DEADLINE)
+    assert keep_previous(old, capped, slots(NIGHT), NOW, power=10, deadline=DEADLINE) is capped
+    # Half way through the old plan, what is left of it is compared.
+    later = NOW.replace(hour=3) + timedelta(days=1)
+    rest = plan_vehicle(
+        slots(NIGHT), Car(soc=65, target=80, capacity=60, power=10, speed=15), Rules(), later, deadline=DEADLINE
+    )
+    kept = keep_previous(old, rest, slots(NIGHT), later, power=10, deadline=DEADLINE)
+    assert hhmm(kept.segments) == [("03:00", "04:00")]
+
+
+def test_new_plan_fields_are_stored() -> None:
+    from custom_components.ev_household_planner.rules import VehiclePlan
+
+    plan = plan_vehicle(slots(CREEPING), CAR, Rules(early_within=0.02), NOW, deadline=DEADLINE)
+    again = VehiclePlan.from_dict(plan.to_dict())
+    assert again is not None and again.early is True and again.topup is False and again.fallback is False
