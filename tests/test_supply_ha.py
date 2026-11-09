@@ -70,7 +70,7 @@ async def _setup(hass: HomeAssistant, freezer: FrozenDateTimeFactory, entry: Moc
         hass.states.async_set(AMPS, str(call.data["value"]), {"min": 6, "max": 16})
 
     hass.services.async_register("input_number", "set_value", record)
-    hass.states.async_set(AMPS, "16", {"min": 6, "max": 16})
+    hass.states.async_set(AMPS, "0", {"min": 0, "max": 16})
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
