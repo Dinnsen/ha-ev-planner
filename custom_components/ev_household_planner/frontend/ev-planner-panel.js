@@ -22,6 +22,23 @@ const TEXT = {
     home_why_none: "Ingen biler skal lade lige nu.",
     home_no_meter: "Uden måler regner EV Planner med, at huset trækker {amps}. Tilføj en måler i indstillingerne, så lærer den husets forbrug.",
     home_idle: "venter",
+    home_unplugged: "ikke sat til",
+    home_solar: "Solceller",
+    home_battery: "Husbatteri",
+    home_heat: "Varmepumpe",
+    home_buys: "køber {kw}",
+    home_sells: "sender {kw} ud",
+    home_charges: "lader {kw}",
+    home_gives: "afgiver {kw}",
+    rule_look: "Bilen i fanen Hjem",
+    rule_look_hint: "Sådan ser bilen ud i tegningen af huset.",
+    body_mini: "Mini",
+    body_sedan: "Sedan",
+    body_suv: "SUV",
+    body_estate: "Stationcar",
+    body_van: "Minivan",
+    paint_white: "Hvid",
+    paint_black: "Sort",
     home_guard: "Vagten holder øje med måleren og skruer bilerne ned med det samme, hvis huset pludselig skal bruge mere.",
     tab_guest: "Gæst",
     tab_history: "Historik",
@@ -475,6 +492,23 @@ const TEXT = {
     home_why_none: "No car needs to charge now.",
     home_no_meter: "Without a meter EV Planner expects the house to draw {amps}. Add a meter in the settings and it learns what the house uses.",
     home_idle: "waiting",
+    home_unplugged: "not plugged in",
+    home_solar: "Solar panels",
+    home_battery: "Home battery",
+    home_heat: "Heat pump",
+    home_buys: "buying {kw}",
+    home_sells: "sending {kw} out",
+    home_charges: "charging {kw}",
+    home_gives: "giving {kw}",
+    rule_look: "The car in the Home tab",
+    rule_look_hint: "How the car looks in the drawing of the house.",
+    body_mini: "Small",
+    body_sedan: "Saloon",
+    body_suv: "SUV",
+    body_estate: "Estate",
+    body_van: "Van",
+    paint_white: "White",
+    paint_black: "Black",
     home_guard: "The guard watches the meter and turns the cars down at once if the house suddenly needs more.",
     tab_guest: "Guest",
     tab_history: "History",
@@ -1301,6 +1335,519 @@ function nextAt(hhmm, from = new Date()) {
 
 const WEEKDAY_OF_JS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
+/* ---------------------------------------------------------------- The home: a white clay house
+   The house in isometric view, as calm as a clay model: soft shades, soft shadows, and thin
+   lines of light where the current runs. Only what the home has is drawn: solar panels, the
+   home battery, the heat pump, one or two chargers and one or two cars. A car's charging
+   cable hangs from its charger to the car, or hangs rolled up on the wall when it is not
+   plugged in. The scene is made once and kept, so its motion goes on while the panel redraws. */
+
+const ClayScene = (() => {
+  const S = 25;
+  const C = Math.cos(Math.PI / 6);
+  const W = 800;
+  const H = 560;
+  const OX = 400;
+  const OY = 104;
+  const CAM = [1, 1, 1.25];
+  const P = (x, y, z = 0) => [(x - y) * C * S + OX, (x + y) * 0.5 * S - z * S + OY];
+  const f1 = (n) => (Math.round(n * 10) / 10).toString();
+  const pts = (list) => list.map((p) => P(...p).map(f1).join(",")).join(" ");
+  const poly = (list, attrs = "") => `<polygon points="${pts(list)}" ${attrs}/>`;
+  const path3 = (list) => "M" + list.map((p) => P(...p).map(f1).join(" ")).join(" L");
+  const plane = (o, du, dv) => {
+    const a = P(...o);
+    const b = P(o[0] + du[0], o[1] + du[1], o[2] + du[2]);
+    const c = P(o[0] + dv[0], o[1] + dv[1], o[2] + dv[2]);
+    return `matrix(${f1(b[0] - a[0])} ${f1(b[1] - a[1])} ${f1(c[0] - a[0])} ${f1(c[1] - a[1])} ${f1(a[0])} ${f1(a[1])})`;
+  };
+  const onY = (x, y, z) => plane([x, y, z], [1, 0, 0], [0, 0, -1]);
+  const onX = (x, y, z) => plane([x, y, z], [0, 1, 0], [0, 0, -1]);
+  const onTop = (x, y, z) => plane([x, y, z], [1, 0, 0], [0, 1, 0]);
+  const hex = (c) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+  const toHex = (rgb) => "#" + rgb.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("");
+  const mix = (a, b, t) => toHex(hex(a).map((v, i) => v + (hex(b)[i] - v) * t));
+
+  const T = {
+    top: "#FFFFFF", south: "#F1F2F5", east: "#DFE3E9", roofSouth: "#EEF0F3", roofBack: "#DADDE3",
+    glass: "#D3DAE2", glassHi: "#EEF2F6", ground: "#EEF1F5", shadow: "#5A6478", line: "#CBD1DA",
+    tree: ["#F3F4F6", "#DADDE3"], panel: "#D8DCE2", panelLine: "#C3C8D0",
+  };
+  const FLOW = { sun: "#F5B92E", grid: "#8C98AC", battery: "#22C981", home: "#22C981", car: "#22C981", heat: "#22C981" };
+  const PAINT = { white: "#F7F8FA", black: "#2A2D33" };
+
+  // The house, the garage, where the cars stand and where the chargers hang.
+  const HOUSE = { x0: 6, x1: 14, y0: 2, y1: 8.6, h: 3.2, ridge: 5.75, over: 0.4, gable: 0.3 };
+  const GARAGE = { x0: -1.4, x1: 6, y0: 4.4, y1: 9.8, h: 2.65 };
+  const SLOTS = [{ x: -0.9, y: 10.3 }, { x: 3.05, y: 10.3 }];
+  const BOX = [{ x: 1.45 }, { x: 5.4 }];
+
+  /* ------------------------------------------------------------ the cars: five kinds, by their sides */
+
+  // Each kind by its side: [u from the nose, h up, how far the body draws in from its full width there].
+  // Points 5 to 11 are the cabin: 5 the foot of the windscreen, 8 to 9 the roof, 11 the foot of the rear window.
+  const BODIES = {
+    mini: { L: 4.25, Wd: 1.8, wheels: [0.86, 3.52], r: 0.33, pts: [[0.06, 0.32, 0.12], [0, 0.5, 0.14], [0.07, 0.64, 0.12], [0.25, 0.74, 0.08], [0.6, 0.82, 0.04], [1.0, 0.88, 0.06], [1.45, 1.15, 0.16], [1.85, 1.38, 0.22], [2.3, 1.44, 0.24], [3.45, 1.45, 0.24], [3.85, 1.36, 0.22], [4.12, 1.05, 0.14], [4.2, 0.98, 0.1], [4.25, 0.82, 0.12], [4.24, 0.5, 0.13], [4.15, 0.32, 0.12]] },
+    sedan: { L: 4.72, Wd: 1.85, wheels: [0.98, 3.85], r: 0.34, glassRoof: true, pts: [[0.05, 0.3, 0.12], [0, 0.47, 0.15], [0.06, 0.6, 0.13], [0.22, 0.7, 0.09], [0.55, 0.78, 0.05], [1.1, 0.86, 0.06], [1.55, 1.12, 0.16], [2.0, 1.36, 0.22], [2.45, 1.43, 0.24], [3.1, 1.44, 0.24], [3.6, 1.33, 0.22], [4.12, 1.06, 0.15], [4.45, 0.99, 0.08], [4.68, 0.95, 0.12], [4.72, 0.78, 0.14], [4.7, 0.5, 0.14], [4.6, 0.3, 0.12]] },
+    suv: { L: 4.68, Wd: 1.86, wheels: [0.98, 3.82], r: 0.37, cladding: true, rails: true, pts: [[0.05, 0.36, 0.1], [0, 0.6, 0.12], [0.04, 0.82, 0.1], [0.25, 0.95, 0.06], [0.7, 1.02, 0.04], [1.05, 1.06, 0.06], [1.45, 1.4, 0.14], [1.75, 1.62, 0.18], [2.1, 1.68, 0.2], [4.25, 1.68, 0.2], [4.45, 1.6, 0.18], [4.62, 1.25, 0.12], [4.66, 1.15, 0.08], [4.68, 0.95, 0.1], [4.68, 0.55, 0.1], [4.6, 0.36, 0.1]] },
+    estate: { L: 4.95, Wd: 1.9, wheels: [1.02, 3.98], r: 0.35, rails: true, pts: [[0.05, 0.3, 0.12], [0, 0.48, 0.15], [0.06, 0.62, 0.13], [0.24, 0.72, 0.08], [0.6, 0.8, 0.04], [1.2, 0.88, 0.06], [1.65, 1.14, 0.15], [2.05, 1.38, 0.22], [2.5, 1.45, 0.24], [4.15, 1.44, 0.24], [4.55, 1.32, 0.2], [4.85, 1.04, 0.13], [4.9, 0.98, 0.08], [4.95, 0.84, 0.12], [4.94, 0.5, 0.13], [4.85, 0.3, 0.12]] },
+    van: { L: 4.72, Wd: 1.98, wheels: [0.9, 3.9], r: 0.38, twoTone: true, pts: [[0.04, 0.4, 0.12], [0, 0.7, 0.14], [0.04, 0.95, 0.12], [0.2, 1.06, 0.08], [0.4, 1.1, 0.05], [0.55, 1.14, 0.06], [0.82, 1.5, 0.12], [1.08, 1.82, 0.16], [1.4, 1.92, 0.18], [4.4, 1.93, 0.18], [4.62, 1.85, 0.16], [4.7, 1.6, 0.12], [4.71, 1.4, 0.08], [4.72, 1.1, 0.1], [4.72, 0.55, 0.1], [4.62, 0.4, 0.12]] },
+  };
+  const CS = 5;
+  const RS = 8;
+  const RE = 9;
+  const CE = 11;
+
+  function shadow(ring, strength, blur = "cs-blur") {
+    return poly(ring, `fill="${T.shadow}" fill-opacity="${strength}" filter="url(#${blur})"`);
+  }
+
+  // A car standing with its nose towards the viewer (+y), its right side (+x) showing.
+  function car(x0, y0, kind, paintName, { charging = false } = {}) {
+    const body = BODIES[kind] || BODIES.sedan;
+    const { L, Wd } = body;
+    const pts = body.pts;
+    const dark = paintName === "black";
+    const paint = PAINT[paintName] || PAINT.white;
+    const M = (u, w, h) => [x0 + w, y0 + L - u, h];
+    const tone = (lit, base = paint) =>
+      base === PAINT.black ? mix("#0B0C0F", base, Math.min(1.25, lit)) : mix("#7D8693", base, Math.min(1, lit));
+    const upper = body.twoTone ? PAINT.white : paint;
+    const glassTop = dark ? "#4B5564" : "#2B3038";
+    const glassSide = dark ? "#3E4756" : "#2F343C";
+    let s = shadow([M(-0.15, -0.05, 0), M(L + 0.15, -0.05, 0), M(L + 0.15, Wd + 0.12, 0), M(-0.15, Wd + 0.12, 0)], 0.4);
+    if (charging) s += `<ellipse class="cs-carglow" transform="${onTop(x0 + Wd / 2, y0 + L / 2, 0)}" rx="${f1(Wd * 0.9)}" ry="${f1(L * 0.62)}" fill="url(#cs-glowg)"/>`;
+    for (const u of body.wheels) s += `<g transform="${onX(x0 + 0.22, y0 + L - u, body.r)}"><circle r="${body.r}" fill="#1A1C20"/></g>`;
+    // The upper surfaces, facet by facet, lit by how they face the sky.
+    for (let k = 0; k < pts.length; k += 1) {
+      const a = pts[k];
+      const b = pts[(k + 1) % pts.length];
+      const nu = -(b[1] - a[1]);
+      const nh = b[0] - a[0];
+      if (nu * -CAM[1] + nh * CAM[2] <= 0.001) continue;
+      const len = Math.hypot(nu, nh) || 1;
+      const lit = 0.6 + 0.5 * Math.max(0, nh / len);
+      const quad = [M(a[0], a[2], a[1]), M(b[0], b[2], b[1]), M(b[0], Wd - b[2], b[1]), M(a[0], Wd - a[2], a[1])];
+      const glassy = (k >= CS && k < RS) || (k >= RE && k < CE) || (body.glassRoof && k >= RS && k < RE);
+      const base = k >= CS && k < CE ? upper : paint;
+      const fill = glassy ? glassTop : tone(lit, base);
+      s += poly(quad, `fill="${fill}" stroke="${fill}" stroke-width=".6" stroke-linejoin="round"`);
+    }
+    // A thin light across the nose; roof rails on the bigger ones.
+    const nose = pts[2];
+    s += poly([M(nose[0] + 0.02, 0.28, nose[1] + 0.03), M(nose[0] + 0.05, 0.28, nose[1] + 0.07), M(nose[0] + 0.05, Wd - 0.28, nose[1] + 0.07), M(nose[0] + 0.02, Wd - 0.28, nose[1] + 0.03)], `fill="#FFFFFF" class="cs-lamp"`);
+    if (body.twoTone) s += `<path d="${path3([M(0.03, 0.2, 0.95), M(0.06, Wd / 2, 0.62), M(0.03, Wd - 0.2, 0.95)])}" stroke="${PAINT.white}" stroke-width="2" fill="none" stroke-linejoin="round"/>`;
+    if (body.rails) for (const w of [0.42, Wd - 0.42]) s += `<path d="${path3([M(pts[RS][0] + 0.15, w, pts[RS][1] + 0.05), M(pts[RE][0] - 0.1, w, pts[RE][1] + 0.05)])}" stroke="${dark ? "#4A4F57" : "#AEB5BF"}" stroke-width="1.6" stroke-linecap="round"/>`;
+    // The right side, flat on its plane; where the body draws in, it shows a little higher and further back.
+    const side = plane(M(0, Wd, 0), [0, -1, 0], [0, 0, -1]);
+    const xy = ([u, h, d]) => [u - d, -(h + d)];
+    const str = (list) => list.map(([a, b]) => `${f1(a)},${b.toFixed(2)}`).join(" ");
+    const outline = str([...pts.slice(0, CS + 1), pts[CE], ...pts.slice(CE + 1)].map(xy));
+    const cabin = str(pts.slice(CS, CE + 1).map(xy));
+    const shrink = (p, du, dh) => xy([p[0] + du, p[1] + dh, p[2]]);
+    const pane = str([shrink(pts[CS], 0.2, 0.05), ...pts.slice(CS + 1, CE).map((p, i, arr) => shrink(p, i === 0 ? 0.06 : i === arr.length - 1 ? -0.06 : 0, -0.06)), shrink(pts[CE], -0.2, 0.05)]);
+    const pillars = body.twoTone ? [0.38, 0.66] : [0.5];
+    const span = (t) => xy([pts[RS][0] + (pts[RE][0] - pts[RS][0]) * t, pts[RS][1], pts[RS][2]]);
+    const belt = (t) => xy([pts[CS][0] + (pts[CE][0] - pts[CS][0]) * t, pts[CS][1] + (pts[CE][1] - pts[CS][1]) * t, pts[CS][2]]);
+    const sideTone = tone(0.88);
+    const sideUpper = tone(0.88, upper);
+    const arch = body.cladding ? "#24272C" : tone(0.42);
+    s += `<g transform="${side}">
+      <polygon points="${cabin}" fill="${tone(0.72, upper)}"/>
+      <polygon points="${pane}" fill="${glassSide}"/>
+      ${pillars.map((t) => `<path d="M${f1(span(t)[0] - 0.05)} ${(span(t)[1] + 0.06).toFixed(2)} L${f1(belt(t)[0] - 0.1)} ${(belt(t)[1] - 0.02).toFixed(2)}" stroke="${tone(0.72, upper)}" stroke-width=".09"/>`).join("")}
+      <polygon points="${outline}" fill="${sideTone}"/>
+      ${body.twoTone ? `<polygon points="${str([xy(pts[CS]), xy(pts[CE]), xy([pts[CE][0], pts[CE][1] - 0.32, pts[CE][2]]), xy([pts[3][0], pts[3][1] - 0.1, pts[3][2]])])}" fill="${sideUpper}"/>` : ""}
+      <polygon points="${outline}" fill="url(#cs-side)"/>
+      <path d="M${f1(xy(pts[3])[0])} ${(xy(pts[3])[1] + 0.06).toFixed(2)} L${f1(xy(pts[CE])[0])} ${(xy(pts[CE])[1] + 0.05).toFixed(2)}" stroke="#fff" stroke-opacity="${dark ? 0.16 : 0.6}" stroke-width=".025"/>
+      ${[pts[CS][0] + 0.25, (pts[RS][0] + pts[RE][0]) / 2 - 0.1].map((u) => `<path d="M${f1(u - 0.06)} ${(-(pts[CS][1] - 0.04)).toFixed(2)} V ${(-(body.r + 0.16)).toFixed(2)}" stroke="${tone(0.66)}" stroke-width=".018"/>`).join("")}
+      ${body.cladding ? `<path d="M${f1(body.wheels[0])} ${(-0.36).toFixed(2)} H ${f1(body.wheels[1])}" stroke="#24272C" stroke-width=".16"/>` : `<path d="M${f1(body.wheels[0] + 0.4)} -.33 H ${f1(body.wheels[1] - 0.4)}" stroke="${tone(0.6)}" stroke-width=".05"/>`}
+      ${body.wheels.map((u) => `<path d="M${f1(u - body.r - 0.14)} ${(-body.r + 0.06).toFixed(2)} A ${f1(body.r + 0.14)} ${f1(body.r + 0.14)} 0 0 1 ${f1(u + body.r + 0.14)} ${(-body.r + 0.06).toFixed(2)} Z" fill="${arch}"/>
+        <circle cx="${f1(u)}" cy="${-body.r}" r="${body.r}" fill="#1A1C20"/>
+        <circle cx="${f1(u)}" cy="${-body.r}" r="${f1(body.r * 0.66)}" fill="${dark ? "#3E434B" : "#C9CED6"}"/>
+        <circle cx="${f1(u)}" cy="${-body.r}" r="${f1(body.r * 0.66)}" fill="none" stroke="${dark ? "#2A2E34" : "#9AA2AD"}" stroke-width=".03" stroke-dasharray=".05 .07"/>
+        <circle cx="${f1(u)}" cy="${-body.r}" r=".06" fill="#2A2E34"/>`).join("")}
+      <circle class="cs-port${charging ? " on" : ""}" cx="${f1(L - 0.78)}" cy="${(-(pts[CE][1] - 0.2)).toFixed(2)}" r=".055"/>
+    </g>`;
+    return s;
+  }
+  // Where a car's charging port is, in the world, for its cable.
+  const portOf = (x0, y0, kind) => {
+    const body = BODIES[kind] || BODIES.sedan;
+    const ce = body.pts[CE];
+    return [x0 + body.Wd - ce[2] + 0.01, y0 + 0.7 + ce[2], ce[1] - 0.2 + ce[2]];
+  };
+
+  /* ------------------------------------------------------------ cables */
+
+  // A charging cable: down from the charger, across the ground, and up into the car's port, smooth like a real cable.
+  function cable(a, b) {
+    const ground = 0.04;
+    const list = [
+      a,
+      [a[0] + 0.05, a[1] + 0.12, a[2] * 0.45],
+      [a[0] + 0.12, a[1] + 0.4, ground],
+      [(a[0] + b[0]) / 2 + 0.35, (a[1] + b[1]) / 2 + 0.15, ground],
+      [b[0] + 0.45, b[1] + 0.1, ground],
+      [b[0] + 0.32, b[1] + 0.02, b[2] * 0.45],
+      [b[0] + 0.06, b[1], b[2] - 0.02],
+      b,
+    ];
+    return smooth(list.map((p) => P(...p)));
+  }
+
+  function smooth(p) {
+    let d = `M${f1(p[0][0])} ${f1(p[0][1])}`;
+    for (let i = 0; i < p.length - 1; i += 1) {
+      const p0 = p[Math.max(0, i - 1)];
+      const p1 = p[i];
+      const p2 = p[i + 1];
+      const p3 = p[Math.min(p.length - 1, i + 2)];
+      const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+      const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+      d += ` C${f1(c1[0])} ${f1(c1[1])} ${f1(c2[0])} ${f1(c2[1])} ${f1(p2[0])} ${f1(p2[1])}`;
+    }
+    return d;
+  }
+
+  // A cable rolled up on the wall beside the charger, its plug in the holder.
+  function coil(x, y, z) {
+    let s = `<g transform="${onY(x, y + 0.02, z)}">`;
+    for (let k = 0; k < 4; k += 1) s += `<ellipse cx=".3" cy="${(0.36 + k * 0.025).toFixed(3)}" rx="${(0.25 + k * 0.016).toFixed(3)}" ry="${(0.34 + k * 0.016).toFixed(3)}" fill="none" stroke="#2D3137" stroke-width=".05"/>`;
+    s += `<rect x=".22" y="-.04" width=".16" height=".09" rx=".02" fill="#9AA2AD"/>`;
+    s += `<path d="M.3 .76 C .32 .86 .4 .92 .5 .92" stroke="#2D3137" stroke-width=".05" fill="none"/>`;
+    s += `<rect x=".48" y=".84" width=".12" height=".17" rx=".03" fill="#3A3F46"/>`;
+    return s + `</g>`;
+  }
+
+  function wallbox(x, y, on) {
+    let s = poly([[x, y, 0.95], [x + 0.36, y, 0.95], [x + 0.36, y + 0.13, 0.95], [x, y + 0.13, 0.95]], `fill="${T.top}"`);
+    s += poly([[x, y + 0.13, 0.95], [x + 0.36, y + 0.13, 0.95], [x + 0.36, y + 0.13, 1.55], [x, y + 0.13, 1.55]], `fill="${T.south}"`);
+    s += poly([[x + 0.36, y + 0.13, 0.95], [x + 0.36, y, 0.95], [x + 0.36, y, 1.55], [x + 0.36, y + 0.13, 1.55]], `fill="${T.east}"`);
+    s += poly([[x, y, 1.55], [x + 0.36, y, 1.55], [x + 0.36, y + 0.13, 1.55], [x, y + 0.13, 1.55]], `fill="${T.top}"`);
+    s += `<g transform="${onY(x, y + 0.131, 1.55)}"><rect class="cs-boxled${on ? " on" : ""}" x=".11" y=".14" width=".14" height=".035" rx=".017"/></g>`;
+    return s;
+  }
+
+  /* ------------------------------------------------------------ the house */
+
+  function box(x0, y0, z0, x1, y1, z1, opt = {}) {
+    let s = poly([[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]], `fill="${opt.south || T.south}"`);
+    s += poly([[x1, y1, z0], [x1, y0, z0], [x1, y0, z1], [x1, y1, z1]], `fill="${opt.east || T.east}"`);
+    if (!opt.noTop) s += poly([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], `fill="${opt.top || T.top}"`);
+    s += `<path d="${path3([[x0, y1, z1], [x1, y1, z1], [x1, y0, z1]])}" stroke="#fff" stroke-opacity=".7" stroke-width=".8" fill="none"/>`;
+    return s;
+  }
+  const foot = (a, b) => `<path d="${path3([a, b])}" stroke="${T.shadow}" stroke-opacity=".18" stroke-width="9" filter="url(#cs-blur)" stroke-linecap="round"/>`;
+
+  function windowY(x0, x1, y, z0, z1, mullions = []) {
+    let s = poly([[x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1]], `fill="${T.east}"`);
+    s += poly([[x0 + 0.06, y, z0 + 0.06], [x1 - 0.06, y, z0 + 0.06], [x1 - 0.06, y, z1 - 0.06], [x0 + 0.06, y, z1 - 0.06]], `fill="url(#cs-glass)"`);
+    for (const m of mullions) s += `<path d="${path3([[m, y + 0.005, z0 + 0.06], [m, y + 0.005, z1 - 0.06]])}" stroke="#fff" stroke-width="1.6"/>`;
+    return s;
+  }
+
+  function windowX(x, y0, y1, z0, z1, mullions = [], bars = []) {
+    let s = poly([[x, y1, z0], [x, y0, z0], [x, y0, z1], [x, y1, z1]], `fill="${T.south}"`);
+    s += poly([[x, y1 - 0.06, z0 + 0.06], [x, y0 + 0.06, z0 + 0.06], [x, y0 + 0.06, z1 - 0.06], [x, y1 - 0.06, z1 - 0.06]], `fill="url(#cs-glass)"`);
+    for (const m of mullions) s += `<path d="${path3([[x + 0.005, m, z0 + 0.06], [x + 0.005, m, z1 - 0.06]])}" stroke="#fff" stroke-width="1.6"/>`;
+    for (const z of bars) s += `<path d="${path3([[x + 0.005, y1 - 0.06, z], [x + 0.005, y0 + 0.06, z]])}" stroke="#fff" stroke-width="1.6"/>`;
+    return s;
+  }
+
+  function tree(x, y, k = 1) {
+    const [bx, by] = P(x, y, 0);
+    let s = shadow([[x - 0.8 * k, y - 0.8 * k, 0], [x + 1.4 * k, y - 0.8 * k, 0], [x + 1.4 * k, y + 0.8 * k, 0], [x - 0.8 * k, y + 0.8 * k, 0]], 0.18);
+    s += `<path d="M${f1(bx - 2)} ${f1(by)} L${f1(bx - 1)} ${f1(by - 50 * k)} L${f1(bx + 1)} ${f1(by - 50 * k)} L${f1(bx + 2)} ${f1(by)} Z" fill="${T.tree[1]}"/>`;
+    for (const [dx, dz, r] of [[0, 2.7, 1.25], [-0.85, 2.3, 0.95], [0.9, 2.35, 1.0], [-0.3, 3.4, 0.9], [0.55, 3.25, 0.85], [0.1, 1.85, 0.8]]) {
+      s += `<circle cx="${f1(bx + dx * S * k)}" cy="${f1(by - dz * S * k)}" r="${f1(r * S * k)}" fill="url(#cs-ball)"/>`;
+    }
+    return s;
+  }
+
+  function scene(m) {
+    const Hh = HOUSE;
+    const G = GARAGE;
+    const ym = (Hh.y0 + Hh.y1) / 2;
+    const pitch = (Hh.ridge - Hh.h) / (ym - Hh.y0);
+    const eave = Hh.h - Hh.over * pitch;
+    const at = (x, k, lift = 0.04) => [x, Hh.y1 + Hh.over + (ym - Hh.y1 - Hh.over) * k, eave + (Hh.ridge - eave) * k + lift];
+    let s = "";
+    s += shadow([[G.x0, G.y0, 0], [Hh.x1 + 2.6, Hh.y0 - 0.4, 0], [Hh.x1 + 2.8, Hh.y1 - 1.2, 0], [Hh.x1, Hh.y1, 0], [G.x1, G.y1, 0], [G.x0, G.y1, 0]], 0.2, "cs-shadow");
+    s += tree(3.0, 1.2, 1.05) + tree(15.6, 0.4, 0.85);
+    // The garage first: the house stands behind it.
+    s += box(G.x0, G.y0, 0, G.x1, G.y1, G.h, { noTop: true });
+    s += poly([[G.x0, G.y0, G.h], [G.x1, G.y0, G.h], [G.x1, G.y1, G.h], [G.x0, G.y1, G.h]], `fill="${T.top}"`);
+    s += box(G.x0 - 0.05, G.y0 - 0.05, G.h, G.x1 + 0.05, G.y1 + 0.05, G.h + 0.14);
+    s += poly([[G.x0 + 0.15, G.y0 + 0.15, G.h + 0.14], [G.x1 - 0.1, G.y0 + 0.15, G.h + 0.14], [G.x1 - 0.1, G.y1 - 0.1, G.h + 0.14], [G.x0 + 0.15, G.y1 - 0.1, G.h + 0.14]], `fill="${mix(T.top, "#000000", 0.04)}"`);
+    s += foot([G.x0, G.y1, 0.02], [G.x1, G.y1, 0.02]);
+    const door = [[-0.9, G.y1 + 0.004, 0], [5.1, G.y1 + 0.004, 0], [5.1, G.y1 + 0.004, 2.2], [-0.9, G.y1 + 0.004, 2.2]];
+    s += poly(door, `fill="${mix(T.south, "#000000", 0.035)}"`);
+    for (let k = 1; k < 5; k += 1) s += `<path d="${path3([[-0.9, G.y1 + 0.006, k * 0.44], [5.1, G.y1 + 0.006, k * 0.44]])}" stroke="${mix(T.south, "#000000", 0.08)}" stroke-width=".8"/>`;
+    // The house.
+    s += poly([[Hh.x0 - Hh.gable, Hh.y0 - Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y0 - Hh.over, eave], [Hh.x1 + Hh.gable, ym, Hh.ridge], [Hh.x0 - Hh.gable, ym, Hh.ridge]], `fill="${T.roofBack}"`);
+    s += box(Hh.x0, Hh.y0, 0, Hh.x1, Hh.y1, Hh.h, { noTop: true });
+    s += poly([[Hh.x1, Hh.y1, Hh.h], [Hh.x1, Hh.y0, Hh.h], [Hh.x1, ym, Hh.ridge]], `fill="${T.east}"`);
+    s += foot([Hh.x0, Hh.y1, 0.02], [Hh.x1, Hh.y1, 0.02]) + foot([Hh.x1, Hh.y1, 0.02], [Hh.x1, Hh.y0, 0.02]);
+    s += windowX(Hh.x1 + 0.005, 3.0, 7.6, 0.7, 4.3, [5.3], [2.5]);
+    s += windowY(11.0, 13.4, Hh.y1 + 0.005, 0.7, 2.75, [12.2]);
+    s += windowY(6.6, 7.4, Hh.y1 + 0.005, 0.0, 2.3);
+    s += poly([[Hh.x0, Hh.y1 + 0.006, Hh.h - 0.35], [Hh.x1, Hh.y1 + 0.006, Hh.h - 0.35], [Hh.x1, Hh.y1 + 0.006, Hh.h], [Hh.x0, Hh.y1 + 0.006, Hh.h]], `fill="${T.shadow}" fill-opacity=".08"`);
+    if (m.battery) {
+      s += box(8.15, Hh.y1, 0, 8.95, Hh.y1 + 0.32, 1.65);
+      s += `<g transform="${onY(8.15, Hh.y1 + 0.321, 1.65)}"><rect x=".34" y=".22" width=".12" height=".62" rx=".05" fill="#E3E7EC"/><rect class="cs-batlevel" x=".36" y="${f1(0.24 + 0.58 * (1 - (m.battery.soc ?? 50) / 100))}" width=".08" height="${f1(Math.max(0.03, 0.58 * ((m.battery.soc ?? 50) / 100)))}" rx=".03" fill="${FLOW.battery}"/></g>`;
+    }
+    s += box(9.4, Hh.y1, 1.05, 9.9, Hh.y1 + 0.14, 1.65);
+    s += `<g transform="${onY(9.4, Hh.y1 + 0.141, 1.65)}"><path d="M.27 .14 L.2 .3 H.27 L.23 .45 L.33 .26 H.26 L.31 .14 Z" fill="${T.line}"/></g>`;
+    s += poly([[Hh.x0 - Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, ym, Hh.ridge], [Hh.x0 - Hh.gable, ym, Hh.ridge]], `fill="${T.roofSouth}"`);
+    s += poly([[Hh.x0 - Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave - 0.14], [Hh.x0 - Hh.gable, Hh.y1 + Hh.over, eave - 0.14]], `fill="${mix(T.roofSouth, "#000000", 0.1)}"`);
+    s += poly([[Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, ym, Hh.ridge], [Hh.x1 + Hh.gable, ym, Hh.ridge - 0.16], [Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave - 0.16]], `fill="${mix(T.roofSouth, "#000000", 0.16)}"`);
+    s += poly([[Hh.x1 + Hh.gable, ym, Hh.ridge], [Hh.x1 + Hh.gable, Hh.y0 - Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y0 - Hh.over, eave - 0.16], [Hh.x1 + Hh.gable, ym, Hh.ridge - 0.16]], `fill="${mix(T.roofBack, "#000000", 0.18)}"`);
+    s += `<path d="${path3([[Hh.x0 - Hh.gable, ym, Hh.ridge + 0.02], [Hh.x1 + Hh.gable, ym, Hh.ridge + 0.02]])}" stroke="#fff" stroke-opacity=".6" stroke-width="1"/>`;
+    if (m.solar) {
+      const cols = 6;
+      const rows = 3;
+      const xa = Hh.x0 + 0.6;
+      const xb = Hh.x1 - 0.5;
+      for (let r = 0; r < rows; r += 1) {
+        for (let c = 0; c < cols; c += 1) {
+          const a = xa + ((xb - xa) / cols) * c + 0.035;
+          const b = xa + ((xb - xa) / cols) * (c + 1) - 0.035;
+          const t0 = 0.14 + (0.76 / rows) * r + 0.01;
+          const t1 = 0.14 + (0.76 / rows) * (r + 1) - 0.01;
+          s += poly([at(a, t0), at(b, t0), at(b, t1), at(a, t1)], `fill="${T.panel}" stroke="${T.panelLine}" stroke-width=".7"`);
+        }
+      }
+      s += `<polygon class="cs-sheen" points="${pts([at(xa, 0.14), at(xb, 0.14), at(xb, 0.9), at(xa, 0.9)])}" fill="url(#cs-sheen)"/>`;
+    }
+    // The heat pump by the gable.
+    if (m.heat) {
+      s += shadow([[14.5, 7.4, 0], [16.4, 7.4, 0], [16.4, 8.4, 0], [14.5, 8.4, 0]], 0.25);
+      s += box(14.55, 7.55, 0.08, 15.95, 8.1, 1.05);
+      s += `<g transform="${onY(14.55, 8.101, 1.05)}"><circle cx=".55" cy=".48" r=".33" fill="none" stroke="${T.line}" stroke-width=".04"/><g class="cs-fan"><path d="M.55 .48 L.55 .2 M.55 .48 L.79 .62 M.55 .48 L.31 .62" stroke="${T.line}" stroke-width=".05" stroke-linecap="round"/></g></g>`;
+    }
+    // The driveway.
+    s += poly([[G.x0, G.y1, 0.005], [G.x1, G.y1, 0.005], [G.x1, 15.6, 0.005], [G.x0, 15.6, 0.005]], `fill="${T.top}" fill-opacity=".75"`);
+    for (let y = G.y1 + 1.0; y < 15.6; y += 1.0) s += `<path d="${path3([[G.x0, y, 0.006], [G.x1, y, 0.006]])}" stroke="${T.line}" stroke-opacity=".35" stroke-width=".6"/>`;
+    for (let k = 0; k < 4; k += 1) s += poly([[10.6, 9.4 + k * 0.85, 0.01], [11.5, 9.4 + k * 0.85, 0.01], [11.5, 9.9 + k * 0.85, 0.01], [10.6, 9.9 + k * 0.85, 0.01]], `fill="${T.top}" fill-opacity=".7"`);
+    return s;
+  }
+
+  // Where the current runs. A route per thing that is there.
+  function routes(m) {
+    const y1 = HOUSE.y1;
+    const ym = (HOUSE.y0 + HOUSE.y1) / 2;
+    const pitch = (HOUSE.ridge - HOUSE.h) / (ym - HOUSE.y0);
+    const eave = HOUSE.h - HOUSE.over * pitch;
+    const at = (x, k, lift = 0.05) => [x, y1 + HOUSE.over + (ym - y1 - HOUSE.over) * k, eave + (HOUSE.ridge - eave) * k + lift];
+    const r = {
+      home: [[9.9, y1 + 0.02, 1.5], [11.0, y1 + 0.02, 1.5]],
+      grid: [[9.65, y1 + 0.02, 1.05], [9.65, y1 + 0.02, 0.02], [9.65, 11.6, 0.02], [19.5, 11.6, 0.02]],
+    };
+    if (m.solar) r.sun = [at(HOUSE.x1 - 0.55, 0.12), [13.9, y1 + HOUSE.over, eave - 0.1], [13.9, y1 + 0.02, eave - 0.3], [13.9, y1 + 0.02, 1.35], [9.9, y1 + 0.02, 1.35]];
+    if (m.battery) r.battery = [[9.4, y1 + 0.02, 1.35], [8.95, y1 + 0.02, 1.35], [8.55, y1 + 0.33, 1.35]];
+    if (m.heat) r.heat = [[13.9, y1 + 0.02, 0.3], [13.9, y1 + 0.02, 0.05], [14.6, 8.6, 0.02], [14.9, 8.12, 0.3]];
+    m.chargers.slice(0, 2).forEach((_, i) => {
+      const bx = BOX[i].x + 0.18;
+      r[`car${i}`] = [[9.55, y1 + 0.02, 1.05], [9.55, y1 + 0.02, 0.3], [9.35, y1 + 0.02, 0.02], [9.35, 9.92, 0.02], [bx, 9.92, 0.02], [bx, GARAGE.y1 + 0.02, 0.4], [bx, GARAGE.y1 + 0.02, 0.95]];
+    });
+    return r;
+  }
+
+  const ANCHORS = (m) => {
+    const a = { home: [12.2, HOUSE.y1 + 0.01, 2.2], grid: [17.6, 11.6, 0.2] };
+    if (m.solar) a.sun = [10.4, 7.0, 4.2];
+    if (m.battery) a.battery = [8.55, HOUSE.y1 + 0.3, 1.9];
+    if (m.heat) a.heat = [15.25, 7.8, 1.1];
+    m.cars.slice(0, 2).forEach((c, i) => {
+      const b = BODIES[c.body] || BODIES.sedan;
+      a[`car${i}`] = [SLOTS[i].x + b.Wd / 2, SLOTS[i].y + b.L * 0.45, b.pts.reduce((h, p) => Math.max(h, p[1]), 0)];
+    });
+    return a;
+  };
+  // Where the labels sit (% of the picture), out of the way of the house.
+  const SLOT = { sun: [62, 8], home: [86, 36], battery: [44, 93], grid: [86, 92], heat: [88, 64], car0: [12, 30], car1: [30, 12] };
+
+  /* ------------------------------------------------------------ the scene */
+
+  function defs() {
+    return `<defs>
+      <linearGradient id="cs-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F4F5F8"/><stop offset="1" stop-color="#E9ECF1"/></linearGradient>
+      <radialGradient id="cs-ground" cx=".5" cy=".55" r=".6"><stop offset="0" stop-color="${T.ground}"/><stop offset="1" stop-color="${T.ground}" stop-opacity="0"/></radialGradient>
+      <linearGradient id="cs-glass" x1="0" y1="0" x2=".7" y2="1"><stop offset="0" stop-color="${T.glassHi}"/><stop offset=".5" stop-color="${T.glass}"/><stop offset="1" stop-color="${mix(T.glass, "#000000", 0.08)}"/></linearGradient>
+      <linearGradient id="cs-sheen" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+      <radialGradient id="cs-ball" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="${T.tree[0]}"/><stop offset="1" stop-color="${T.tree[1]}"/></radialGradient>
+      <linearGradient id="cs-side" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".16"/></linearGradient>
+      <radialGradient id="cs-glowg"><stop offset="0" stop-color="${FLOW.car}" stop-opacity=".5"/><stop offset="1" stop-color="${FLOW.car}" stop-opacity="0"/></radialGradient>
+      <filter id="cs-shadow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="9"/></filter>
+      <filter id="cs-blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3.5"/></filter>
+      <filter id="cs-line" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.4"/></filter>
+    </defs>`;
+  }
+
+  class Scene {
+    constructor() {
+      this.el = document.createElement("div");
+      this.el.className = "cscene";
+      this.key = "";
+    }
+
+    _key(m) {
+      return JSON.stringify([!!m.solar, !!m.battery, !!m.heat, m.chargers.length, m.cars.map((c) => [c.body, c.paint, !!c.plugged, !!c.charging, c.charger])]);
+    }
+
+    update(m) {
+      this.model = m;
+      const key = this._key(m);
+      if (key !== this.key) {
+        this.key = key;
+        this._build(m);
+      }
+      this._live(m);
+      this._labels(m);
+    }
+
+    _build(m) {
+      const cars = m.cars.slice(0, 2);
+      const boxes = m.chargers.slice(0, 2);
+      this.routes = routes(m);
+      let s = `<rect width="${W}" height="${H}" fill="url(#cs-bg)"/><ellipse cx="${W / 2}" cy="${H * 0.62}" rx="${W * 0.62}" ry="${H * 0.42}" fill="url(#cs-ground)"/>`;
+      s += scene(m);
+      // Chargers on the garage wall; a cable rolled up beside one whose car is not plugged in.
+      const plugged = new Set(cars.filter((c) => c.plugged).map((c, i) => c.charger ?? i));
+      boxes.forEach((_, i) => {
+        s += wallbox(BOX[i].x, GARAGE.y1, cars.some((c, j) => (c.charger ?? j) === i && c.charging));
+        if (!plugged.has(i)) s += coil(BOX[i].x + 0.42, GARAGE.y1, 1.55);
+      });
+      // Lines where the current runs: faint, glowing when it flows.
+      for (const [k, r] of Object.entries(this.routes)) {
+        const color = FLOW[k.startsWith("car") ? "car" : k];
+        s += `<g class="cs-route" data-route="${k}" style="--c:${color}"><path class="cs-track" d="${path3(r)}"/><path class="cs-glow" d="${path3(r)}"/><path class="cs-core" d="${path3(r)}"/><path class="cs-pulse" d="${path3(r)}"/></g>`;
+      }
+      // The cars, the far one first, each with its cable when it is plugged in.
+      cars.forEach((c, i) => {
+        const slot = SLOTS[i];
+        s += `<g class="cs-car">${car(slot.x, slot.y, c.body, c.paint, { charging: c.charging })}</g>`;
+        const box = c.charger ?? i;
+        if (c.plugged && box < boxes.length) {
+          const from = [BOX[box].x + 0.18, GARAGE.y1 + 0.15, 0.95];
+          const to = portOf(slot.x, slot.y, c.body);
+          const d = cable(from, to);
+          s += `<path class="cs-cable" d="${d}"/><path class="cs-cable-hi" d="${d}"/>${c.charging ? `<path class="cs-cable-live" d="${d}"/>` : ""}`;
+        }
+      });
+      this.el.innerHTML = `<svg class="cs-main" viewBox="0 0 ${W} ${H}" aria-hidden="true">${defs()}${s}</svg><svg class="cs-leaders" viewBox="0 0 ${W} ${H}" aria-hidden="true"></svg><div class="cs-labels"></div>`;
+      this.svg = this.el.querySelector("svg");
+      this.view = null;
+      this._fit();
+      if (!this.resize && window.ResizeObserver) {
+        this.resize = new ResizeObserver(() => this._fit());
+        this.resize.observe(this.el);
+      }
+    }
+
+    // On a narrow screen, closer in: less sky and ground around the house.
+    _fit() {
+      const narrow = (this.el.clientWidth || W) < 560;
+      const view = narrow ? [40, 70, 720, 470] : [0, 0, W, H];
+      if (this.view && this.view.join() === view.join()) return;
+      this.view = view;
+      for (const svg of this.el.querySelectorAll("svg")) svg.setAttribute("viewBox", view.join(" "));
+      if (this.model) this._labels(this.model);
+    }
+
+    _live(m) {
+      const flows = m.flows || {};
+      for (const g of this.el.querySelectorAll(".cs-route")) {
+        const k = g.dataset.route;
+        const v = Number(flows[k]) || 0;
+        g.classList.toggle("live", Math.abs(v) > 0.05);
+        g.classList.toggle("back", v < -0.05);
+        g.style.setProperty("--speed", `${Math.max(0.8, 3.2 - Math.sqrt(Math.abs(v)) * 0.7).toFixed(2)}s`);
+      }
+    }
+
+    _labels(m) {
+      const anchors = ANCHORS(m);
+      const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+      let lines = "";
+      let html = "";
+      for (const label of m.labels || []) {
+        const anchor = anchors[label.key];
+        const slot = SLOT[label.key];
+        if (!anchor || !slot) continue;
+        const [ax, ay] = P(...anchor);
+        const [vx, vy, vw, vh] = this.view || [0, 0, W, H];
+        const sx = Math.min(vx + vw - 20, Math.max(vx + 20, slot[0] * 8));
+        const sy = Math.min(vy + vh - 14, Math.max(vy + 14, slot[1] * 5.6));
+        const left = Math.min(94, Math.max(6, ((sx - vx) / vw) * 100)).toFixed(2);
+        const top = Math.min(93, Math.max(8, ((sy - vy) / vh) * 100)).toFixed(2);
+        const color = label.on ? (label.key === "sun" ? FLOW.sun : FLOW.home) : "#9AA3B2";
+        lines += `<path d="M${f1(sx)} ${f1(sy)} L${f1(ax)} ${f1(ay)}" class="cs-leader"/><circle cx="${f1(ax)}" cy="${f1(ay)}" r="3" fill="${color}" stroke="#fff" stroke-width="1.2"/>`;
+        const bar = Number.isFinite(label.bar) ? `<i class="cs-bar"><i style="width:${Math.max(0, Math.min(100, label.bar))}%"></i></i>` : "";
+        const edge = Number(left) >= 80 ? "right" : Number(left) <= 16 ? "left" : "";
+        html += `<div class="cs-label ${label.on ? "on" : ""} ${label.key === "sun" ? "sun" : ""} ${edge}" style="left:${left}%;top:${top}%"><span class="cs-row"><span class="cs-dot"></span><span class="cs-t">${esc(label.title)}</span><span class="cs-v">${esc(label.value)}</span>${label.short ? `<span class="cs-s">${esc(label.short)}</span>` : ""}</span>${bar}</div>`;
+      }
+      this.el.querySelector(".cs-leaders").innerHTML = lines;
+      this.el.querySelector(".cs-labels").innerHTML = html;
+    }
+  }
+
+  Scene.BODIES = Object.keys(BODIES);
+  Scene.preview = (kind, paint) => {
+    const body = BODIES[kind] || BODIES.sedan;
+    const [cx, cy] = P(8.5, 2.6 + body.L / 2, 0.75);
+    return `<svg viewBox="${f1(cx - 95)} ${f1(cy - 62)} 190 124" xmlns="http://www.w3.org/2000/svg">${defs()}<rect x="${f1(cx - 95)}" y="${f1(cy - 62)}" width="190" height="124" fill="url(#cs-bg)"/>${car(8.5 - body.Wd / 2, 2.6, kind, paint)}</svg>`;
+  };
+  return Scene;
+})();
+
+const CLAY_CSS = `
+.cscene { position: relative; border-radius: 18px; overflow: hidden; container-type: inline-size; background: #EEF1F5; }
+.cscene svg { display: block; width: 100%; height: auto; }
+.cscene .cs-leaders { position: absolute; inset: 0; height: 100%; pointer-events: none; }
+.cscene .cs-leader { stroke: #9AA3B2; stroke-width: 1.1; fill: none; }
+.cscene .cs-track { fill: none; stroke: #CBD1DA; stroke-width: 1.4; stroke-linejoin: round; }
+.cscene .cs-glow, .cscene .cs-core, .cscene .cs-pulse { fill: none; stroke-linejoin: round; stroke-linecap: round; opacity: 0; transition: opacity .6s; }
+.cscene .cs-glow { stroke: var(--c); stroke-width: 5; stroke-opacity: .45; filter: url(#cs-line); }
+.cscene .cs-core { stroke: var(--c); stroke-width: 1.8; }
+.cscene .cs-pulse { stroke: #fff; stroke-width: 2; stroke-dasharray: 6 46; animation: cs-run var(--speed, 2s) linear infinite; }
+.cscene .cs-route.back .cs-pulse { animation-direction: reverse; }
+.cscene .cs-route.live .cs-glow, .cscene .cs-route.live .cs-core, .cscene .cs-route.live .cs-pulse { opacity: 1; }
+.cscene .cs-route.live .cs-track { opacity: 0; }
+.cscene .cs-cable { fill: none; stroke: #2D3137; stroke-width: 3; stroke-linecap: round; }
+.cscene .cs-cable-hi { fill: none; stroke: #fff; stroke-opacity: .22; stroke-width: 1; stroke-linecap: round; transform: translate(-.6px, -.6px); }
+.cscene .cs-cable-live { fill: none; stroke: #22C981; stroke-width: 1.2; stroke-linecap: round; stroke-dasharray: 5 30; animation: cs-run 1.6s linear infinite; }
+.cscene .cs-port { fill: #9AA3AD; }
+.cscene .cs-port.on { fill: #22C981; }
+.cscene .cs-boxled { fill: #CBD1DA; }
+.cscene .cs-boxled.on { fill: #22C981; animation: cs-breathe 1.8s ease-in-out infinite; }
+.cscene .cs-carglow { animation: cs-breathe 2.4s ease-in-out infinite; }
+.cscene .cs-sheen { opacity: .0; animation: cs-sheen 6s ease-in-out infinite; }
+.cscene .cs-fan { transform-box: fill-box; transform-origin: center; animation: cs-spin 1.6s linear infinite; }
+.cscene .cs-labels { position: absolute; inset: 0; pointer-events: none; }
+.cs-label { position: absolute; transform: translate(-50%, -50%); width: max-content; background: #111418; color: #fff; border-radius: 7px; padding: 5px 9px 6px; font-size: 12.5px; font-weight: 500; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 6px 16px rgba(0,0,0,.16); }
+.cs-label.right { transform: translate(-80%, -50%); }
+.cs-label.left { transform: translate(-25%, -50%); }
+.cs-label .cs-row { display: flex; align-items: center; gap: 6px; }
+.cs-label .cs-dot { width: 7px; height: 7px; border-radius: 50%; background: #6B7280; flex: none; }
+.cs-label.on .cs-dot { background: #22C981; }
+.cs-label.on.sun .cs-dot { background: #F5B92E; }
+.cs-label .cs-v { color: #AEB6C2; font-variant-numeric: tabular-nums; }
+.cs-label .cs-s { display: none; color: #AEB6C2; }
+.cs-label .cs-bar { display: block; height: 4px; border-radius: 3px; background: #3A3F47; overflow: hidden; }
+.cs-label .cs-bar i { display: block; height: 100%; background: #22C981; border-radius: 3px; }
+@container (max-width: 560px) {
+  .cs-label { font-size: 10px; padding: 3px 6px 4px; gap: 3px; border-radius: 6px; }
+  .cs-label .cs-v { display: none; } .cs-label .cs-s { display: inline; } .cs-label .cs-bar { height: 3px; }
+}
+@keyframes cs-run { to { stroke-dashoffset: -52; } }
+@keyframes cs-breathe { 50% { opacity: .45; } }
+@keyframes cs-sheen { 0%, 60% { opacity: 0; } 80% { opacity: .5; } 100% { opacity: 0; } }
+@keyframes cs-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .cscene * { animation: none !important; } }
+`;
+
 class EvPlannerPanel extends HTMLElement {
   constructor() {
     super();
@@ -1913,7 +2460,7 @@ class EvPlannerPanel extends HTMLElement {
     // Keep the focus on the same control across a fresh render.
     const focus = this.shadowRoot.activeElement?.dataset?.f;
     const car = this._currentCar;
-    if (this._tab === "home" && !this._state.supply) this._tab = "cars";
+    if (this._tab === "home" && !this._homeShown) this._tab = "cars";
     if (this._tab === "guest") content.innerHTML = this._guestHtml();
     else if (this._tab === "home") content.innerHTML = this._homeHtml();
     else if (this._tab === "history") content.innerHTML = this._historyHtml();
@@ -1921,6 +2468,7 @@ class EvPlannerPanel extends HTMLElement {
     else if (car) content.innerHTML = this._carPageHtml(car);
     else if (this._currentCharger) content.innerHTML = this._chargerPageHtml(this._currentCharger);
     else content.innerHTML = this._overviewHtml();
+    if (this._tab === "home") this._mountScene();
     if (this._tab === "guest") {
       this._bindBattery();
       this._renderGuestHead();
@@ -1939,7 +2487,7 @@ class EvPlannerPanel extends HTMLElement {
   _renderTabs() {
     const nav = this.shadowRoot.querySelector(".tabs");
     const problems = this._cars.filter((v) => v.problem || v.control_error).length;
-    const html = TABS.filter((tab) => tab !== "home" || this._state.supply).map((tab) => {
+    const html = TABS.filter((tab) => tab !== "home" || this._homeShown).map((tab) => {
       const on = this._tab === tab;
       const icon = { cars: "car", home: "home", guest: "guest", history: "history", settings: "settings" }[tab];
       const badge = tab === "cars" && problems ? `<em class="bad" aria-label="${problems}">${problems}</em>` : "";
@@ -3303,6 +3851,22 @@ class EvPlannerPanel extends HTMLElement {
         control: `${s.topup ? this._valueHtml("topup_level", s.topup_level ?? 80, { unit: "%", min: 10, max: 100, label: this._t("rule_topup") }) : ""}${this._switchHtml("topup", s.topup, this._t("rule_topup"))}`,
       }),
     );
+    {
+      const body = ClayScene.BODIES.includes(s.body) ? s.body : "sedan";
+      const paint = s.paint === "black" ? "black" : "white";
+      const seg = (act, values, current, label) => `<div class="segmented opp" role="radiogroup" aria-label="${label}">${values.map(
+        (value) => `<button role="radio" data-act="${act}" data-value="${value}" data-f="${act}-${value}" aria-checked="${value === current}" class="${value === current ? "on" : ""}">${this._t(`${act}_${value}`)}</button>`,
+      ).join("")}</div>`;
+      rows.push(
+        this._ruleRow({
+          icon: "car",
+          title: this._t("rule_look"),
+          hint: this._t("rule_look_hint"),
+          control: "",
+          extra: `<div class="rule-under carlook">${seg("body", ClayScene.BODIES, body, this._t("rule_look"))}${seg("paint", ["white", "black"], paint, this._t("rule_look"))}</div>`,
+        }),
+      );
+    }
     if (this._state.solar) {
       const mode = ["surplus", "only"].includes(s.solar) ? s.solar : "off";
       rows.push(
@@ -3818,40 +4382,96 @@ class EvPlannerPanel extends HTMLElement {
     return ["var(--evp-a)", "var(--evp-b)", "var(--evp-coral)", "var(--evp-sand)"][index % 4];
   }
 
+  get _homeShown() {
+    return !!(this._state?.supply || this._state?.solar || this._cars.length);
+  }
+
+  /* The house is made once and moved into each fresh page, so its motion goes on. */
+  _mountScene() {
+    const slot = this.shadowRoot.querySelector(".scene-slot");
+    if (!slot) return;
+    if (!this._scene) this._scene = new ClayScene();
+    slot.appendChild(this._scene.el);
+    this._scene.update(this._sceneModel());
+  }
+
+  _sceneModel() {
+    const supply = this._state.supply;
+    const solar = this._state.solar;
+    const phases = Number(supply?.phases) || 3;
+    const kwOfAmps = (a) => (Number(a) || 0) * 0.23 * phases;
+    const power = (kw) => (Math.abs(kw) < 1 ? `${Math.round(Math.abs(kw) * 1000)} W` : `${this._num(Math.abs(kw), 1)} kW`);
+    const chargers = this._chargers.slice(0, 2);
+    const cars = this._cars.filter((v) => v.home !== false).slice(0, 2);
+    const carKw = (v) => {
+      if (!v.charging) return 0;
+      const amps = supply?.cars_now?.[v.id] ?? solar?.cars?.[v.id]?.amps;
+      return isNum(amps) ? kwOfAmps(amps) : Number(v.charge_power) || 0;
+    };
+    const carsKw = cars.reduce((sum, v) => sum + carKw(v), 0);
+    const sunKw = isNum(solar?.solar_kw) ? Number(solar.solar_kw) : null;
+    const battery = solar?.battery || null;
+    const gridKw = isNum(solar?.grid_kw)
+      ? Number(solar.grid_kw)
+      : supply && isNum(supply.house_now) ? kwOfAmps(supply.house_now) + carsKw : null;
+    let houseKw = null;
+    if (isNum(solar?.grid_kw)) houseKw = Math.max(0, Number(solar.grid_kw) + (sunKw || 0) - (Number(battery?.kw) || 0) - carsKw);
+    else if (supply && isNum(supply.house_now)) houseKw = kwOfAmps(supply.house_now);
+    const flows = { sun: sunKw || 0, battery: Number(battery?.kw) || 0, home: houseKw || 0, grid: gridKw === null ? 0 : -gridKw };
+    const labels = [];
+    if (solar) labels.push({ key: "sun", title: this._t("home_solar"), value: sunKw === null ? "–" : power(sunKw), short: sunKw === null ? "–" : power(sunKw), on: (sunKw || 0) > 0.05 });
+    labels.push({ key: "home", title: this._t("home_house"), value: houseKw === null ? "–" : power(houseKw), short: houseKw === null ? "–" : power(houseKw), on: (houseKw || 0) > 0.05 });
+    if (battery) {
+      const kw = Number(battery.kw) || 0;
+      const soc = isNum(battery.soc) ? this._pct(battery.soc) : "–";
+      const doing = Math.abs(kw) < 0.05 ? "" : ` · ${this._t(kw > 0 ? "home_charges" : "home_gives", { kw: power(kw) })}`;
+      labels.push({ key: "battery", title: this._t("home_battery"), value: `${soc}${doing}`, short: soc, on: Math.abs(kw) > 0.05, bar: isNum(battery.soc) ? Number(battery.soc) : undefined });
+    }
+    if (gridKw !== null) {
+      const text = Math.abs(gridKw) < 0.05 ? "0 W" : this._t(gridKw > 0 ? "home_buys" : "home_sells", { kw: power(gridKw) });
+      labels.push({ key: "grid", title: this._t("home_grid"), value: text, short: Math.abs(gridKw) < 0.05 ? "0 W" : power(gridKw), on: Math.abs(gridKw) > 0.05 });
+    }
+    const model = {
+      solar: solar ? { kw: sunKw } : null,
+      battery,
+      heat: this._state.heat_pump || null,
+      chargers,
+      cars: [],
+      flows,
+      labels,
+    };
+    cars.forEach((v, i) => {
+      const kw = carKw(v);
+      const soc = isNum(v.soc) ? this._pct(v.soc) : "";
+      const plugged = v.connected === true || (v.connected == null && !!v.charging);
+      const charger = chargers.findIndex((c) => c.id === v.charger?.id);
+      const settings = v.settings || {};
+      model.cars.push({
+        id: v.id,
+        body: settings.body || "sedan",
+        paint: settings.paint === "black" ? "black" : "white",
+        plugged,
+        charging: kw > 0.05,
+        charger: charger >= 0 ? charger : i,
+      });
+      flows[`car${i}`] = kw;
+      const doing = kw > 0.05 ? power(kw) : plugged ? this._t("home_idle") : this._t("home_unplugged");
+      labels.push({ key: `car${i}`, title: v.name, value: [soc, doing].filter(Boolean).join(" · "), short: soc || doing, on: kw > 0.05, bar: isNum(v.soc) ? Number(v.soc) : undefined });
+    });
+    return model;
+  }
+
   _homeHtml() {
     const supply = this._state.supply;
+    const scene = `<section class="panel home-flow"><div class="panel-head"><h2>${esc(this._t("home_title"))}</h2></div>
+        <div class="scene-slot" role="img" aria-label="${esc(this._t("home_title"))}"></div>`;
+    if (!supply) return `<div class="home-page">${scene}</section></div>`;
     const amps = (a) => `${Math.round(Number(a))} A`;
     const cars = this._cars.filter((v) => v.connected);
-    const now = (supply.timeline || [])[0];
     const house = isNum(supply.house_now) ? Number(supply.house_now) : isNum(supply.house_expected) ? Number(supply.house_expected) : 0;
     const carAmps = (v) => Number(supply.cars_now?.[v.id] ?? (v.charging ? supply.cars?.[v.id] : 0) ?? 0) || 0;
     const used = house + cars.reduce((sum, v) => sum + carAmps(v), 0);
     const limit = Number(supply.limit);
-    // The energy flow: the grid feeds the house, the house feeds the cars.
-    const W = 360, rowH = 100, H = Math.max(190, 30 + cars.length * rowH);
-    const carY = (i) => H / 2 - 12 + (i - (cars.length - 1) / 2) * rowH;
-    const node = (x, y, icon, label, value, color) => `<g class="fl-node" transform="translate(${x} ${y})">
-        <circle r="30" style="stroke:${color}"/><g class="fl-icon" transform="translate(-12 -14)">${ICONS[icon] || ""}</g>
-        <text class="fl-label" y="46" text-anchor="middle">${esc(label)}</text><text class="fl-value" y="62" text-anchor="middle">${esc(value)}</text></g>`;
-    const line = (x1, y1, x2, y2, a, color) => {
-      const live = a > 0.5;
-      const speed = live ? Math.max(0.6, 4 - a / 6).toFixed(2) : 0;
-      return `<path class="fl-line ${live ? "live" : ""}" d="M${x1} ${y1} C ${(x1 + x2) / 2} ${y1}, ${(x1 + x2) / 2} ${y2}, ${x2} ${y2}"
-        style="stroke:${color};stroke-width:${live ? 2 + Math.min(6, a / 3) : 1.5};${live ? `animation-duration:${speed}s` : ""}"/>`;
-    };
-    const houseY = H / 2 - 12;
-    let svg = line(70, houseY, 150, houseY, used, "var(--evp-soft)");
-    cars.forEach((v, i) => {
-      const y = carY(i);
-      svg += line(210, houseY, 290, y, carAmps(v), this._carColor(i));
-    });
-    svg += node(40, houseY, "grid", this._t("home_grid"), amps(used), "var(--evp-soft)");
-    svg += node(180, houseY, "home", this._t("home_house"), amps(house), "var(--evp-ink)");
-    cars.forEach((v, i) => {
-      const y = carY(i);
-      const a = carAmps(v);
-      svg += node(320, y, "car", v.name, a > 0.5 ? amps(a) : this._t("home_idle"), this._carColor(i));
-    });
     const share = Math.min(1, used / limit);
     const gauge = `<div class="home-gauge" role="img" aria-label="${esc(this._t("home_used", { used: amps(used), limit: amps(limit) }))}">
         <div class="hg-house" style="width:${Math.min(100, (house / limit) * 100)}%"></div>${cars.map((v, i) => `<div style="width:${Math.min(100, (carAmps(v) / limit) * 100)}%;background:${this._carColor(i)}"></div>`).join("")}
@@ -3880,18 +4500,17 @@ class EvPlannerPanel extends HTMLElement {
     const why = [];
     const charging = cars.filter((v) => rows.some((r) => r.cars?.[v.id]));
     if (!charging.length) why.push(this._t("home_why_none"));
-    if (supply.guard) why.push(this._t("home_guard"));
-    else {
+    {
       const first = [...charging].sort((a, b) => rows.findIndex((r) => r.cars?.[a.id]) - rows.findIndex((r) => r.cars?.[b.id]))[0];
       const together = rows.some((r) => charging.filter((v) => r.cars?.[v.id]).length > 1);
       if (charging.length > 1) why.push(together ? this._t("home_why_share") : this._t("home_why_turns"));
       if (charging.length > 1 && first?.deadline) why.push(this._t("home_why_first", { name: first.name, time: this._time(first.deadline) }));
     }
     for (const v of cars) if (isNum(supply.short?.[v.id])) why.push(this._t("home_why_short", { name: v.name, kwh: this._kwh(supply.short[v.id]) }));
+    if (supply.guard) why.push(this._t("home_guard"));
     const legend = `<div class="home-legend"><span><i style="background:var(--evp-line)"></i>${esc(this._t("home_house"))}</span>${cars.map((v, i) => `<span><i style="background:${this._carColor(i)}"></i>${esc(v.name)}</span>`).join("")}</div>`;
     return `<div class="home-page">
-      <section class="panel home-flow"><div class="panel-head"><h2>${esc(this._t("home_title"))}</h2></div>
-        <svg class="flowmap" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(this._t("home_title"))}">${svg}</svg>
+      ${scene}
         ${gauge}
         <p class="hint">${esc(isNum(supply.house_now) ? this._t("home_house_now", { amps: amps(supply.house_now) }) : supply.meter ? this._t("home_house_expected", { amps: amps(house) }) : this._t("home_no_meter", { amps: amps(house) }))}</p>
       </section>
@@ -4226,6 +4845,12 @@ class EvPlannerPanel extends HTMLElement {
         break;
       case "solar":
         this._vchange({ solar: button.dataset.value });
+        break;
+      case "body":
+        this._vchange({ body: button.dataset.value });
+        break;
+      case "paint":
+        this._vchange({ paint: button.dataset.value });
         break;
       case "ceilmode":
         this._vchange({ price_ceiling_relative: button.dataset.value === "1" });
@@ -4803,15 +5428,9 @@ input[type="text"], .unit-input { border: 1px solid var(--evp-line); border-radi
 .unit-input.small { width: auto; padding: 0 10px; gap: 4px; border-radius: 999px; }
 
 .home-page { display: grid; gap: 14px; }
-.flowmap { width: 100%; height: auto; display: block; }
-.fl-node circle { fill: var(--evp-card); stroke-width: 2.5; }
-.fl-icon svg { width: 24px; height: 24px; fill: none; stroke: var(--evp-ink); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.fl-label { font-size: 12px; fill: var(--evp-soft); }
-.fl-value { font-size: 13px; font-weight: 600; fill: var(--evp-ink); font-variant-numeric: tabular-nums; }
-.fl-line { fill: none; opacity: .35; stroke-linecap: round; }
-.fl-line.live { opacity: 1; stroke-dasharray: 2 9; animation: evp-flow 2s linear infinite; }
-@keyframes evp-flow { to { stroke-dashoffset: -22; } }
-@media (prefers-reduced-motion: reduce) { .fl-line.live { animation: none; stroke-dasharray: none; } }
+${CLAY_CSS}
+.home-flow .cscene { margin: 4px auto 12px; max-width: 980px; }
+.carlook { display: flex; flex-wrap: wrap; gap: 8px; }
 .home-gauge { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: color-mix(in srgb, var(--evp-ink) 8%, transparent); margin-top: 6px; }
 .home-gauge .hg-house { background: var(--evp-line); }
 .home-gauge-text { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--evp-soft); margin-top: 6px; font-variant-numeric: tabular-nums; }
