@@ -91,6 +91,15 @@ NO_CHARGER: Final = "none"
 # Charger
 CONF_POWER: Final = "power"
 CONF_SWITCH_ENTITY: Final = "switch_entity"
+# A number entity that sets the charging current (A): on the car (Tesla's charging amps) or the charger.
+CONF_CURRENT_ENTITY: Final = "current_entity"
+# Shared supply (options): the most the house may draw per phase, its phases, the meter and,
+# without a meter, what the house is expected to draw.
+CONF_SUPPLY_LIMIT: Final = "supply_limit"
+CONF_SUPPLY_PHASES: Final = "supply_phases"
+CONF_SUPPLY_METER: Final = "supply_meter"
+CONF_SUPPLY_RESERVE: Final = "supply_reserve"
+DEFAULT_SUPPLY_RESERVE: Final = 6.0
 CONF_ENERGY_ENTITY: Final = "energy_entity"
 
 # ----------------------------------------------------------------------
@@ -143,6 +152,13 @@ SET_EARLY_WITHIN: Final = "early_within"
 # Charge to ``topup_level`` at the cheapest prices, and the rest just before the ready-by time.
 SET_TOPUP_ENABLED: Final = "topup"
 SET_TOPUP_LEVEL: Final = "topup_level"
+# Shared supply: what a car must have by its ready-by time before other cars fill up (0: its whole target),
+# and whether it comes first when there is not enough for every car.
+SET_MUST_SOC: Final = "must_soc"
+SET_PRIORITY: Final = "priority"
+PRIORITY_NORMAL: Final = "normal"
+PRIORITY_FIRST: Final = "first"
+PRIORITY_OPTIONS: Final = [PRIORITY_NORMAL, PRIORITY_FIRST]
 # A target per weekday of the ready-by time: {"fri": 100}.
 SET_DAY_TARGETS: Final = "day_targets"
 
@@ -205,6 +221,8 @@ DEFAULT_VEHICLE_SETTINGS: Final[dict[str, object]] = {
     SET_EARLY_WITHIN: 0.02,
     SET_TOPUP_ENABLED: False,
     SET_TOPUP_LEVEL: 80.0,
+    SET_MUST_SOC: 0.0,
+    SET_PRIORITY: PRIORITY_NORMAL,
     SET_DAY_TARGETS: {},
 }
 

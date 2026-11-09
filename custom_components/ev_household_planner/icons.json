@@ -56,6 +56,9 @@
       "price_ceiling": {
         "default": "mdi:cash-lock"
       },
+      "must_soc": {
+        "default": "mdi:battery-check"
+      },
       "price_ceiling_above": {
         "default": "mdi:chart-bell-curve-cumulative"
       },
@@ -111,6 +114,9 @@
       },
       "guest_charger": {
         "default": "mdi:ev-station"
+      },
+      "priority": {
+        "default": "mdi:priority-high"
       }
     },
     "sensor": {

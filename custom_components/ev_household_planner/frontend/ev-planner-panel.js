@@ -61,6 +61,13 @@ const TEXT = {
     rule_early: "Hellere tidligt",
     rule_early_hint: "Lader så tidligt som muligt, når det højst koster lidt mere pr. kWh end den billigste plan.",
     rule_topup: "Top op før afgang",
+    supply_note: "Fælles forsyning: {amps} nu · huset ventes at trække {house} af {limit}.",
+    supply_wait: "Fælles forsyning: venter på sin tur · huset ventes at trække {house} af {limit}.",
+    supply_short: "Fælles forsyning: der er ikke strøm nok til hele målet – {kwh} mangler.",
+    rule_must: "Skal have til klar-tiden",
+    rule_must_hint: "Ved fælles forsyning får alle biler først det, de skal have; så fyldes de op efter prioritet. 0 = hele målet.",
+    priority_normal: "Normal",
+    priority_first: "Først",
     rule_topup_hint: "Lader til {level} når det er billigst, og resten lige før klar-tiden.",
     notify_receipt: "Morgenkvittering og advarsler",
     notify_receipt_hint: "En besked ved klar-tiden om, hvordan det gik, og en advarsel hvis bilen ikke kan nå målet.",
@@ -472,6 +479,13 @@ const TEXT = {
     rule_early: "Prefer early",
     rule_early_hint: "Charges as early as possible when that costs at most a little more per kWh than the cheapest plan.",
     rule_topup: "Top up before departure",
+    supply_note: "Shared supply: {amps} now · the house is expected to draw {house} of {limit}.",
+    supply_wait: "Shared supply: waiting for its turn · the house is expected to draw {house} of {limit}.",
+    supply_short: "Shared supply: not enough current for the whole target – {kwh} short.",
+    rule_must: "Must have by the ready-by time",
+    rule_must_hint: "On a shared supply every car first gets what it must have; then they fill up by priority. 0 = the whole target.",
+    priority_normal: "Normal",
+    priority_first: "First",
     rule_topup_hint: "Charges to {level} when it is cheapest, and the rest just before the ready-by time.",
     notify_receipt: "Morning receipt and warnings",
     notify_receipt_hint: "A message at the ready-by time on how it went, and a warning when the car cannot reach its target.",
@@ -2014,6 +2028,16 @@ class EvPlannerPanel extends HTMLElement {
     }
     if (!compact && v.resumes === false) notes.push(["info", this._t("note_no_resume", { name: v.name }), "forget-resume"]);
     if (!compact && this._state.price_issue) notes.push(["warn", this._t(`price_issue_${this._state.price_issue}`)]);
+    const supply = this._state.supply;
+    if (!compact && supply && v.connected && plan) {
+      const amps = (a) => `${Math.round(Number(a))} A`;
+      const house = isNum(supply.house_expected) ? amps(supply.house_expected) : "–";
+      notes.push(["info", isNum(v.supply_amps)
+        ? this._t("supply_note", { amps: amps(v.supply_amps), house, limit: amps(supply.limit) })
+        : this._t("supply_wait", { house, limit: amps(supply.limit) })]);
+      const short = supply.short?.[v.id];
+      if (isNum(short)) notes.push(["warn", this._t("supply_short", { kwh: this._kwh(short) })]);
+    }
     if (plan) {
       if (plan.min_only) notes.push(["warn", this._t("note_min_only")]);
       else if (plan.limited) notes.push(["warn", this._t("note_limited")]);
@@ -2929,7 +2953,7 @@ class EvPlannerPanel extends HTMLElement {
     this._renderStatusLine(kind, text);
     const extra = shown.plan && isNum(shown.plan.end_soc) ? [[this._t("target"), this._pct(shown.plan.end_soc)]] : [];
     this._renderFacts(shown.plan, extra);
-    this._patch(root.querySelector(".car-notes"), JSON.stringify([v.problem, v.control_error, v.car_limit, v.target, v.resumes, this._state.price_issue, shown.plan && [shown.plan.limited, shown.plan.min_only, shown.plan.short, shown.plan.opportunistic, shown.plan.ceiling], shown.deadline, this._lang]), this._notesHtml(v, shown.plan ? { ...shown.plan, deadline: shown.deadline } : null));
+    this._patch(root.querySelector(".car-notes"), JSON.stringify([v.problem, v.control_error, v.car_limit, v.target, v.resumes, this._state.price_issue, this._state.supply, v.supply_amps, v.connected, shown.plan && [shown.plan.limited, shown.plan.min_only, shown.plan.short, shown.plan.opportunistic, shown.plan.ceiling], shown.deadline, this._lang]), this._notesHtml(v, shown.plan ? { ...shown.plan, deadline: shown.deadline } : null));
     const glance = root.querySelector(".car-page .glance");
     if (glance) glance.textContent = this._glanceText(v, shown);
     const why = root.querySelector(".car-page .why");
@@ -3106,7 +3130,7 @@ class EvPlannerPanel extends HTMLElement {
 
   _ruleValues(s) {
     return [
-      "min_soc", "price_ceiling_enabled", "price_ceiling", "price_ceiling_relative", "price_ceiling_above", "low_price_charging", "low_price_level", "low_soc_charging", "low_soc_level",
+      "min_soc", "must_soc", "priority", "price_ceiling_enabled", "price_ceiling", "price_ceiling_relative", "price_ceiling_above", "low_price_charging", "low_price_level", "low_soc_charging", "low_soc_level",
       "opportunistic", "opportunistic_level", "follow_level", "keep_charger_on", "use_earliest_start", "earliest_start",
       "join_period", "join_within", "continuous", "prefer_early", "early_within", "topup", "topup_level",
     ].map((key) => s[key]);
@@ -3197,6 +3221,20 @@ class EvPlannerPanel extends HTMLElement {
         control: `${s.topup ? this._valueHtml("topup_level", s.topup_level ?? 80, { unit: "%", min: 10, max: 100, label: this._t("rule_topup") }) : ""}${this._switchHtml("topup", s.topup, this._t("rule_topup"))}`,
       }),
     );
+    if (this._state.supply) {
+      const prio = s.priority === "first" ? "first" : "normal";
+      rows.push(
+        this._ruleRow({
+          icon: "rules",
+          title: this._t("rule_must"),
+          hint: this._t("rule_must_hint"),
+          control: this._valueHtml("must_soc", s.must_soc ?? 0, { unit: "%", min: 0, max: 100, label: this._t("rule_must") }),
+          extra: `<div class="rule-under"><div class="segmented opp" role="radiogroup" aria-label="${this._t("rule_must")}">${["normal", "first"].map(
+            (p) => `<button role="radio" data-act="prio" data-value="${p}" data-f="prio-${p}" aria-checked="${p === prio}" class="${p === prio ? "on" : ""}">${this._t(`priority_${p}`)}</button>`,
+          ).join("")}</div></div>`,
+        }),
+      );
+    }
     if (!expert) return rows.join("");
     rows.push(
       this._ruleRow({
@@ -3992,6 +4030,9 @@ class EvPlannerPanel extends HTMLElement {
         break;
       case "opp":
         this._vchange({ opportunistic: button.dataset.value });
+        break;
+      case "prio":
+        this._vchange({ priority: button.dataset.value });
         break;
       case "ceilmode":
         this._vchange({ price_ceiling_relative: button.dataset.value === "1" });

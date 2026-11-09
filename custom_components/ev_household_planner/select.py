@@ -9,7 +9,15 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import GUEST_CHARGER, MODES, OPPORTUNISTIC_OPTIONS, SET_MODE, SET_OPPORTUNISTIC
+from .const import (
+    GUEST_CHARGER,
+    MODES,
+    OPPORTUNISTIC_OPTIONS,
+    PRIORITY_OPTIONS,
+    SET_MODE,
+    SET_OPPORTUNISTIC,
+    SET_PRIORITY,
+)
 from .entity import GuestEntity, VehicleEntity
 from .household import EVPlannerConfigEntry, Household
 
@@ -27,6 +35,12 @@ VEHICLE_SELECTS: tuple[PlannerSelectDescription, ...] = (
         key="opportunistic",
         setting=SET_OPPORTUNISTIC,
         options=OPPORTUNISTIC_OPTIONS,
+        entity_category=EntityCategory.CONFIG,
+    ),
+    PlannerSelectDescription(
+        key="priority",
+        setting=SET_PRIORITY,
+        options=PRIORITY_OPTIONS,
         entity_category=EntityCategory.CONFIG,
     ),
 )
