@@ -1397,9 +1397,9 @@ const ClayScene = (() => {
     van: { L: 4.71, Wd: 1.98, wheels: [0.88, 3.88], r: 0.385, cs: 7, rs: 10, re: 11, ce: 14, pillars: [0.3, 0.6, 0.86], pts: [[0.06, 0.4, 0.12], [0.01, 0.55, 0.14], [0, 0.75, 0.14], [0.03, 0.95, 0.12], [0.15, 1.07, 0.08], [0.35, 1.12, 0.05], [0.5, 1.14, 0.05], [0.6, 1.16, 0.07], [0.8, 1.42, 0.11], [1.05, 1.76, 0.15], [1.3, 1.9, 0.17], [4.45, 1.94, 0.17], [4.6, 1.88, 0.16], [4.67, 1.7, 0.14], [4.7, 1.45, 0.1], [4.71, 1.25, 0.09], [4.71, 1.0, 0.1], [4.71, 0.65, 0.11], [4.68, 0.48, 0.12], [4.6, 0.4, 0.12]] },
   };
 
-  // Clay renders of each kind of car, from the front left as the house is seen: the picture's size,
-  // and where the car itself (without its shadow) sits in it.
-  const CAR_PICTURES = {"mini": {"w": 760, "h": 388, "solid": [96.4, 6.1, 686.5, 312.2]}, "sedan": {"w": 760, "h": 374, "solid": [95.5, 6.5, 690.5, 299.5]}, "suv": {"w": 760, "h": 413, "solid": [94.4, 5.7, 692.1, 331.6]}, "estate": {"w": 760, "h": 380, "solid": [90.6, 5.5, 694.0, 297.7]}, "van": {"w": 760, "h": 438, "solid": [106.0, 6.3, 691.8, 362.3]}};
+  // Clay renders of each kind of car, turned into the house's view (the wheels and the nose fitted to
+  // where they stand): where the picture goes, from the car's far rear corner on the ground, and its size.
+  const CAR_PICTURES = {"mini": {"x": -113.83, "y": -42.68, "w": 164.75, "h": 146.75}, "sedan": {"x": -119.36, "y": -42.03, "w": 170.25, "h": 150.25}, "suv": {"x": -124.37, "y": -46.79, "w": 181.0, "h": 151.0}, "estate": {"x": -128.47, "y": -41.43, "w": 184.75, "h": 154.75}, "van": {"x": -124.93, "y": -51.84, "w": 183.75, "h": 159.5}};
   const carPicture = (kind) => {
     try {
       const url = new URL(`./cars/${kind}.webp`, import.meta.url);
@@ -1434,14 +1434,8 @@ const ClayScene = (() => {
     }
     const picture = CAR_PICTURES[kind];
     if (picture) {
-      // The car's own picture, fitted to where it stands: its width to the car's width on the ground, its wheels on it.
-      const corners = [M(0, 0, 0), M(0, Wd, 0), M(L, 0, 0), M(L, Wd, 0)].map((p) => P(...p));
-      const left = Math.min(...corners.map((c) => c[0]));
-      const right = Math.max(...corners.map((c) => c[0]));
-      const bottom = Math.max(...corners.map((c) => c[1]));
-      const [sx0, , sx1, sy1] = picture.solid;
-      const k = (right - left) / (sx1 - sx0);
-      return s + `<image href="${carPicture(kind)}" x="${f1(left - sx0 * k)}" y="${f1(bottom - sy1 * k + 3)}" width="${f1(picture.w * k)}" height="${f1(picture.h * k)}"/>`;
+      const [ox, oy] = P(x0, y0, 0);
+      return s + `<image href="${carPicture(kind)}" x="${f1(ox + picture.x)}" y="${f1(oy + picture.y)}" width="${f1(picture.w)}" height="${f1(picture.h)}"/>`;
     }
     const glassTop = dark ? "#3E4756" : "#262B33";
     const glassSide = dark ? "#333B48" : "#2B3038";

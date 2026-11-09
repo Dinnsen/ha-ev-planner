@@ -2,6 +2,13 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
 
+## [2.2.0b5] - 2026-11-09
+
+Beta: only those who show beta versions in the Marketplace get it.
+
+### Changed
+- **The cars in the Home tab** are now seen from the same angle as the house: each render is turned and tilted so its wheels stand on the drive and its side runs along the parking space, instead of being seen from the side in front of a house seen from above. The light edge around the cars is gone.
+
 ## [2.2.0b4] - 2026-11-09
 
 Beta: only those who show beta versions in the Marketplace get it.
