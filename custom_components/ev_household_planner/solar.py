@@ -30,9 +30,10 @@ RESERVE_KW = 0.1
 # costs two changes and the charger's cloud is not asked too often.
 RAISE_DELAY = timedelta(minutes=2)
 RAISE_EVERY = timedelta(minutes=5)
-# Up only to what the sun has given all along for this long: on a day of passing clouds the
-# car stays low between them instead of going up and down with each one.
+# Up only to what the sun has given most of the time over this long (the low end of it), so a
+# day of passing clouds costs few changes but the car still takes the sun between them.
 RAISE_WINDOW = timedelta(minutes=10)
+RAISE_SHARE = 0.3
 # Of the sun the forecast promises before the ready-by time, the plan counts on this share at most.
 FORECAST_TRUST = 0.5
 
@@ -201,7 +202,7 @@ class SurplusController:
             return max(MIN_AMPS, min(car.max_amps, float(int(amps_for(max(0.0, kw), phases)))))
 
         target = fit(available)
-        steady = fit(min(kw for _at, kw in state.seen))
+        steady = fit(low_end([kw for _at, kw in state.seen]))
         amps = target if state.amps is None else state.amps
         if state.amps is not None and target < state.amps:
             amps, state.raise_since = target, None
@@ -218,6 +219,12 @@ class SurplusController:
             state.changed_at = now
         state.amps = amps
         return SolarDecision(True, amps, phases if car.can_switch else None)
+
+
+def low_end(values: list[float]) -> float:
+    """The value the sun has given at least most of the time: the lower part of what was seen."""
+    ordered = sorted(values)
+    return ordered[int(RAISE_SHARE * (len(ordered) - 1))]
 
 
 def forecast_kwh(hours: Mapping[datetime, float], start: datetime, end: datetime) -> float:

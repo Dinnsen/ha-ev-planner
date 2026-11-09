@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from itertools import pairwise
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -83,12 +84,12 @@ def test_the_current_goes_down_at_once_and_up_only_after_a_while() -> None:
     assert ctl.step(t, 5.0, cars)["a"].amps == 7
     # A cloud: down at once.
     assert ctl.step(t + timedelta(minutes=1), 4.4, cars)["a"].amps == 6
-    # The sun is back: up only when it has given more all along for a while, and then after a wait.
-    for minute in range(2, 11):
-        assert ctl.step(t + timedelta(minutes=minute), 8.0, cars)["a"].amps == 6
-    assert ctl.step(t + timedelta(minutes=11), 8.0, cars)["a"].amps == 6  # the cloud has left the window
-    assert ctl.step(t + timedelta(minutes=11) + RAISE_DELAY, 8.0, cars)["a"].amps == 11
-    assert RAISE_EVERY < RAISE_WINDOW
+    # The sun is back: not up at once, and then in few steps to what it gives.
+    amps = [ctl.step(t + timedelta(minutes=minute), 8.0, cars)["a"].amps for minute in range(2, 26)]
+    assert amps[0] == amps[1] == 6
+    assert amps[-1] == 11
+    assert sum(1 for a, b in pairwise(amps) if a != b) <= 3
+    assert RAISE_DELAY < RAISE_EVERY < RAISE_WINDOW
 
 
 def test_one_phase_when_the_sun_is_small_and_three_again_when_it_grows() -> None:
