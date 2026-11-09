@@ -267,3 +267,7 @@ With a plug sensor (`connected_entity`), a charge goes to the history when the c
 ## Removing the integration
 
 Remove EV Planner under **Settings → Devices & services**. Its settings, plans and history are deleted with it. Remove it in the Marketplace and restart Home Assistant. Your cars and chargers are not changed.
+
+## Thanks
+
+To [EV Smart Charging](https://github.com/jonasbkarlsson/ev_smart_charging) by Jonas Karlsson, which showed the way for price-driven charging in Home Assistant. Several of the rules and *Moving from EV Smart Charging* build on its ideas.
