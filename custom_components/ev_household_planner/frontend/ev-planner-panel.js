@@ -37,6 +37,52 @@ const TEXT = {
     note_short_plain: "Ikke tid nok til at nå målet før fristen.",
     note_opportunistic: "Opportunistisk: prisloftet er {price} lige nu.",
     note_joined: "Lader færdig i ét stræk: {extra} mere end den billigste plan.",
+    why_planned: "Lader nu: {price}/kWh er blandt de billigste før {time}.",
+    why_planned_plain: "Lader nu i den planlagte periode.",
+    why_low_price: "Lader nu: prisen {price}/kWh er under din grænse på {level}.",
+    why_low_soc: "Lader nu: batteriet er under {level}.",
+    why_charge_now: "Lader nu, fordi du har valgt Lad nu.",
+    why_waiting: "Venter: {window} er {diff}/kWh billigere end nu.",
+    why_waiting_plain: "Venter på den planlagte periode {window}.",
+    why_topup: "Venter med de sidste {from}–{to} til lige før afgang, så bilen ikke står fuld hele natten.",
+    why_fallback: "Venter på priser. Kommer de ikke, lader den {window}, så bilen er klar.",
+    why_keep_on: "Holder laderen tændt, så bilen kan forvarme fra nettet.",
+    why_full: "Bilen har nået sit mål på {target}.",
+    why_paused: "Sat på pause af dig.",
+    why_busy: "Laderen bruges af en anden lige nu.",
+    why_kept: "Planen bliver liggende: en ny ville kun spare få øre.",
+    why_early: "Lader tidligt: højst {within}/kWh mere end den billigste plan.",
+    glance_charge: "lader {window}",
+    level_simple: "Enkel",
+    level_smart: "Smart",
+    level_expert: "Ekspert",
+    level_label: "Hvor mange valg",
+    level_more: "Regler som prisloft, lav pris og hellere tidligt finder du under Smart og Ekspert.",
+    rule_early: "Hellere tidligt",
+    rule_early_hint: "Lader så tidligt som muligt, når det højst koster lidt mere pr. kWh end den billigste plan.",
+    rule_topup: "Top op før afgang",
+    rule_topup_hint: "Lader til {level} når det er billigst, og resten lige før klar-tiden.",
+    notify_receipt: "Morgenkvittering og advarsler",
+    notify_receipt_hint: "En besked ved klar-tiden om, hvordan det gik, og en advarsel hvis bilen ikke kan nå målet.",
+    day_target: "Mål denne dag",
+    day_target_usual: "Som normalt",
+    note_car_limit: "Bilens egen ladegrænse er {limit}: den stopper der, selv om målet er {target}.",
+    note_no_resume: "{name} starter ikke igen efter en pause, så den lader i ét stræk.",
+    try_again: "Prøv igen",
+    rate_limited: "Bilen har fået mange kommandoer den sidste time; EV Planner venter lidt med den næste.",
+    price_issue_stale: "Prissensoren har ingen priser for nu og frem. Tjek integrationen.",
+    price_issue_gaps: "Der mangler priser i det næste døgn.",
+    price_issue_unit: "Priserne ligner øre eller cent pr. kWh. Vælg en sensor med kr. (eller euro) pr. kWh.",
+    curve_line: "Langsommere over {from}: {speed} %/t",
+    margin_line: "Sigter efter at være færdig {minutes} min før klar-tiden (lært)",
+    receipt_line: "Sidste morgen: {soc} kl. {time} (planlagt {planned})",
+    receipt_late: "lidt for sent",
+    periods_n: "{n} perioder",
+    periods_one: "1 periode",
+    charged_for: "ladet {time}",
+    legend_charged: "Ladet",
+    bill_line_periods: "Perioder: {periods}",
+    guest_split_note: "Nogle biler starter ikke igen efter en pause. Er du i tvivl, så lad i ét stræk.",
     guest_card: "Gæst",
     guest_none: "Ingen gæst lige nu",
     guest_start: "Start gæsteopladning",
@@ -399,6 +445,52 @@ const TEXT = {
     note_short_plain: "Not enough time to reach the target before the deadline.",
     note_opportunistic: "Opportunistic: the price ceiling is {price} right now.",
     note_joined: "Finishing in one go: {extra} more than the cheapest plan.",
+    why_planned: "Charging now: {price}/kWh is among the cheapest before {time}.",
+    why_planned_plain: "Charging now, in the planned period.",
+    why_low_price: "Charging now: {price}/kWh is below your limit of {level}.",
+    why_low_soc: "Charging now: the battery is below {level}.",
+    why_charge_now: "Charging now because you chose Charge now.",
+    why_waiting: "Waiting: {window} is {diff}/kWh cheaper than now.",
+    why_waiting_plain: "Waiting for the planned period {window}.",
+    why_topup: "Saving the last {from}–{to} for just before departure, so the car does not stand full all night.",
+    why_fallback: "Waiting for prices. If they do not come, it charges {window} so the car is ready.",
+    why_keep_on: "Keeping the charger on, so the car can precondition from the grid.",
+    why_full: "The car has reached its target of {target}.",
+    why_paused: "Paused by you.",
+    why_busy: "Someone else is using the charger right now.",
+    why_kept: "The plan stays: a new one would save only a few cents.",
+    why_early: "Charging early: at most {within}/kWh more than the cheapest plan.",
+    glance_charge: "charges {window}",
+    level_simple: "Simple",
+    level_smart: "Smart",
+    level_expert: "Expert",
+    level_label: "How many choices",
+    level_more: "Rules such as a price ceiling, a low price and prefer early are under Smart and Expert.",
+    rule_early: "Prefer early",
+    rule_early_hint: "Charges as early as possible when that costs at most a little more per kWh than the cheapest plan.",
+    rule_topup: "Top up before departure",
+    rule_topup_hint: "Charges to {level} when it is cheapest, and the rest just before the ready-by time.",
+    notify_receipt: "Morning receipt and warnings",
+    notify_receipt_hint: "A message at the ready-by time on how it went, and a warning when the car cannot reach its target.",
+    day_target: "Target this day",
+    day_target_usual: "As usual",
+    note_car_limit: "The car's own charge limit is {limit}: it stops there, even though the target is {target}.",
+    note_no_resume: "{name} does not charge again after a pause, so it charges in one go.",
+    try_again: "Try again",
+    rate_limited: "The car has had many commands in the last hour; EV Planner waits a little before the next.",
+    price_issue_stale: "The price sensor has no prices for now or later. Check the integration.",
+    price_issue_gaps: "Prices are missing in the next day.",
+    price_issue_unit: "The prices look like cents per kWh. Choose a sensor in your currency per kWh.",
+    curve_line: "Slower above {from}: {speed} %/h",
+    margin_line: "Aims to be done {minutes} min before the ready-by time (learned)",
+    receipt_line: "Last morning: {soc} at {time} (planned {planned})",
+    receipt_late: "a little late",
+    periods_n: "{n} periods",
+    periods_one: "1 period",
+    charged_for: "charged {time}",
+    legend_charged: "Charged",
+    bill_line_periods: "Periods: {periods}",
+    guest_split_note: "Some cars do not charge again after a pause. If in doubt, charge in one go.",
     guest_card: "Guest",
     guest_none: "No guest right now",
     guest_start: "Start guest charging",
@@ -732,6 +824,8 @@ const OPPORTUNISTIC = ["off", "lower_ceiling", "follow_end_price"];
 const TABS = ["cars", "guest", "history", "settings"];
 const TAB_KEY = "ev-planner-tab";
 const CAR_KEY = "ev-planner-car";
+const LEVEL_KEY = "ev-planner-level";
+const LEVELS = ["simple", "smart", "expert"];
 const PREVIEW_DELAY = 140;
 const COMMIT_DELAY = 600;
 const HISTORY_PAGE = 12;
@@ -1123,6 +1217,9 @@ class EvPlannerPanel extends HTMLElement {
     const tab = this._read(TAB_KEY);
     this._tab = TABS.includes(tab) ? tab : "cars";
     this._carId = this._read(CAR_KEY) || null;
+    // How many choices the car page shows: Simple, Smart (as before) or Expert.
+    const level = this._read(LEVEL_KEY);
+    this._level = LEVELS.includes(level) ? level : "smart";
     // A charger's page, the route Home Assistant opened the panel on, and the view of a pop-up.
     this._chargerId = null;
     this._routePath = null;
@@ -1901,10 +1998,16 @@ class EvPlannerPanel extends HTMLElement {
   _notesHtml(v, plan, { compact = false } = {}) {
     const notes = [];
     if (v.problem) notes.push(["bad", this._t("problem")]);
-    if (v.control_error) {
+    if (v.control_error === "rate_limited") notes.push(["warn", this._t("rate_limited")]);
+    else if (v.control_error) {
       const text = v.control_error === "no_control_entity" ? this._t("no_control_entity") : this._t("control_error", { error: v.control_error });
       notes.push(["bad", text]);
     }
+    if (isNum(v.car_limit) && isNum(v.target) && Number(v.car_limit) + 0.5 < Number(v.target)) {
+      notes.push(["warn", this._t("note_car_limit", { limit: this._pct(v.car_limit), target: this._pct(v.target) })]);
+    }
+    if (!compact && v.resumes === false) notes.push(["info", this._t("note_no_resume", { name: v.name }), "forget-resume"]);
+    if (!compact && this._state.price_issue) notes.push(["warn", this._t(`price_issue_${this._state.price_issue}`)]);
     if (plan) {
       if (plan.min_only) notes.push(["warn", this._t("note_min_only")]);
       else if (plan.limited) notes.push(["warn", this._t("note_limited")]);
@@ -1917,7 +2020,12 @@ class EvPlannerPanel extends HTMLElement {
     }
     if (!notes.length) return compact ? "" : `<div class="notes"></div>`;
     return `<div class="notes">${notes
-      .map(([kind, text]) => `<p class="note-line ${kind}">${ICONS[kind === "info" ? "info" : "warn"]}<span>${esc(text)}</span></p>`)
+      .map(
+        ([kind, text, act]) =>
+          `<p class="note-line ${kind}">${ICONS[kind === "info" ? "info" : "warn"]}<span>${esc(text)}</span>${
+            act ? `<button class="btn ghost small" data-act="${act}" data-id="${esc(v.id)}">${this._t("try_again")}</button>` : ""
+          }</p>`,
+      )
       .join("")}</div>`;
   }
 
@@ -2313,7 +2421,7 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   /* The two-day price graph with the charging periods, the deadline, the ceiling and now. */
-  _renderTimeline(plan, { deadline = null, ceiling = null } = {}) {
+  _renderTimeline(plan, { deadline = null, ceiling = null, actual = [] } = {}) {
     const svg = this.shadowRoot.querySelector(".timeline");
     if (!svg) return;
     const prices = this._state.prices || [];
@@ -2367,6 +2475,16 @@ class EvPlannerPanel extends HTMLElement {
       }
     }
 
+    // When it really charged: a band along the bottom.
+    let charged = 0;
+    for (const period of actual) {
+      const a = clamp(x(new Date(period.start).getTime()), 0, W);
+      const b = clamp(x(new Date(period.end).getTime()), 0, W);
+      if (b <= a) continue;
+      charged += 1;
+      html += `<rect x="${a}" y="${H - bottom + 3}" width="${Math.max(3, b - a)}" height="6" rx="3" class="tl-done"/>`;
+    }
+
     // Bars.
     prices.forEach((p, i) => {
       const a = x(new Date(p.start).getTime());
@@ -2399,6 +2517,7 @@ class EvPlannerPanel extends HTMLElement {
       html += `<line x1="${x(nowMs)}" x2="${x(nowMs)}" y1="${top - 8}" y2="${H - bottom}" class="tl-now"/><text x="${x(nowMs) + 5}" y="${top - 1}" class="tl-now-label">${this._t("now")}</text>`;
     }
     svg.innerHTML = html;
+    this.shadowRoot.querySelector(".done-key")?.toggleAttribute("hidden", !charged);
     svg.classList.toggle("intro", this._intro(`tl:${this._viewKey()}`));
     this._bindScrub(svg, prices, t0, t1);
   }
@@ -2436,6 +2555,7 @@ class EvPlannerPanel extends HTMLElement {
         </div>
         <div class="legend">
           <span><i class="sw window"></i>${this._t("charging_window")}</span>
+          <span class="done-key"><i class="sw done"></i>${this._t("legend_charged")}</span>
           <span><i class="sw scale"></i>${this._t("per_kwh")}</span>
           ${ceiling ? `<span class="ceiling-key"><i class="sw ceiling"></i>${this._t("ceiling_line")}</span>` : ""}
         </div>
@@ -2673,6 +2793,8 @@ class EvPlannerPanel extends HTMLElement {
             <div class="dial-center big"></div>
           </div>
           <div class="status-line"></div>
+          <p class="glance"></p>
+          <p class="why"></p>
         </section>
         <div class="car-notes"></div>
         <section class="panel facts" hidden></section>
@@ -2701,7 +2823,10 @@ class EvPlannerPanel extends HTMLElement {
         </section>
 
         <section class="panel rules">
-          <h2>${ICONS.rules}<span>${this._t("rules")}</span></h2>
+          <div class="panel-head">
+            <h2>${ICONS.rules}<span>${this._t("rules")}</span></h2>
+            <div class="segmented level" role="radiogroup" aria-label="${this._t("level_label")}"></div>
+          </div>
           <div class="rules-body"></div>
         </section>
 
@@ -2748,18 +2873,26 @@ class EvPlannerPanel extends HTMLElement {
     const schedule = s.schedule || {};
     this._patch(
       root.querySelector(".schedule-box"),
-      JSON.stringify([schedule, s.ready_by, s.use_ready_by, this._schedDay, lang]),
+      JSON.stringify([schedule, s.ready_by, s.use_ready_by, this._schedDay, s.day_targets, s.target_soc, this._level, lang]),
       this._scheduleHtml(s),
     );
     this._patch(
       root.querySelector(".car-info"),
-      JSON.stringify([v.calendar, v.control_source, v.charger, v.power, v.capacity, v.charge_speed, v.charge_speed_source, v.charge_speed_learned_from, v.charge_power_source, lang]),
+      JSON.stringify([v.calendar, v.control_source, v.charger, v.power, v.capacity, v.charge_speed, v.charge_speed_source, v.charge_speed_learned_from, v.charge_power_source, v.curve, v.margin, v.receipt, lang]),
       this._carInfoHtml(v),
     );
-    this._patch(root.querySelector(".rules-body"), JSON.stringify([this._ruleValues(s), this._currency, lang]), this._rulesHtml(v, s));
+    this._patch(
+      root.querySelector(".segmented.level"),
+      JSON.stringify([this._level, lang]),
+      LEVELS.map(
+        (level) =>
+          `<button role="radio" data-act="level" data-level="${level}" data-f="level-${level}" aria-checked="${level === this._level}" class="${level === this._level ? "on" : ""}">${this._t(`level_${level}`)}</button>`,
+      ).join(""),
+    );
+    this._patch(root.querySelector(".rules-body"), JSON.stringify([this._ruleValues(s), this._currency, lang, this._level]), this._rulesHtml(v, s));
     this._patch(
       root.querySelector(".notify-body"),
-      JSON.stringify([s.reminder, s.reminder_time, s.reminder_soc, s.reminder_price_enabled, s.reminder_price, s.reminder_days, s.reminder_repeat, s.reminder_horizon, s.notify_targets, this._state.config?.notify_names, s.live_notification, s.notify_done, this._state.config?.notify, lang]),
+      JSON.stringify([s.reminder, s.reminder_time, s.reminder_soc, s.reminder_price_enabled, s.reminder_price, s.reminder_days, s.reminder_repeat, s.reminder_horizon, s.notify_targets, this._state.config?.notify_names, s.live_notification, s.notify_done, s.notify_receipt, this._state.config?.notify, lang]),
       this._notifyHtml(s),
     );
     if (live) this._renderCarLive(v);
@@ -2790,9 +2923,80 @@ class EvPlannerPanel extends HTMLElement {
     this._renderStatusLine(kind, text);
     const extra = shown.plan && isNum(shown.plan.end_soc) ? [[this._t("target"), this._pct(shown.plan.end_soc)]] : [];
     this._renderFacts(shown.plan, extra);
-    this._patch(root.querySelector(".car-notes"), JSON.stringify([v.problem, v.control_error, shown.plan && [shown.plan.limited, shown.plan.min_only, shown.plan.short, shown.plan.opportunistic, shown.plan.ceiling], shown.deadline, this._lang]), this._notesHtml(v, shown.plan ? { ...shown.plan, deadline: shown.deadline } : null));
-    this._renderTimeline(shown.plan, { deadline: shown.deadline, ceiling: s.price_ceiling_enabled || shown.plan?.opportunistic ? ceiling : null });
+    this._patch(root.querySelector(".car-notes"), JSON.stringify([v.problem, v.control_error, v.car_limit, v.target, v.resumes, this._state.price_issue, shown.plan && [shown.plan.limited, shown.plan.min_only, shown.plan.short, shown.plan.opportunistic, shown.plan.ceiling], shown.deadline, this._lang]), this._notesHtml(v, shown.plan ? { ...shown.plan, deadline: shown.deadline } : null));
+    const glance = root.querySelector(".car-page .glance");
+    if (glance) glance.textContent = this._glanceText(v, shown);
+    const why = root.querySelector(".car-page .why");
+    if (why) {
+      const text = shown.preview ? "" : this._whyText(v, shown.plan);
+      why.textContent = text;
+      why.hidden = !text;
+    }
+    this._renderTimeline(shown.plan, { deadline: shown.deadline, ceiling: s.price_ceiling_enabled || shown.plan?.opportunistic ? ceiling : null, actual: this._chargedPeriods(v) });
     root.querySelector(".ceiling-key")?.toggleAttribute("hidden", !(s.price_ceiling_enabled || shown.plan?.opportunistic));
+  }
+
+  /* One line to read at a glance: "Klar kl. 07.00 · 80 % · 34,00 kr. · lader 01.00–04.00". */
+  _glanceText(v, shown) {
+    const plan = shown.plan;
+    const parts = [this._readyText(shown.deadline)];
+    const target = plan && isNum(plan.end_soc) ? plan.end_soc : v.target;
+    if (isNum(target)) parts.push(this._pct(target));
+    if (plan && !plan.fallback && isNum(plan.cost)) parts.push(this._money(plan.cost));
+    if (plan) parts.push(this._t("glance_charge", { window: this._windows(plan.segments) }));
+    const text = parts.join(" · ");
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  /* "01.00–02.00 og 03.00–04.00" */
+  _windows(segments) {
+    const list = (segments || []).slice(0, 3).map((seg) => `${this._time(seg.start)}–${this._time(seg.end)}`);
+    if ((segments || []).length > 3) list[list.length - 1] += " …";
+    if (list.length < 2) return list[0] || "";
+    return `${list.slice(0, -1).join(", ")} ${this._lang === "da" ? "og" : "and"} ${list.at(-1)}`;
+  }
+
+  /* Why the car does what it does now, in a sentence with the numbers behind it. */
+  _whyText(v, plan) {
+    const reason = v.reason;
+    const s = this._vs(v);
+    const prices = this._dayPrices();
+    const now = prices[0]?.price;
+    const deadline = v.deadline ? this._time(v.deadline) : "";
+    const notes = [];
+    if (plan?.kept) notes.push(this._t("why_kept"));
+    if (plan?.early) notes.push(this._t("why_early", { within: this._money(s.early_within) }));
+    let text = "";
+    if (reason === "charge_now") text = this._t("why_charge_now");
+    else if (reason === "low_soc") text = this._t("why_low_soc", { level: this._pct(s.low_soc_level) });
+    else if (reason === "low_price") text = this._t("why_low_price", { price: this._money(now), level: this._money(s.low_price_level) });
+    else if (reason === "keep_on") text = this._t("why_keep_on");
+    else if (reason === "full") text = this._t("why_full", { target: this._pct(v.target) });
+    else if (reason === "paused") text = this._t("why_paused");
+    else if (reason === "charger_busy") text = this._t("why_busy");
+    else if (reason === "planned") {
+      text = isNum(now) && deadline ? this._t("why_planned", { price: this._money(now), time: deadline }) : this._t("why_planned_plain");
+    } else if (reason === "waiting" && plan) {
+      const upcoming = plan.segments.filter((seg) => new Date(seg.end).getTime() > Date.now());
+      const window = this._windows(upcoming);
+      if (plan.fallback) text = this._t("why_fallback", { window });
+      else if (plan.topup && isNum(s.topup_level)) {
+        text = this._t("why_topup", { from: this._pct(Math.max(Number(s.topup_level), Number(v.soc) || 0)), to: this._pct(v.target) });
+      } else {
+        const diff = isNum(now) && isNum(plan.average_price) ? now - plan.average_price : null;
+        text = diff !== null && diff > 0.005 ? this._t("why_waiting", { window, diff: this._money(diff) }) : this._t("why_waiting_plain", { window });
+      }
+    }
+    return [text, ...notes].filter(Boolean).join(" ");
+  }
+
+  /* When the car charged: the periods of the charge going on, and of the last one. */
+  _chargedPeriods(v) {
+    const periods = [...(v.session?.periods || [])];
+    const last = (v.history || [])[0];
+    if (last?.periods) periods.push(...last.periods);
+    const nowIso = new Date().toISOString();
+    return periods.filter((p) => p && p.start).map((p) => ({ start: p.start, end: p.end || nowIso }));
   }
 
   /* The status line under the clock: what happens now, in the tone of the status pill. */
@@ -2820,7 +3024,8 @@ class EvPlannerPanel extends HTMLElement {
     const disabled = s.use_ready_by === false;
     const chips = WEEKDAYS.map((day) => {
       const value = schedule[day] || "default";
-      const shown = value === "default" ? this._hhmm(s.ready_by) : value === "none" ? "–" : this._hhmm(value);
+      const own = (s.day_targets || {})[day];
+      const shown = `${value === "default" ? this._hhmm(s.ready_by) : value === "none" ? "–" : this._hhmm(value)}${isNum(own) && value !== "none" ? ` · ${Math.round(own)}%` : ""}`;
       const cls = [value === "default" ? "std" : value === "none" ? "none" : "own", this._schedDay === day ? "open" : ""].join(" ");
       return `<button class="day ${cls}" data-act="sched-day" data-day="${day}" data-f="sched-${day}" aria-expanded="${this._schedDay === day}"
         aria-label="${esc(`${this._t(`day_${day}`)}: ${value === "none" ? this._t("no_deadline") : shown}`)}"><b>${this._t(`day_${day}`)}</b><span>${shown}</span></button>`;
@@ -2837,6 +3042,16 @@ class EvPlannerPanel extends HTMLElement {
           <label class="chip-input time ${own ? "on" : ""}"><input type="time" step="900" data-sched="${day}" value="${own ? esc(value) : esc(s.ready_by || "07:00")}" aria-label="${this._t("schedule_other")}"></label>
           <button data-act="sched-set" data-value="none" data-f="sched-none" class="none ${value === "none" ? "on" : ""}" aria-pressed="${value === "none"}">${this._t("no_deadline")}</button>
         </div>
+        ${
+          this._level === "simple" || value === "none"
+            ? ""
+            : `<div class="inline-values day-target">
+          <span>${this._t("day_target")}</span>
+          <label class="unit-input small"><input type="number" inputmode="decimal" data-daytarget="${day}" min="10" max="100" step="5"
+            value="${isNum((s.day_targets || {})[day]) ? esc(s.day_targets[day]) : ""}" placeholder="${esc(String(Math.round(Number(s.target_soc) || 80)))}" aria-label="${esc(this._t("day_target"))}"><span>%</span></label>
+          ${isNum((s.day_targets || {})[day]) ? `<button class="btn ghost small" data-act="day-target-clear" data-day="${day}">${this._t("day_target_usual")}</button>` : ""}
+        </div>`
+        }
       </div>`;
     }
     return `<div class="week ${disabled ? "dim" : ""}">${chips}</div>${disabled ? `<small class="hint">${this._t("schedule_hint")}</small>` : ""}${picker}`;
@@ -2868,6 +3083,18 @@ class EvPlannerPanel extends HTMLElement {
           : this._t(`speed_${v.charge_speed_source || "estimated"}`);
       lines.push(`<p class="info-line">${ICONS.charge}<span>${this._t("charge_speed")}: <b>${this._num(v.charge_speed)} %/${this._t("hours_short")}</b> · ${esc(from)}</span></p>`);
     }
+    const curve = v.curve || {};
+    for (const key of ["80-90", "90-100"]) {
+      if (isNum(curve[key]) && isNum(v.charge_speed) && curve[key] < Number(v.charge_speed) * 0.9) {
+        lines.push(`<p class="info-line">${ICONS.charge}<span>${esc(this._t("curve_line", { from: this._pct(Number(key.split("-")[0])), speed: this._num(curve[key]) }))}</span></p>`);
+      }
+    }
+    if (Number(v.margin) > 0) lines.push(`<p class="info-line">${ICONS.history}<span>${esc(this._t("margin_line", { minutes: v.margin }))}</span></p>`);
+    const receipt = v.receipt;
+    if (receipt && isNum(receipt.soc)) {
+      const text = this._t("receipt_line", { soc: this._pct(receipt.soc), time: this._time(receipt.at), planned: this._pct(receipt.planned_soc) });
+      lines.push(`<p class="info-line">${ICONS.receipt}<span>${esc(text)}${receipt.late ? ` · <b>${this._t("receipt_late")}</b>` : ""}</span></p>`);
+    }
     return lines.join("");
   }
 
@@ -2875,7 +3102,7 @@ class EvPlannerPanel extends HTMLElement {
     return [
       "min_soc", "price_ceiling_enabled", "price_ceiling", "low_price_charging", "low_price_level", "low_soc_charging", "low_soc_level",
       "opportunistic", "opportunistic_level", "follow_level", "keep_charger_on", "use_earliest_start", "earliest_start",
-      "join_period", "join_within", "continuous",
+      "join_period", "join_within", "continuous", "prefer_early", "early_within", "topup", "topup_level",
     ].map((key) => s[key]);
   }
 
@@ -2899,6 +3126,8 @@ class EvPlannerPanel extends HTMLElement {
 
   _rulesHtml(v, s) {
     const price = `${this._unit}/kWh`;
+    if (this._level === "simple") return `<p class="hint">${this._t("level_more")}</p>`;
+    const expert = this._level === "expert";
     const rows = [];
     rows.push(
       this._ruleRow({
@@ -2935,6 +3164,25 @@ class EvPlannerPanel extends HTMLElement {
         control: `${s.low_soc_charging ? this._valueHtml("low_soc_level", s.low_soc_level, { unit: "%", label: this._t("rule_low_soc") }) : ""}${this._switchHtml("low_soc_charging", s.low_soc_charging, this._t("rule_low_soc"))}`,
       }),
     );
+    rows.push(
+      this._ruleRow({
+        icon: "history",
+        title: this._t("rule_early"),
+        hint: this._t("rule_early_hint"),
+        off: !s.prefer_early,
+        control: `${s.prefer_early ? this._valueHtml("early_within", s.early_within, { unit: price, step: 0.01, min: 0, max: 2, label: this._t("rule_early") }) : ""}${this._switchHtml("prefer_early", s.prefer_early, this._t("rule_early"))}`,
+      }),
+    );
+    rows.push(
+      this._ruleRow({
+        icon: "depart",
+        title: this._t("rule_topup"),
+        hint: this._t("rule_topup_hint", { level: this._pct(s.topup_level ?? 80) }),
+        off: !s.topup,
+        control: `${s.topup ? this._valueHtml("topup_level", s.topup_level ?? 80, { unit: "%", min: 10, max: 100, label: this._t("rule_topup") }) : ""}${this._switchHtml("topup", s.topup, this._t("rule_topup"))}`,
+      }),
+    );
+    if (!expert) return rows.join("");
     rows.push(
       this._ruleRow({
         icon: "plan",
@@ -3032,6 +3280,7 @@ class EvPlannerPanel extends HTMLElement {
         extra: reminderExtra,
         control: this._switchHtml("reminder", s.reminder, this._t("reminder")),
       })}
+      ${this._ruleRow({ icon: "receipt", title: this._t("notify_receipt"), hint: this._t("notify_receipt_hint"), off: s.notify_receipt === false, control: this._switchHtml("notify_receipt", s.notify_receipt !== false, this._t("notify_receipt")) })}
       ${this._ruleRow({ icon: "charge", title: this._t("live"), off: !s.live_notification, control: this._switchHtml("live_notification", s.live_notification, this._t("live")) })}
       ${this._ruleRow({ icon: "depart", title: this._t("notify_done"), off: !s.notify_done, control: this._switchHtml("notify_done", s.notify_done, this._t("notify_done")) })}
       ${targets}`;
@@ -3125,6 +3374,7 @@ class EvPlannerPanel extends HTMLElement {
         <div class="field">
           <span>${this._t("mode")}</span>
           ${this._planTypeHtml("g")}
+          <small class="hint split-note" hidden>${this._t("guest_split_note")}</small>
         </div>
         </div>
 
@@ -3211,6 +3461,7 @@ class EvPlannerPanel extends HTMLElement {
 
     this._renderReadyChips("g", inputs.use_completion_time !== false, inputs.charge_completion_time);
     this._renderSegmented('.plan-type[data-scope="g"]', inputs.continuous_charging_preferred !== false);
+    root.querySelector(".split-note")?.toggleAttribute("hidden", inputs.continuous_charging_preferred !== false);
 
     const calc = root.querySelector(".calc");
     calc.querySelector("span").textContent =
@@ -3476,7 +3727,12 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   _carSessionHtml(v, e) {
-    const soc = isNum(e.start_soc) || isNum(e.end_soc) ? `${this._pct(e.start_soc)} → ${this._pct(e.end_soc)}` : "";
+    const parts = [];
+    if (isNum(e.start_soc) || isNum(e.end_soc)) parts.push(`${this._pct(e.start_soc)} → ${this._pct(e.end_soc)}`);
+    const periods = (e.periods || []).length;
+    if (periods > 1) parts.push(this._t("periods_n", { n: periods }));
+    if (isNum(e.charging_minutes) && e.charging_minutes > 0) parts.push(this._t("charged_for", { time: this._duration(e.charging_minutes) }));
+    const soc = parts.join(" · ");
     return `<li>
       <div class="when"><b>${new Date(e.start).getDate()}</b><span>${new Intl.DateTimeFormat(this._locale, { month: "short" }).format(new Date(e.start))}</span></div>
       <div class="what">
@@ -3541,6 +3797,9 @@ class EvPlannerPanel extends HTMLElement {
     const lines = [
       this._t("bill_text_intro", { car }),
       this._t("bill_line_date", { date: this._date(entry.start) }),
+      ...((entry.periods || []).length > 1
+        ? [this._t("bill_line_periods", { periods: entry.periods.map((p) => `${this._time(p.start)}–${this._time(p.end)}`).join(", ") })]
+        : []),
       this._t("bill_line_energy", { kwh: this._kwh(energy, 2) }),
       `${this._t("bill_line_price", { amount: this._money(amount) })}${byRate && rate > 0 ? ` ${this._t("bill_line_rate", { rate: this._money(rate) })}` : ""}`,
     ];
@@ -3719,6 +3978,21 @@ class EvPlannerPanel extends HTMLElement {
       case "opp":
         this._vchange({ opportunistic: button.dataset.value });
         break;
+      case "level":
+        this._level = LEVELS.includes(button.dataset.level) ? button.dataset.level : "smart";
+        this._write(LEVEL_KEY, this._level === "smart" ? null : this._level);
+        this._renderCarPage({ live: false });
+        break;
+      case "day-target-clear":
+        if (s) {
+          const targets = { ...(s.day_targets || {}) };
+          delete targets[button.dataset.day];
+          this._vchange({ day_targets: targets });
+        }
+        break;
+      case "forget-resume":
+        this._run("forget", "ev_household_planner/vehicle_set", { vehicle_id: id, settings: { forget_resume: true } });
+        break;
       case "lookup":
         this._lookup();
         break;
@@ -3831,6 +4105,12 @@ class EvPlannerPanel extends HTMLElement {
     } else if (el.dataset.sched) {
       const v = this._currentCar;
       if (v && el.value) this._vchange({ schedule: { ...(this._vs(v).schedule || {}), [el.dataset.sched]: el.value } });
+    } else if (el.dataset.daytarget) {
+      const v = this._currentCar;
+      if (v && isNum(el.value)) {
+        const value = clamp(Math.round(Number(el.value)), 10, 100);
+        this._vchange({ day_targets: { ...(this._vs(v).day_targets || {}), [el.dataset.daytarget]: value } });
+      }
     } else if (el.dataset.set) {
       this._setFromInput(el, true);
     } else if (el.id === "bill-rate") {
@@ -4323,6 +4603,15 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 @keyframes nudge { 50% { box-shadow: 0 0 0 6px rgba(163,230,53,.25); } }
 .btn.lookup { white-space: nowrap; }
 .btn.danger { color: var(--evp-bad); }
+.btn.small { padding: 5px 10px; border-radius: 9px; font-size: 13px; margin-left: auto; flex: none; }
+.car-page .glance { margin: 10px 0 0; font-size: 15px; font-weight: 600; letter-spacing: -.005em; font-variant-numeric: tabular-nums; }
+.car-page .why { margin: 6px auto 0; max-width: 46ch; font-size: 14px; line-height: 1.45; color: var(--evp-soft); }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.panel-head h2 { margin: 0; }
+.segmented.level button { padding: 6px 12px; font-size: 13px; }
+.day-target { margin-top: 10px; }
+.timeline .tl-done { fill: var(--evp-a); opacity: .9; }
+.sw.done { background: var(--evp-a); border-radius: 3px; height: 6px; }
 .icon { border: 0; background: transparent; width: 40px; height: 40px; border-radius: 10px; display: grid; place-content: center; cursor: pointer; color: var(--evp-soft); }
 .icon:hover { background: color-mix(in srgb, var(--evp-ink) 6%, transparent); color: var(--evp-ink); }
 .icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }

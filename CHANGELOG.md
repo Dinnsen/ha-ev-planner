@@ -2,6 +2,31 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
 
+## [2.1.0] - 2026-11-09
+
+### Added
+- **History per plug-in.** With a plug sensor, a charge goes to the history when the car is unplugged (for two minutes): one entry with its charging periods and charging time, instead of one entry per pause and small "49 % → 49 %" entries. Without a plug sensor, a blip joins the next charge or is left out.
+- **The charging curve.** The speed is learned per band of the charge level, so a plan to 100 % gives a car that slows down near the top the time it needs.
+- **A learned margin.** A morning the car was not quite ready makes the next plans finish earlier (in quarters, at most an hour); three mornings on time bring it back.
+- **Morning receipt and warnings** (on by default): at the ready-by time, how it went; and a warning, with *Charge now*, when a plugged-in car cannot reach its target in time.
+- **Prefer early:** the plan that is done soonest within a few øre per kWh of the cheapest (from the community).
+- **Top up before departure:** to a level at the cheapest prices, the rest just before the ready-by time (from the community).
+- **A target per weekday** in the week plan.
+- **ENTSO-e, GE-Spot and generic price sensors** (lists with a start and a price), with cents per kWh turned into the currency. The panel says when prices have stopped, have holes or look like øre/cents.
+- **A plan when prices do not come:** waiting for prices, a car with a ready-by time charges just in time anyway if they never arrive.
+- **Other country** in the setup: everything works outside Denmark; only the guest's license plate lookup is Danish.
+- **Add a car from its device:** its charge level, limit, plug, charging, location, power and charge switch are found and filled in.
+- **Panel:** a line to read at a glance, *why* the car does what it does now, when it really charged in the price graph, *Simple / Smart / Expert*, the learned curve, margin and last morning, and periods in the history.
+
+### Changed
+- **A plan does not move for a few øre:** a new price or reading keeps the plan from before unless a new one saves more than 0.50 (or 2 %).
+- **Commands that do not take** are sent again after 6 and 12 minutes before a problem is reported, then now and then; at most 12 per car per hour.
+- **A car that does not charge again after a pause** in its plan is learned (the second time) and then charges in one go; *Try again* on its page forgets it.
+
+### Fixed
+- **Guest bill with a plan in two periods** (from the community): a charger that says "no car" while charging is paused no longer ends the guest; *Plan again* or *Charge now* while the guest charges keeps what was charged on the bill; unplugging without an energy meter bills the share that was charged, not the whole plan. The bill lists the periods.
+- **Energy of a short charge:** a charge of a few seconds no longer counts a whole minute.
+
 ## [2.0.1] - 2026-11-08
 
 ### Fixed
