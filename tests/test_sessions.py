@@ -126,6 +126,40 @@ async def test_a_plan_in_two_periods_is_one_charge_in_the_history(
     assert tesla.month(dt_util.now())["sessions"] == 1
 
 
+async def test_a_plug_that_blinks_while_charging_leaves_the_plan_alone(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    """A plug sensor that reads unplugged for half a minute is no unplug: the charge goes on as planned."""
+    set_prices(hass, now, TWO_NIGHTS)
+    set_tesla(hass)
+    entry = await _setup(hass, freezer, entry_with(charger_sub(), vehicle_sub(TESLA, "Tesla", tesla_data())))
+    tesla = entry.runtime_data.vehicles[TESLA]
+    await move(hass, freezer, _at(now, 0, 10))
+    hass.states.async_set(CHARGING, "on")
+    await settle(hass, freezer)
+    assert tesla.plan is not None
+    planned = list(tesla.plan.segments)
+    sent = len(switches.calls)
+
+    hass.states.async_set(CABLE, "off")
+    await settle(hass, freezer)
+    assert tesla.connected is True and tesla.plan is not None and tesla.plan.segments == planned
+    await move(hass, freezer, _at(now, 0, 11))
+    hass.states.async_set(CABLE, "on")
+    await settle(hass, freezer)
+    await move(hass, freezer, _at(now, 0, 15))
+    assert tesla.connected is True and tesla.unplugged_at is None
+    assert tesla.plan is not None and tesla.plan.segments == planned
+    assert len(switches.calls) == sent
+
+    # Unplugged for real: after two minutes it counts.
+    hass.states.async_set(CABLE, "off")
+    await settle(hass, freezer)
+    assert tesla.connected is True
+    await move(hass, freezer, _at(now, 0, 18))
+    assert tesla.connected is False and tesla.plan is None
+
+
 async def test_without_a_plug_sensor_a_blip_joins_the_next_charge(
     hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
 ) -> None:

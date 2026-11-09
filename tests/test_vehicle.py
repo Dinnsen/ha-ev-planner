@@ -31,7 +31,7 @@ def test_defaults_and_config() -> None:
     vehicle = make()
     assert vehicle.capacity == 60
     assert vehicle.configured_power == 10
-    assert vehicle.charge_speed(10) == (pytest.approx(10 / 60 * 100), "estimated")
+    assert vehicle.charge_speed(10) == (pytest.approx(10 * 0.9 / 60 * 100), "estimated")
     assert vehicle.basis == (60, 10)
     assert vehicle.control == "none"
     assert vehicle.charger_id is None
@@ -275,7 +275,7 @@ def test_only_a_plugged_in_car_keeps_its_hours_from_finishing_in_one_go() -> Non
 
 def test_the_speed_to_plan_with() -> None:
     vehicle = make()
-    assert vehicle.charge_speed(9.6) == (pytest.approx(16), "estimated")
+    assert vehicle.charge_speed(9.6) == (pytest.approx(14.4), "estimated")
     imported = make(imported_speed=15.6)
     assert imported.charge_speed(9.6) == (15.6, "imported")
     imported.learned.speed, imported.learned.speed_count = 17.1, 1

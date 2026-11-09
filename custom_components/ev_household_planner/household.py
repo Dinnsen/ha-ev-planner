@@ -226,6 +226,7 @@ class Household(DataUpdateCoordinator[None]):
         self._unsub: list[CALLBACK_TYPE] = []
         self._recalc_timer: CALLBACK_TYPE | None = None
         self._verify_timers: dict[str, CALLBACK_TYPE] = {}
+        self._unplug_timers: dict[str, CALLBACK_TYPE] = {}
         self._widgets_sent: datetime | None = None
         # The status words in Danish and English, for the summary line widgets show.
         self._status_texts: dict[str, dict[str, str]] = {}
@@ -328,6 +329,9 @@ class Household(DataUpdateCoordinator[None]):
         if self._widgets_timer is not None:
             self._widgets_timer()
             self._widgets_timer = None
+        for cancel in self._unplug_timers.values():
+            cancel()
+        self._unplug_timers.clear()
         for cancel in self._verify_timers.values():
             cancel()
         self._verify_timers.clear()
@@ -518,12 +522,23 @@ class Household(DataUpdateCoordinator[None]):
         self._read_vehicle(vehicle)
         now = dt_util.now()
         entity_id = event.data["entity_id"]
-        if entity_id == vehicle.soc_entity and vehicle.soc is not None:
-            self._count_soc(vehicle, old_soc, vehicle.soc, now)
-        if vehicle.connected is False and was_connected is not False:
-            vehicle.unplugged_at = now
+        if vehicle.connected is False and was_connected is True and not self._unplug_confirmed(vehicle, now):
+            # A plug that reads unplugged for a moment is not an unplug: the car
+            # stays plugged in (and its plan stands) until it has read so for a while.
+            vehicle.connected = True
+            if vehicle.unplugged_at is None:
+                vehicle.unplugged_at = now
+                self._unplug_timers[vehicle_id] = async_call_later(
+                    self.hass, UNPLUG_CONFIRM + timedelta(seconds=1), partial(self._unplug_check, vehicle_id)
+                )
         elif vehicle.connected is True:
             vehicle.unplugged_at = None
+            if (cancel := self._unplug_timers.pop(vehicle_id, None)) is not None:
+                cancel()
+        elif vehicle.connected is False and vehicle.unplugged_at is None:
+            vehicle.unplugged_at = now
+        if entity_id == vehicle.soc_entity and vehicle.soc is not None:
+            self._count_soc(vehicle, old_soc, vehicle.soc, now)
         if vehicle.connected is False and was_connected is True and vehicle.finish_measurement(unplugged=True):
             self.async_save()
         if vehicle.connected is True and was_connected is False:
@@ -533,6 +548,26 @@ class Household(DataUpdateCoordinator[None]):
             self.config_entry.async_create_task(
                 self.hass, self._async_clear_reminder(vehicle), f"{DOMAIN} clear reminder"
             )
+        self.schedule_recalculate()
+
+    @staticmethod
+    def _unplug_confirmed(vehicle: Vehicle, now: datetime) -> bool:
+        return vehicle.unplugged_at is not None and elapsed(now, vehicle.unplugged_at) >= UNPLUG_CONFIRM
+
+    @callback
+    def _unplug_check(self, vehicle_id: str, _now: datetime) -> None:
+        """The plug still reads unplugged: now the car is unplugged."""
+        self._unplug_timers.pop(vehicle_id, None)
+        vehicle = self.vehicles.get(vehicle_id)
+        if vehicle is None or vehicle.connected is not True or vehicle.connected_entity is None:
+            return
+        if vehicle.unplugged_at is None:
+            return
+        if vehicle.read_connected(self._state(vehicle.connected_entity)) is not False:
+            return
+        vehicle.connected = False
+        if vehicle.finish_measurement(unplugged=True):
+            self.async_save()
         self.schedule_recalculate()
 
     def _count_soc(self, vehicle: Vehicle, old: float | None, new: float, now: datetime) -> None:
