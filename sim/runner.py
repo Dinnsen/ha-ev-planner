@@ -199,7 +199,11 @@ async def run_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, night: 
     hass.states.async_set(SWITCH, "off")
     entry = _entry(night)
     entry.add_to_hass(hass)
-    with patch(f"custom_components.{DOMAIN}.household.Household._async_switch", run.switch):
+
+    async def switch(household: Any, entity_id: str, on: bool) -> str | None:
+        return await run.switch(household, entity_id, on)
+
+    with patch(f"custom_components.{DOMAIN}.household.Household._async_switch", switch):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
         household = entry.runtime_data
