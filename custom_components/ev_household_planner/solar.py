@@ -30,6 +30,9 @@ RESERVE_KW = 0.1
 # costs two changes and the charger's cloud is not asked too often.
 RAISE_DELAY = timedelta(minutes=2)
 RAISE_EVERY = timedelta(minutes=5)
+# Up only to what the sun has given all along for this long: on a day of passing clouds the
+# car stays low between them instead of going up and down with each one.
+RAISE_WINDOW = timedelta(minutes=10)
 # Of the sun the forecast promises before the ready-by time, the plan counts on this share at most.
 FORECAST_TRUST = 0.5
 
@@ -106,6 +109,7 @@ class SolarState:
     amps: float | None = None
     raise_since: datetime | None = None
     changed_at: datetime | None = None
+    seen: list[tuple[datetime, float]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {"on": self.on, "phases": self.phases}
@@ -160,6 +164,8 @@ class SurplusController:
             if want_phases != phases and (state.phases_at is None or now - state.phases_at >= PHASE_EVERY):
                 state.phases, state.phases_at = want_phases, now
                 phases = want_phases
+                # Amps on other phases: start the current over.
+                state.amps, state.seen, state.raise_since = None, [], None
         need = min_kw(phases) if car.adjustable else car.full_kw
         if available >= need:
             state.short_since = None
@@ -178,17 +184,20 @@ class SurplusController:
             return SolarDecision(False, phases=phases if car.can_switch else None)
         if not car.adjustable:
             return SolarDecision(True)
-        target = max(MIN_AMPS, min(car.max_amps, float(int(amps_for(max(0.0, available), phases)))))
+        state.seen = [(at, kw) for at, kw in state.seen if now - at < RAISE_WINDOW] + [(now, available)]
+        fit = lambda kw: max(MIN_AMPS, min(car.max_amps, float(int(amps_for(max(0.0, kw), phases)))))  # noqa: E731
+        target = fit(available)
+        steady = fit(min(kw for _at, kw in state.seen))
         amps = target if state.amps is None else state.amps
         if state.amps is not None and target < state.amps:
             amps, state.raise_since = target, None
-        elif state.amps is not None and target >= state.amps + 1:
+        elif state.amps is not None and steady >= state.amps + 1:
             if state.raise_since is None:
                 state.raise_since = now
             waited = now - state.raise_since >= RAISE_DELAY
             rested = state.changed_at is None or now - state.changed_at >= RAISE_EVERY
             if waited and rested:
-                amps, state.raise_since = target, None
+                amps, state.raise_since = steady, None
         else:
             state.raise_since = None
         if amps != state.amps:

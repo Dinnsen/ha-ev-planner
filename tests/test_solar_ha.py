@@ -93,11 +93,13 @@ async def test_a_car_charges_on_the_surplus_follows_it_and_stops_when_the_sun_go
     assert tesla.decision.reason == "solar" and tesla.status() == "charging_solar"
     assert ("turn_on", CHARGE_SWITCH) in switches.calls
     assert calls["amps"][-1].data["value"] == 8  # 5.9 kW on three phases
-    # The car draws 5.5 kW now; the house still sends 2 kW out: up to 10 A, after a few minutes.
+    # The car draws 5.5 kW now; the house still sends 2 kW out: up to 10 A, once the sun has stayed.
     set_tesla(hass, soc=50, switch=True, charging=True)
     hass.states.async_set(POWER, "5.5", {"unit_of_measurement": "kW"})
     _grid(hass, -2000)
-    moment = await _minutes(hass, freezer, moment, 6)
+    moment = await _minutes(hass, freezer, moment, 5)
+    assert calls["amps"][-1].data["value"] == 8
+    moment = await _minutes(hass, freezer, moment, 10)
     assert calls["amps"][-1].data["value"] == 10
     state = household.solar.state(moment)
     assert state is not None and state["cars"][TESLA]["on"] and state["grid_kw"] == -2.0

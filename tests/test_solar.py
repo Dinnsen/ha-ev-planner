@@ -13,6 +13,7 @@ from custom_components.ev_household_planner.solar import (
     PHASE_EVERY,
     RAISE_DELAY,
     RAISE_EVERY,
+    RAISE_WINDOW,
     SolarCar,
     SolarState,
     SurplusController,
@@ -82,13 +83,12 @@ def test_the_current_goes_down_at_once_and_up_only_after_a_while() -> None:
     assert ctl.step(t, 5.0, cars)["a"].amps == 7
     # A cloud: down at once.
     assert ctl.step(t + timedelta(minutes=1), 4.4, cars)["a"].amps == 6
-    # The sun is back: up only when it has stayed, and not sooner than the last change allows.
-    back = t + timedelta(minutes=2)
-    assert ctl.step(back, 8.0, cars)["a"].amps == 6
-    assert ctl.step(back + RAISE_DELAY, 8.0, cars)["a"].amps == 6
-    assert ctl.step(t + timedelta(minutes=1) + RAISE_EVERY, 8.0, cars)["a"].amps == 11
-    # A dip shorter than the wait does not raise and lower it.
-    assert ctl.step(t + timedelta(minutes=12), 8.0, cars)["a"].amps == 11
+    # The sun is back: up only when it has given more all along for a while, and then after a wait.
+    for minute in range(2, 11):
+        assert ctl.step(t + timedelta(minutes=minute), 8.0, cars)["a"].amps == 6
+    assert ctl.step(t + timedelta(minutes=11), 8.0, cars)["a"].amps == 6  # the cloud has left the window
+    assert ctl.step(t + timedelta(minutes=11) + RAISE_DELAY, 8.0, cars)["a"].amps == 11
+    assert RAISE_EVERY < RAISE_WINDOW
 
 
 def test_one_phase_when_the_sun_is_small_and_three_again_when_it_grows() -> None:
