@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import datetime, time, timedelta
+from datetime import UTC, datetime, time, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -94,6 +94,9 @@ from .learning import SOURCE_ESTIMATED, SOURCE_IMPORTED, SOURCE_LEARNED, SOURCE_
 from .planner import estimated_speed
 from .rules import Decision, Rules, VehiclePlan, next_deadline, parse_hhmm
 
+# Share of the energy from the wall that reaches the battery when charging on AC:
+# for the estimate before a car has shown its real speed.
+CHARGE_EFFICIENCY = 0.9
 CHARGING_STATES = {"on", "charging", "true", "yes", "active"}
 # A single charge level step above this is a glitch (or a car swap), not charging.
 MAX_SOC_STEP = 60.0
@@ -140,6 +143,16 @@ def month_key(moment: datetime) -> str:
     return moment.strftime("%Y-%m")
 
 
+def elapsed(later: datetime, earlier: datetime) -> timedelta:
+    """The real time between two moments.
+
+    Two local times in the same time zone subtract on the wall clock in
+    Python, so the night the clocks go back would lose an hour (and the
+    night they go forward gain one). In UTC it is the time that passed.
+    """
+    return later.astimezone(UTC) - earlier.astimezone(UTC)
+
+
 @dataclass(slots=True)
 class Period:
     """A stretch of charging inside a session; ``end`` is None while it charges."""
@@ -148,7 +161,7 @@ class Period:
     end: datetime | None = None
 
     def minutes(self, now: datetime) -> float:
-        return max(0.0, ((self.end or now) - self.start).total_seconds() / 60)
+        return max(0.0, elapsed(self.end or now, self.start).total_seconds() / 60)
 
     def to_dict(self) -> dict[str, str | None]:
         return {"start": self.start.isoformat(), "end": self.end.isoformat() if self.end else None}
@@ -193,7 +206,7 @@ class Session:
         if self.charging:
             return False
         last = self.periods[-1] if self.periods else None
-        if last is not None and last.end is not None and now - last.end <= PERIOD_JOIN:
+        if last is not None and last.end is not None and elapsed(now, last.end) <= PERIOD_JOIN:
             # A charging sensor that flickers: the same period goes on.
             last.end = None
             return False
@@ -390,7 +403,8 @@ class Vehicle:
 
         The charge that is going on, once it has shown enough; else what the
         car has taught before; else EV Smart Charging's figure; else the
-        charging power against the battery capacity.
+        charging power against the battery capacity, less 10 % lost on the
+        way (the speeds a car shows have their losses in them already).
         """
         if (speed := self.meter.speed) is not None:
             return speed, SOURCE_MEASURING
@@ -398,7 +412,7 @@ class Vehicle:
             return self.learned.speed, SOURCE_LEARNED
         if (speed := self.imported_speed) is not None:
             return speed, SOURCE_IMPORTED
-        return estimated_speed(self.capacity, power), SOURCE_ESTIMATED
+        return estimated_speed(self.capacity, power * CHARGE_EFFICIENCY), SOURCE_ESTIMATED
 
     def finish_measurement(self, *, unplugged: bool = False) -> bool:
         """Learn from what the car has shown, once it is enough or the car is unplugged.
@@ -732,7 +746,7 @@ class Vehicle:
 
     def count_command(self, now: datetime) -> bool:
         """Note a command to the car or charger; False when the hourly limit is reached."""
-        self.sent_log = [moment for moment in self.sent_log if now - moment < timedelta(hours=1)]
+        self.sent_log = [moment for moment in self.sent_log if elapsed(now, moment) < timedelta(hours=1)]
         if len(self.sent_log) >= COMMANDS_PER_HOUR:
             return False
         self.sent_log.append(now)

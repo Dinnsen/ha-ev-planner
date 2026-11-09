@@ -9,7 +9,15 @@ import pytest
 
 from custom_components.ev_household_planner.planner import PriceSlot
 from custom_components.ev_household_planner.rules import Car, Decision, Rules, plan_vehicle
-from custom_components.ev_household_planner.vehicle import Vehicle, is_charging_state, month_key, to_float
+from custom_components.ev_household_planner.vehicle import (
+    Period,
+    Session,
+    Vehicle,
+    elapsed,
+    is_charging_state,
+    month_key,
+    to_float,
+)
 
 TZ = ZoneInfo("Europe/Copenhagen")
 NOW = datetime(2026, 10, 19, 20, 0, tzinfo=TZ)
@@ -23,7 +31,7 @@ def test_defaults_and_config() -> None:
     vehicle = make()
     assert vehicle.capacity == 60
     assert vehicle.configured_power == 10
-    assert vehicle.charge_speed(10) == (pytest.approx(10 / 60 * 100), "estimated")
+    assert vehicle.charge_speed(10) == (pytest.approx(10 * 0.9 / 60 * 100), "estimated")
     assert vehicle.basis == (60, 10)
     assert vehicle.control == "none"
     assert vehicle.charger_id is None
@@ -267,7 +275,7 @@ def test_only_a_plugged_in_car_keeps_its_hours_from_finishing_in_one_go() -> Non
 
 def test_the_speed_to_plan_with() -> None:
     vehicle = make()
-    assert vehicle.charge_speed(9.6) == (pytest.approx(16), "estimated")
+    assert vehicle.charge_speed(9.6) == (pytest.approx(14.4), "estimated")
     imported = make(imported_speed=15.6)
     assert imported.charge_speed(9.6) == (15.6, "imported")
     imported.learned.speed, imported.learned.speed_count = 17.1, 1
@@ -502,3 +510,21 @@ def test_a_target_per_weekday() -> None:
     assert rules.early_within is None and rules.topup_level is None
     vehicle.settings.update({"prefer_early": True, "early_within": 0.03, "topup": True, "topup_level": 85})
     assert vehicle.rules().early_within == 0.03 and vehicle.rules().topup_level == 85
+
+
+def test_the_night_the_clocks_go_back_has_25_hours() -> None:
+    """Charging from 02:46 summer time to 02:58 winter time is 72 minutes, not 12."""
+    start = datetime(2026, 10, 25, 2, 46, tzinfo=TZ)  # summer time (fold 0)
+    end = datetime(2026, 10, 25, 2, 58, fold=1, tzinfo=TZ)  # winter time, the second 02:58
+    assert elapsed(end, start) == timedelta(minutes=72)
+    assert Period(start, end).minutes(end) == 72
+    session = Session(start=start, start_soc=60)
+    assert session.open_period(start) is False
+    # A pause from 02:50 summer time to 02:20 winter time is 30 minutes: a new period.
+    session.periods[-1].end = datetime(2026, 10, 25, 2, 50, tzinfo=TZ)
+    again = datetime(2026, 10, 25, 2, 20, fold=1, tzinfo=TZ)
+    assert session.open_period(again) is True and len(session.periods) == 2
+    # The night the clocks go forward has 23 hours.
+    before = datetime(2026, 3, 29, 1, 50, tzinfo=TZ)
+    after = datetime(2026, 3, 29, 3, 10, tzinfo=TZ)
+    assert elapsed(after, before) == timedelta(minutes=20)

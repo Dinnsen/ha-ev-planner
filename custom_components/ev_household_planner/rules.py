@@ -70,6 +70,8 @@ STABLE_SHARE = 0.02
 TOPUP_SLACK = timedelta(hours=2)
 # Without prices, the charge is planned to end this long before the deadline.
 FALLBACK_MARGIN = timedelta(minutes=30)
+# A running plan without prices is kept while its end moves less than this.
+FALLBACK_KEEP = timedelta(minutes=15)
 
 WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 SCHEDULE_DEFAULT = "default"
@@ -691,6 +693,20 @@ def plan_vehicle(
         early=early,
         topup=topup,
     )
+
+
+def keep_fallback(old: VehiclePlan | None, new: VehiclePlan | None, now: datetime) -> VehiclePlan | None:
+    """The running plan without prices, unless the new one ends more than a quarter of an hour apart.
+
+    Without it the end would move a few minutes every time the charge level
+    rises (the time left is counted in whole quarters).
+    """
+    if old is None or new is None or not (old.fallback and new.fallback) or not old.segments:
+        return new
+    start, end = old.segments[0]["start"], old.segments[-1]["end"]
+    if not start <= now < end or abs(end - new.segments[-1]["end"]) > FALLBACK_KEEP:
+        return new
+    return old
 
 
 def fallback_plan(car: Car, now: datetime, deadline: datetime | None) -> VehiclePlan | None:

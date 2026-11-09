@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from functools import partial
 import logging
 import re
@@ -104,8 +104,18 @@ from .learning import MIN_POWER_KW
 from .notifications import COLOR_CHARGE, COLOR_ERROR, COLOR_WARN, Notifier, tag_for
 from .planner import PlanError, PriceSlot, Segment, segments_to_schedule
 from .prices import extract_price_slots
-from .rules import Car, current_price, decide, fallback_plan, in_segments, keep_previous, parse_hhmm, plan_vehicle
-from .vehicle import Vehicle, is_charging_state, to_float
+from .rules import (
+    Car,
+    current_price,
+    decide,
+    fallback_plan,
+    in_segments,
+    keep_fallback,
+    keep_previous,
+    parse_hhmm,
+    plan_vehicle,
+)
+from .vehicle import Vehicle, elapsed, is_charging_state, to_float
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -216,6 +226,7 @@ class Household(DataUpdateCoordinator[None]):
         self._unsub: list[CALLBACK_TYPE] = []
         self._recalc_timer: CALLBACK_TYPE | None = None
         self._verify_timers: dict[str, CALLBACK_TYPE] = {}
+        self._unplug_timers: dict[str, CALLBACK_TYPE] = {}
         self._widgets_sent: datetime | None = None
         # The status words in Danish and English, for the summary line widgets show.
         self._status_texts: dict[str, dict[str, str]] = {}
@@ -318,6 +329,9 @@ class Household(DataUpdateCoordinator[None]):
         if self._widgets_timer is not None:
             self._widgets_timer()
             self._widgets_timer = None
+        for cancel in self._unplug_timers.values():
+            cancel()
+        self._unplug_timers.clear()
         for cancel in self._verify_timers.values():
             cancel()
         self._verify_timers.clear()
@@ -508,12 +522,30 @@ class Household(DataUpdateCoordinator[None]):
         self._read_vehicle(vehicle)
         now = dt_util.now()
         entity_id = event.data["entity_id"]
-        if entity_id == vehicle.soc_entity and vehicle.soc is not None:
-            self._count_soc(vehicle, old_soc, vehicle.soc, now)
-        if vehicle.connected is False and was_connected is not False:
-            vehicle.unplugged_at = now
+        charging = vehicle.charging is True or vehicle_id in self._unplug_timers
+        if (
+            vehicle.connected is False
+            and was_connected is True
+            and charging
+            and not self._unplug_confirmed(vehicle, now)
+        ):
+            # A plug that reads unplugged for a moment while the car charges is not an
+            # unplug: the car stays plugged in (and its plan stands) until the plug has
+            # read unplugged for two minutes.
+            vehicle.connected = True
+            if vehicle.unplugged_at is None:
+                vehicle.unplugged_at = now
+                self._unplug_timers[vehicle_id] = async_call_later(
+                    self.hass, UNPLUG_CONFIRM + timedelta(seconds=1), partial(self._unplug_check, vehicle_id)
+                )
         elif vehicle.connected is True:
             vehicle.unplugged_at = None
+            if (cancel := self._unplug_timers.pop(vehicle_id, None)) is not None:
+                cancel()
+        elif vehicle.connected is False and vehicle.unplugged_at is None:
+            vehicle.unplugged_at = now
+        if entity_id == vehicle.soc_entity and vehicle.soc is not None:
+            self._count_soc(vehicle, old_soc, vehicle.soc, now)
         if vehicle.connected is False and was_connected is True and vehicle.finish_measurement(unplugged=True):
             self.async_save()
         if vehicle.connected is True and was_connected is False:
@@ -523,6 +555,26 @@ class Household(DataUpdateCoordinator[None]):
             self.config_entry.async_create_task(
                 self.hass, self._async_clear_reminder(vehicle), f"{DOMAIN} clear reminder"
             )
+        self.schedule_recalculate()
+
+    @staticmethod
+    def _unplug_confirmed(vehicle: Vehicle, now: datetime) -> bool:
+        return vehicle.unplugged_at is not None and elapsed(now, vehicle.unplugged_at) >= UNPLUG_CONFIRM
+
+    @callback
+    def _unplug_check(self, vehicle_id: str, _now: datetime) -> None:
+        """The plug still reads unplugged: now the car is unplugged."""
+        self._unplug_timers.pop(vehicle_id, None)
+        vehicle = self.vehicles.get(vehicle_id)
+        if vehicle is None or vehicle.connected is not True or vehicle.connected_entity is None:
+            return
+        if vehicle.unplugged_at is None:
+            return
+        if vehicle.read_connected(self._state(vehicle.connected_entity)) is not False:
+            return
+        vehicle.connected = False
+        if vehicle.finish_measurement(unplugged=True):
+            self.async_save()
         self.schedule_recalculate()
 
     def _count_soc(self, vehicle: Vehicle, old: float | None, new: float, now: datetime) -> None:
@@ -655,12 +707,13 @@ class Household(DataUpdateCoordinator[None]):
             vehicle.plan_done = False
             self._note_night(vehicle, now)
         except PlanError as err:
-            if vehicle.plan is not None and vehicle.plan.end is not None and vehicle.plan.end <= now:
+            old = vehicle.plan
+            if old is not None and old.end is not None and old.end <= now:
                 vehicle.plan_done = True
             vehicle.plan, vehicle.plan_error = None, err.key
             if err.key in ("no_price_data", "not_enough_prices"):
                 # Waiting for prices: in case they never come, charge just in time anyway.
-                vehicle.plan = fallback_plan(car, now, aim)
+                vehicle.plan = keep_fallback(old, fallback_plan(car, now, aim), now)
         vehicle.planned_at = now
 
     @staticmethod
@@ -891,7 +944,7 @@ class Household(DataUpdateCoordinator[None]):
         if since is None:
             # The first sign of charging: counted from now on.
             return
-        seconds = min(max(0.0, (now - since).total_seconds()), 2 * TICK.total_seconds())
+        seconds = min(max(0.0, elapsed(now, since).total_seconds()), 2 * TICK.total_seconds())
         vehicle.meter.tick(seconds, True, reading)
         self._count_energy(vehicle, now, seconds, reading)
 
@@ -900,7 +953,7 @@ class Household(DataUpdateCoordinator[None]):
         """Since when the charging has not been counted: the last count, or the start of the period."""
         opened = vehicle.session.open_since if vehicle.session is not None else None
         moments = [moment for moment in (vehicle.counted_at, opened) if moment is not None]
-        return max(moments) if moments else None
+        return max(moments, key=lambda moment: moment.astimezone(UTC)) if moments else None
 
     def _count_energy(self, vehicle: Vehicle, now: datetime, seconds: float, reading: float | None) -> None:
         """Energy for ``seconds`` of charging up to ``now``: the reported power, else the charging power.
@@ -934,8 +987,10 @@ class Household(DataUpdateCoordinator[None]):
         if since is None:
             return
         changed = vehicle.charging_changed_at
-        stop = changed if changed is not None and since < changed <= now else now
-        seconds = min(max(0.0, (stop - since).total_seconds()), TICK.total_seconds())
+        stop = now
+        if changed is not None and elapsed(changed, since) > timedelta(0) and elapsed(now, changed) >= timedelta(0):
+            stop = changed
+        seconds = min(max(0.0, elapsed(stop, since).total_seconds()), TICK.total_seconds())
         reading = vehicle.power_from_car
         if vehicle.power_entity:
             current = power_value(self.hass.states.get(vehicle.power_entity))
@@ -947,7 +1002,7 @@ class Household(DataUpdateCoordinator[None]):
     @staticmethod
     def _power_counted(vehicle: Vehicle, now: datetime) -> bool:
         """Whether the car's power reading counts its energy right now."""
-        return vehicle.power_counted_at is not None and now - vehicle.power_counted_at <= 2 * TICK
+        return vehicle.power_counted_at is not None and elapsed(now, vehicle.power_counted_at) <= 2 * TICK
 
     def _is_charging(self, vehicle: Vehicle) -> bool:
         if vehicle.connected is False:
@@ -1024,7 +1079,7 @@ class Household(DataUpdateCoordinator[None]):
         now = dt_util.now()
         enforcing = vehicle.enforce_until is not None and now < vehicle.enforce_until
         if not force and desired == vehicle.last_sent:
-            recent = vehicle.last_sent_at is not None and now - vehicle.last_sent_at < COMMAND_REPEAT
+            recent = vehicle.last_sent_at is not None and elapsed(now, vehicle.last_sent_at) < COMMAND_REPEAT
             if not enforcing or recent:
                 return
         entity_id = self.control_entity(vehicle)
@@ -1178,7 +1233,7 @@ class Household(DataUpdateCoordinator[None]):
             charging = self._is_charging(vehicle)
         else:
             # Without a charging sensor or control, a rising charge level is the only sign of charging.
-            rising = vehicle.last_rise is not None and now - vehicle.last_rise < IDLE_END
+            rising = vehicle.last_rise is not None and elapsed(now, vehicle.last_rise) < IDLE_END
             charging = rising and vehicle.connected is not False
         if charging:
             resumed = vehicle.start_session(now, vehicle.decision.reason)
@@ -1228,11 +1283,11 @@ class Household(DataUpdateCoordinator[None]):
             if vehicle.at_home is False:
                 return True
             unplugged = vehicle.unplugged_at
-            return vehicle.connected is False and unplugged is not None and now - unplugged >= UNPLUG_CONFIRM
+            return vehicle.connected is False and unplugged is not None and elapsed(now, unplugged) >= UNPLUG_CONFIRM
         if not vehicle.session_is_blip():
             return True
         last = session.periods[-1].end if session.periods else session.start
-        return last is None or now - last >= BLIP_HOLD
+        return last is None or elapsed(now, last) >= BLIP_HOLD
 
     async def _async_notify_stopped(self, vehicle: Vehicle, now: datetime) -> None:
         """Charging stopped: done, or paused until the plan goes on."""

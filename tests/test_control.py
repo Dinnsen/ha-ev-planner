@@ -293,8 +293,8 @@ async def test_battery_capacity_from_the_car(
 ) -> None:
     """A capacity sensor replaces the number from the setup while it has a value.
 
-    Before the car has shown its speed, the capacity and the power estimate it:
-    30 % of 75 kWh at 10 kW takes 2.25 hours, of 60 kWh 1.8 hours, planned as 2 (whole quarters).
+    Before the car has shown its speed, the capacity and the power (less 10 % lost) estimate it:
+    30 % of 75 kWh at 9 kW takes 2.5 hours, of 60 kWh 2 hours.
     """
     set_prices(hass, now, NIGHT)
     set_tesla(hass)
@@ -307,7 +307,7 @@ async def test_battery_capacity_from_the_car(
     await _setup(hass, freezer, entry)
     tesla = entry.runtime_data.vehicles[TESLA]
     assert tesla.capacity == 75
-    assert tesla.plan is not None and tesla.plan.energy == pytest.approx(22.5)
+    assert tesla.plan is not None and tesla.plan.energy == pytest.approx(25)
 
     hass.states.async_set("sensor.tesla_capacity", "unavailable")
     await settle(hass, freezer)

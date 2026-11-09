@@ -230,7 +230,7 @@ Every car is planned again when prices, its charge level, target, connection or 
 
 The charging time comes from the charging speed in % per hour, the way EV Smart Charging plans:
 
-1. **Before the car has shown anything:** the charging power against the battery capacity (11 kW and 77 kWh is 14.3 %/h), or the speed a car imported from EV Smart Charging had.
+1. **Before the car has shown anything:** the charging power against the battery capacity, less 10 % lost on the way (11 kW and 77 kWh is 12.9 %/h), or the speed a car imported from EV Smart Charging had.
 2. **Learned:** after a charge in which the level rose at least **30 %**, the speed it showed is learned. It is measured over the time the car actually charged, so a plan in several periods counts as one charge. A new charge moves the learned speed 30 % of the way, so one odd night does not take over.
 3. **While charging:** once the charge going on has risen 30 %, the plan follows the speed it shows, so a car charged with another current is followed the same night.
 
