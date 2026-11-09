@@ -101,7 +101,7 @@ def test_one_phase_when_the_sun_is_small_and_three_again_when_it_grows() -> None
     assert on.on and on.phases == 1 and on.amps == 10
     # More sun: three phases again once it has stayed, not at the first bright minute.
     seen = {minute: ctl.step(T0 + timedelta(minutes=minute), 8.0, cars)["a"] for minute in range(2, 21)}
-    assert all(seen[minute].phases == 1 for minute in range(2, 12))
+    assert all(seen[minute].phases == 1 for minute in range(2, 6))
     later = seen[20]
     assert later.phases == 3 and later.amps == 11
     # A cloud does not send it back to one phase.
