@@ -621,3 +621,23 @@ def test_without_prices_the_car_charges_just_in_time() -> None:
     assert fallback_plan(CAR, NOW, None) is None
     assert fallback_plan(Car(soc=80, target=80, capacity=60, power=10), NOW, DEADLINE) is None
     assert fallback_plan(Car(soc=50, target=80, capacity=0, power=10), NOW, DEADLINE) is None
+
+
+def test_a_running_plan_without_prices_holds_still() -> None:
+    """The end of a charge without prices does not move with every percent the car gains."""
+    from custom_components.ev_household_planner.rules import fallback_plan, keep_fallback
+
+    old = fallback_plan(CAR, NOW, DEADLINE)
+    assert old is not None
+    running = old.segments[0]["start"] + timedelta(minutes=3)
+    # Three minutes in, the car has gained a percent: planned afresh, the charge would wait for 04:45.
+    later = fallback_plan(Car(soc=51, target=80, capacity=60, power=10), running, DEADLINE)
+    assert later is not None and later.segments[0]["start"] > running
+    assert keep_fallback(old, later, running) is old
+    # Before it starts, or when it ends far apart, the new one counts; and a real plan always does.
+    assert keep_fallback(old, later, NOW) is later
+    far = fallback_plan(Car(soc=30, target=80, capacity=60, power=10), running, DEADLINE + timedelta(hours=1))
+    assert keep_fallback(old, far, running) is far
+    real = plan_vehicle(slots(NIGHT), CAR, Rules(), NOW, deadline=DEADLINE)
+    assert keep_fallback(old, real, running) is real
+    assert keep_fallback(None, later, running) is later
