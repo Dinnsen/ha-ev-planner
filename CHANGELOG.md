@@ -2,6 +2,13 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
 
+## [2.2.0b5] - 2026-11-09
+
+Beta: only those who show beta versions in the Marketplace get it.
+
+### Changed
+- **The cars in the Home tab** are new clay models of modern electric cars, made in the same view and light as the house, so they stand on the drive instead of being pasted onto it: real side windows, a closed front with a slim light across it, a light bar at the back and aero wheels; the SUV has black trim and roof rails. Each kind keeps its own colour, and the car brings its own soft shadow.
+
 ## [2.2.0b4] - 2026-11-09
 
 Beta: only those who show beta versions in the Marketplace get it.
