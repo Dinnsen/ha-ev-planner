@@ -2,6 +2,11 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
 
+## [2.1.1] - 2026-11-09
+
+### Added
+- **A price ceiling that follows the prices:** instead of a fixed price, the ceiling can be the average price up to the ready-by time plus a percentage (switch *Price ceiling: average + %* and number *Price ceiling above average*). On a dear day it rises with the prices, so the car still charges; on a cheap day it falls. Before, this took an automation (from the community).
+
 ## [2.1.0] - 2026-11-09
 
 ### Added

@@ -86,6 +86,8 @@ class Rules:
     """Always reach this charge level, whatever the price."""
     ceiling: float | None = None
     """Never plan charging at a higher price (None: no ceiling)."""
+    ceiling_above: float | None = None
+    """The ceiling is the average price up to the ready-by time plus this many percent (replaces ``ceiling``)."""
     opportunistic: str = OPPORTUNISTIC_OFF
     opportunistic_level: float = 50.0
     """``lower_ceiling``: use this share (%) of the ceiling when the last known price is below it."""
@@ -332,6 +334,20 @@ def window_start(now: datetime, earliest: time | None, deadline: datetime | None
 
 # ----------------------------------------------------------------------
 # Prices
+
+
+def average_ceiling(window: Sequence[PriceSlot], above: float) -> float | None:
+    """The average price of ``window`` (by time) plus ``above`` percent of it.
+
+    A ceiling that follows the prices: on a dear day it rises with them, so
+    the car still charges; on a cheap day it falls. For a negative average,
+    the ceiling is above it by the same share.
+    """
+    hours = sum(slot.hours for slot in window)
+    if hours <= 0:
+        return None
+    average = sum(slot.price * slot.hours for slot in window) / hours
+    return average + abs(average) * above / 100
 
 
 def effective_ceiling(rules: Rules, prices: Sequence[PriceSlot]) -> tuple[float | None, bool]:
@@ -616,6 +632,8 @@ def plan_vehicle(
     if not window:
         raise PlanError("no_window")
 
+    if rules.ceiling_above is not None:
+        rules = replace(rules, ceiling=average_ceiling(window, rules.ceiling_above))
     ceiling, opportunistic = effective_ceiling(rules, prices)
     allowed = window if ceiling is None else [slot for slot in window if slot.price <= ceiling + EPSILON]
     short = slot_hours(window) + EPSILON < need.hours

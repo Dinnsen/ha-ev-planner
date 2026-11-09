@@ -392,6 +392,9 @@
       },
       "topup_level": {
         "name": "Top op fra"
+      },
+      "price_ceiling_above": {
+        "name": "Prisloft over gennemsnit"
       }
     },
     "select": {
@@ -589,6 +592,9 @@
       },
       "notify_receipt": {
         "name": "Morgenkvittering og advarsler"
+      },
+      "price_ceiling_relative": {
+        "name": "Prisloft: gennemsnit + %"
       }
     },
     "text": {
