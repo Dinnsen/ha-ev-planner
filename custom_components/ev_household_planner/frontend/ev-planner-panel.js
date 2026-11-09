@@ -175,6 +175,22 @@ const TEXT = {
     vstatus_completed: "Ladet",
     vstatus_no_plan: "Ingen plan",
     vstatus_charger_busy: "Laderen er optaget",
+    vstatus_charging_solar: "Lader på solen",
+    vstatus_waiting_for_sun: "Venter på solen",
+    vstatus_solar_only: "Lader kun på solen",
+    vstatus_solar_expected: "Solen ventes at klare resten",
+    rule_solar: "Lad på solen",
+    rule_solar_hint_off: "Kun efter prisen. Slå til for at lade på det, huset ellers sender ud på nettet.",
+    rule_solar_hint_surplus: "På overskuddet, når solen skinner. Planen sørger for resten til klar-tiden og regner med en del af solprognosen.",
+    rule_solar_hint_only: "Kun på overskuddet fra solen. Bilen bliver ikke nødvendigvis klar.",
+    solar_off: "Fra",
+    solar_surplus: "Sol og plan",
+    solar_only: "Kun sol",
+    solar_note_on: "Lader på solen: {amps}{phases}.",
+    solar_note_waiting: "Venter på mere sol: der skal mindst {kw} overskud til at starte.",
+    solar_note_expected: "Solprognosen lover nok sol før klar-tiden, så planen køber ikke fra nettet nu.",
+    solar_phase_1: " på én fase",
+    history_solar: "{pct} sol",
     vstatus_no_soc: "Mangler batteriniveau",
     vstatus_no_price_data: "Ingen priser",
     vstatus_not_enough_prices: "Venter på priser",
@@ -610,6 +626,22 @@ const TEXT = {
     vstatus_completed: "Charged",
     vstatus_no_plan: "No plan",
     vstatus_charger_busy: "Charger in use",
+    vstatus_charging_solar: "Charging on the sun",
+    vstatus_waiting_for_sun: "Waiting for the sun",
+    vstatus_solar_only: "Charges only on the sun",
+    vstatus_solar_expected: "The sun is expected to do the rest",
+    rule_solar: "Charge on the sun",
+    rule_solar_hint_off: "By price only. Turn it on to charge on what the house would send to the grid.",
+    rule_solar_hint_surplus: "On the surplus when the sun shines. The plan sees to the rest by the ready-by time, and counts on part of the solar forecast.",
+    rule_solar_hint_only: "Only on the surplus from the sun. The car may not be ready.",
+    solar_off: "Off",
+    solar_surplus: "Sun and plan",
+    solar_only: "Only sun",
+    solar_note_on: "Charging on the sun: {amps}{phases}.",
+    solar_note_waiting: "Waiting for more sun: it takes at least {kw} of surplus to start.",
+    solar_note_expected: "The solar forecast promises enough sun before the ready-by time, so the plan buys nothing from the grid now.",
+    solar_phase_1: " on one phase",
+    history_solar: "{pct} sun",
     vstatus_no_soc: "Battery level missing",
     vstatus_no_price_data: "No prices",
     vstatus_not_enough_prices: "Waiting for prices",
@@ -908,6 +940,7 @@ const STATUS_TONE = {
 
 const ICONS = {
   charge: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2.5 6 13.2h5.2L10 21.5l7-10.7h-5.2z"/></svg>',
+  sun: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.5 1.5M17.2 17.2l1.5 1.5M5.3 18.7l1.5-1.5M17.2 6.8l1.5-1.5"/></svg>',
   history: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
   settings: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>',
   search: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/></svg>',
@@ -2068,6 +2101,15 @@ class EvPlannerPanel extends HTMLElement {
     }
     if (!compact && v.resumes === false) notes.push(["info", this._t("note_no_resume", { name: v.name }), "forget-resume"]);
     if (!compact && this._state.price_issue) notes.push(["warn", this._t(`price_issue_${this._state.price_issue}`)]);
+    const solar = this._state.solar;
+    if (!compact && solar && v.connected && ["surplus", "only"].includes(v.settings?.solar)) {
+      const now = solar.cars?.[v.id];
+      if (now?.on) {
+        const amps = isNum(now.amps) ? `${Math.round(now.amps)} A` : "";
+        notes.push(["info", this._t("solar_note_on", { amps, phases: now.phases === 1 ? this._t("solar_phase_1") : "" })]);
+      } else if (v.plan_error === "solar_expected") notes.push(["info", this._t("solar_note_expected")]);
+      else if (v.reason === "waiting") notes.push(["info", this._t("solar_note_waiting", { kw: v.has_current ? "4,1 kW" : `${String(v.charge_power ?? 11).replace(".", ",")} kW` })]);
+    }
     const supply = this._state.supply;
     if (!compact && supply && v.connected && plan) {
       const amps = (a) => `${Math.round(Number(a))} A`;
@@ -3261,6 +3303,21 @@ class EvPlannerPanel extends HTMLElement {
         control: `${s.topup ? this._valueHtml("topup_level", s.topup_level ?? 80, { unit: "%", min: 10, max: 100, label: this._t("rule_topup") }) : ""}${this._switchHtml("topup", s.topup, this._t("rule_topup"))}`,
       }),
     );
+    if (this._state.solar) {
+      const mode = ["surplus", "only"].includes(s.solar) ? s.solar : "off";
+      rows.push(
+        this._ruleRow({
+          icon: "sun",
+          title: this._t("rule_solar"),
+          hint: this._t(`rule_solar_hint_${mode}`),
+          off: mode === "off",
+          control: "",
+          extra: `<div class="rule-under"><div class="segmented opp" role="radiogroup" aria-label="${this._t("rule_solar")}">${["off", "surplus", "only"].map(
+            (m) => `<button role="radio" data-act="solar" data-value="${m}" data-f="solar-${m}" aria-checked="${m === mode}" class="${m === mode ? "on" : ""}">${this._t(`solar_${m}`)}</button>`,
+          ).join("")}</div></div>`,
+        }),
+      );
+    }
     if (this._state.supply) {
       const prio = s.priority === "first" ? "first" : "normal";
       rows.push(
@@ -3917,6 +3974,7 @@ class EvPlannerPanel extends HTMLElement {
     const periods = (e.periods || []).length;
     if (periods > 1) parts.push(this._t("periods_n", { n: periods }));
     if (isNum(e.charging_minutes) && e.charging_minutes > 0) parts.push(this._t("charged_for", { time: this._duration(e.charging_minutes) }));
+    if (isNum(e.solar) && e.solar > 0.05 && e.energy > 0) parts.push(this._t("history_solar", { pct: this._pct(Math.min(100, (e.solar / e.energy) * 100)) }));
     const soc = parts.join(" · ");
     return `<li>
       <div class="when"><b>${new Date(e.start).getDate()}</b><span>${new Intl.DateTimeFormat(this._locale, { month: "short" }).format(new Date(e.start))}</span></div>
@@ -4165,6 +4223,9 @@ class EvPlannerPanel extends HTMLElement {
         break;
       case "prio":
         this._vchange({ priority: button.dataset.value });
+        break;
+      case "solar":
+        this._vchange({ solar: button.dataset.value });
         break;
       case "ceilmode":
         this._vchange({ price_ceiling_relative: button.dataset.value === "1" });

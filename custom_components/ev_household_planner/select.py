@@ -17,6 +17,8 @@ from .const import (
     SET_MODE,
     SET_OPPORTUNISTIC,
     SET_PRIORITY,
+    SET_SOLAR,
+    SOLAR_OPTIONS,
 )
 from .entity import GuestEntity, VehicleEntity
 from .household import EVPlannerConfigEntry, Household
@@ -46,15 +48,20 @@ VEHICLE_SELECTS: tuple[PlannerSelectDescription, ...] = (
 )
 
 
+# Only with a grid power sensor in the options.
+SOLAR_SELECT = PlannerSelectDescription(key="solar", setting=SET_SOLAR, options=SOLAR_OPTIONS)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: EVPlannerConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     household = entry.runtime_data
+    descriptions = VEHICLE_SELECTS + ((SOLAR_SELECT,) if household.solar.active else ())
     for vehicle_id in household.vehicles:
         async_add_entities(
-            (VehicleSelect(household, vehicle_id, description) for description in VEHICLE_SELECTS),
+            (VehicleSelect(household, vehicle_id, description) for description in descriptions),
             config_subentry_id=vehicle_id,
         )
     if len(household.chargers) > 1:

@@ -117,6 +117,12 @@
       },
       "priority": {
         "default": "mdi:priority-high"
+      },
+      "solar": {
+        "default": "mdi:solar-power-variant",
+        "state": {
+          "off": "mdi:solar-power-variant-outline"
+        }
       }
     },
     "sensor": {

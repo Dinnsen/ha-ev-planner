@@ -33,6 +33,11 @@ from .catalog import (
 )
 from .const import (
     CONF_BATTERY_CAPACITY,
+    CONF_BATTERY_FIRST,
+    CONF_BATTERY_HOLD,
+    CONF_BATTERY_INVERTED,
+    CONF_BATTERY_POWER,
+    CONF_BATTERY_SOC,
     CONF_CALENDAR_ENTITY,
     CONF_CALENDAR_KEYWORD,
     CONF_CAPACITY_ENTITY,
@@ -47,17 +52,22 @@ from .const import (
     CONF_CURRENT_ENTITY,
     CONF_DEVICE,
     CONF_ENERGY_ENTITY,
+    CONF_GRID_INVERTED,
+    CONF_GRID_POWER,
     CONF_HOME_ENTITY,
     CONF_IMPORTED_FROM,
     CONF_IMPORTED_SPEED,
     CONF_MODEL,
     CONF_MOTORAPI_KEY,
     CONF_NOTIFY,
+    CONF_PHASE_ENTITY,
     CONF_PLATE_PROVIDER,
     CONF_POWER,
     CONF_POWER_ENTITY,
     CONF_PRICE_ENTITY,
     CONF_SOC_ENTITY,
+    CONF_SOLAR_FORECAST,
+    CONF_SOLAR_POWER,
     CONF_SOURCE,
     CONF_SUPPLY_GUARD,
     CONF_SUPPLY_LIMIT,
@@ -77,6 +87,7 @@ from .const import (
     COUNTRY_OTHER,
     CURRENCIES,
     DEFAULT_BATTERY_CAPACITY,
+    DEFAULT_BATTERY_FIRST,
     DEFAULT_CHARGE_POWER,
     DEFAULT_COUNTRY,
     DEFAULT_CURRENCY,
@@ -119,6 +130,7 @@ SECTION_SENSORS = "sensors"
 SECTION_CHARGING = "charging"
 SECTION_TRIPS = "trips"
 SECTION_SUPPLY = "supply"
+SECTION_SOLAR = "solar"
 
 PRICE_ENTITY_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor"))
 COUNTRY_SELECTOR = selector.SelectSelector(
@@ -159,6 +171,12 @@ CURRENT_SELECTOR = selector.EntitySelector(
     )
 )
 METER_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", multiple=True))
+BATTERY_LEVEL_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", device_class="battery"))
+PERCENT_SELECTOR = selector.NumberSelector(
+    selector.NumberSelectorConfig(
+        min=0, max=100, step=5, unit_of_measurement="%", mode=selector.NumberSelectorMode.SLIDER
+    )
+)
 AMPS_SELECTOR = selector.NumberSelector(
     selector.NumberSelectorConfig(min=0, max=200, step=1, unit_of_measurement="A", mode=selector.NumberSelectorMode.BOX)
 )
@@ -353,8 +371,13 @@ class EVPlannerOptionsFlow(OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
             supply = user_input.pop(SECTION_SUPPLY, None) or {}
-            return self.async_create_entry(data={**user_input, **supply})
+            solar = user_input.pop(SECTION_SOLAR, None) or {}
+            return self.async_create_entry(data={**user_input, **supply, **solar})
         options = self.config_entry.options
+
+        def sug(key: str) -> vol.Optional:
+            return vol.Optional(key, description={"suggested_value": options.get(key)})
+
         schema = vol.Schema(
             {
                 vol.Required(CONF_CURRENCY, default=options.get(CONF_CURRENCY) or DEFAULT_CURRENCY): _currency_selector(
@@ -379,6 +402,30 @@ class EVPlannerOptionsFlow(OptionsFlow):
                         }
                     ),
                     {"collapsed": not options.get(CONF_SUPPLY_LIMIT)},
+                ),
+                vol.Optional(SECTION_SOLAR): section(
+                    vol.Schema(
+                        {
+                            sug(CONF_GRID_POWER): POWER_ENTITY_SELECTOR,
+                            vol.Optional(
+                                CONF_GRID_INVERTED, default=bool(options.get(CONF_GRID_INVERTED, False))
+                            ): bool,
+                            sug(CONF_SOLAR_POWER): POWER_ENTITY_SELECTOR,
+                            sug(CONF_BATTERY_SOC): BATTERY_LEVEL_SELECTOR,
+                            sug(CONF_BATTERY_POWER): POWER_ENTITY_SELECTOR,
+                            vol.Optional(
+                                CONF_BATTERY_INVERTED, default=bool(options.get(CONF_BATTERY_INVERTED, False))
+                            ): bool,
+                            vol.Optional(
+                                CONF_BATTERY_FIRST, default=options.get(CONF_BATTERY_FIRST, DEFAULT_BATTERY_FIRST)
+                            ): PERCENT_SELECTOR,
+                            sug(CONF_BATTERY_HOLD): SWITCH_SELECTOR,
+                            vol.Optional(
+                                CONF_SOLAR_FORECAST, default=bool(options.get(CONF_SOLAR_FORECAST, True))
+                            ): bool,
+                        }
+                    ),
+                    {"collapsed": not options.get(CONF_GRID_POWER)},
                 ),
             }
         )
@@ -547,6 +594,7 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
                             ): CONTROL_SELECTOR,
                             opt(CONF_CONTROL_ENTITY): SWITCH_SELECTOR,
                             opt(CONF_CURRENT_ENTITY): CURRENT_SELECTOR,
+                            opt(CONF_PHASE_ENTITY): SWITCH_SELECTOR,
                         }
                     ),
                     {"collapsed": False},
@@ -689,6 +737,7 @@ class ChargerSubentryFlow(ConfigSubentryFlow):
                 vol.Required(CONF_POWER, default=values.get(CONF_POWER, DEFAULT_CHARGE_POWER)): POWER_SELECTOR,
                 opt(CONF_SWITCH_ENTITY): SWITCH_SELECTOR,
                 opt(CONF_CURRENT_ENTITY): CURRENT_SELECTOR,
+                opt(CONF_PHASE_ENTITY): SWITCH_SELECTOR,
                 opt(CONF_ENERGY_ENTITY): ENERGY_SELECTOR,
                 opt(CONF_CONNECTED_ENTITY): ANY_ENTITY_SELECTOR,
                 opt(CONF_UNPLUGGED_STATES): STATES_SELECTOR,

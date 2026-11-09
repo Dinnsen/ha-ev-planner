@@ -267,13 +267,13 @@ class SupplyControl:
             return None
         return entry.device_id
 
-    def _bounds(self, entity: str) -> tuple[float, float]:
+    def bounds(self, entity: str) -> tuple[float, float]:
         state = self.hass.states.get(entity)
         low = to_float(state.attributes.get("min")) if state is not None else None
         high = to_float(state.attributes.get("max")) if state is not None else None
         return (6.0 if low is None else low), (MAX_AMPS if high is None else high)
 
-    async def _async_set(self, vehicle: Vehicle, entity: str, value: float, now: datetime) -> bool:
+    async def async_set_current(self, vehicle: Vehicle, entity: str, value: float, now: datetime) -> bool:
         """Set the car's current: through Easee's own action, or the number's ``set_value``."""
         if (device := self._easee_device(entity)) is not None:
             service = ("easee", "set_charger_dynamic_limit")
@@ -289,6 +289,10 @@ class SupplyControl:
         self._sent[vehicle.vehicle_id] = (value, now)
         return True
 
+    def plan_amps(self, vehicle: Vehicle, now: datetime) -> float | None:
+        """The car's share in the joint plan now (None without a plan or a share)."""
+        return self.plan.amps_at(vehicle.vehicle_id, now) if self.plan is not None else None
+
     async def async_apply(self, now: datetime) -> None:
         """Tell each car with a current setting how many amps its share is now."""
         if self.plan is None:
@@ -301,7 +305,7 @@ class SupplyControl:
             easee = self._easee_device(entity) is not None
             if not easee and self.hass.states.get(entity) is None:
                 continue
-            low, high = self._bounds(entity)
+            low, high = self.bounds(entity)
             value = max(low, min(high, float(round(amps))))
             if self.guard and self.house_now() is None:
                 value = low  # the guard has no meter: the least, until it is back
@@ -326,7 +330,7 @@ class SupplyControl:
             if not easee and not renew and to_float(self.hass.states.get(entity).state) == value:  # type: ignore[union-attr]
                 self._sent[vehicle.vehicle_id] = (value, now)
                 continue
-            await self._async_set(vehicle, entity, value, now)
+            await self.async_set_current(vehicle, entity, value, now)
 
     # ------------------------------------------------------------------
     # The guard: the house first, now
@@ -387,13 +391,13 @@ class SupplyControl:
             return
         cars = [(vehicle, entity) for vehicle in charging if (entity := self.current_entity(vehicle)) is not None]
         for vehicle, entity in cars:
-            low, high = self._bounds(entity)
+            low, high = self.bounds(entity)
             current = self._current_now(vehicle, entity, high)
             target = low if over is None else max(low, current - over)
             target = float(round(target)) if over is None else float(int(target))  # round down when cutting
             if target >= current:
                 continue
-            if await self._async_set(vehicle, entity, target, now):
+            if await self.async_set_current(vehicle, entity, target, now):
                 self._held[vehicle.vehicle_id] = now + GUARD_HOLD
                 self._cuts.append((now, current - target))
                 self.guard_events += 1

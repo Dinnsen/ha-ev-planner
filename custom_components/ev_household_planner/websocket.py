@@ -69,11 +69,13 @@ from .const import (
     SET_REMINDER_SOC,
     SET_REMINDER_TIME,
     SET_SCHEDULE,
+    SET_SOLAR,
     SET_TARGET_SOC,
     SET_TOPUP_ENABLED,
     SET_TOPUP_LEVEL,
     SET_USE_EARLIEST_START,
     SET_USE_READY_BY,
+    SOLAR_OPTIONS,
     WEEKDAYS,
 )
 from .guest import GuestSession, serialize_segments
@@ -146,6 +148,7 @@ VEHICLE_SCHEMA = vol.Schema(
         vol.Optional(SET_TOPUP_LEVEL): vol.All(vol.Coerce(float), vol.Range(min=10, max=100)),
         vol.Optional(SET_MUST_SOC): vol.All(vol.Coerce(float), vol.Range(min=0, max=100)),
         vol.Optional(SET_PRIORITY): vol.In(PRIORITY_OPTIONS),
+        vol.Optional(SET_SOLAR): vol.In(SOLAR_OPTIONS),
         vol.Optional(SET_DAY_TARGETS): {vol.In(WEEKDAYS): vol.All(vol.Coerce(float), vol.Range(min=10, max=100))},
         vol.Optional(FORGET_RESUME): cv.boolean,
     }
@@ -405,6 +408,7 @@ def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
         "prices": [{"start": s.start.isoformat(), "end": s.end.isoformat(), "price": s.price} for s in slots],
         "price_issue": price_issue(household.price_slots(now), now),
         "supply": household.supply.state(now),
+        "solar": household.solar.state(now),
         "vehicles": [vehicle_state(household, vehicle) for vehicle in vehicles],
         "chargers": chargers,
         "guest": guest_state(household, household.guest),

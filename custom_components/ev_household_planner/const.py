@@ -101,6 +101,22 @@ CONF_SUPPLY_METER: Final = "supply_meter"
 CONF_SUPPLY_RESERVE: Final = "supply_reserve"
 # Shared supply: lower the cars at once when the house draws more than planned (needs a meter and a current setting).
 CONF_SUPPLY_GUARD: Final = "supply_guard"
+# The sun: a grid power sensor (W or kW, positive when the house buys) turns it on.
+CONF_GRID_POWER: Final = "grid_power"
+CONF_GRID_INVERTED: Final = "grid_power_inverted"
+CONF_SOLAR_POWER: Final = "solar_power"
+CONF_BATTERY_SOC: Final = "battery_soc"
+CONF_BATTERY_POWER: Final = "battery_power"  # positive when the home battery charges
+CONF_BATTERY_INVERTED: Final = "battery_power_inverted"
+# Below this level the home battery keeps the sun it takes; above it the cars may have it.
+CONF_BATTERY_FIRST: Final = "battery_first_until"
+DEFAULT_BATTERY_FIRST: Final = 100.0
+# A switch that holds the home battery (no discharging) while a car charges from the grid.
+CONF_BATTERY_HOLD: Final = "battery_hold"
+# Use the solar forecast of the Energy dashboard.
+CONF_SOLAR_FORECAST: Final = "solar_forecast"
+# A switch that sets the charger to three phases (on) or one (off).
+CONF_PHASE_ENTITY: Final = "phase_entity"
 DEFAULT_SUPPLY_RESERVE: Final = 6.0
 CONF_ENERGY_ENTITY: Final = "energy_entity"
 
@@ -161,6 +177,12 @@ SET_PRIORITY: Final = "priority"
 PRIORITY_NORMAL: Final = "normal"
 PRIORITY_FIRST: Final = "first"
 PRIORITY_OPTIONS: Final = [PRIORITY_NORMAL, PRIORITY_FIRST]
+# Charging on the sun: off, the sun and the plan, or only the sun.
+SET_SOLAR: Final = "solar"
+SOLAR_OFF: Final = "off"
+SOLAR_SURPLUS: Final = "surplus"
+SOLAR_ONLY: Final = "only"
+SOLAR_OPTIONS: Final = [SOLAR_OFF, SOLAR_SURPLUS, SOLAR_ONLY]
 # A target per weekday of the ready-by time: {"fri": 100}.
 SET_DAY_TARGETS: Final = "day_targets"
 
@@ -225,6 +247,7 @@ DEFAULT_VEHICLE_SETTINGS: Final[dict[str, object]] = {
     SET_TOPUP_LEVEL: 80.0,
     SET_MUST_SOC: 0.0,
     SET_PRIORITY: PRIORITY_NORMAL,
+    SET_SOLAR: SOLAR_OFF,
     SET_DAY_TARGETS: {},
 }
 
@@ -249,6 +272,7 @@ REASON_PLANNED: Final = "planned"
 REASON_KEEP_ON: Final = "keep_on"
 REASON_WAITING: Final = "waiting"
 REASON_CHARGER_BUSY: Final = "charger_busy"
+REASON_SOLAR: Final = "solar"
 
 STATUS_OFF: Final = "off"
 STATUS_PAUSED: Final = "paused"
@@ -263,6 +287,8 @@ STATUS_COMPLETED: Final = "completed"
 STATUS_NO_PLAN: Final = "no_plan"
 STATUS_CHARGER_BUSY: Final = "charger_busy"
 STATUS_NO_SOC: Final = "no_soc"
+STATUS_SOLAR: Final = "charging_solar"
+STATUS_WAITING_SUN: Final = "waiting_for_sun"
 ERROR_INVALID_INPUT: Final = "invalid_input"
 ERROR_LIMIT_NOT_ABOVE_SOC: Final = "limit_not_above_soc"
 ERROR_NO_PRICE_DATA: Final = "no_price_data"
@@ -282,6 +308,8 @@ VEHICLE_STATUS_OPTIONS: Final = [
     STATUS_NO_PLAN,
     STATUS_CHARGER_BUSY,
     STATUS_NO_SOC,
+    STATUS_SOLAR,
+    STATUS_WAITING_SUN,
     ERROR_NO_PRICE_DATA,
     ERROR_NOT_ENOUGH_PRICES,
     ERROR_NO_WINDOW,
