@@ -8,6 +8,10 @@ from unittest.mock import patch
 from homeassistant.core import HomeAssistant
 import pytest
 
+# The integration is imported up front, so it can be patched (and so it runs as at home).
+import custom_components.ev_household_planner
+import custom_components.ev_household_planner.household  # noqa: F401
+
 
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations: None) -> None:
