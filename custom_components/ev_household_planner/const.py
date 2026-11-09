@@ -146,6 +146,9 @@ WEEKDAYS: Final = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 SCHEDULE_DEFAULT: Final = "default"
 SCHEDULE_NONE: Final = "none"
 
+# Not a setting: makes a car forget that it does not charge again after a pause.
+FORGET_RESUME: Final = "forget_resume"
+
 DEFAULT_VEHICLE_SETTINGS: Final[dict[str, object]] = {
     SET_MODE: MODE_SMART,
     SET_TARGET_SOC: 80.0,
@@ -291,6 +294,26 @@ PROGRESS_INTERVAL: Final = timedelta(minutes=1)
 UNPLUG_DELAY: Final = timedelta(minutes=1)
 POST_PLAN_HOLD: Final = timedelta(hours=24)
 VERIFY_DELAY: Final = timedelta(minutes=6)
+# Waits between the checks that charging did what it was told: a command that
+# did not take is sent again after each of the first ones, then reported.
+VERIFY_BACKOFF: Final = (timedelta(minutes=6), timedelta(minutes=12))
+# While a problem is reported, it is checked (and the command sent once more) this often.
+PROBLEM_RECHECK: Final = timedelta(minutes=30)
+# At most this many commands per car per hour, so a car that does not listen is not flooded.
+COMMANDS_PER_HOUR: Final = 12
+# The same command is not sent again within this time, except to check it.
+COMMAND_REPEAT: Final = timedelta(seconds=60)
+# A car with a plug sensor must stay unplugged this long before its charge goes to the history.
+UNPLUG_CONFIRM: Final = timedelta(minutes=2)
+# Charging that stops and starts again within this time is one period (a charging sensor that flickers).
+PERIOD_JOIN: Final = timedelta(minutes=2)
+# Without a plug sensor, a charge smaller than this without a rise in the charge level is a blip: it
+# is joined to the next charge that starts within BLIP_HOLD, else it is left out of the history.
+BLIP_KWH: Final = 0.5
+BLIP_HOLD: Final = timedelta(hours=6)
+# A guest car seen unplugged in a pause between periods: checked again this long after the next
+# period starts (some chargers report "no car" while charging is paused).
+GUEST_PAUSE_UNPLUG_CHECK: Final = timedelta(minutes=5)
 CALENDAR_REFRESH: Final = timedelta(minutes=15)
 CALENDAR_LOOKAHEAD: Final = timedelta(hours=36)
 LIVE_MIN_INTERVAL: Final = timedelta(minutes=5)

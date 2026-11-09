@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping
+from datetime import datetime
 import functools
 from typing import Any
 
@@ -15,6 +16,7 @@ from homeassistant.util import dt as dt_util, slugify
 from .catalog import panel_info
 from .const import (
     DOMAIN,
+    FORGET_RESUME,
     GUEST_BATTERY,
     GUEST_CHARGER,
     GUEST_CONTINUOUS,
@@ -123,6 +125,7 @@ VEHICLE_SCHEMA = vol.Schema(
         vol.Optional(SET_NOTIFY_TARGETS): vol.All(cv.ensure_list, [cv.string]),
         vol.Optional(SET_LIVE): cv.boolean,
         vol.Optional(SET_NOTIFY_DONE): cv.boolean,
+        vol.Optional(FORGET_RESUME): cv.boolean,
     }
 )
 GUEST_SCHEMA = vol.Schema(
@@ -209,6 +212,22 @@ def plan_state(plan: VehiclePlan | None) -> dict[str, Any] | None:
     }
 
 
+def session_state(vehicle: Vehicle, now: datetime) -> dict[str, Any] | None:
+    """The charge going on (from plug-in to unplug), for the panel."""
+    session = vehicle.session
+    if session is None:
+        return None
+    return {
+        "start": session.start.isoformat(),
+        "start_soc": session.start_soc,
+        "energy": round(session.energy, 2),
+        "cost": round(session.cost, 2),
+        "charging": session.charging,
+        "periods": [period.to_dict() for period in session.periods],
+        "charging_minutes": round(session.charging_minutes(now)),
+    }
+
+
 def vehicle_state(household: Household, vehicle: Vehicle) -> dict[str, Any]:
     now = dt_util.now()
     charger = household.chargers.get(vehicle.charger_id or "")
@@ -232,6 +251,8 @@ def vehicle_state(household: Household, vehicle: Vehicle) -> dict[str, Any]:
         "capacity": vehicle.capacity,
         "power": household.vehicle_power(vehicle),
         **household.charging_figures(vehicle),
+        "resumes": vehicle.learned.resumes,
+        "session": session_state(vehicle, now),
         "connected": vehicle.connected,
         "home": vehicle.home,
         "charging": vehicle.charging,

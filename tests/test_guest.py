@@ -380,3 +380,159 @@ async def test_guest_charger_choice(hass: HomeAssistant, now: datetime, freezer:
     assert entry.runtime_data.guest.charger_id == "garage"
     assert entry.runtime_data.guest.inputs["charger"] == "garage"
     assert CARPORT in entry.runtime_data.chargers
+
+
+# From 20:00: the cheap hours are midnight and 03, with dearer hours between them.
+TWO_PERIODS = [3.0, 3.0, 3.0, 3.0, 0.5, 2.0, 2.0, 0.6, 3.0, 3.0, 3.0]
+
+
+def _night_at(now: datetime, hour: int, minute: int = 0) -> datetime:
+    day = now if hour >= 12 else now + timedelta(days=1)
+    return day.replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+
+async def _guest_plan(hass: HomeAssistant, entry: MockConfigEntry, now: datetime, *, continuous: bool) -> Any:
+    """A guest at 60 % to 80 % (77 kWh, 11 kW): an hour and a half of charging."""
+    guest = entry.runtime_data.guest
+    guest.inputs.update({"soc": 60.0, "charge_limit": 80.0, "continuous_charging_preferred": continuous})
+    hass.states.async_set(CHARGER_CAR, "on")
+    await hass.async_block_till_done()
+    await _press(hass, "make_plan")
+    return guest
+
+
+async def test_a_split_guest_plan_bills_both_periods(
+    hass: HomeAssistant,
+    guest_household: MockConfigEntry,
+    now: datetime,
+    freezer: FrozenDateTimeFactory,
+    switches: SwitchCalls,
+) -> None:
+    set_prices(hass, now, TWO_PERIODS)
+    await settle(hass, freezer)
+    guest = await _guest_plan(hass, guest_household, now, continuous=False)
+    assert [(seg["start"].hour, seg["end"].hour, seg["end"].minute) for seg in guest.segments] == [
+        (0, 1, 0),
+        (3, 3, 30),
+    ]
+    await move(hass, freezer, _night_at(now, 0, 1))
+    assert switches.calls[-1] == ("turn_on", CHARGER_SWITCH)
+    hass.states.async_set(CHARGER_METER, "1011.0", {"unit_of_measurement": "kWh"})
+    await move(hass, freezer, _night_at(now, 1, 1))
+    assert _state(hass, CONTROL).state == "pause"
+    # The charger says "no car" while charging is paused: the guest is not let go for that.
+    hass.states.async_set(CHARGER_CAR, "off")
+    await settle(hass, freezer)
+    await move(hass, freezer, _night_at(now, 1, 10))
+    assert _state(hass, STATUS).state == "planned"
+    await move(hass, freezer, _night_at(now, 3, 1))
+    assert switches.calls[-1] == ("turn_on", CHARGER_SWITCH)
+    hass.states.async_set(CHARGER_CAR, "on")
+    hass.states.async_set(CHARGER_METER, "1016.5", {"unit_of_measurement": "kWh"})
+    await settle(hass, freezer)
+    await move(hass, freezer, _night_at(now, 3, 41))
+    assert _state(hass, STATUS).state == "completed"
+    entry = guest.history[0]
+    assert entry["measured_energy"] == pytest.approx(16.5)
+    assert [(period["start"][11:16], period["end"][11:16]) for period in entry["periods"]] == [
+        ("00:00", "01:00"),
+        ("03:00", "03:30"),
+    ]
+
+
+async def test_a_guest_gone_in_a_pause_is_let_go_when_charging_should_go_on(
+    hass: HomeAssistant,
+    guest_household: MockConfigEntry,
+    now: datetime,
+    freezer: FrozenDateTimeFactory,
+    switches: SwitchCalls,
+) -> None:
+    set_prices(hass, now, TWO_PERIODS)
+    await settle(hass, freezer)
+    guest = await _guest_plan(hass, guest_household, now, continuous=False)
+    await move(hass, freezer, _night_at(now, 0, 1))
+    hass.states.async_set(CHARGER_METER, "1011.0", {"unit_of_measurement": "kWh"})
+    await move(hass, freezer, _night_at(now, 1, 20))
+    hass.states.async_set(CHARGER_CAR, "off")
+    await settle(hass, freezer)
+    # Still missing five minutes after charging should have gone on: gone since 01:20.
+    await move(hass, freezer, _night_at(now, 3, 4))
+    assert guest.release_info() is None
+    await move(hass, freezer, _night_at(now, 3, 6))
+    assert _state(hass, STATUS).state == "completed"
+    assert guest.release_info()["reason"] == "unplugged"
+    entry = guest.history[0]
+    assert entry["end"][11:16] == "01:20"
+    assert [(period["start"][11:16], period["end"][11:16]) for period in entry["periods"]] == [("00:00", "01:00")]
+    assert entry["measured_energy"] == pytest.approx(11)
+
+
+async def test_planning_again_while_the_guest_charges_keeps_what_was_charged(
+    hass: HomeAssistant,
+    guest_household: MockConfigEntry,
+    now: datetime,
+    freezer: FrozenDateTimeFactory,
+    switches: SwitchCalls,
+) -> None:
+    guest = await _guest_plan(hass, guest_household, now, continuous=True)
+    first = guest.plan_info
+    assert first is not None
+    start = guest.plan_start
+    assert start is not None and start.hour == 2
+    await move(hass, freezer, start + timedelta(minutes=30))
+    hass.states.async_set(CHARGER_METER, "1005.0", {"unit_of_measurement": "kWh"})
+    await hass.async_block_till_done()
+    # Half an hour in, the guest says the car is at 70 % now and plans again.
+    guest.inputs["soc"] = 70.0
+    await _press(hass, "make_plan")
+    assert guest.results["measured_energy"] == pytest.approx(5)
+    second = guest.plan_info
+    assert second is not None
+    # "Charge now" in the middle keeps it too.
+    await move(hass, freezer, dt_util.now() + timedelta(minutes=10))
+    await _press(hass, "charge_now")
+    third = guest.plan_info
+    assert third is not None
+    end = guest.plan_end
+    assert end is not None
+    hass.states.async_set(CHARGER_METER, "1009.0", {"unit_of_measurement": "kWh"})
+    await hass.async_block_till_done()
+    await move(hass, freezer, end + timedelta(minutes=11))
+    assert len(guest.history) == 1
+    entry = guest.history[0]
+    assert entry["start"] == start.isoformat()
+    assert len(entry["periods"]) == 3
+    assert entry["measured_energy"] == pytest.approx(9)
+    # The bill without a meter: the part of the first plan that ran (a third), of the second, and the third.
+    parts = guest._carried
+    assert len(parts) == 2
+    assert parts[0]["energy"] == pytest.approx(first["energy"] / 3, abs=0.05)
+    assert parts[1]["energy"] < second["energy"]
+    assert entry["energy"] == pytest.approx(parts[0]["energy"] + parts[1]["energy"] + third["energy"], abs=0.01)
+    assert entry["cost"] == pytest.approx(parts[0]["cost"] + parts[1]["cost"] + third["cost"], abs=0.01)
+
+
+async def test_a_guest_unplugged_while_charging_without_a_meter_pays_for_what_was_charged(
+    hass: HomeAssistant,
+    guest_household: MockConfigEntry,
+    now: datetime,
+    freezer: FrozenDateTimeFactory,
+    switches: SwitchCalls,
+) -> None:
+    household = guest_household.runtime_data
+    household.chargers[CARPORT].config.pop("energy_entity")
+    guest = await _guest_plan(hass, guest_household, now, continuous=True)
+    planned = dict(guest.plan_info)
+    start = guest.plan_start
+    assert start is not None
+    await move(hass, freezer, start + timedelta(minutes=45))
+    hass.states.async_set(CHARGER_CAR, "off")
+    await settle(hass, freezer)
+    await move(hass, freezer, start + timedelta(minutes=47))
+    assert _state(hass, STATUS).state == "completed"
+    entry = guest.history[0]
+    assert entry["measured_energy"] is None
+    # 45 of the 90 minutes.
+    assert entry["energy"] == pytest.approx(planned["energy"] / 2, abs=0.05)
+    assert entry["cost"] == pytest.approx(planned["cost"] / 2, abs=0.05)
+    assert entry["end"][11:16] == "02:45"

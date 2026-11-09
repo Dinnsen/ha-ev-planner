@@ -36,6 +36,8 @@ MIN_POWER_HOURS = 0.25
 MIN_POWER_KW = 0.5
 # Speeds outside this range are a broken sensor, not a car (% per hour).
 SPEED_RANGE = (0.5, 400.0)
+# A car that has not charged again after a pause this many times charges in one go.
+RESUME_FAILURES = 2
 
 SOURCE_MEASURING = "measuring"
 SOURCE_LEARNED = "learned"
@@ -171,6 +173,9 @@ class Learned:
     power: float | None = None
     power_count: int = 0
     basis: tuple[float, float] | None = None
+    # Whether the car charges again after a pause in a plan: None until it has shown it.
+    resumes: bool | None = None
+    resume_failures: int = 0
 
     def add(self, meter: ChargeMeter) -> bool:
         """Fold in a measurement; True when the speed was part of it."""
@@ -183,6 +188,25 @@ class Learned:
             self.power = blend(self.power, power)
             self.power_count += 1
         return learned_speed
+
+    def resumed(self) -> None:
+        """The car took up charging again after a pause."""
+        self.resumes, self.resume_failures = True, 0
+
+    def did_not_resume(self) -> bool:
+        """The car did not charge again after a pause; True when it is now known not to.
+
+        Once can be a car that was asleep or a charger that was busy, so it
+        takes ``RESUME_FAILURES`` times before the car charges in one go.
+        """
+        self.resume_failures += 1
+        if self.resume_failures >= RESUME_FAILURES and self.resumes is not False:
+            self.resumes = False
+            return True
+        return False
+
+    def forget_resume(self) -> None:
+        self.resumes, self.resume_failures = None, 0
 
     def check_basis(self, basis: tuple[float, float]) -> bool:
         """Start over when the setup changed; True when something was dropped."""
@@ -201,6 +225,8 @@ class Learned:
             "power": None if self.power is None else round(self.power, 3),
             "power_count": self.power_count,
             "basis": list(self.basis) if self.basis is not None else None,
+            "resumes": self.resumes,
+            "resume_failures": self.resume_failures,
         }
 
     @classmethod
@@ -215,10 +241,13 @@ class Learned:
                 parsed = (first, second)
         speed = _float(data.get("speed"))
         power = _float(data.get("power"))
+        resumes = data.get("resumes")
         return cls(
             speed=speed if speed is not None and speed > 0 else None,
             speed_count=int(_float(data.get("speed_count")) or 0),
             power=power if power is not None and power > 0 else None,
             power_count=int(_float(data.get("power_count")) or 0),
             basis=parsed,
+            resumes=resumes if isinstance(resumes, bool) else None,
+            resume_failures=int(_float(data.get("resume_failures")) or 0),
         )
