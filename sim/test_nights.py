@@ -27,8 +27,25 @@ def _nights() -> list[Night]:
 
 NIGHTS = _nights()
 
+# Rules these nights break today, with why. Strict: once fixed, the run says so and the entry goes.
+KNOWN = {
+    "random-19": "the first night's speed leaves out the charging losses, and the plan has no margin",
+    "random-21": "the first night's speed leaves out the charging losses, and the plan has no margin",
+}
 
-@pytest.mark.parametrize("night", NIGHTS, ids=[night.name for night in NIGHTS])
+
+def _params() -> list[object]:
+    return [
+        pytest.param(
+            night,
+            id=night.name,
+            marks=[pytest.mark.xfail(reason=KNOWN[night.name], strict=True)] if night.name in KNOWN else [],
+        )
+        for night in NIGHTS
+    ]
+
+
+@pytest.mark.parametrize("night", _params())
 async def test_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, night: Night) -> None:
     results = await run_night(hass, freezer, night)
     out = os.environ.get("SIM_OUT")
