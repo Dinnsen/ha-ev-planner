@@ -1373,7 +1373,7 @@ const ClayScene = (() => {
   const T = {
     top: "#FFFFFF", south: "#F1F2F5", east: "#DFE3E9", roofSouth: "#EEF0F3", roofBack: "#DADDE3",
     glass: "#D3DAE2", glassHi: "#EEF2F6", ground: "#EEF1F5", shadow: "#5A6478", line: "#CBD1DA",
-    tree: ["#F3F4F6", "#DADDE3"], panel: "#D8DCE2", panelLine: "#C3C8D0",
+    tree: ["#F3F4F6", "#DADDE3"], panel: "#2B3038", panelLine: "#4A5160",
   };
   const FLOW = { sun: "#F5B92E", grid: "#8C98AC", battery: "#22C981", home: "#22C981", car: "#22C981", heat: "#22C981" };
   const PAINT = { white: "#F7F8FA", black: "#2A2D33" };
@@ -1554,12 +1554,16 @@ const ClayScene = (() => {
     return s + `</g>`;
   }
 
+  // The equipment is dark grey, with lights that show what it does.
+  const DEV = { south: "#3A3F47", east: "#2E3238", top: "#4C525B" };
+
   function wallbox(x, y, on) {
-    let s = poly([[x, y, 0.95], [x + 0.36, y, 0.95], [x + 0.36, y + 0.13, 0.95], [x, y + 0.13, 0.95]], `fill="${T.top}"`);
-    s += poly([[x, y + 0.13, 0.95], [x + 0.36, y + 0.13, 0.95], [x + 0.36, y + 0.13, 1.55], [x, y + 0.13, 1.55]], `fill="${T.south}"`);
-    s += poly([[x + 0.36, y + 0.13, 0.95], [x + 0.36, y, 0.95], [x + 0.36, y, 1.55], [x + 0.36, y + 0.13, 1.55]], `fill="${T.east}"`);
-    s += poly([[x, y, 1.55], [x + 0.36, y, 1.55], [x + 0.36, y + 0.13, 1.55], [x, y + 0.13, 1.55]], `fill="${T.top}"`);
-    s += `<g transform="${onY(x, y + 0.131, 1.55)}"><rect class="cs-boxled${on ? " on" : ""}" x=".11" y=".14" width=".14" height=".035" rx=".017"/></g>`;
+    let s = box(x, y, 0.95, x + 0.36, y + 0.14, 1.6, DEV);
+    s += `<g transform="${onY(x, y + 0.141, 1.6)}">
+      <rect x=".05" y=".05" width=".26" height=".55" rx=".05" fill="#262A30"/>
+      <rect class="cs-boxglow${on ? " on" : ""}" x=".155" y=".12" width=".05" height=".34" rx=".025"/>
+      <rect class="cs-boxled${on ? " on" : ""}" x=".165" y=".13" width=".03" height=".32" rx=".015"/>
+    </g>`;
     return s;
   }
 
@@ -1628,11 +1632,16 @@ const ClayScene = (() => {
     s += windowY(6.6, 7.4, Hh.y1 + 0.005, 0.0, 2.3);
     s += poly([[Hh.x0, Hh.y1 + 0.006, Hh.h - 0.35], [Hh.x1, Hh.y1 + 0.006, Hh.h - 0.35], [Hh.x1, Hh.y1 + 0.006, Hh.h], [Hh.x0, Hh.y1 + 0.006, Hh.h]], `fill="${T.shadow}" fill-opacity=".08"`);
     if (m.battery) {
-      s += box(8.15, Hh.y1, 0, 8.95, Hh.y1 + 0.32, 1.65);
-      s += `<g transform="${onY(8.15, Hh.y1 + 0.321, 1.65)}"><rect x=".34" y=".22" width=".12" height=".62" rx=".05" fill="#E3E7EC"/><rect class="cs-batlevel" x=".36" y="${f1(0.24 + 0.58 * (1 - (m.battery.soc ?? 50) / 100))}" width=".08" height="${f1(Math.max(0.03, 0.58 * ((m.battery.soc ?? 50) / 100)))}" rx=".03" fill="${FLOW.battery}"/></g>`;
+      const level = Math.max(0.03, 0.9 * ((m.battery.soc ?? 50) / 100));
+      s += box(8.15, Hh.y1, 0, 8.95, Hh.y1 + 0.32, 1.65, DEV);
+      s += `<g transform="${onY(8.15, Hh.y1 + 0.321, 1.65)}">
+        <rect x=".33" y=".2" width=".14" height=".96" rx=".06" fill="#23272D"/>
+        <rect class="cs-glowbar" x=".33" y="${f1(1.14 - level)}" width=".14" height="${f1(level)}" rx=".06" fill="${FLOW.battery}"/>
+        <rect x=".36" y="${f1(1.15 - level)}" width=".08" height="${f1(level - 0.02)}" rx=".04" fill="#7DF0BE"/>
+      </g>`;
     }
-    s += box(9.4, Hh.y1, 1.05, 9.9, Hh.y1 + 0.14, 1.65);
-    s += `<g transform="${onY(9.4, Hh.y1 + 0.141, 1.65)}"><path d="M.27 .14 L.2 .3 H.27 L.23 .45 L.33 .26 H.26 L.31 .14 Z" fill="${T.line}"/></g>`;
+    s += box(9.4, Hh.y1, 1.05, 9.9, Hh.y1 + 0.14, 1.65, DEV);
+    s += `<g transform="${onY(9.4, Hh.y1 + 0.141, 1.65)}"><path class="cs-bolt" d="M.27 .14 L.2 .3 H.27 L.23 .45 L.33 .26 H.26 L.31 .14 Z"/></g>`;
     s += poly([[Hh.x0 - Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, ym, Hh.ridge], [Hh.x0 - Hh.gable, ym, Hh.ridge]], `fill="${T.roofSouth}"`);
     s += poly([[Hh.x0 - Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave - 0.14], [Hh.x0 - Hh.gable, Hh.y1 + Hh.over, eave - 0.14]], `fill="${mix(T.roofSouth, "#000000", 0.1)}"`);
     s += poly([[Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, ym, Hh.ridge], [Hh.x1 + Hh.gable, ym, Hh.ridge - 0.16], [Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave - 0.16]], `fill="${mix(T.roofSouth, "#000000", 0.16)}"`);
@@ -1645,20 +1654,26 @@ const ClayScene = (() => {
       const xb = Hh.x1 - 0.5;
       for (let r = 0; r < rows; r += 1) {
         for (let c = 0; c < cols; c += 1) {
-          const a = xa + ((xb - xa) / cols) * c + 0.035;
-          const b = xa + ((xb - xa) / cols) * (c + 1) - 0.035;
+          const a = xa + ((xb - xa) / cols) * c + 0.02;
+          const b = xa + ((xb - xa) / cols) * (c + 1) - 0.02;
           const t0 = 0.14 + (0.76 / rows) * r + 0.01;
           const t1 = 0.14 + (0.76 / rows) * (r + 1) - 0.01;
           s += poly([at(a, t0), at(b, t0), at(b, t1), at(a, t1)], `fill="${T.panel}" stroke="${T.panelLine}" stroke-width=".7"`);
         }
       }
       s += `<polygon class="cs-sheen" points="${pts([at(xa, 0.14), at(xb, 0.14), at(xb, 0.9), at(xa, 0.9)])}" fill="url(#cs-sheen)"/>`;
+      s += `<polygon class="cs-panelglow" points="${pts([at(xa - 0.04, 0.13), at(xb + 0.04, 0.13), at(xb + 0.04, 0.91), at(xa - 0.04, 0.91)])}"/>`;
     }
     // The heat pump by the gable.
     if (m.heat) {
       s += shadow([[14.5, 7.4, 0], [16.4, 7.4, 0], [16.4, 8.4, 0], [14.5, 8.4, 0]], 0.25);
-      s += box(14.55, 7.55, 0.08, 15.95, 8.1, 1.05);
-      s += `<g transform="${onY(14.55, 8.101, 1.05)}"><circle cx=".55" cy=".48" r=".33" fill="none" stroke="${T.line}" stroke-width=".04"/><g class="cs-fan"><path d="M.55 .48 L.55 .2 M.55 .48 L.79 .62 M.55 .48 L.31 .62" stroke="${T.line}" stroke-width=".05" stroke-linecap="round"/></g></g>`;
+      s += box(14.55, 7.55, 0.08, 15.95, 8.1, 1.05, DEV);
+      s += `<g transform="${onY(14.55, 8.101, 1.05)}">
+        <circle cx=".55" cy=".48" r=".36" fill="#23272D"/>
+        <g class="cs-fan"><path d="M.55 .48 C .6 .3 .72 .22 .8 .3 C .74 .4 .64 .46 .55 .48 Z M.55 .48 C .74 .55 .76 .7 .68 .76 C .6 .7 .56 .58 .55 .48 Z M.55 .48 C .42 .62 .3 .64 .28 .54 C .36 .48 .46 .47 .55 .48 Z" fill="#5A616B"/></g>
+        <circle cx=".55" cy=".48" r=".36" fill="none" stroke="#4C525B" stroke-width=".04"/>
+        <rect class="cs-heatled" x="1.08" y=".14" width=".22" height=".04" rx=".02"/>
+      </g>`;
     }
     // The driveway.
     s += poly([[G.x0, G.y1, 0.005], [G.x1, G.y1, 0.005], [G.x1, 15.6, 0.005], [G.x0, 15.6, 0.005]], `fill="${T.top}" fill-opacity=".75"`);
@@ -1794,6 +1809,8 @@ const ClayScene = (() => {
 
     _live(m) {
       const flows = m.flows || {};
+      this.el.classList.toggle("sun-on", (Number(flows.sun) || 0) > 0.05);
+      this.el.classList.toggle("heat-on", (Number(flows.heat) || 0) > 0.05);
       for (const g of this.el.querySelectorAll(".cs-route")) {
         const k = g.dataset.route;
         const v = Number(flows[k]) || 0;
@@ -1856,10 +1873,21 @@ const CLAY_CSS = `
 .cscene .cs-cable-live { fill: none; stroke: #22C981; stroke-width: 1.2; stroke-linecap: round; stroke-dasharray: 5 30; animation: cs-run 1.6s linear infinite; }
 .cscene .cs-port { fill: #9AA3AD; }
 .cscene .cs-port.on { fill: #22C981; }
-.cscene .cs-boxled { fill: #CBD1DA; }
-.cscene .cs-boxled.on { fill: #22C981; animation: cs-breathe 1.8s ease-in-out infinite; }
+.cscene .cs-boxled { fill: #8FA0B8; }
+.cscene .cs-boxled.on { fill: #B9FBDD; }
+.cscene .cs-boxglow { fill: #7FA6FF; opacity: .45; filter: url(#cs-line); }
+.cscene .cs-boxglow.on { fill: #22C981; opacity: .9; animation: cs-breathe 1.8s ease-in-out infinite; }
+.cscene .cs-glowbar { filter: url(#cs-line); opacity: .9; }
+.cscene .cs-bolt { fill: #F5B92E; filter: drop-shadow(0 0 2px #F5B92E); }
+.cscene .cs-heatled { fill: #5A616B; }
+.cscene.heat-on .cs-heatled { fill: #22C981; filter: drop-shadow(0 0 2px #22C981); }
+.cscene .cs-panelglow { fill: none; stroke: #F5B92E; stroke-width: 1.4; opacity: 0; filter: drop-shadow(0 0 3px #F5B92E); transition: opacity .8s; }
+.cscene.sun-on .cs-panelglow { opacity: .85; }
+.cscene .cs-fan { animation-play-state: paused; }
+.cscene.heat-on .cs-fan { animation-play-state: running; }
 .cscene .cs-carglow { animation: cs-breathe 2.4s ease-in-out infinite; }
-.cscene .cs-sheen { opacity: .0; animation: cs-sheen 6s ease-in-out infinite; }
+.cscene .cs-sheen { opacity: 0; }
+.cscene.sun-on .cs-sheen { animation: cs-sheen 6s ease-in-out infinite; }
 .cscene .cs-fan { transform-box: fill-box; transform-origin: center; animation: cs-spin 1.6s linear infinite; }
 .cscene .cs-labels { position: absolute; inset: 0; pointer-events: none; }
 .cs-label { position: absolute; transform: translate(-50%, -50%); width: max-content; background: #111418; color: #fff; border-radius: 7px; padding: 5px 9px 6px; font-size: 12.5px; font-weight: 500; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 6px 16px rgba(0,0,0,.16); }
@@ -4455,7 +4483,7 @@ class EvPlannerPanel extends HTMLElement {
     let houseKw = null;
     if (isNum(solar?.grid_kw)) houseKw = Math.max(0, Number(solar.grid_kw) + (sunKw || 0) - (Number(battery?.kw) || 0) - carsKw);
     else if (supply && isNum(supply.house_now)) houseKw = kwOfAmps(supply.house_now);
-    const flows = { sun: sunKw || 0, battery: Number(battery?.kw) || 0, home: houseKw || 0, grid: gridKw === null ? 0 : -gridKw };
+    const flows = { sun: sunKw || 0, battery: Number(battery?.kw) || 0, home: houseKw || 0, grid: gridKw === null ? 0 : -gridKw, heat: Number(this._state.heat_pump?.kw) || 0 };
     const labels = [];
     if (solar) labels.push({ key: "sun", title: this._t("home_solar"), value: sunKw === null ? "–" : power(sunKw), short: sunKw === null ? "–" : power(sunKw), on: (sunKw || 0) > 0.05 });
     labels.push({ key: "home", title: this._t("home_house"), value: houseKw === null ? "–" : power(houseKw), short: houseKw === null ? "–" : power(houseKw), on: (houseKw || 0) > 0.05 });
