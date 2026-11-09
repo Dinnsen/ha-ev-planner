@@ -274,6 +274,10 @@ Several cars behind one fuse, or two chargers on one circuit: in the options, un
 
 An Easee charger needs no number: pick any sensor of the charger as its charging current, and EV Planner uses Easee's own action (with a 30-minute time limit, renewed, so the charger falls back by itself if Home Assistant stops). Without an Equalizer, you can turn on the *guard*: it watches the meter and turns the cars down at once when the house needs more, and puts them at the least current if the meter stops reporting. It reacts in seconds, not milliseconds, and is not a fuse. The *Home* tab in the panel shows the house, the cars and who gets the current through the night.
 
+## The sun and the home battery (beta)
+
+In the options, under *The sun and the home battery*, add a sensor for the power to and from the grid (positive when the house buys). Each car then has a *Solar* setting: *Off*, *Sun and plan* (charge on the surplus when the sun shines; the plan sees to the rest by the ready-by time) or *Only sun*. A car with a current setting follows the surplus; with a phase switch it charges on one phase when the sun is small. With a home battery, the battery comes first up to the level you choose. With a solar forecast in the Energy dashboard, *Sun and plan* buys less at night when the next day looks sunny. The history shows how much of each charge came from the sun.
+
 ## Thanks
 
 To [EV Smart Charging](https://github.com/jonasbkarlsson/ev_smart_charging) by Jonas Karlsson, which showed the way for price-driven charging in Home Assistant. Several of the rules and *Moving from EV Smart Charging* build on its ideas.

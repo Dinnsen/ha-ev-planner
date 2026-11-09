@@ -89,7 +89,9 @@ from .const import (
     STATUS_OFF,
     STATUS_PAUSED,
     STATUS_PLANNED,
+    STATUS_SOLAR,
     STATUS_UNPLUGGED,
+    STATUS_WAITING_SUN,
     WEEKDAYS,
 )
 from .learning import SOURCE_ESTIMATED, SOURCE_IMPORTED, SOURCE_LEARNED, SOURCE_MEASURING, ChargeMeter, Learned
@@ -120,6 +122,7 @@ REASON_STATUS = {
     "planned": STATUS_CHARGING,
     "keep_on": STATUS_KEEPING_ON,
     "charger_busy": STATUS_CHARGER_BUSY,
+    "solar": STATUS_SOLAR,
 }
 
 
@@ -189,6 +192,8 @@ class Session:
     period_energy: float = 0.0
     # kWh by how they were counted: power, soc (the rising level) or time.
     sources: dict[str, float] = field(default_factory=dict)
+    # kWh of it that came from the sun.
+    solar: float = 0.0
 
     @property
     def charging(self) -> bool:
@@ -240,6 +245,7 @@ class Session:
             "periods": [period.to_dict() for period in self.periods],
             "period_energy": self.period_energy,
             "sources": dict(self.sources),
+            "solar": self.solar,
         }
 
     @classmethod
@@ -268,6 +274,7 @@ class Session:
             sources={str(k): float(v) for k, v in sources.items() if isinstance(v, int | float)}
             if isinstance(sources, Mapping)
             else {},
+            solar=float(data.get("solar") or 0.0),
         )
 
 
@@ -626,6 +633,8 @@ class Vehicle:
             return STATUS_PLANNED
         if self.plan_error == "limit_not_above_soc":
             return STATUS_COMPLETED
+        if self.plan_error in ("solar_only", "solar_expected"):
+            return STATUS_WAITING_SUN
         if self.plan_error in ("no_price_data", "not_enough_prices", "no_window"):
             return self.plan_error
         return STATUS_NO_PLAN
@@ -668,17 +677,23 @@ class Vehicle:
     # ------------------------------------------------------------------
     # Statistics
 
-    def add_energy(self, now: datetime, kwh: float, price: float | None, source: str = "power") -> None:
-        """Count energy from the grid for the running session and the month."""
+    def add_energy(
+        self, now: datetime, kwh: float, price: float | None, source: str = "power", solar: float = 0.0
+    ) -> None:
+        """Count charged energy for the running session and the month; ``solar`` of it came from the sun (free)."""
         if kwh <= 0:
             return
-        cost = kwh * price if price is not None else 0.0
+        solar = max(0.0, min(kwh, solar))
+        cost = (kwh - solar) * price if price is not None else 0.0
         month = self.months.setdefault(month_key(now), {"energy": 0.0, "cost": 0.0, "sessions": 0.0})
         month["energy"] = round(month["energy"] + kwh, 4)
         month["cost"] = round(month["cost"] + cost, 4)
+        if solar:
+            month["solar"] = round(month.get("solar", 0.0) + solar, 4)
         if self.session is not None:
             self.session.energy += kwh
             self.session.cost += cost
+            self.session.solar += solar
             self.session.sources[source] = round(self.session.sources.get(source, 0.0) + kwh, 4)
         for key in sorted(self.months)[:-MONTHS_KEPT]:
             self.months.pop(key, None)
@@ -736,6 +751,7 @@ class Vehicle:
             "charging_minutes": round(session.charging_minutes(now)),
             "plugged": self.plug_sessions,
             "source": source,
+            "solar": round(session.solar, 2),
         }
         self.history = [entry, *self.history][:HISTORY_LIMIT]
         return entry

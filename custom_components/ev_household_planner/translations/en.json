@@ -95,6 +95,32 @@
               "supply_reserve": "Without a meter: what the house is expected to draw per phase.",
               "supply_guard": "When the meter shows more than the limit, lower the cars right away (the last in line first) and raise them again after a few minutes. Not a fuse: leave it off if an Equalizer or the charger already balances the load."
             }
+          },
+          "solar": {
+            "name": "The sun and the home battery (beta)",
+            "description": "Cars set to charge on the sun take what the house sends to the grid. Needs a sensor for the power to and from the grid.",
+            "data": {
+              "grid_power": "Grid power",
+              "grid_power_inverted": "The grid sensor is negative when the house buys",
+              "solar_power": "Solar power",
+              "battery_soc": "Home battery level",
+              "battery_power": "Home battery power",
+              "battery_power_inverted": "The battery sensor is negative when it charges",
+              "battery_first_until": "The home battery first, up to",
+              "battery_hold": "Hold the home battery",
+              "solar_forecast": "Use the solar forecast"
+            },
+            "data_description": {
+              "grid_power": "W or kW, positive when the house buys from the grid and negative when it sends to it (a HAN/P1 reader or the inverter).",
+              "grid_power_inverted": "Turn on if your sensor shows it the other way round.",
+              "solar_power": "Optional: what the panels make, for the Home tab.",
+              "battery_soc": "Optional: the home battery's charge level.",
+              "battery_power": "Optional: positive when the battery charges, negative when it gives.",
+              "battery_power_inverted": "Turn on if your sensor shows it the other way round.",
+              "battery_first_until": "Below this level the home battery keeps the sun it takes; above it the cars may have it. 100 %: the battery always first.",
+              "battery_hold": "Optional: a switch that stops the home battery from discharging. EV Planner turns it on while a car charges from the grid, so the battery does not empty itself into the car.",
+              "solar_forecast": "With a solar forecast in the Energy dashboard (Forecast.Solar, Solcast), a car set to Sun and plan buys less at night when the next day looks sunny enough before its ready-by time."
+            }
           }
         }
       }
@@ -163,14 +189,16 @@
                 "charger": "Charger",
                 "control": "Who starts and stops charging",
                 "control_entity": "The car's charge switch",
-                "current_entity": "Charging current"
+                "current_entity": "Charging current",
+                "phase_entity": "Phase switch"
               },
               "data_description": {
                 "charge_power": "What the car draws when charging at home (kW). A starting point: a car with a charging power sensor is measured instead.",
                 "charger": "The charger the car uses. Cars on the same charger share it.",
                 "control": "Choose the car, the charger, or neither.",
                 "control_entity": "Needed when the car starts and stops charging, e.g. switch.model3_charge.",
-                "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit, or any sensor of an Easee charger (EV Planner then uses Easee's own action). With it, cars on a shared supply share the current; without it they take turns."
+                "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit, or any sensor of an Easee charger (EV Planner then uses Easee's own action). With it, cars on a shared supply share the current; without it they take turns.",
+                "phase_entity": "Optional: a switch that sets the charger to three phases (on) or one (off). On the sun, one phase lets the car charge from about 1.4 kW instead of 4.1 kW."
               }
             },
             "trips": {
@@ -231,14 +259,16 @@
                 "charger": "Charger",
                 "control": "Who starts and stops charging",
                 "control_entity": "The car's charge switch",
-                "current_entity": "Charging current"
+                "current_entity": "Charging current",
+                "phase_entity": "Phase switch"
               },
               "data_description": {
                 "charge_power": "What the car draws when charging at home (kW). A starting point: a car with a charging power sensor is measured instead.",
                 "charger": "The charger the car uses. Cars on the same charger share it.",
                 "control": "Choose the car, the charger, or neither.",
                 "control_entity": "Needed when the car starts and stops charging, e.g. switch.model3_charge.",
-                "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit, or any sensor of an Easee charger (EV Planner then uses Easee's own action). With it, cars on a shared supply share the current; without it they take turns."
+                "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit, or any sensor of an Easee charger (EV Planner then uses Easee's own action). With it, cars on a shared supply share the current; without it they take turns.",
+                "phase_entity": "Optional: a switch that sets the charger to three phases (on) or one (off). On the sun, one phase lets the car charge from about 1.4 kW instead of 4.1 kW."
               }
             },
             "trips": {
@@ -292,7 +322,8 @@
             "energy_entity": "Energy meter",
             "connected_entity": "Car plugged in",
             "unplugged_states": "States that mean unplugged",
-            "current_entity": "Charging current"
+            "current_entity": "Charging current",
+            "phase_entity": "Phase switch"
           },
           "data_description": {
             "name": "For example Carport.",
@@ -302,7 +333,8 @@
             "energy_entity": "Optional. The charger's total energy (kWh), to measure what the guest used.",
             "connected_entity": "Optional. Ends the guest session when the guest car is unplugged.",
             "unplugged_states": "Default: off.",
-            "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit, or any sensor of an Easee charger (EV Planner then uses Easee's own action). With it, cars on a shared supply share the current; without it they take turns."
+            "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit, or any sensor of an Easee charger (EV Planner then uses Easee's own action). With it, cars on a shared supply share the current; without it they take turns.",
+            "phase_entity": "Optional: a switch that sets the charger to three phases (on) or one (off). On the sun, one phase lets the car charge from about 1.4 kW instead of 4.1 kW."
           }
         },
         "reconfigure": {
@@ -315,7 +347,8 @@
             "energy_entity": "Energy meter",
             "connected_entity": "Car plugged in",
             "unplugged_states": "States that mean unplugged",
-            "current_entity": "Charging current"
+            "current_entity": "Charging current",
+            "phase_entity": "Phase switch"
           },
           "data_description": {
             "name": "For example Carport.",
@@ -325,7 +358,8 @@
             "energy_entity": "Optional. The charger's total energy (kWh), to measure what the guest used.",
             "connected_entity": "Optional. Ends the guest session when the guest car is unplugged.",
             "unplugged_states": "Default: off.",
-            "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit, or any sensor of an Easee charger (EV Planner then uses Easee's own action). With it, cars on a shared supply share the current; without it they take turns."
+            "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit, or any sensor of an Easee charger (EV Planner then uses Easee's own action). With it, cars on a shared supply share the current; without it they take turns.",
+            "phase_entity": "Optional: a switch that sets the charger to three phases (on) or one (off). On the sun, one phase lets the car charge from about 1.4 kW instead of 4.1 kW."
           }
         }
       }
@@ -455,6 +489,14 @@
           "normal": "Normal",
           "first": "First"
         }
+      },
+      "solar": {
+        "name": "Solar",
+        "state": {
+          "off": "Off",
+          "surplus": "Sun and plan",
+          "only": "Only sun"
+        }
       }
     },
     "sensor": {
@@ -474,6 +516,8 @@
           "no_plan": "No plan",
           "charger_busy": "Charger in use",
           "no_soc": "Charge level unknown",
+          "charging_solar": "Charging on the sun",
+          "waiting_for_sun": "Waiting for the sun",
           "no_price_data": "No price data",
           "not_enough_prices": "Waiting for prices",
           "no_window": "No charging window"

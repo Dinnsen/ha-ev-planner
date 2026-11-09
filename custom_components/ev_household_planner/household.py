@@ -71,6 +71,7 @@ from .const import (
     MODES,
     PLANNING_HORIZON,
     PROBLEM_RECHECK,
+    REASON_SOLAR,
     REASON_WAITING,
     RECALCULATE_DELAY,
     REMINDER_MAX_REPEATS,
@@ -117,6 +118,7 @@ from .rules import (
     parse_hhmm,
     plan_vehicle,
 )
+from .solar_control import SolarControl
 from .supply_control import SupplyControl
 from .vehicle import Vehicle, elapsed, is_charging_state, to_float
 
@@ -231,6 +233,7 @@ class Household(DataUpdateCoordinator[None]):
         self._verify_timers: dict[str, CALLBACK_TYPE] = {}
         self._unplug_timers: dict[str, CALLBACK_TYPE] = {}
         self.supply = SupplyControl(self)
+        self.solar = SolarControl(self)
         self._widgets_sent: datetime | None = None
         # The status words in Danish and English, for the summary line widgets show.
         self._status_texts: dict[str, dict[str, str]] = {}
@@ -398,6 +401,7 @@ class Household(DataUpdateCoordinator[None]):
             charger.guest_last_sent = last if last in (CONTROL_CHARGE, CONTROL_PAUSE) else None
         self.guest.load(stored.get("guest"))
         self.supply.load(stored.get("supply_forecast"))
+        self.solar.load(stored.get("solar"))
         self.settings = {**SETTINGS_DEFAULTS, **(stored.get("settings") or {})}
         self.images = self._known_images(stored.get("images"))
         self.originals = {
@@ -424,6 +428,7 @@ class Household(DataUpdateCoordinator[None]):
             "chargers": {cid: {"guest_last_sent": charger.guest_last_sent} for cid, charger in self.chargers.items()},
             "guest": self.guest.to_store(),
             "supply_forecast": self.supply.to_store(),
+            "solar": self.solar.to_store(),
             "settings": self.settings,
             "images": self.images,
             "image_originals": self.originals,
@@ -697,8 +702,18 @@ class Household(DataUpdateCoordinator[None]):
         if soc is None:
             vehicle.plan, vehicle.plan_error = None, None
             return
+        aim = self._aim(vehicle, now)
+        if self.solar.only(vehicle):
+            # Only the sun: no plan from the grid.
+            vehicle.plan, vehicle.plan_error, vehicle.planned_at = None, "solar_only", now
+            return
+        sun = self.solar.expected_soc(vehicle, now, aim)
+        if sun > 0 and soc + sun >= vehicle.target:
+            # The forecast promises enough sun before the ready-by time; the plan waits for it.
+            vehicle.plan, vehicle.plan_error, vehicle.planned_at = None, "solar_expected", now
+            return
         car = Car(
-            soc=soc,
+            soc=soc + sun,
             target=vehicle.target,
             capacity=vehicle.capacity,
             power=(power := self.vehicle_power(vehicle)),
@@ -706,7 +721,6 @@ class Household(DataUpdateCoordinator[None]):
             curve=vehicle.learned.speeds(),
         )
         prices = self.price_slots(now)
-        aim = self._aim(vehicle, now)
         try:
             plan = plan_vehicle(
                 prices,
@@ -937,6 +951,8 @@ class Household(DataUpdateCoordinator[None]):
             self._count_time(vehicle, now)
         if self.supply.sample(now):
             self.async_save()
+        if await self.solar.async_refresh_forecast(now):
+            replan = True
         # How the morning went, before the plan moves on to the next ready-by time.
         await self._async_receipts(now)
         if replan:
@@ -997,7 +1013,9 @@ class Household(DataUpdateCoordinator[None]):
         else:
             kwh, source = self.vehicle_power(vehicle) * hours, "time"
         vehicle.start_session(now, vehicle.decision.reason)
-        vehicle.add_energy(now, kwh, current_price(self.price_slots(now), now), source)
+        vehicle.add_energy(
+            now, kwh, current_price(self.price_slots(now), now), source, solar=kwh * self.solar.share_now(vehicle)
+        )
         if not vehicle.has_soc_sensor:
             speed, _source = vehicle.charge_speed(self.vehicle_power(vehicle))
             soc = to_float(vehicle.settings.get(SET_MANUAL_SOC)) or 0.0
@@ -1040,6 +1058,8 @@ class Household(DataUpdateCoordinator[None]):
         now = now or dt_util.now()
         prices = self.price_slots(now)
         price_now = current_price(prices, now)
+        if apply and self._started:
+            self.solar.update(now)
         for vehicle in self.vehicles.values():
             if (mode := vehicle.mode_after_charge_now()) is not None:
                 vehicle.settings[SET_MODE] = mode
@@ -1057,6 +1077,9 @@ class Household(DataUpdateCoordinator[None]):
                 plan_done=vehicle.plan_done,
                 charger_free=not self.guest_holds(vehicle.charger_id, now),
             )
+            if self.solar.wants(vehicle) and decision.control == CONTROL_PAUSE and decision.reason == REASON_WAITING:
+                # The sun shines on it: charge on the surplus.
+                decision = Decision(CONTROL_CHARGE, REASON_SOLAR)
             if decision.control == CONTROL_CHARGE and self.supply.holds_off(vehicle, now):
                 # The guard paused it: the house needs the current for a while.
                 decision = Decision(CONTROL_PAUSE, REASON_WAITING)
@@ -1072,6 +1095,7 @@ class Household(DataUpdateCoordinator[None]):
                     vehicle.plan_restored = False
         if apply and self._started:
             await self.supply.async_apply(now)
+            await self.solar.async_apply(now)
             await self._async_apply_guest(now)
             self._maybe_refresh_widgets(now)
         self.async_update_listeners()
