@@ -130,6 +130,16 @@ SET_NOTIFY_TARGETS: Final = "notify_targets"
 REMINDER_MAX_REPEATS: Final = 3
 SET_LIVE: Final = "live_notification"
 SET_NOTIFY_DONE: Final = "notify_done"
+# A message at the ready-by time with how it went, and a warning when the car cannot be ready.
+SET_NOTIFY_RECEIPT: Final = "notify_receipt"
+# Charge earlier when it costs at most ``early_within`` more per kWh than the cheapest plan.
+SET_EARLY_ENABLED: Final = "prefer_early"
+SET_EARLY_WITHIN: Final = "early_within"
+# Charge to ``topup_level`` at the cheapest prices, and the rest just before the ready-by time.
+SET_TOPUP_ENABLED: Final = "topup"
+SET_TOPUP_LEVEL: Final = "topup_level"
+# A target per weekday of the ready-by time: {"fri": 100}.
+SET_DAY_TARGETS: Final = "day_targets"
 
 MODE_SMART: Final = "smart"
 MODE_CHARGE_NOW: Final = "charge_now"
@@ -183,6 +193,12 @@ DEFAULT_VEHICLE_SETTINGS: Final[dict[str, object]] = {
     SET_NOTIFY_TARGETS: [],
     SET_LIVE: False,
     SET_NOTIFY_DONE: False,
+    SET_NOTIFY_RECEIPT: True,
+    SET_EARLY_ENABLED: False,
+    SET_EARLY_WITHIN: 0.02,
+    SET_TOPUP_ENABLED: False,
+    SET_TOPUP_LEVEL: 80.0,
+    SET_DAY_TARGETS: {},
 }
 
 # ----------------------------------------------------------------------

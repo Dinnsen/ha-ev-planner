@@ -50,6 +50,7 @@ from .const import (
     SET_CEILING,
     SET_CEILING_ENABLED,
     SET_CONTINUOUS,
+    SET_DAY_TARGETS,
     SET_EARLIEST_START,
     SET_FOLLOW_LEVEL,
     SET_JOIN_ENABLED,
@@ -323,12 +324,18 @@ class Vehicle:
     reminded_at: datetime | None = None
     # A "paused" message is on the phones; it is removed when the car charges again.
     pause_notice: bool = False
+    # What the plan for the next ready-by time promised, for the morning receipt.
+    night: dict[str, Any] | None = None
+    # How the last morning went (for the panel), and the ready-by time a "cannot make it" warning went for.
+    last_receipt: dict[str, Any] | None = None
+    warned_for: str | None = None
 
     def __post_init__(self) -> None:
         imported = self.config.get("imported_settings")
         initial = dict(imported) if isinstance(imported, Mapping) else {}
         self.settings = {**DEFAULT_VEHICLE_SETTINGS, **initial, **(self.settings or {})}
         self.settings[SET_SCHEDULE] = dict(self.settings.get(SET_SCHEDULE) or {})
+        self.settings[SET_DAY_TARGETS] = dict(self.settings.get(SET_DAY_TARGETS) or {})
         for key in RETIRED_SETTINGS:
             self.settings.pop(key, None)
         self.learned.check_basis(self.basis)
@@ -736,6 +743,9 @@ class Vehicle:
             "pause_notice": self.pause_notice,
             "meter": self.meter.to_dict(),
             "learned": self.learned.to_dict(),
+            "night": self.night,
+            "last_receipt": self.last_receipt,
+            "warned_for": self.warned_for,
         }
 
     def load(self, data: Mapping[str, Any] | None) -> None:
@@ -745,6 +755,7 @@ class Vehicle:
         if isinstance(settings, Mapping):
             self.settings = {**DEFAULT_VEHICLE_SETTINGS, **settings}
             self.settings[SET_SCHEDULE] = dict(self.settings.get(SET_SCHEDULE) or {})
+            self.settings[SET_DAY_TARGETS] = dict(self.settings.get(SET_DAY_TARGETS) or {})
             for key in RETIRED_SETTINGS:
                 self.settings.pop(key, None)
         months = data.get("months")
@@ -775,6 +786,10 @@ class Vehicle:
         self.pause_notice = bool(data.get("pause_notice"))
         self.meter = ChargeMeter.from_dict(data.get("meter"))
         self.learned = Learned.from_dict(data.get("learned"))
+        night, receipt, warned = data.get("night"), data.get("last_receipt"), data.get("warned_for")
+        self.night = dict(night) if isinstance(night, Mapping) else None
+        self.last_receipt = dict(receipt) if isinstance(receipt, Mapping) else None
+        self.warned_for = warned if isinstance(warned, str) else None
         if self.learned.check_basis(self.basis):
             # The capacity or power was changed: what was measured with the old one goes too.
             self.meter = ChargeMeter()

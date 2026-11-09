@@ -18,12 +18,16 @@ shows is all of them at once, so it is what the plan is made from.
 
 The charging power, as the car reports it, is learned in the same way. It only
 decides the energy and the price; the time comes from the speed.
+
+Many cars charge slower near the top. The speed is therefore also learned per
+band of the charge level (``BANDS``), from the readings inside each band, so a
+plan to 100 % gives the last per cent the time they really take.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 # A measurement counts from a rise of this many percentage points.
@@ -36,8 +40,45 @@ MIN_POWER_HOURS = 0.25
 MIN_POWER_KW = 0.5
 # Speeds outside this range are a broken sensor, not a car (% per hour).
 SPEED_RANGE = (0.5, 400.0)
+# The most a plan aims to be done before the ready-by time (minutes), and how many mornings
+# on time in a row bring it a quarter of an hour closer again.
+MAX_MARGIN = 60
+ON_TIME_MORNINGS = 3
 # A car that has not charged again after a pause this many times charges in one go.
 RESUME_FAILURES = 2
+# Bands of the charge level with a speed of their own (%): many cars slow down near the top.
+BANDS: tuple[tuple[float, float], ...] = ((0.0, 50.0), (50.0, 80.0), (80.0, 90.0), (90.0, 100.0))
+# A band's speed counts from a rise of this many percentage points inside it.
+MIN_BAND_RISE = 5.0
+# At most this many readings are kept for the bands (one per whole per cent is plenty).
+MAX_READINGS = 120
+
+
+def band_key(band: tuple[float, float]) -> str:
+    return f"{band[0]:g}-{band[1]:g}"
+
+
+def band_speeds(readings: list[tuple[float, float]]) -> dict[str, float]:
+    """The speed (% per hour) in each band, from (charge level, charging seconds) readings.
+
+    Only readings inside a band count for it, so the time a car spends below
+    or above the band is never part of its speed.
+    """
+    speeds: dict[str, float] = {}
+    for band in BANDS:
+        low, high = band
+        inside = [(soc, seconds) for soc, seconds in readings if low <= soc <= high]
+        if len(inside) < 2:
+            continue
+        (first_soc, first_seconds), (last_soc, last_seconds) = inside[0], inside[-1]
+        rise, hours = last_soc - first_soc, (last_seconds - first_seconds) / 3600
+        if rise + 1e-9 < MIN_BAND_RISE or hours <= 0:
+            continue
+        speed = rise / hours
+        if SPEED_RANGE[0] <= speed <= SPEED_RANGE[1]:
+            speeds[band_key(band)] = speed
+    return speeds
+
 
 SOURCE_MEASURING = "measuring"
 SOURCE_LEARNED = "learned"
@@ -48,6 +89,16 @@ SOURCE_ESTIMATED = "estimated"
 def blend(old: float | None, new: float) -> float:
     """``new`` folded into what was learned; the first one is taken as it is."""
     return new if old is None else old * (1 - NEW_WEIGHT) + new * NEW_WEIGHT
+
+
+def _readings(value: Any) -> list[tuple[float, float]]:
+    result: list[tuple[float, float]] = []
+    for item in value if isinstance(value, list) else []:
+        if isinstance(item, list | tuple) and len(item) == 2:
+            soc, seconds = _float(item[0]), _float(item[1])
+            if soc is not None and seconds is not None:
+                result.append((soc, seconds))
+    return result
 
 
 def _float(value: Any) -> float | None:
@@ -74,6 +125,8 @@ class ChargeMeter:
     last_seconds: float = 0.0
     power_kwh: float = 0.0
     power_seconds: float = 0.0
+    # Every rise of the level with the charging time at that moment, for the speed per band.
+    readings: list[tuple[float, float]] = field(default_factory=list)
 
     def tick(self, seconds: float, charging: bool, power_kw: float | None = None) -> None:
         """Count ``seconds`` of time, and the reported power while charging."""
@@ -101,15 +154,20 @@ class ChargeMeter:
         if self.first_soc is None:
             self.first_soc, self.first_seconds = soc, self.charging_seconds
             self.last_soc, self.last_seconds = soc, self.charging_seconds
+            self.readings = [(soc, self.charging_seconds)]
             return
         if self.last_soc is None or soc > self.last_soc:
             self.last_soc, self.last_seconds = soc, self.charging_seconds
+            self.readings.append((soc, self.charging_seconds))
+            if len(self.readings) > MAX_READINGS:
+                del self.readings[1]
 
     def reset(self) -> None:
         """Forget everything measured so far."""
         self.charging_seconds = self.first_seconds = self.last_seconds = 0.0
         self.first_soc = self.last_soc = None
         self.power_kwh = self.power_seconds = 0.0
+        self.readings = []
 
     @property
     def rise(self) -> float:
@@ -142,6 +200,7 @@ class ChargeMeter:
             "last_seconds": round(self.last_seconds, 1),
             "power_kwh": round(self.power_kwh, 4),
             "power_seconds": round(self.power_seconds, 1),
+            "readings": [[soc, round(seconds, 1)] for soc, seconds in self.readings],
         }
 
     @classmethod
@@ -156,6 +215,7 @@ class ChargeMeter:
             last_seconds=_float(data.get("last_seconds")) or 0.0,
             power_kwh=_float(data.get("power_kwh")) or 0.0,
             power_seconds=_float(data.get("power_seconds")) or 0.0,
+            readings=_readings(data.get("readings")),
         )
 
 
@@ -176,6 +236,12 @@ class Learned:
     # Whether the car charges again after a pause in a plan: None until it has shown it.
     resumes: bool | None = None
     resume_failures: int = 0
+    # The speed (% per hour) per band of the charge level, and from how many charges.
+    curve: dict[str, float] = field(default_factory=dict)
+    curve_counts: dict[str, int] = field(default_factory=dict)
+    # Minutes before the ready-by time a plan aims to be done, learned from mornings the car was late.
+    margin: int = 0
+    on_time: int = 0
 
     def add(self, meter: ChargeMeter) -> bool:
         """Fold in a measurement; True when the speed was part of it."""
@@ -187,7 +253,34 @@ class Learned:
         if (power := meter.power) is not None:
             self.power = blend(self.power, power)
             self.power_count += 1
+        for key, speed in band_speeds(meter.readings).items():
+            self.curve[key] = blend(self.curve.get(key), speed)
+            self.curve_counts[key] = self.curve_counts.get(key, 0) + 1
         return learned_speed
+
+    def speeds(self) -> tuple[tuple[float, float, float], ...]:
+        """The learned bands as (from %, to %, speed), for the planner."""
+        return tuple(
+            (low, high, self.curve[band_key((low, high))]) for low, high in BANDS if band_key((low, high)) in self.curve
+        )
+
+    def morning(self, short_minutes: float) -> bool:
+        """How a morning went: ``short_minutes`` of charging the car still lacked at its ready-by time.
+
+        Late: aim that much earlier from now on (in whole quarters, at most an
+        hour). On time three mornings in a row: a quarter later again. Returns
+        True when the margin changed.
+        """
+        before = self.margin
+        if short_minutes > 1:
+            quarters = -(-short_minutes // 15)
+            self.margin = int(min(MAX_MARGIN, self.margin + quarters * 15))
+            self.on_time = 0
+        else:
+            self.on_time += 1
+            if self.on_time >= ON_TIME_MORNINGS and self.margin > 0:
+                self.margin, self.on_time = max(0, self.margin - 15), 0
+        return self.margin != before
 
     def resumed(self) -> None:
         """The car took up charging again after a pause."""
@@ -215,6 +308,7 @@ class Learned:
         dropped = self.basis is not None and (self.speed is not None or self.power is not None)
         if self.basis is not None:
             self.speed, self.speed_count, self.power, self.power_count = None, 0, None, 0
+            self.curve, self.curve_counts = {}, {}
         self.basis = basis
         return dropped
 
@@ -227,6 +321,10 @@ class Learned:
             "basis": list(self.basis) if self.basis is not None else None,
             "resumes": self.resumes,
             "resume_failures": self.resume_failures,
+            "curve": {key: round(value, 3) for key, value in self.curve.items()},
+            "curve_counts": dict(self.curve_counts),
+            "margin": self.margin,
+            "on_time": self.on_time,
         }
 
     @classmethod
@@ -250,4 +348,22 @@ class Learned:
             basis=parsed,
             resumes=resumes if isinstance(resumes, bool) else None,
             resume_failures=int(_float(data.get("resume_failures")) or 0),
+            curve=_curve(data.get("curve")),
+            curve_counts={key: int(_float(value) or 0) for key, value in (data.get("curve_counts") or {}).items()}
+            if isinstance(data.get("curve_counts"), Mapping)
+            else {},
+            margin=int(min(MAX_MARGIN, max(0.0, _float(data.get("margin")) or 0))),
+            on_time=int(_float(data.get("on_time")) or 0),
         )
+
+
+def _curve(value: Any) -> dict[str, float]:
+    if not isinstance(value, Mapping):
+        return {}
+    known = {band_key(band) for band in BANDS}
+    result: dict[str, float] = {}
+    for key, raw in value.items():
+        speed = _float(raw)
+        if key in known and speed is not None and SPEED_RANGE[0] <= speed <= SPEED_RANGE[1]:
+            result[str(key)] = speed
+    return result

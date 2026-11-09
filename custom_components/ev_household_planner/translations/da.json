@@ -382,6 +382,12 @@
       },
       "guest_charger_power": {
         "name": "Ladeeffekt"
+      },
+      "early_within": {
+        "name": "Tidligt inden for"
+      },
+      "topup_level": {
+        "name": "Top op fra"
       }
     },
     "select": {
@@ -570,6 +576,15 @@
       },
       "guest_continuous": {
         "name": "Én periode"
+      },
+      "prefer_early": {
+        "name": "Hellere tidligt"
+      },
+      "topup": {
+        "name": "Top op før afgang"
+      },
+      "notify_receipt": {
+        "name": "Morgenkvittering og advarsler"
       }
     },
     "text": {
