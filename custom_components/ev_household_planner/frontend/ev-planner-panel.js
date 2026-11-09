@@ -1397,9 +1397,10 @@ const ClayScene = (() => {
     van: { L: 4.71, Wd: 1.98, wheels: [0.88, 3.88], r: 0.385, cs: 7, rs: 10, re: 11, ce: 14, pillars: [0.3, 0.6, 0.86], pts: [[0.06, 0.4, 0.12], [0.01, 0.55, 0.14], [0, 0.75, 0.14], [0.03, 0.95, 0.12], [0.15, 1.07, 0.08], [0.35, 1.12, 0.05], [0.5, 1.14, 0.05], [0.6, 1.16, 0.07], [0.8, 1.42, 0.11], [1.05, 1.76, 0.15], [1.3, 1.9, 0.17], [4.45, 1.94, 0.17], [4.6, 1.88, 0.16], [4.67, 1.7, 0.14], [4.7, 1.45, 0.1], [4.71, 1.25, 0.09], [4.71, 1.0, 0.1], [4.71, 0.65, 0.11], [4.68, 0.48, 0.12], [4.6, 0.4, 0.12]] },
   };
 
-  // Clay renders of each kind of car, turned into the house's view (the wheels and the nose fitted to
-  // where they stand): where the picture goes, from the car's far rear corner on the ground, and its size.
-  const CAR_PICTURES = {"mini": {"x": -113.83, "y": -42.68, "w": 164.75, "h": 146.75}, "sedan": {"x": -119.36, "y": -42.03, "w": 170.25, "h": 150.25}, "suv": {"x": -124.37, "y": -46.79, "w": 181.0, "h": 151.0}, "estate": {"x": -128.47, "y": -41.43, "w": 184.75, "h": 154.75}, "van": {"x": -124.93, "y": -51.84, "w": 183.75, "h": 159.5}};
+  // Clay renders of each kind of car, made in the house's own view (true isometric, the same light).
+  // Each picture covers the same box, measured from the car's far rear corner on the ground.
+  const CAR_BOX = { x: -128, y: -58, w: 190, h: 160 };
+  const CAR_PICTURES = { mini: CAR_BOX, sedan: CAR_BOX, suv: CAR_BOX, estate: CAR_BOX, van: CAR_BOX };
   const carPicture = (kind) => {
     try {
       const url = new URL(`./cars/${kind}.webp`, import.meta.url);
