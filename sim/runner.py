@@ -269,6 +269,8 @@ async def _run_one(
         run.now = moment
         if deadline is not None and moment == deadline.replace(second=0, microsecond=0):
             result.soc_at_deadline = round(run.soc, 2)
+            real = car.power * car.factor(run.soc) * car.efficiency / car.capacity * 100
+            result.changes_log.append(f"ready-by {round(run.soc, 1)} %, the car charges {real:.1f} %/h")
         run.publish_prices(moment)
         if any(moment <= blip < moment + MINUTE for blip in car.blips) and run.plugged(moment):
             for entity in (SOC, CABLE, CHARGING, POWER):
@@ -294,8 +296,12 @@ async def _run_one(
                     f"{night.local(a):%d %H:%M}-{night.local(b):%H:%M}" for a, b in _future(windows, moment)
                 )
                 label = "plan" if first else "change"
+                plan = getattr(household.vehicles[VEHICLE], "plan", None)
+                speed = getattr(plan, "speed", None)
                 result.changes_log.append(
-                    f"{label} {night.local(moment):%H:%M} at {round(run.soc, 1)} %: {shown or 'none'}"
+                    f"{label} {night.local(moment):%H:%M} at {round(run.soc, 1)} %"
+                    + (f" ({speed:.1f} %/h)" if isinstance(speed, int | float) else "")
+                    + f": {shown or 'none'}"
                 )
             # A plan that is charging now goes on charging.
             if _covers(previous, moment - MINUTE) and _covers(previous, moment) and not _covers(windows, moment):
