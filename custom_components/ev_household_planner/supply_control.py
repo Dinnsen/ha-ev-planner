@@ -37,7 +37,7 @@ from .const import (
     SET_PRIORITY,
 )
 from .planner import PlanError, PriceSlot, charge_need, price_at
-from .supply import BUFFER, HouseForecast, SharedCar, SupplyPlan, amps_for, cheap_hours, kw, plan_supply
+from .supply import BUFFER, MIN_AMPS, HouseForecast, SharedCar, SupplyPlan, amps_for, cheap_hours, kw, plan_supply
 from .vehicle import elapsed, to_float
 
 if TYPE_CHECKING:
@@ -57,6 +57,10 @@ EASEE_RENEW = timedelta(minutes=15)
 GUARD_HOLD = timedelta(minutes=2)
 # A cut the guard has sent counts as done for this long, while the charger and the meter catch up.
 GUARD_SETTLE = timedelta(seconds=60)
+# A car the guard had to stop waits at least this long, then until the meter shows room for it.
+GUARD_PAUSE = timedelta(minutes=5)
+# The plan raises a car the guard watches only into what the meter shows is free, less this.
+HEADROOM_MARGIN = 1.0
 
 
 class SupplyControl:
@@ -71,6 +75,7 @@ class SupplyControl:
         self._sent: dict[str, tuple[float, datetime]] = {}
         self._held: dict[str, datetime] = {}
         self._cuts: list[tuple[datetime, float]] = []
+        self._paused: dict[str, datetime] = {}
         self._unsub: CALLBACK_TYPE | None = None
         self.guard_events = 0
 
@@ -237,6 +242,24 @@ class SupplyControl:
     # ------------------------------------------------------------------
     # The current
 
+    def _meter_reading(self) -> float | None:
+        """The busiest phase as the meter shows it, the cars included (None without a reading)."""
+        values = [to_float(self.household.state_of(entity)) for entity in self.meters]
+        readings = [value for value in values if value is not None]
+        return max(readings) if readings else None
+
+    def holds_off(self, vehicle: Vehicle, now: datetime) -> bool:
+        """The guard stopped this car: it waits, then until the meter shows room for it."""
+        until = self._paused.get(vehicle.vehicle_id)
+        if until is None:
+            return False
+        reading = self._meter_reading()
+        if not self.guard or (now >= until and (reading is None or self.limit - reading >= MIN_AMPS + HEADROOM_MARGIN)):
+            del self._paused[vehicle.vehicle_id]
+            self._sent.pop(vehicle.vehicle_id, None)
+            return False
+        return True
+
     def _easee_device(self, entity: str) -> str | None:
         """The Easee charger behind ``entity``, when it belongs to the Easee integration."""
         entry = er.async_get(self.hass).async_get(entity)
@@ -286,6 +309,13 @@ class SupplyControl:
             held = self._held.get(vehicle.vehicle_id)
             if held is not None and now < held and (last is None or value > last[0]):
                 continue  # the guard lowered it a moment ago
+            if self.guard and last is not None and value > last[0]:
+                # Up only into what the meter shows is free now.
+                reading = self._meter_reading()
+                room = 0.0 if reading is None else self.limit - reading - HEADROOM_MARGIN
+                value = min(value, float(int(last[0] + max(0.0, room))))
+                if value < last[0] + 1:
+                    continue
             renew = easee and last is not None and elapsed(now, last[1]) >= EASEE_RENEW
             if (
                 last is not None
@@ -337,25 +367,25 @@ class SupplyControl:
         """
         if not self.guard:
             return
-        readings = [to_float(self.household.state_of(entity)) for entity in self.meters]
-        values = [value for value in readings if value is not None]
-        cars = [
-            (vehicle, entity)
-            for vehicle in self.household.vehicles.values()
-            if (entity := self.current_entity(vehicle)) is not None and self.household.is_charging(vehicle)
-        ]
-        if not cars:
+        reading = self._meter_reading()
+        charging = sorted(
+            (
+                vehicle
+                for vehicle in self.household.vehicles.values()
+                if self.household.is_charging(vehicle) and vehicle.vehicle_id not in self._paused
+            ),
+            key=lambda vehicle: (
+                vehicle.settings.get(SET_PRIORITY) == PRIORITY_FIRST,
+                -(vehicle.deadline.timestamp() if vehicle.deadline else 0),
+            ),
+        )
+        if not charging:
             return
         self._cuts = [(at, amps) for at, amps in self._cuts if elapsed(now, at) < GUARD_SETTLE]
-        over = max(values) - self.limit - sum(amps for _at, amps in self._cuts) if values else None
+        over = reading - self.limit - sum(amps for _at, amps in self._cuts) if reading is not None else None
         if over is not None and over <= 0:
             return
-        cars.sort(
-            key=lambda pair: (
-                pair[0].settings.get(SET_PRIORITY) == PRIORITY_FIRST,
-                -(pair[0].deadline.timestamp() if pair[0].deadline else 0),
-            )
-        )
+        cars = [(vehicle, entity) for vehicle in charging if (entity := self.current_entity(vehicle)) is not None]
         for vehicle, entity in cars:
             low, high = self._bounds(entity)
             current = self._current_now(vehicle, entity, high)
@@ -371,6 +401,25 @@ class SupplyControl:
                     over -= current - target
                     if over <= 0:
                         return
+        if over is None or over <= 0:
+            return
+        # Every car at the least it can take, and still too much: stop the last in line.
+        for vehicle in charging:
+            if self.household.control_entity(vehicle) is None:
+                continue
+            entity = self.current_entity(vehicle)
+            power = self.household.power_reading(vehicle)
+            if entity is not None:
+                amps = self._current_now(vehicle, entity, MAX_AMPS)
+            else:
+                amps = amps_for(power, self.phases) if power else MIN_AMPS
+            self._paused[vehicle.vehicle_id] = now + GUARD_PAUSE
+            self._cuts.append((now, amps))
+            self.guard_events += 1
+            await self.household.async_pause_for_house(vehicle)
+            over -= amps
+            if over <= 0:
+                return
 
     # ------------------------------------------------------------------
     # State and storage

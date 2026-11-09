@@ -13,10 +13,16 @@ from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.ev_household_planner.supply import kw
-from custom_components.ev_household_planner.supply_control import EASEE_TTL_MINUTES, GUARD_HOLD, GUARD_SETTLE
+from custom_components.ev_household_planner.supply_control import (
+    EASEE_TTL_MINUTES,
+    GUARD_HOLD,
+    GUARD_PAUSE,
+    GUARD_SETTLE,
+)
 
 from .conftest import (
     CARPORT,
+    CHARGE_SWITCH,
     NIGHT,
     TESLA,
     SwitchCalls,
@@ -223,7 +229,7 @@ async def test_the_guard_turns_the_car_down_at_once_and_up_again_later(
     # Still over a minute later: down again, to the least a charger gives.
     later = dt_util.now() + GUARD_SETTLE + timedelta(seconds=1)
     freezer.move_to(later)
-    hass.states.async_set(METER, "29", {"unit_of_measurement": "A"})
+    hass.states.async_set(METER, "26", {"unit_of_measurement": "A"})
     await hass.async_block_till_done()
     assert calls[-1].data["value"] == 6
     assert supply.guard_events == 2
@@ -236,6 +242,65 @@ async def test_the_guard_turns_the_car_down_at_once_and_up_again_later(
     assert held == later + GUARD_HOLD
     await supply.async_apply(later + timedelta(seconds=30))
     assert len(calls) == 2
+
+
+async def test_the_guard_stops_a_car_when_even_the_least_is_too_much(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass, soc=20, switch=True, charging=True)
+    _skoda(hass, soc=20)
+    hass.states.async_set(METER, "10", {"unit_of_measurement": "A"})
+    entry = _entry(supply_meter=[METER], supply_guard=True)
+    calls = await _setup(hass, freezer, entry)
+    household = entry.runtime_data
+    supply = household.supply
+    supply._sent.clear()
+    hass.states.async_set(AMPS, "16", {"min": 6, "max": 16})
+    calls.clear()
+    switches.calls.clear()
+    # The oven and the kettle at once: 40 A, 17 over. 16 to 6 A is 10; the rest needs the car to stop.
+    hass.states.async_set(METER, "40", {"unit_of_measurement": "A"})
+    await hass.async_block_till_done()
+    assert [c.data["value"] for c in calls] == [6]
+    assert ("turn_off", CHARGE_SWITCH) in switches.calls
+    tesla = household.vehicles[TESLA]
+    assert supply.holds_off(tesla, dt_util.now())
+    # It waits, also while the meter shows little room, then starts again when there is room.
+    later = dt_util.now() + GUARD_PAUSE + timedelta(seconds=1)
+    hass.states.async_set(METER, "20", {"unit_of_measurement": "A"})
+    assert supply.holds_off(tesla, later)
+    hass.states.async_set(METER, "8", {"unit_of_measurement": "A"})
+    assert not supply.holds_off(tesla, later)
+
+
+async def test_the_plan_raises_a_watched_car_only_into_free_room(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass, soc=20, switch=True, charging=True)
+    _skoda(hass, soc=20)
+    hass.states.async_set(METER, "19", {"unit_of_measurement": "A"})
+    entry = _entry(supply_meter=[METER], supply_guard=True)
+    calls = await _setup(hass, freezer, entry)
+    supply = entry.runtime_data.supply
+    plan = supply.plan
+    assert plan is not None
+    start, _end, amps = max(plan.amps[TESLA], key=lambda item: item[2])
+    moment = max(start, dt_util.now()) + timedelta(minutes=1)
+    supply._sent[TESLA] = (6.0, moment - timedelta(hours=1))
+    supply._held.clear()
+    calls.clear()
+    # 23 A limit, 19 A on the meter: 3 A free after the margin, so 6 becomes 9, not the plan's share.
+    await supply.async_apply(moment)
+    if round(amps) > 9:
+        assert [c.data["value"] for c in calls] == [9]
+    # No room at all: it stays.
+    hass.states.async_set(METER, "23", {"unit_of_measurement": "A"})
+    supply._sent[TESLA] = (6.0, moment - timedelta(hours=1))
+    calls.clear()
+    await supply.async_apply(moment)
+    assert not calls
 
 
 async def test_the_guard_without_a_meter_reading_turns_the_cars_to_the_least(

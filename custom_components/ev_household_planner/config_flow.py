@@ -153,8 +153,8 @@ SWITCH_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain=[
 CURRENT_SELECTOR = selector.EntitySelector(
     selector.EntitySelectorConfig(
         filter=[
-            selector.EntityFilterSelectorConfig(domain=["number", "input_number"]),
-            selector.EntityFilterSelectorConfig(integration="easee", domain="sensor"),
+            {"domain": ["number", "input_number"]},
+            {"integration": "easee", "domain": "sensor"},
         ]
     )
 )
