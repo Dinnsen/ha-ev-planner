@@ -1222,9 +1222,6 @@ class Household(DataUpdateCoordinator[None]):
         session = vehicle.session
         if session is None or not vehicle.settings.get(SET_NOTIFY_DONE) or not self.notifier.enabled:
             return
-        if vehicle.settings.get(SET_NOTIFY_RECEIPT) and vehicle.night is not None and vehicle.connected is not False:
-            # The morning receipt tells how the planned charge went.
-            return
         soc = vehicle.current_soc
         # Stopped short of the target: say so, and when it goes on.
         full = soc is None or soc >= vehicle.target - 1 or vehicle.connected is False

@@ -9,6 +9,8 @@ from homeassistant.core import HomeAssistant
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.ev_household_planner.const import ACTION_CHARGE_NOW
+
 from .conftest import (
     CHARGING,
     NIGHT,
@@ -121,7 +123,7 @@ async def test_a_car_that_cannot_make_it_is_warned_about_once(
     warning = _tagged(notify, "short")
     assert len(warning) == 1
     assert warning[0]["message"].startswith("Tesla cannot reach 80 % by 20:30")
-    assert warning[0]["data"]["actions"][0]["action"] == f"evp_charge_now_{TESLA}"
+    assert warning[0]["data"]["actions"][0]["action"] == f"{ACTION_CHARGE_NOW}_{TESLA}"
     await move(hass, freezer, now + timedelta(minutes=2))
     assert len(_tagged(notify, "short")) == 1
     # Without the receipt setting, nothing is sent.
