@@ -128,8 +128,9 @@ async def test_a_plan_without_prices_gives_way_when_they_come(
     household = init_integration.runtime_data
     tesla = household.vehicles[TESLA]
     # Ready by 21:30 and no prices: it charges right away, just in case.
-    await household.async_set_vehicle(TESLA, {"ready_by": "21:30"})
     hass.states.async_set("sensor.energi_data_service", "unavailable")
+    await settle(hass, freezer)
+    await household.async_set_vehicle(TESLA, {"ready_by": "21:30"})
     await settle(hass, freezer)
     assert tesla.plan is not None and tesla.plan.fallback
     assert tesla.decision.control == "charge"
