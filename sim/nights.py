@@ -48,6 +48,8 @@ def _night(
     settings: dict[str, object] | None = None,
     published: time | None = time(13, 0),
     tags: list[str] | None = None,
+    hidden_after: datetime | None = None,
+    nights: int = 1,
 ) -> Night:
     car.plug_in = car.plug_in or at(day, "17:30")
     car.unplug = car.unplug or at(day + timedelta(days=1), "07:30")
@@ -61,6 +63,8 @@ def _night(
         settings={"ready_by": "07:00", "use_ready_by": True, **(settings or {})},
         published=published,
         tags=tags or [],
+        hidden_after=hidden_after,
+        nights=nights,
     )
 
 
@@ -87,9 +91,6 @@ def made_nights() -> list[Night]:
             return 0.4 if local.fold or local.utcoffset() == timedelta(hours=1) else 1.9
         return SHAPE[local.hour]
 
-    def to_midnight(local: datetime) -> float:
-        return SHAPE[local.hour]
-
     nights = [
         _night("basic", monday, CarSpec(capacity=60, power=11, soc=40, limit=80), tags=["basic"]),
         _night(
@@ -107,6 +108,13 @@ def made_nights() -> list[Night]:
             tags=["two-windows"],
         ),
         _night("taper", monday, CarSpec(capacity=60, power=11, soc=50, limit=100, curve=taper), tags=["taper"]),
+        _night(
+            "taper-learned",
+            monday,
+            CarSpec(capacity=60, power=11, soc=50, limit=100, curve=taper, plug_in=at(monday, "22:30")),
+            tags=["taper", "series"],
+            nights=3,
+        ),
         _night(
             "tight",
             monday,
@@ -152,8 +160,8 @@ def made_nights() -> list[Night]:
             "no-prices",
             monday,
             CarSpec(capacity=60, power=11, soc=40, limit=80),
-            prices=day_prices(monday, 1, price=to_midnight),
             published=None,
+            hidden_after=at(monday + timedelta(days=1), "00:00"),
             tags=["no-prices"],
         ),
         _night(
@@ -176,6 +184,14 @@ def made_nights() -> list[Night]:
             CarSpec(capacity=60, power=11, soc=50, limit=80, no_resume=True),
             prices=day_prices(monday, 2, price=two_cheap),
             tags=["no-resume"],
+        ),
+        _night(
+            "no-resume-learned",
+            monday,
+            CarSpec(capacity=60, power=11, soc=50, limit=80, no_resume=True),
+            prices=day_prices(monday, 5, price=two_cheap),
+            tags=["no-resume", "series"],
+            nights=3,
         ),
         _night(
             "quarter-prices",
