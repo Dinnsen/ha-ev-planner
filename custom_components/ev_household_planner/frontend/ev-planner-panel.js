@@ -6204,6 +6204,7 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .info-line { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; color: var(--evp-soft); font-size: 14px; line-height: 1.4; }
 .info-line svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .info-line b { color: var(--evp-ink); font-weight: 600; }
+.info-line span { min-width: 0; overflow-wrap: anywhere; }
 .info-line.cal { color: var(--evp-ink); }
 .info-line.cal svg { stroke: var(--evp-a); }
 
