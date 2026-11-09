@@ -247,6 +247,7 @@ class Result:
     entries: int = 0  # history entries for the night
     learning: bool = False  # EV Planner has not had the nights to learn this car yet
     changes_log: list[str] = field(default_factory=list)  # when the plan changed, and to what
+    history_log: list[str] = field(default_factory=list)  # EV Planner's history entries for the night
     violations: list[str] = field(default_factory=list)
     moved: list[datetime] = field(default_factory=list)  # minutes a charging plan stopped covering
 
@@ -286,6 +287,7 @@ class Result:
             "energy_error": None if self.energy_error is None else round(self.energy_error, 2),
             "learning": self.learning,
             "changes_log": self.changes_log,
+            "history_log": self.history_log,
             "violations": self.violations,
         }
 

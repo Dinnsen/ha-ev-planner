@@ -95,8 +95,13 @@ def report(files: list[Path]) -> str:
             lines.append(f"**{version}**")
             lines.append("")
             for row in rows:
-                if row.get("changes_log"):
-                    lines.append(f"- {row['name']}: " + " / ".join(row["changes_log"]))
+                if row.get("changes_log") or row.get("history_log"):
+                    lines.append(
+                        f"- {row['name']}: "
+                        + " / ".join(row.get("changes_log", []))
+                        + " | history: "
+                        + " / ".join(row.get("history_log", []))
+                    )
             lines.append("")
         lines += ["</details>", ""]
     return "\n".join(lines)
