@@ -21,7 +21,7 @@ plan, or pause.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, time, timedelta
 from math import ceil
 from typing import Any
@@ -37,7 +37,9 @@ from .planner import (
     Segment,
     charge_need,
     contiguous_runs,
+    continuous_candidates,
     energy_cost,
+    fill_earliest,
     floor_minute,
     limit_slots,
     merge_segments,
@@ -61,6 +63,11 @@ CONTROL_PAUSE = "pause"
 
 # How far ahead a car without a ready-by time looks for cheap hours.
 NO_DEADLINE_HORIZON = timedelta(hours=24)
+# A new plan replaces the one from before only when it saves more than this (or this share of it).
+STABLE_KR = 0.5
+STABLE_SHARE = 0.02
+# Topping up before departure looks this much further back than the top-up takes, for cheaper hours.
+TOPUP_SLACK = timedelta(hours=2)
 
 WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 SCHEDULE_DEFAULT = "default"
@@ -88,6 +95,10 @@ class Rules:
     """Keep the charger on after the plan, so the car can precondition from the grid."""
     join_within: float | None = None
     """Finish in one go (from now, or in one period) when that costs at most this much more per kWh than the cheapest plan (None: off)."""
+    early_within: float | None = None
+    """Charge as early as possible when that costs at most this much more per kWh than the cheapest plan (None: off)."""
+    topup_level: float | None = None
+    """Charge to this level at the cheapest prices and the rest just before the deadline (None: off)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,6 +148,14 @@ class VehiclePlan:
     """True when ``join_within`` chose one period over the cheapest plan."""
     joined_extra: float = 0.0
     """What that one period costs more than the cheapest plan."""
+    early: bool = False
+    """True when the plan charges earlier than the cheapest plan would (``early_within``)."""
+    topup: bool = False
+    """True when the last part (above ``topup_level``) is planned just before the deadline."""
+    fallback: bool = False
+    """True for a plan without prices: charging that ends at the deadline, in case no prices come."""
+    kept: bool = False
+    """True when the plan from before was kept, because a new one would hardly be cheaper."""
 
     @property
     def savings(self) -> float | None:
@@ -176,6 +195,9 @@ class VehiclePlan:
             "short": self.short,
             "joined": self.joined,
             "joined_extra": self.joined_extra,
+            "early": self.early,
+            "topup": self.topup,
+            "fallback": self.fallback,
         }
 
     @classmethod
@@ -208,6 +230,9 @@ class VehiclePlan:
                 short=bool(data.get("short")),
                 joined=bool(data.get("joined")),
                 joined_extra=float(data.get("joined_extra") or 0.0),
+                early=bool(data.get("early")),
+                topup=bool(data.get("topup")),
+                fallback=bool(data.get("fallback")),
             )
         except (KeyError, TypeError, ValueError):
             return None
@@ -443,6 +468,83 @@ def _select_joined(
     return cheapest, MODE_SPLIT, 0.0
 
 
+def select_early(
+    slots: list[PriceSlot], need: ChargeNeed, power: float, continuous: bool, within: float
+) -> tuple[list[Segment], str, bool]:
+    """The plan that is done soonest while it costs at most ``within`` more per kWh than the cheapest.
+
+    Prices that are almost the same (a tenth of an øre cheaper at four in the
+    morning) then do not push the charge late into the night. Returns the
+    segments, the mode and whether that is earlier than the cheapest plan.
+    """
+    cheapest, mode = _select(slots, need, power, continuous)
+    if not cheapest:
+        return cheapest, mode, False
+    allowance = within * need.grid_kwh + EPSILON
+    best, best_end = cheapest, cheapest[-1]["end"]
+    if mode == MODE_CONTINUOUS:
+        candidates = continuous_candidates(slots, need, power)
+        budget = min(cost for _begin, _finish, cost in candidates) + allowance
+        for begin, finish, cost in candidates:
+            if cost <= budget and finish < best_end:
+                best, best_end = [{"start": begin, "end": finish}], finish
+        return best, mode, best is not cheapest
+    budget = segments_cost(slots, cheapest, power) + allowance
+    ordered = sorted(slots, key=lambda slot: slot.start)
+    for cutoff in sorted({slot.price for slot in slots}):
+        segments = fill_earliest([slot for slot in ordered if slot.price <= cutoff + EPSILON], need)
+        if segments and segments[-1]["end"] < best_end and segments_cost(slots, segments, power) <= budget:
+            best, best_end = segments, segments[-1]["end"]
+    return best, mode, best is not cheapest
+
+
+def keep_previous(
+    old: VehiclePlan | None,
+    new: VehiclePlan,
+    prices: Sequence[PriceSlot],
+    now: datetime,
+    *,
+    power: float,
+    deadline: datetime | None,
+    blocked: Sequence[Segment] = (),
+) -> VehiclePlan:
+    """The plan from before, when the new one is hardly cheaper.
+
+    A plan that moves for a few øre every time a price or a reading changes is
+    hard to trust and wakes the car for nothing. The old plan stays while what
+    is left of it still charges as long as the new one, fits before the
+    deadline, is free on the charger and under the ceiling, and costs at most
+    ``STABLE_KR`` (or ``STABLE_SHARE`` of the plan) more at today's prices.
+    """
+    if old is None or not old.segments or not new.segments or (old.mode, old.topup) != (new.mode, new.topup):
+        return new
+    start = floor_minute(now)
+    left: list[Segment] = [
+        {"start": max(seg["start"], start), "end": seg["end"]} for seg in old.segments if seg["end"] > start
+    ]
+    hours, needed = segments_hours(left), segments_hours(new.segments)
+    if not left or hours + EPSILON < needed or hours > needed + 0.25 + EPSILON:
+        return new
+    if (deadline is not None and left[-1]["end"] > deadline) or _overlaps(left, blocked):
+        return new
+    cost = 0.0
+    for segment in left:
+        part = energy_cost(list(prices), segment["start"], segment["end"], power)
+        if part is None:
+            return new
+        cost += part
+    if new.ceiling is not None and any(
+        slot.price > new.ceiling + EPSILON
+        for slot in prices
+        for seg in left
+        if slot.start < seg["end"] and seg["start"] < slot.end
+    ):
+        return new
+    if cost > new.cost + max(STABLE_KR, STABLE_SHARE * new.cost):
+        return new
+    return replace(new, segments=merge_segments(left), cost=cost, kept=True)
+
+
 def _need_for_hours(need: ChargeNeed, hours: float) -> ChargeNeed:
     """The same need, but charging only ``hours``."""
     share = hours / need.hours if need.hours > EPSILON else 0.0
@@ -516,15 +618,24 @@ def plan_vehicle(
 
     joined = False
     joined_extra = 0.0
+    early = False
+    topup = False
     if slot_hours(allowed) + EPSILON >= need.hours:
-        if not continuous and rules.join_within is not None:
-            segments, mode, joined_extra = _select_joined(
-                list(allowed), need, car.power, rules.join_within, now, list(reserved)
-            )
-            joined = mode == MODE_CONTINUOUS
+        top = _plan_topup(list(allowed), car, rules, now, deadline, continuous)
+        if top is not None:
+            segments, mode, hours, early = top
+            topup = True
         else:
-            segments, mode = _select(list(allowed), need, car.power, continuous)
-        hours = need.hours
+            if not continuous and rules.join_within is not None:
+                segments, mode, joined_extra = _select_joined(
+                    list(allowed), need, car.power, rules.join_within, now, list(reserved)
+                )
+                joined = mode == MODE_CONTINUOUS
+            else:
+                segments, mode = _select(list(allowed), need, car.power, continuous)
+            if rules.early_within is not None and not joined:
+                segments, mode, early = select_early(list(allowed), need, car.power, continuous, rules.early_within)
+            hours = need.hours
     else:
         # The ceiling (or the time left) does not allow the whole charge.
         min_need = None
@@ -573,7 +684,54 @@ def plan_vehicle(
         short=short,
         joined=joined,
         joined_extra=joined_extra,
+        early=early,
+        topup=topup,
     )
+
+
+def _plan_topup(
+    allowed: list[PriceSlot],
+    car: Car,
+    rules: Rules,
+    now: datetime,
+    deadline: datetime | None,
+    continuous: bool,
+) -> tuple[list[Segment], str, float, bool] | None:
+    """Up to ``topup_level`` at the cheapest prices, the rest in the last hours before the deadline.
+
+    The car then does not stand at 100 % all night, and the battery is warm
+    when it leaves. Returns the segments, the mode, the charging hours and
+    whether the first part was moved earlier; None when it does not apply or
+    the hours before the deadline are not enough (the plan is then the usual one).
+    """
+    level = rules.topup_level
+    if level is None or deadline is None or car.target <= level + EPSILON:
+        return None
+    from_level = max(car.soc, level)
+    top_need = charge_need(from_level, car.target, car.capacity, car.power, speed=car.speed, curve=car.curve)
+    top_start = max(now, deadline - timedelta(hours=top_need.hours) - TOPUP_SLACK)
+    top_slots = limit_slots(allowed, top_start, deadline)
+    if slot_hours(top_slots) + EPSILON < top_need.hours:
+        return None
+    top_segments, mode = _select(top_slots, top_need, car.power, continuous)
+    if not top_segments:
+        return None
+    hours = top_need.hours
+    base_segments: list[Segment] = []
+    early = False
+    if from_level > car.soc + EPSILON:
+        base_need = charge_need(car.soc, from_level, car.capacity, car.power, speed=car.speed, curve=car.curve)
+        base_slots = cut_slots(allowed, top_segments)
+        if slot_hours(base_slots) + EPSILON < base_need.hours:
+            return None
+        if rules.early_within is not None:
+            base_segments, _mode, early = select_early(base_slots, base_need, car.power, continuous, rules.early_within)
+        else:
+            base_segments, _mode = _select(base_slots, base_need, car.power, continuous)
+        if not base_segments:
+            return None
+        hours += base_need.hours
+    return merge_segments(base_segments + top_segments), mode, hours, early
 
 
 # ----------------------------------------------------------------------

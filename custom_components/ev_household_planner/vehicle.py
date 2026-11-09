@@ -52,6 +52,8 @@ from .const import (
     SET_CONTINUOUS,
     SET_DAY_TARGETS,
     SET_EARLIEST_START,
+    SET_EARLY_ENABLED,
+    SET_EARLY_WITHIN,
     SET_FOLLOW_LEVEL,
     SET_JOIN_ENABLED,
     SET_JOIN_WITHIN,
@@ -69,6 +71,8 @@ from .const import (
     SET_READY_BY,
     SET_SCHEDULE,
     SET_TARGET_SOC,
+    SET_TOPUP_ENABLED,
+    SET_TOPUP_LEVEL,
     SET_USE_EARLIEST_START,
     SET_USE_READY_BY,
     STATUS_CHARGER_BUSY,
@@ -84,6 +88,7 @@ from .const import (
     STATUS_PAUSED,
     STATUS_PLANNED,
     STATUS_UNPLUGGED,
+    WEEKDAYS,
 )
 from .learning import SOURCE_ESTIMATED, SOURCE_IMPORTED, SOURCE_LEARNED, SOURCE_MEASURING, ChargeMeter, Learned
 from .planner import estimated_speed
@@ -511,10 +516,21 @@ class Vehicle:
         return to_float(self.settings.get(SET_MANUAL_SOC))
 
     @property
+    def day_target(self) -> float | None:
+        """The target set for the weekday of the next ready-by time (not a calendar trip's)."""
+        deadline = self.deadline
+        targets = self.settings.get(SET_DAY_TARGETS)
+        if deadline is None or not isinstance(targets, Mapping) or deadline == self.calendar_event:
+            return None
+        return to_float(targets.get(WEEKDAYS[deadline.weekday()]))
+
+    @property
     def target(self) -> float:
-        """The charge level to aim for: a calendar trip, the car's own limit, or the setting."""
+        """The charge level to aim for: a calendar trip, the weekday's, the car's own limit, or the setting."""
         if self.calendar_target is not None:
             return self.calendar_target
+        if (day := self.day_target) is not None:
+            return day
         if self.target_entity and self.target_from_car is not None:
             return self.target_from_car
         return to_float(self.settings.get(SET_TARGET_SOC)) or 80.0
@@ -538,6 +554,8 @@ class Vehicle:
             low_soc_level=to_float(s.get(SET_LOW_SOC_LEVEL)) if s.get(SET_LOW_SOC_ENABLED) else None,
             keep_on=bool(s.get(SET_KEEP_ON)),
             join_within=max(0.0, to_float(s.get(SET_JOIN_WITHIN)) or 0.0) if s.get(SET_JOIN_ENABLED) else None,
+            early_within=max(0.0, to_float(s.get(SET_EARLY_WITHIN)) or 0.0) if s.get(SET_EARLY_ENABLED) else None,
+            topup_level=to_float(s.get(SET_TOPUP_LEVEL)) if s.get(SET_TOPUP_ENABLED) else None,
         )
 
     @property

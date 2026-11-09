@@ -221,6 +221,10 @@ def plan_state(plan: VehiclePlan | None) -> dict[str, Any] | None:
         "short": plan.short,
         "joined": plan.joined,
         "joined_extra": _r(plan.joined_extra),
+        "early": plan.early,
+        "topup": plan.topup,
+        "fallback": plan.fallback,
+        "kept": plan.kept,
     }
 
 
@@ -260,6 +264,9 @@ def vehicle_state(household: Household, vehicle: Vehicle) -> dict[str, Any]:
         "soc_source": "sensor" if vehicle.has_soc_sensor else "manual",
         "target": _r(vehicle.target, 1),
         "target_editable": target_entity is None or target_entity.split(".", 1)[0] in ("number", "input_number"),
+        # The car's own charge limit, when it has one: it stops there, whatever the plan says.
+        "car_limit": _r(vehicle.target_from_car, 1) if target_entity else None,
+        "day_target": vehicle.day_target,
         "capacity": vehicle.capacity,
         "power": household.vehicle_power(vehicle),
         **household.charging_figures(vehicle),

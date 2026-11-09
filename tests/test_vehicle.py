@@ -478,3 +478,27 @@ def test_a_car_that_does_not_charge_after_a_pause_plans_in_one_go() -> None:
     vehicle.learned.forget_resume()
     vehicle.settings["continuous"] = True
     assert vehicle.plan_continuous is True
+
+
+def test_a_target_per_weekday() -> None:
+    vehicle = make()
+    vehicle.settings["target_soc"] = 80
+    vehicle.settings["day_targets"] = {"fri": 100}
+    assert vehicle.target == 80  # no ready-by time known yet
+    friday = datetime(2026, 10, 23, 7, 0, tzinfo=TZ)
+    vehicle.deadline = friday
+    assert vehicle.day_target == 100 and vehicle.target == 100
+    vehicle.deadline = friday + timedelta(days=1)
+    assert vehicle.target == 80
+    # A calendar trip wins.
+    vehicle.deadline = friday
+    vehicle.calendar_event, vehicle.calendar_target = friday, 90
+    assert vehicle.day_target is None and vehicle.target == 90
+    # Each car has its own copy of the setting.
+    other = make()
+    other.settings["day_targets"]["mon"] = 50
+    assert make().settings["day_targets"] == {}
+    rules = make().rules()
+    assert rules.early_within is None and rules.topup_level is None
+    vehicle.settings.update({"prefer_early": True, "early_within": 0.03, "topup": True, "topup_level": 85})
+    assert vehicle.rules().early_within == 0.03 and vehicle.rules().topup_level == 85
