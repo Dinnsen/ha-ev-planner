@@ -160,6 +160,10 @@ async def test_one_phase_when_the_sun_is_small(
     await _minutes(hass, freezer, now, 2)
     assert hass.states.get(PHASES).state == "off"  # type: ignore[union-attr]
     assert calls["amps"][-1].data["value"] == 10  # 2.4 kW on one phase
+    # Charging from the grid: three phases again.
+    await entry.runtime_data.async_set_vehicle(TESLA, {"mode": "charge_now"})
+    await settle(hass, freezer)
+    assert hass.states.get(PHASES).state == "on"  # type: ignore[union-attr]
 
 
 async def test_the_sun_is_counted_and_the_battery_is_held_while_a_car_charges_from_the_grid(
