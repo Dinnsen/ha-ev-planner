@@ -90,9 +90,13 @@
       "step": {
         "user": {
           "title": "Tilføj bil",
-          "description": "Start fra en bil i EV Smart Charging, eller fra bunden. EV Smart Charging ændres ikke.",
+          "description": "Vælg bilens enhed i Home Assistant, så udfylder EV Planner dens sensorer og ladekontakt (du tjekker dem på næste side). Du kan også starte fra en bil i EV Smart Charging (den ændres ikke) eller helt forfra.",
           "data": {
-            "source": "Start fra"
+            "source": "Start fra",
+            "device": "Bilen i Home Assistant"
+          },
+          "data_description": {
+            "device": "Valgfri. Ladeniveau, ladegrænse, stik, ladning og placering findes for dig."
           }
         },
         "details": {

@@ -22,7 +22,15 @@ from homeassistant.util import dt as dt_util
 
 from . import migration
 from .api import PlateAuthError, PlateLookupFailed, async_validate_plate_provider_credentials
-from .catalog import MODEL_AUTO, MODEL_OTHER, describe_device, get_model, model_options, suggest_entities
+from .catalog import (
+    MODEL_AUTO,
+    MODEL_OTHER,
+    describe_device,
+    get_model,
+    model_options,
+    suggest_entities,
+    suggest_vehicle_entities,
+)
 from .const import (
     CONF_BATTERY_CAPACITY,
     CONF_CALENDAR_ENTITY,
@@ -534,29 +542,32 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
         return result
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
-        """Start from scratch, or from a car in EV Smart Charging."""
+        """Start from the car's device in Home Assistant, from a car in EV Smart Charging, or from scratch."""
         candidates = _esc_entries(self.hass, self._get_entry())
-        if not candidates:
-            return await self.async_step_details()
         if user_input is not None:
-            source = user_input[CONF_SOURCE]
+            source = user_input.get(CONF_SOURCE, SOURCE_MANUAL)
             if source != SOURCE_MANUAL and source in candidates:
                 self._imported_from = source
                 self._suggested, self._imported_settings = esc_import(self.hass, source)
                 self._imported_speed = self._suggested.pop(CONF_IMPORTED_SPEED, None)
+            if device_id := user_input.get(CONF_DEVICE):
+                # What the device has fills in what EV Smart Charging did not.
+                found = suggest_vehicle_entities(self.hass, device_id)
+                name, _model = describe_device(self.hass, device_id)
+                if name:
+                    found[CONF_NAME] = name
+                self._suggested = {**found, **{k: v for k, v in self._suggested.items() if v not in (None, "")}}
             return await self.async_step_details()
-        options = [selector.SelectOptionDict(value=SOURCE_MANUAL, label="-")]
-        options.extend(selector.SelectOptionDict(value=eid, label=title) for eid, title in candidates.items())
-        return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_SOURCE, default=next(iter(candidates))): selector.SelectSelector(
-                        selector.SelectSelectorConfig(options=options, mode=selector.SelectSelectorMode.LIST)
-                    )
-                }
-            ),
-        )
+        fields: dict[vol.Marker, Any] = {
+            vol.Optional(CONF_DEVICE): selector.DeviceSelector(selector.DeviceSelectorConfig())
+        }
+        if candidates:
+            options = [selector.SelectOptionDict(value=SOURCE_MANUAL, label="-")]
+            options.extend(selector.SelectOptionDict(value=eid, label=title) for eid, title in candidates.items())
+            fields[vol.Required(CONF_SOURCE, default=next(iter(candidates)))] = selector.SelectSelector(
+                selector.SelectSelectorConfig(options=options, mode=selector.SelectSelectorMode.LIST)
+            )
+        return self.async_show_form(step_id="user", data_schema=vol.Schema(fields))
 
     async def async_step_details(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
         errors: dict[str, str] = {}

@@ -17,6 +17,7 @@ from custom_components.ev_household_planner.catalog import (
     model_options,
     panel_info,
     suggest_entities,
+    suggest_vehicle_entities,
 )
 
 
@@ -108,3 +109,39 @@ async def test_suggest_entities_with_a_status_sensor(hass: HomeAssistant) -> Non
 
 async def test_describe_a_missing_device(hass: HomeAssistant) -> None:
     assert describe_device(hass, "nope") == (None, None)
+
+
+async def test_suggest_a_cars_entities(hass: HomeAssistant) -> None:
+    entry, device_id = await _device(hass, "mbapi2020", "Mercedes-Benz", "EQB")
+    soc = _add(
+        hass, entry, device_id, "sensor", "soc", original_device_class="battery", original_name="State of charge"
+    )
+    _add(hass, entry, device_id, "sensor", "range", original_name="Range electric")
+    _add(
+        hass,
+        entry,
+        device_id,
+        "sensor",
+        "battery_health",
+        original_device_class="battery",
+        original_name="Battery health",
+    )
+    charging = _add(
+        hass, entry, device_id, "binary_sensor", "charging_active", original_device_class="battery_charging"
+    )
+    plug = _add(hass, entry, device_id, "binary_sensor", "cable", original_device_class="plug")
+    tracker = _add(hass, entry, device_id, "device_tracker", "location")
+    power = _add(hass, entry, device_id, "sensor", "charging_power", original_device_class="power")
+    switch = _add(hass, entry, device_id, "switch", "charging", original_name="Charging")
+    _add(hass, entry, device_id, "switch", "preheat", original_name="Climate heater")
+    assert suggest_vehicle_entities(hass, device_id) == {
+        "soc_entity": soc,
+        "connected_entity": plug,
+        "charging_entity": charging,
+        "home_entity": tracker,
+        "power_entity": power,
+        "control_entity": switch,
+        "control": "car",
+    }
+    _entry, empty = await _device(hass, "other", "Nobody", "Nothing")
+    assert suggest_vehicle_entities(hass, empty) == {}
