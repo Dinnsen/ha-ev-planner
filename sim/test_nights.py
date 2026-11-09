@@ -28,10 +28,7 @@ def _nights() -> list[Night]:
 NIGHTS = _nights()
 
 # Rules these nights break today, with why. Strict: once fixed, the run says so and the entry goes.
-KNOWN = {
-    "random-19": "the first night's speed leaves out the charging losses, and the plan has no margin",
-    "random-21": "the first night's speed leaves out the charging losses, and the plan has no margin",
-}
+KNOWN: dict[str, str] = {}
 
 
 def _params() -> list[object]:

@@ -94,6 +94,9 @@ from .learning import SOURCE_ESTIMATED, SOURCE_IMPORTED, SOURCE_LEARNED, SOURCE_
 from .planner import estimated_speed
 from .rules import Decision, Rules, VehiclePlan, next_deadline, parse_hhmm
 
+# Share of the energy from the wall that reaches the battery when charging on AC:
+# for the estimate before a car has shown its real speed.
+CHARGE_EFFICIENCY = 0.9
 CHARGING_STATES = {"on", "charging", "true", "yes", "active"}
 # A single charge level step above this is a glitch (or a car swap), not charging.
 MAX_SOC_STEP = 60.0
@@ -400,7 +403,8 @@ class Vehicle:
 
         The charge that is going on, once it has shown enough; else what the
         car has taught before; else EV Smart Charging's figure; else the
-        charging power against the battery capacity.
+        charging power against the battery capacity, less 10 % lost on the
+        way (the speeds a car shows have their losses in them already).
         """
         if (speed := self.meter.speed) is not None:
             return speed, SOURCE_MEASURING
@@ -408,7 +412,7 @@ class Vehicle:
             return self.learned.speed, SOURCE_LEARNED
         if (speed := self.imported_speed) is not None:
             return speed, SOURCE_IMPORTED
-        return estimated_speed(self.capacity, power), SOURCE_ESTIMATED
+        return estimated_speed(self.capacity, power * CHARGE_EFFICIENCY), SOURCE_ESTIMATED
 
     def finish_measurement(self, *, unplugged: bool = False) -> bool:
         """Learn from what the car has shown, once it is enough or the car is unplugged.

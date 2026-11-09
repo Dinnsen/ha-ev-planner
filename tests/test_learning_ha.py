@@ -74,8 +74,8 @@ async def test_a_charge_teaches_the_speed_and_the_power(
     )
     tesla = entry.runtime_data.vehicles[TESLA]
     attributes = hass.states.get(STATUS).attributes
-    # Nothing shown yet: 10 kW against 60 kWh.
-    assert attributes["charge_speed"] == 16.7
+    # Nothing shown yet: 10 kW against 60 kWh, less 10 % lost on the way.
+    assert attributes["charge_speed"] == 15.0
     assert attributes["charge_speed_source"] == "estimated"
     assert attributes["charge_power"] == 10
     assert attributes["charge_power_source"] == "configured"
