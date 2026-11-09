@@ -28,6 +28,7 @@ from .const import (
     CONF_PHASE_ENTITY,
     CONF_SOLAR_FORECAST,
     CONF_SOLAR_POWER,
+    CONTROL_CHARGE,
     DEFAULT_BATTERY_FIRST,
     PRIORITY_FIRST,
     REASON_SOLAR,
@@ -231,13 +232,17 @@ class SolarControl:
                 if entity and decision.amps is not None:
                     await supply.async_set_current(vehicle, entity, decision.amps, now)
                     self._restore.add(vehicle.vehicle_id)
-            elif vehicle.vehicle_id in self._restore:
-                # Done on the sun: the full current and three phases for the plan again.
-                self._restore.discard(vehicle.vehicle_id)
-                if phase_entity and self._phases_sent.get(vehicle.vehicle_id) == 1:
+            else:
+                if vehicle.vehicle_id in self._restore:
+                    # Done on the sun: the full current again.
+                    self._restore.discard(vehicle.vehicle_id)
+                    if entity and supply.plan_amps(vehicle, now) is None:
+                        await supply.async_set_current(vehicle, entity, supply.bounds(entity)[1], now)
+                # Three phases again only when it charges from the grid; between suns it stays as it is,
+                # so the charger's contactor is not switched for nothing.
+                grid = vehicle.decision.control == CONTROL_CHARGE and vehicle.decision.reason != REASON_SOLAR
+                if grid and phase_entity and self._phases_sent.get(vehicle.vehicle_id) == 1:
                     await self._async_phases(vehicle, phase_entity, 3)
-                if entity and supply.plan_amps(vehicle, now) is None:
-                    await supply.async_set_current(vehicle, entity, supply.bounds(entity)[1], now)
         await self._async_hold()
 
     async def _async_phases(self, vehicle: Vehicle, entity: str, phases: int) -> None:
