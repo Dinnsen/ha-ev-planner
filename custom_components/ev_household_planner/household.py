@@ -884,7 +884,8 @@ class Household(DataUpdateCoordinator[None]):
             blocked = list(taken.get(charger_id, [])) if charger_id else []
             if charger_id and self.guest.charger_id == charger_id and self.guest.session_active(now):
                 blocked.extend(self.guest.segments)
-            active = vehicle.plan is not None and in_segments(vehicle.plan.segments, now)
+            # A plan made without prices gives way as soon as there are prices.
+            active = vehicle.plan is not None and not vehicle.plan.fallback and in_segments(vehicle.plan.segments, now)
             # A plan charging now is kept; after a restart, the stored plan the car was charging in.
             charging_in_plan = vehicle.decision.control == CONTROL_CHARGE or (
                 vehicle.plan_restored and vehicle.last_sent == CONTROL_CHARGE
