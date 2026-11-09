@@ -23,7 +23,7 @@ EV Planner charges your household's electric cars when power is cheapest, and st
 
 EV Planner is built from [EV Guest](https://github.com/Dinnsen/EV-Guest) (the planner, the price clock and the guest flow) and does everything [EV Smart Charging](https://github.com/jonasbkarlsson/ev_smart_charging) does, and more.
 
-**Contents:** [Features](#features) · [Requirements](#requirements) · [Installation](#installation) · [Setup](#setup) · [Moving from EV Smart Charging](#moving-from-ev-smart-charging) · [The panel](#the-panel) · [Dashboard cards](#dashboard-cards) · [Notifications](#notifications) · [Widgets](#widgets) · [Entities](#entities) · [Actions](#actions) · [How it works](#how-it-works) · [Limitations](#known-limitations) · [Troubleshooting](#troubleshooting) · [Removal](#removing-the-integration)
+**Contents:** [Features](#features) · [Requirements](#requirements) · [Installation](#installation) · [Setup](#setup) · [Moving from EV Smart Charging](#moving-from-ev-smart-charging) · [The panel](#the-panel) · [Dashboard cards](#dashboard-cards) · [Notifications](#notifications) · [Widgets](#widgets) · [Entities](#entities) · [Actions](#actions) · [How it works](#how-it-works) · [Limitations](#known-limitations) · [Troubleshooting](#troubleshooting) · [Removal](#removing-the-integration) · [Thanks](#thanks)
 
 ## Features
 
