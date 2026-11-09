@@ -940,6 +940,200 @@ const TEXT = {
   },
 };
 
+/* Texts added in 2.3: the Home tab, the history, what EV Planner has learned, the car page's views. */
+Object.assign(TEXT.da, {
+  reminder_repeat: "Mind mig igen efter",
+  reminder_repeat_hint: "0 = kun én gang. Påmindelsen kommer igen, indtil bilen er sat til – højst 3 gange om dagen.",
+  ceiling_note: "Svagere farver: timer over prisloftet ({price}). Bilen lader ikke i dem.",
+  home_now: "Lige nu",
+  home_grid_now: "Net",
+  home_house_now_short: "Huset",
+  home_cars_now: "Biler",
+  home_sun_now: "Sol",
+  home_heat_now: "Varmepumpe",
+  home_price_now: "Pris nu",
+  home_outside: "Ude",
+  home_today: "I dag",
+  home_today_house: "Hele huset",
+  home_today_cars: "Heraf biler",
+  home_tonight: "I nat",
+  home_tonight_none: "Ingen biler skal lade i nat.",
+  home_tonight_total: "{kwh} for {cost} i alt",
+  home_chargers: "Ladere",
+  home_devices: "Målere",
+  view_now: "Nu",
+  view_rules: "Regler",
+  view_history: "Historik",
+  view_learned: "Lært",
+  tile_time: "Tid og start",
+  tile_price: "Pris",
+  tile_battery: "Batteri",
+  tile_sun: "Sol",
+  tile_look: "Udseende",
+  tile_notify: "Beskeder",
+  tile_supply: "Fælles forsyning",
+  tile_off: "Slået fra",
+  tile_close: "Færdig",
+  sum_ceiling_avg: "Loft gns. +{pct}",
+  sum_ceiling_fixed: "Loft {price}",
+  sum_low_price: "Lav pris {price}",
+  sum_early: "Tidligt",
+  sum_min: "Mindst {pct}",
+  sum_low_soc: "Lad straks under {pct}",
+  sum_topup: "Top op {pct}",
+  sum_earliest: "Tidligst {time}",
+  sum_join: "Saml perioder",
+  sum_keep_on: "Lader altid tændt",
+  sum_reminder: "Påmindelse {time}",
+  sum_receipt: "Kvittering",
+  sum_live: "Live",
+  sum_must: "Skal have {pct}",
+  sum_first: "Først i køen",
+  hist_day: "Dag",
+  hist_week: "Uge",
+  hist_month: "Måned",
+  hist_year: "År",
+  hist_all: "Alle",
+  hist_house: "Hele huset",
+  hist_guests: "Gæster",
+  hist_energy: "Energi",
+  hist_cost: "Pris",
+  hist_avg: "Gns. pris",
+  hist_sessions: "Opladninger",
+  hist_sun: "Fra solen",
+  hist_none: "Ingen opladninger i perioden.",
+  hist_house_none: "Hele huset kræver en elmåler i Energi-dashboardet.",
+  hist_cars_share: "Biler {pct} af huset",
+  hist_prev: "Forrige",
+  hist_next: "Næste",
+  hist_week_of: "Uge {week}",
+  learn_title: "Det har EV Planner lært",
+  learn_speed: "Ladehastighed",
+  learn_speed_text: "{speed} %/t · {kw} kW",
+  learn_from: "lært af {n} opladninger",
+  learn_from_one: "lært af 1 opladning",
+  learn_estimated: "skønnet – lærer ved næste opladning",
+  learn_curve: "Langsommere til sidst",
+  learn_curve_text: "Over {from}: {speed} %/t",
+  learn_margin: "Ekstra tid",
+  learn_margin_text: "{minutes} min før klar-tiden",
+  learn_habits: "Jeres vaner",
+  learn_plug_in: "Sættes typisk til",
+  learn_arrive: "Kommer typisk hjem med",
+  learn_per_session: "Pr. opladning",
+  learn_per_week: "Opladninger om ugen",
+  learn_promise: "Holdt planen",
+  learn_promise_text: "{ok} af {n} gange klar til tiden",
+  learn_house: "Husets døgn",
+  learn_house_text: "Gennemsnit pr. time de sidste 14 dage",
+  learn_weather: "Vejret",
+  learn_weather_text: "{amps} A mere pr. grad koldere",
+  learn_weather_none: "Lærer stadig – kræver nogle dage med skiftende temperatur.",
+  learn_sure: "Sikkerhed",
+  learn_empty: "EV Planner har ikke lært noget endnu. Det kommer efter de første opladninger.",
+  settings_house: "Hus og forsyning",
+  settings_house_hint: "Fælles forsyning, sol, batteri, vejr og varmepumpe vælges i integrationens indstillinger.",
+  settings_from_energy: "Fra Energi-dashboardet",
+  open_settings: "Åbn",
+  label_more: "Tryk for navn",
+});
+Object.assign(TEXT.en, {
+  reminder_repeat: "Remind me again after",
+  reminder_repeat_hint: "0 = only once. The reminder comes again until the car is plugged in – at most 3 times a day.",
+  ceiling_note: "Fainter colours: hours above the price ceiling ({price}). The car does not charge in them.",
+  home_now: "Right now",
+  home_grid_now: "Grid",
+  home_house_now_short: "House",
+  home_cars_now: "Cars",
+  home_sun_now: "Sun",
+  home_heat_now: "Heat pump",
+  home_price_now: "Price now",
+  home_outside: "Outside",
+  home_today: "Today",
+  home_today_house: "Whole house",
+  home_today_cars: "Of which cars",
+  home_tonight: "Tonight",
+  home_tonight_none: "No car needs to charge tonight.",
+  home_tonight_total: "{kwh} for {cost} in all",
+  home_chargers: "Chargers",
+  home_devices: "Meters",
+  view_now: "Now",
+  view_rules: "Rules",
+  view_history: "History",
+  view_learned: "Learned",
+  tile_time: "Time and start",
+  tile_price: "Price",
+  tile_battery: "Battery",
+  tile_sun: "Sun",
+  tile_look: "Look",
+  tile_notify: "Messages",
+  tile_supply: "Shared supply",
+  tile_off: "Off",
+  tile_close: "Done",
+  sum_ceiling_avg: "Ceiling avg +{pct}",
+  sum_ceiling_fixed: "Ceiling {price}",
+  sum_low_price: "Low price {price}",
+  sum_early: "Early",
+  sum_min: "At least {pct}",
+  sum_low_soc: "Charge at once below {pct}",
+  sum_topup: "Top up {pct}",
+  sum_earliest: "Not before {time}",
+  sum_join: "Join periods",
+  sum_keep_on: "Charger always on",
+  sum_reminder: "Reminder {time}",
+  sum_receipt: "Receipt",
+  sum_live: "Live",
+  sum_must: "Must have {pct}",
+  sum_first: "First in line",
+  hist_day: "Day",
+  hist_week: "Week",
+  hist_month: "Month",
+  hist_year: "Year",
+  hist_all: "All",
+  hist_house: "Whole house",
+  hist_guests: "Guests",
+  hist_energy: "Energy",
+  hist_cost: "Cost",
+  hist_avg: "Avg. price",
+  hist_sessions: "Charges",
+  hist_sun: "From the sun",
+  hist_none: "No charging in this period.",
+  hist_house_none: "The whole house needs an electricity meter in the Energy dashboard.",
+  hist_cars_share: "Cars {pct} of the house",
+  hist_prev: "Previous",
+  hist_next: "Next",
+  hist_week_of: "Week {week}",
+  learn_title: "What EV Planner has learned",
+  learn_speed: "Charging speed",
+  learn_speed_text: "{speed} %/h · {kw} kW",
+  learn_from: "learned from {n} charges",
+  learn_from_one: "learned from 1 charge",
+  learn_estimated: "estimated – learns at the next charge",
+  learn_curve: "Slower at the end",
+  learn_curve_text: "Above {from}: {speed} %/h",
+  learn_margin: "Extra time",
+  learn_margin_text: "{minutes} min before the ready-by time",
+  learn_habits: "Your habits",
+  learn_plug_in: "Usually plugged in",
+  learn_arrive: "Usually home with",
+  learn_per_session: "Per charge",
+  learn_per_week: "Charges a week",
+  learn_promise: "Kept the plan",
+  learn_promise_text: "{ok} of {n} times ready on time",
+  learn_house: "The house's day",
+  learn_house_text: "Average per hour over the last 14 days",
+  learn_weather: "The weather",
+  learn_weather_text: "{amps} A more per degree colder",
+  learn_weather_none: "Still learning – needs a few days of changing temperatures.",
+  learn_sure: "Certainty",
+  learn_empty: "EV Planner has not learned anything yet. That comes after the first charges.",
+  settings_house: "House and supply",
+  settings_house_hint: "Shared supply, sun, battery, weather and heat pump are chosen in the integration's settings.",
+  settings_from_energy: "From the Energy dashboard",
+  open_settings: "Open",
+  label_more: "Tap for the name",
+});
+
 const CHARGER_PRESETS = [3.7, 7.4, 11, 22];
 const DEADLINE_PRESETS = ["06:00", "07:00", "08:00"];
 const MODES = ["smart", "charge_now", "pause", "off"];
@@ -953,6 +1147,8 @@ const LEVELS = ["simple", "smart", "expert"];
 const PREVIEW_DELAY = 140;
 const COMMIT_DELAY = 600;
 const HISTORY_PAGE = 12;
+const CAR_VIEWS = ["now", "rules", "history"];
+const HIST_PERIODS = ["day", "week", "month", "year"];
 
 /* Vehicle status → tone of the pill and the status line. */
 const STATUS_TONE = {
@@ -1005,6 +1201,9 @@ const ICONS = {
   info: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.1"/></svg>',
   undo: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>',
   wand: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 11-11M14 5l1-2 1 2 2 1-2 1-1 2-1-2-2-1zM19 11l.6-1.2L21 9.2l-1.4-.6L19 7.4l-.6 1.2-1.4.6 1.4.6zM8 4l.5-1 .5 1 1 .5-1 .5L8.5 6 8 5l-1-.5z"/></svg>',
+  learn: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/></svg>',
+  temp: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14.5V5a2 2 0 0 1 4 0v9.5a4 4 0 1 1-4 0z"/><path d="M12 10v6"/></svg>',
+  heat: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="10" cy="12" r="4"/><path d="M10 8v8M6 12h8M17 9h1M17 12h1"/></svg>',
   camera: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.3l1.4-2h5.6l1.4 2h2.3A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="12.8" r="3.3"/></svg>',
 };
 
@@ -1371,8 +1570,8 @@ const ClayScene = (() => {
   const mix = (a, b, t) => toHex(hex(a).map((v, i) => v + (hex(b)[i] - v) * t));
 
   const T = {
-    top: "#FFFFFF", south: "#F1F2F5", east: "#DFE3E9", roofSouth: "#EEF0F3", roofBack: "#DADDE3",
-    glass: "#D3DAE2", glassHi: "#EEF2F6", ground: "#EEF1F5", shadow: "#5A6478", line: "#CBD1DA",
+    top: "#FFFFFF", south: "#F4F5F7", east: "#D3D8E0", roofSouth: "#ECEEF2", roofBack: "#CDD2DA",
+    glass: "#C9D1DB", glassHi: "#EEF2F6", ground: "#E1E5EB", shadow: "#46506A", line: "#C3C9D3",
     tree: ["#F3F4F6", "#DADDE3"], panel: "#2B3038", panelLine: "#4A5160",
   };
   const FLOW = { sun: "#F5B92E", grid: "#8C98AC", battery: "#22C981", home: "#22C981", car: "#22C981", heat: "#22C981" };
@@ -1598,9 +1797,12 @@ const ClayScene = (() => {
   }
   const foot = (a, b) => `<path d="${path3([a, b])}" stroke="${T.shadow}" stroke-opacity=".18" stroke-width="9" filter="url(#cs-blur)" stroke-linecap="round"/>`;
 
+  // The lit windows at night: drawn over the darkened scene.
+  let LIGHTS = [];
   function windowY(x0, x1, y, z0, z1, mullions = []) {
     let s = poly([[x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1]], `fill="${T.east}"`);
     s += poly([[x0 + 0.06, y, z0 + 0.06], [x1 - 0.06, y, z0 + 0.06], [x1 - 0.06, y, z1 - 0.06], [x0 + 0.06, y, z1 - 0.06]], `fill="url(#cs-glass)"`);
+    LIGHTS.push(poly([[x0 + 0.06, y + 0.01, z0 + 0.06], [x1 - 0.06, y + 0.01, z0 + 0.06], [x1 - 0.06, y + 0.01, z1 - 0.06], [x0 + 0.06, y + 0.01, z1 - 0.06]], `class="cs-light"`));
     for (const m of mullions) s += `<path d="${path3([[m, y + 0.005, z0 + 0.06], [m, y + 0.005, z1 - 0.06]])}" stroke="#fff" stroke-width="1.6"/>`;
     return s;
   }
@@ -1608,6 +1810,7 @@ const ClayScene = (() => {
   function windowX(x, y0, y1, z0, z1, mullions = [], bars = []) {
     let s = poly([[x, y1, z0], [x, y0, z0], [x, y0, z1], [x, y1, z1]], `fill="${T.south}"`);
     s += poly([[x, y1 - 0.06, z0 + 0.06], [x, y0 + 0.06, z0 + 0.06], [x, y0 + 0.06, z1 - 0.06], [x, y1 - 0.06, z1 - 0.06]], `fill="url(#cs-glass)"`);
+    LIGHTS.push(poly([[x + 0.01, y1 - 0.06, z0 + 0.06], [x + 0.01, y0 + 0.06, z0 + 0.06], [x + 0.01, y0 + 0.06, z1 - 0.06], [x + 0.01, y1 - 0.06, z1 - 0.06]], `class="cs-light"`));
     for (const m of mullions) s += `<path d="${path3([[x + 0.005, m, z0 + 0.06], [x + 0.005, m, z1 - 0.06]])}" stroke="#fff" stroke-width="1.6"/>`;
     for (const z of bars) s += `<path d="${path3([[x + 0.005, y1 - 0.06, z], [x + 0.005, y0 + 0.06, z]])}" stroke="#fff" stroke-width="1.6"/>`;
     return s;
@@ -1630,8 +1833,8 @@ const ClayScene = (() => {
     const pitch = (Hh.ridge - Hh.h) / (ym - Hh.y0);
     const eave = Hh.h - Hh.over * pitch;
     const at = (x, k, lift = 0.04) => [x, Hh.y1 + Hh.over + (ym - Hh.y1 - Hh.over) * k, eave + (Hh.ridge - eave) * k + lift];
-    let s = "";
-    s += shadow([[G.x0, G.y0, 0], [Hh.x1 + 2.6, Hh.y0 - 0.4, 0], [Hh.x1 + 2.8, Hh.y1 - 1.2, 0], [Hh.x1, Hh.y1, 0], [G.x1, G.y1, 0], [G.x0, G.y1, 0]], 0.2, "cs-shadow");
+    let s = driveway();
+    s += shadow([[G.x0, G.y0, 0], [Hh.x1 + 3.4, Hh.y0 - 0.4, 0], [Hh.x1 + 3.8, Hh.y1 - 0.6, 0], [Hh.x1 + 0.6, Hh.y1 + 0.6, 0], [G.x1, G.y1 + 0.3, 0], [G.x0, G.y1, 0]], 0.32, "cs-shadow");
     s += tree(3.0, 1.2, 1.05) + tree(15.6, 0.4, 0.85);
     // The garage first: the house stands behind it.
     s += box(G.x0, G.y0, 0, G.x1, G.y1, G.h, { noTop: true });
@@ -1695,10 +1898,17 @@ const ClayScene = (() => {
         <rect class="cs-heatled" x="1.08" y=".14" width=".22" height=".04" rx=".02"/>
       </g>`;
     }
-    // The driveway.
-    s += poly([[G.x0, G.y1, 0.005], [G.x1, G.y1, 0.005], [G.x1, 15.6, 0.005], [G.x0, 15.6, 0.005]], `fill="${T.top}" fill-opacity=".75"`);
-    for (let y = G.y1 + 1.0; y < 15.6; y += 1.0) s += `<path d="${path3([[G.x0, y, 0.006], [G.x1, y, 0.006]])}" stroke="${T.line}" stroke-opacity=".35" stroke-width=".6"/>`;
-    for (let k = 0; k < 4; k += 1) s += poly([[10.6, 9.4 + k * 0.85, 0.01], [11.5, 9.4 + k * 0.85, 0.01], [11.5, 9.9 + k * 0.85, 0.01], [10.6, 9.9 + k * 0.85, 0.01]], `fill="${T.top}" fill-opacity=".7"`);
+    // A light over the garage door, lit at night.
+    LIGHTS.push(`<ellipse class="cs-lamp-glow" cx="${f1(P(2.05, G.y1, 2.45)[0])}" cy="${f1(P(2.05, G.y1, 2.45)[1])}" rx="34" ry="14"/>`);
+    LIGHTS.push(`<ellipse class="cs-lamp-glow" cx="${f1(P(6.95, Hh.y1, 2.5)[0])}" cy="${f1(P(6.95, Hh.y1, 2.5)[1])}" rx="16" ry="10"/>`);
+    return s;
+  }
+
+  function driveway() {
+    const G = GARAGE;
+    let s = poly([[G.x0, G.y1, 0.005], [G.x1, G.y1, 0.005], [G.x1, 15.6, 0.005], [G.x0, 15.6, 0.005]], `fill="${T.top}" fill-opacity=".8"`);
+    for (let y = G.y1 + 1.0; y < 15.6; y += 1.0) s += `<path d="${path3([[G.x0, y, 0.006], [G.x1, y, 0.006]])}" stroke="${T.line}" stroke-opacity=".45" stroke-width=".6"/>`;
+    for (let k = 0; k < 4; k += 1) s += poly([[10.6, 9.4 + k * 0.85, 0.01], [11.5, 9.4 + k * 0.85, 0.01], [11.5, 9.9 + k * 0.85, 0.01], [10.6, 9.9 + k * 0.85, 0.01]], `fill="${T.top}" fill-opacity=".8"`);
     return s;
   }
 
@@ -1735,13 +1945,12 @@ const ClayScene = (() => {
     return a;
   };
   // Where the labels sit (% of the picture), out of the way of the house.
-  const SLOT = { sun: [62, 8], home: [86, 36], battery: [44, 93], grid: [86, 92], heat: [88, 64], car0: [12, 30], car1: [30, 12] };
 
   /* ------------------------------------------------------------ the scene */
 
   function defs() {
     return `<defs>
-      <linearGradient id="cs-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F4F5F8"/><stop offset="1" stop-color="#E9ECF1"/></linearGradient>
+      <linearGradient id="cs-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ECEFF3"/><stop offset="1" stop-color="#DCE1E8"/></linearGradient>
       <radialGradient id="cs-ground" cx=".5" cy=".55" r=".6"><stop offset="0" stop-color="${T.ground}"/><stop offset="1" stop-color="${T.ground}" stop-opacity="0"/></radialGradient>
       <linearGradient id="cs-glass" x1="0" y1="0" x2=".7" y2="1"><stop offset="0" stop-color="${T.glassHi}"/><stop offset=".5" stop-color="${T.glass}"/><stop offset="1" stop-color="${mix(T.glass, "#000000", 0.08)}"/></linearGradient>
       <linearGradient id="cs-sheen" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
@@ -1782,8 +1991,10 @@ const ClayScene = (() => {
       const cars = m.cars.slice(0, 2);
       const boxes = m.chargers.slice(0, 2);
       this.routes = routes(m);
-      let s = `<rect width="${W}" height="${H}" fill="url(#cs-bg)"/><ellipse cx="${W / 2}" cy="${H * 0.62}" rx="${W * 0.62}" ry="${H * 0.42}" fill="url(#cs-ground)"/>`;
-      s += scene(m);
+      LIGHTS = [];
+      let s = `<rect x="-400" y="-300" width="${W + 800}" height="${H + 600}" fill="url(#cs-bg)"/><ellipse cx="${W / 2}" cy="${H * 0.62}" rx="${W * 0.62}" ry="${H * 0.42}" fill="url(#cs-ground)"/>`;
+      s += `<g class="cs-stars">${[[90, 40], [180, 22], [260, 58], [520, 30], [640, 18], [720, 52], [380, 12], [600, 70]].map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i % 3 ? 1 : 1.5}" style="--d:${i * 0.7}s"/>`).join("")}</g>`;
+      s += `<g class="cs-world">${scene(m)}`;
       // Chargers on the garage wall; a cable rolled up beside one whose car is not plugged in.
       const plugged = new Set(cars.filter((c) => c.plugged).map((c, i) => c.charger ?? i));
       boxes.forEach((_, i) => {
@@ -1807,6 +2018,7 @@ const ClayScene = (() => {
           s += `<path class="cs-cable" d="${d}"/><path class="cs-cable-hi" d="${d}"/>${c.charging ? `<path class="cs-cable-live" d="${d}"/>` : ""}`;
         }
       });
+      s += `</g><rect class="cs-dark" x="-400" y="-300" width="${W + 800}" height="${H + 600}"/><g class="cs-lights">${LIGHTS.join("")}</g>`;
       this.el.innerHTML = `<svg class="cs-main" viewBox="0 0 ${W} ${H}" aria-hidden="true">${defs()}${s}</svg><svg class="cs-leaders" viewBox="0 0 ${W} ${H}" aria-hidden="true"></svg><div class="cs-labels"></div>`;
       this.svg = this.el.querySelector("svg");
       this.view = null;
@@ -1817,10 +2029,26 @@ const ClayScene = (() => {
       }
     }
 
-    // On a narrow screen, closer in: less sky and ground around the house.
+    // The house, the garage and the cars in the middle of the picture, with room above for the labels;
+    // on a narrow screen closer in.
     _fit() {
       const narrow = (this.el.clientWidth || W) < 560;
-      const view = narrow ? [40, 70, 720, 470] : [0, 0, W, H];
+      const m = this.model || { cars: [], heat: null };
+      const corners = [[-1.4, 4.4, 0], [-1.4, 15.4, 0], [5.4, 15.4, 0], [14.2, 2, 0], [14.6, 8.9, 0], [6, 2, 5.9], [14.3, 5.3, 5.9], [-1.4, 4.4, 3]];
+      if (m.heat) corners.push([16.4, 8.4, 0]);
+      const xy = corners.map((c) => P(...c));
+      const x0 = Math.min(...xy.map((p) => p[0]));
+      const x1 = Math.max(...xy.map((p) => p[0]));
+      const y0 = Math.min(...xy.map((p) => p[1])) - (narrow ? 34 : 44);
+      const y1 = Math.max(...xy.map((p) => p[1])) + 10;
+      const ratio = narrow ? 1.32 : W / H;
+      let w = x1 - x0 + (narrow ? 20 : 80);
+      let h = y1 - y0;
+      if (w / h < ratio) w = h * ratio;
+      else h = w / ratio;
+      const cx = (x0 + x1) / 2;
+      const cy = (y0 + y1) / 2;
+      const view = [cx - w / 2, cy - h / 2, w, h].map((v) => Math.round(v));
       if (this.view && this.view.join() === view.join()) return;
       this.view = view;
       for (const svg of this.el.querySelectorAll("svg")) svg.setAttribute("viewBox", view.join(" "));
@@ -1829,6 +2057,8 @@ const ClayScene = (() => {
 
     _live(m) {
       const flows = m.flows || {};
+      this.el.classList.toggle("is-dusk", m.daylight === "dusk");
+      this.el.classList.toggle("is-night", m.daylight === "night");
       this.el.classList.toggle("sun-on", (Number(flows.sun) || 0) > 0.05);
       this.el.classList.toggle("heat-on", (Number(flows.heat) || 0) > 0.05);
       for (const g of this.el.querySelectorAll(".cs-route")) {
@@ -1843,23 +2073,33 @@ const ClayScene = (() => {
     _labels(m) {
       const anchors = ANCHORS(m);
       const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-      let lines = "";
-      let html = "";
+      const [vx, vy, vw, vh] = this.view || [0, 0, W, H];
+      // Each label straight above its point; labels that would meet move up a step.
+      const items = [];
       for (const label of m.labels || []) {
         const anchor = anchors[label.key];
-        const slot = SLOT[label.key];
-        if (!anchor || !slot) continue;
+        if (!anchor) continue;
         const [ax, ay] = P(...anchor);
-        const [vx, vy, vw, vh] = this.view || [0, 0, W, H];
-        const sx = Math.min(vx + vw - 20, Math.max(vx + 20, slot[0] * 8));
-        const sy = Math.min(vy + vh - 14, Math.max(vy + 14, slot[1] * 5.6));
-        const left = Math.min(94, Math.max(6, ((sx - vx) / vw) * 100)).toFixed(2);
-        const top = Math.min(93, Math.max(8, ((sy - vy) / vh) * 100)).toFixed(2);
+        const lift = label.key === "grid" ? 26 : label.key.startsWith("car") ? 40 : 34;
+        items.push({ label, ax, ay, x: Math.min(vx + vw - 40, Math.max(vx + 40, ax)), y: Math.max(vy + 14, ay - lift) });
+      }
+      items.sort((a, b) => a.x - b.x);
+      for (let i = 0; i < items.length; i += 1) {
+        for (let j = 0; j < i; j += 1) {
+          const a = items[j];
+          const b = items[i];
+          if (Math.abs(a.x - b.x) < 78 && Math.abs(a.y - b.y) < 24) b.y = Math.max(vy + 14, a.y - 26 < vy + 14 ? a.y + 26 : a.y - 26);
+        }
+      }
+      let lines = "";
+      let html = "";
+      for (const { label, ax, ay, x, y } of items) {
         const color = label.on ? (label.key === "sun" ? FLOW.sun : FLOW.home) : "#9AA3B2";
-        lines += `<path d="M${f1(sx)} ${f1(sy)} L${f1(ax)} ${f1(ay)}" class="cs-leader"/><circle cx="${f1(ax)}" cy="${f1(ay)}" r="3" fill="${color}" stroke="#fff" stroke-width="1.2"/>`;
-        const bar = Number.isFinite(label.bar) ? `<i class="cs-bar"><i style="width:${Math.max(0, Math.min(100, label.bar))}%"></i></i>` : "";
-        const edge = Number(left) >= 80 ? "right" : Number(left) <= 16 ? "left" : "";
-        html += `<div class="cs-label ${label.on ? "on" : ""} ${label.key === "sun" ? "sun" : ""} ${edge}" style="left:${left}%;top:${top}%"><span class="cs-row"><span class="cs-dot"></span><span class="cs-t">${esc(label.title)}</span><span class="cs-v">${esc(label.value)}</span>${label.short ? `<span class="cs-s">${esc(label.short)}</span>` : ""}</span>${bar}</div>`;
+        lines += `<path d="M${f1(x)} ${f1(y + 9)} L${f1(ax)} ${f1(ay)}" class="cs-leader"/><circle cx="${f1(ax)}" cy="${f1(ay)}" r="2.6" fill="${color}" stroke="#fff" stroke-width="1.1"/>`;
+        const left = (((x - vx) / vw) * 100).toFixed(2);
+        const top = (((y - vy) / vh) * 100).toFixed(2);
+        const ring = Number.isFinite(label.bar) ? `<svg class="cs-ring" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5" class="r0"/><circle cx="10" cy="10" r="7.5" class="r1" pathLength="100" style="stroke-dasharray:${Math.max(0, Math.min(100, label.bar)).toFixed(0)} 100"/></svg>` : `<span class="cs-dot"></span>`;
+        html += `<button class="cs-label ${label.on ? "on" : ""} ${label.key === "sun" ? "sun" : ""} ${this.open?.has(label.key) ? "open" : ""}" data-act="scene-label" data-key="${label.key}" style="left:${left}%;top:${top}%" title="${esc(label.title)}" aria-label="${esc(`${label.title}: ${label.value}`)}">${ring}<span class="cs-t">${esc(label.title)}</span><span class="cs-v">${esc(label.short ?? label.value)}</span></button>`;
       }
       this.el.querySelector(".cs-leaders").innerHTML = lines;
       this.el.querySelector(".cs-labels").innerHTML = html;
@@ -1876,7 +2116,19 @@ const ClayScene = (() => {
 })();
 
 const CLAY_CSS = `
-.cscene { position: relative; border-radius: 18px; overflow: hidden; container-type: inline-size; background: #EEF1F5; }
+.cscene { position: relative; border-radius: 18px; overflow: hidden; container-type: inline-size; background: #E4E8EE; transition: background 2s; }
+.cscene.is-night { background: #2A3346; }
+.cscene .cs-dark { fill: #0E1A33; opacity: 0; mix-blend-mode: multiply; transition: opacity 2s, fill 2s; pointer-events: none; }
+.cscene.is-dusk .cs-dark { fill: #6B4E6E; opacity: .32; }
+.cscene.is-night .cs-dark { opacity: .62; }
+.cscene .cs-light { fill: #FFD27A; opacity: 0; transition: opacity 2s; }
+.cscene.is-dusk .cs-light { opacity: .45; }
+.cscene.is-night .cs-light { opacity: .78; filter: drop-shadow(0 0 4px #FFB547); }
+.cscene .cs-lamp-glow { fill: #FFD27A; opacity: 0; filter: url(#cs-shadow); transition: opacity 2s; }
+.cscene.is-night .cs-lamp-glow { opacity: .55; }
+.cscene .cs-stars circle { fill: #fff; opacity: 0; transition: opacity 2s; }
+.cscene.is-night .cs-stars circle { opacity: .7; animation: cs-twinkle 4s ease-in-out infinite; animation-delay: var(--d); }
+@keyframes cs-twinkle { 50% { opacity: .2; } }
 .cscene svg { display: block; width: 100%; height: auto; }
 .cscene .cs-leaders { position: absolute; inset: 0; height: 100%; pointer-events: none; }
 .cscene .cs-leader { stroke: #9AA3B2; stroke-width: 1.1; fill: none; }
@@ -1910,20 +2162,22 @@ const CLAY_CSS = `
 .cscene.sun-on .cs-sheen { animation: cs-sheen 6s ease-in-out infinite; }
 .cscene .cs-fan { transform-box: fill-box; transform-origin: center; animation: cs-spin 1.6s linear infinite; }
 .cscene .cs-labels { position: absolute; inset: 0; pointer-events: none; }
-.cs-label { position: absolute; transform: translate(-50%, -50%); width: max-content; background: #111418; color: #fff; border-radius: 7px; padding: 5px 9px 6px; font-size: 12.5px; font-weight: 500; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 6px 16px rgba(0,0,0,.16); }
-.cs-label.right { transform: translate(-80%, -50%); }
-.cs-label.left { transform: translate(-25%, -50%); }
-.cs-label .cs-row { display: flex; align-items: center; gap: 6px; }
-.cs-label .cs-dot { width: 7px; height: 7px; border-radius: 50%; background: #6B7280; flex: none; }
-.cs-label.on .cs-dot { background: #22C981; }
-.cs-label.on.sun .cs-dot { background: #F5B92E; }
-.cs-label .cs-v { color: #AEB6C2; font-variant-numeric: tabular-nums; }
-.cs-label .cs-s { display: none; color: #AEB6C2; }
-.cs-label .cs-bar { display: block; height: 4px; border-radius: 3px; background: #3A3F47; overflow: hidden; }
-.cs-label .cs-bar i { display: block; height: 100%; background: #22C981; border-radius: 3px; }
+.cs-label { position: absolute; transform: translate(-50%, -50%); width: max-content; pointer-events: auto; cursor: pointer; border: 0; font: inherit;
+  background: rgba(17,20,24,.88); color: #fff; border-radius: 999px; padding: 3px 9px 3px 4px; font-size: 12px; font-weight: 600;
+  display: flex; align-items: center; gap: 5px; box-shadow: 0 4px 12px rgba(0,0,0,.18); backdrop-filter: blur(4px); animation: cs-pop .5s cubic-bezier(.2,.8,.2,1) both; }
+.cs-label .cs-dot { width: 7px; height: 7px; border-radius: 50%; background: #6B7280; flex: none; margin-left: 4px; }
+.cs-label.on .cs-dot { background: #22C981; box-shadow: 0 0 6px #22C981; }
+.cs-label.on.sun .cs-dot { background: #F5B92E; box-shadow: 0 0 6px #F5B92E; }
+.cs-label .cs-t { display: none; color: #fff; }
+.cs-label.open .cs-t { display: inline; }
+.cs-label .cs-v { color: #E3E7EC; font-variant-numeric: tabular-nums; }
+.cs-label .cs-ring { width: 18px; height: 18px; flex: none; transform: rotate(-90deg); }
+.cs-label .cs-ring .r0 { fill: none; stroke: #3A3F47; stroke-width: 3; }
+.cs-label .cs-ring .r1 { fill: none; stroke: #22C981; stroke-width: 3; stroke-linecap: round; }
+@keyframes cs-pop { from { opacity: 0; transform: translate(-50%, -30%) scale(.9); } }
 @container (max-width: 560px) {
-  .cs-label { font-size: 10px; padding: 3px 6px 4px; gap: 3px; border-radius: 6px; }
-  .cs-label .cs-v { display: none; } .cs-label .cs-s { display: inline; } .cs-label .cs-bar { height: 3px; }
+  .cs-label { font-size: 10.5px; padding: 2px 7px 2px 3px; gap: 4px; }
+  .cs-label .cs-ring { width: 15px; height: 15px; }
 }
 @keyframes cs-run { to { stroke-dashoffset: -52; } }
 @keyframes cs-breathe { 50% { opacity: .45; } }
@@ -2013,7 +2267,7 @@ class EvPlannerPanel extends HTMLElement {
     const [kind, raw] = String(path || "").replace(/^\/+/, "").split("/");
     const id = raw ? decodeURIComponent(raw) : null;
     if (kind === "car" && id) [this._tab, this._carId, this._chargerId] = ["cars", id, null];
-    else if (kind === "charger" && id) [this._tab, this._carId, this._chargerId] = ["cars", null, id];
+    else if (kind === "charger" && id) [this._tab, this._carId, this._chargerId] = ["home", null, id];
     else if (TABS.includes(kind)) [this._tab, this._carId, this._chargerId] = [kind, null, null];
     else return false;
     this._dropDraft();
@@ -2028,7 +2282,7 @@ class EvPlannerPanel extends HTMLElement {
   /* The path of what is shown now, as in _applyPath. */
   get _path() {
     if (this._tab === "cars" && this._carId) return `car/${encodeURIComponent(this._carId)}`;
-    if (this._tab === "cars" && this._chargerId) return `charger/${encodeURIComponent(this._chargerId)}`;
+    if (this._chargerId) return `charger/${encodeURIComponent(this._chargerId)}`;
     return this._tab;
   }
 
@@ -2196,7 +2450,7 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   get _currentCharger() {
-    return this._tab === "cars" && !this._carId && this._chargerId ? this._charger(this._chargerId) : null;
+    return this._tab === "home" && this._chargerId ? this._charger(this._chargerId) : null;
   }
 
   /* The car's settings with the changes not stored yet. */
@@ -2210,7 +2464,8 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   _viewKey() {
-    if (this._tab === "cars") return this._carId ? `car:${this._carId}` : this._chargerId ? `charger:${this._chargerId}` : "cars";
+    if (this._tab === "cars") return this._carId ? `car:${this._carId}` : "cars";
+    if (this._tab === "home" && this._chargerId) return `charger:${this._chargerId}`;
     return this._tab;
   }
 
@@ -2274,6 +2529,7 @@ class EvPlannerPanel extends HTMLElement {
   _setTab(tab) {
     if (!TABS.includes(tab)) return;
     this._tab = tab;
+    this._sheet = null;
     this._chargerId = null;
     this._write(TAB_KEY, tab);
     this._syncPath();
@@ -2282,6 +2538,10 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   _openCar(id, { render = true } = {}) {
+    if (id !== this._carId) {
+      this._carView = "now";
+      this._sheet = null;
+    }
     this._carId = id;
     if (id) this._chargerId = null;
     this._write(CAR_KEY, id || "");
@@ -2296,7 +2556,7 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   _openCharger(id) {
-    this._tab = "cars";
+    this._tab = "home";
     this._chargerId = id;
     this._carId = null;
     this._write(CAR_KEY, "");
@@ -2313,6 +2573,12 @@ class EvPlannerPanel extends HTMLElement {
     }
     if (this._carId) this._openCar(null);
     else this._openCharger(null);
+  }
+
+  /* A sheet inside the page, so its buttons and fields work like the rest of the page. */
+  _openSheet(name) {
+    this._sheet = name || null;
+    this._render();
   }
 
   _dropDraft() {
@@ -2546,13 +2812,16 @@ class EvPlannerPanel extends HTMLElement {
     const car = this._currentCar;
     if (this._tab === "home" && !this._homeShown) this._tab = "cars";
     if (this._tab === "guest") content.innerHTML = this._guestHtml();
+    else if (this._tab === "home" && this._currentCharger) content.innerHTML = this._chargerPageHtml(this._currentCharger);
     else if (this._tab === "home") content.innerHTML = this._homeHtml();
     else if (this._tab === "history") content.innerHTML = this._historyHtml();
     else if (this._tab === "settings") content.innerHTML = this._settingsHtml();
     else if (car) content.innerHTML = this._carPageHtml(car);
     else if (this._currentCharger) content.innerHTML = this._chargerPageHtml(this._currentCharger);
     else content.innerHTML = this._overviewHtml();
-    if (this._tab === "home") this._mountScene();
+    if (this._tab === "home" && !this._currentCharger) this._mountScene();
+    if (this._tab === "history") this._afterHistory();
+    if (this._tab === "home" && !this._currentCharger) this._afterHome();
     if (this._tab === "guest") {
       this._bindBattery();
       this._renderGuestHead();
@@ -2584,7 +2853,7 @@ class EvPlannerPanel extends HTMLElement {
       button.addEventListener("click", () => {
         // The Cars tab from a car page goes back to the overview.
         if (button.dataset.tab === "cars" && this._tab === "cars" && this._carId) this._openCar(null);
-        else if (button.dataset.tab === "cars" && this._tab === "cars" && this._chargerId) this._openCharger(null);
+        else if (button.dataset.tab === "home" && this._tab === "home" && this._chargerId) this._openCharger(null);
         else this._setTab(button.dataset.tab);
       }),
     );
@@ -2627,8 +2896,7 @@ class EvPlannerPanel extends HTMLElement {
       ? `<div class="cars-grid">${cars.map((v) => this._carCardHtml(v)).join("")}</div>`
       : `<section class="empty panel">${MARK}<h2>${this._t("no_cars_title")}</h2><p>${this._t("no_cars_text")}</p>
           <a class="btn primary" href="/config/integrations/integration/ev_household_planner" target="_top">${ICONS.plus}<span>${this._t("add_car")}</span></a></section>`;
-    return `<div class="page stack">${list}
-      <div class="side-grid">${this._guestCardHtml()}${this._chargersHtml()}</div></div>`;
+    return `<div class="page stack">${list}</div>`;
   }
 
   _carCardHtml(v) {
@@ -3038,6 +3306,11 @@ class EvPlannerPanel extends HTMLElement {
       const over = ceiling !== null && p.price > ceiling ? " over" : "";
       html += `<path class="bar${over}" style="fill:${priceColor(t)};--d:${(i * 8).toFixed(0)}ms" d="M${a1} L${a2} A${r} ${r} 0 ${large} 1 ${b1} L${b2} A${inner} ${inner} 0 ${large} 0 ${a1}Z">${mini ? "" : `<title>${this._time(p.start)}: ${this._money(p.price)}</title>`}</path>`;
     });
+    // The price ceiling as a thin ring: bars that reach past it are the hours the car leaves out.
+    if (!mini && ceiling !== null && max > min && ceiling > min && ceiling < max) {
+      const rc = inner + 8 + ((ceiling - min) / (max - min)) * (outer - inner - 8);
+      html += `<circle class="ceil-ring" cx="${cx}" cy="${cy}" r="${rc.toFixed(1)}"><title>${this._money(ceiling)}</title></circle>`;
+    }
     html += `</g>`;
 
     // The charging windows as the lit arc of the logo.
@@ -3527,8 +3800,28 @@ class EvPlannerPanel extends HTMLElement {
   // ------------------------------------------------------------------ car page
 
   _carPageHtml(v) {
-    return `<div class="page car-page" data-id="${esc(v.id)}">
-      <header class="car-head"></header>
+    const view = this._embed ? "now" : CAR_VIEWS.includes(this._carView) ? this._carView : "now";
+    const views = this._embed
+      ? ""
+      : `<nav class="car-views segmented" role="tablist" aria-label="${esc(v.name)}">${CAR_VIEWS.map(
+          (k) => `<button role="tab" data-act="car-view" data-view="${k}" data-f="cv-${k}" aria-selected="${k === view}" class="${k === view ? "on" : ""}">${this._t(`view_${k}`)}</button>`,
+        ).join("")}</nav>`;
+    if (view === "rules") {
+      return `<div class="page stack car-page view-rules" data-id="${esc(v.id)}">
+        <header class="car-head"></header>${views}
+        <div class="tiles"></div>
+        <div class="sheet-slot"></div>
+      </div>`;
+    }
+    if (view === "history") {
+      return `<div class="page stack car-page view-history" data-id="${esc(v.id)}">
+        <header class="car-head"></header>${views}
+        ${this._learnedCarHtml(v)}
+        ${this._carHistoryHtml(v)}
+      </div>`;
+    }
+    return `<div class="page car-page view-now" data-id="${esc(v.id)}">
+      <header class="car-head"></header>${views}
 
       <div class="col left">
         <section class="hero">
@@ -3539,6 +3832,7 @@ class EvPlannerPanel extends HTMLElement {
           <div class="status-line"></div>
           <p class="glance"></p>
           <p class="why"></p>
+          <p class="ceil-note" hidden></p>
         </section>
         <div class="car-notes"></div>
         <section class="panel facts" hidden></section>
@@ -3564,19 +3858,6 @@ class EvPlannerPanel extends HTMLElement {
             </div>
           </div>
           <div class="car-info"></div>
-        </section>
-
-        <section class="panel rules">
-          <div class="panel-head">
-            <h2>${ICONS.rules}<span>${this._t("rules")}</span></h2>
-            <div class="segmented level" role="radiogroup" aria-label="${this._t("level_label")}"></div>
-          </div>
-          <div class="rules-body"></div>
-        </section>
-
-        <section class="panel notify">
-          <h2>${ICONS.bell}<span>${this._t("notifications")}</span></h2>
-          <div class="notify-body"></div>
         </section>
       </div>
 
@@ -3609,6 +3890,11 @@ class EvPlannerPanel extends HTMLElement {
       b.setAttribute("aria-checked", b.dataset.mode === mode);
     });
 
+    if (root.querySelector(".car-page.view-rules")) {
+      this._renderRules(v, s);
+      return;
+    }
+    if (!root.querySelector(".car-page.view-now")) return;
     this._renderBattery();
     root.querySelector(".car-page .flow")?.classList.toggle("on", v.control === "charge");
     this._renderReadyChips("car", s.use_ready_by !== false, s.ready_by);
@@ -3624,20 +3910,6 @@ class EvPlannerPanel extends HTMLElement {
       root.querySelector(".car-info"),
       JSON.stringify([v.calendar, v.control_source, v.charger, v.power, v.capacity, v.charge_speed, v.charge_speed_source, v.charge_speed_learned_from, v.charge_power_source, v.curve, v.margin, v.receipt, lang]),
       this._carInfoHtml(v),
-    );
-    this._patch(
-      root.querySelector(".segmented.level"),
-      JSON.stringify([this._level, lang]),
-      LEVELS.map(
-        (level) =>
-          `<button role="radio" data-act="level" data-level="${level}" data-f="level-${level}" aria-checked="${level === this._level}" class="${level === this._level ? "on" : ""}">${this._t(`level_${level}`)}</button>`,
-      ).join(""),
-    );
-    this._patch(root.querySelector(".rules-body"), JSON.stringify([this._ruleValues(s), this._currency, lang, this._level]), this._rulesHtml(v, s));
-    this._patch(
-      root.querySelector(".notify-body"),
-      JSON.stringify([s.reminder, s.reminder_time, s.reminder_soc, s.reminder_price_enabled, s.reminder_price, s.reminder_days, s.reminder_repeat, s.reminder_horizon, s.notify_targets, this._state.config?.notify_names, s.live_notification, s.notify_done, s.notify_receipt, this._state.config?.notify, lang]),
-      this._notifyHtml(s),
     );
     if (live) this._renderCarLive(v);
   }
@@ -3658,7 +3930,7 @@ class EvPlannerPanel extends HTMLElement {
 
   _renderCarLive(v) {
     const root = this.shadowRoot;
-    if (!root.querySelector(".car-page")) return;
+    if (!root.querySelector(".car-page.view-now")) return;
     const shown = this._carShown(v);
     const s = this._vs(v);
     const ceiling = this._ceilingOf(v, s, shown.plan);
@@ -3678,6 +3950,13 @@ class EvPlannerPanel extends HTMLElement {
     }
     this._renderTimeline(shown.plan, { deadline: shown.deadline, ceiling: s.price_ceiling_enabled || shown.plan?.opportunistic ? ceiling : null, actual: this._chargedPeriods(v) });
     root.querySelector(".ceiling-key")?.toggleAttribute("hidden", !(s.price_ceiling_enabled || shown.plan?.opportunistic));
+    const note = root.querySelector(".car-page .ceil-note");
+    if (note) {
+      const prices = this._dayPrices().map((p) => p.price);
+      const faded = ceiling !== null && prices.some((p) => p > ceiling);
+      note.hidden = !faded;
+      if (faded) note.textContent = this._t("ceiling_note", { price: this._money(ceiling) });
+    }
   }
 
   /* One line to read at a glance: "Klar kl. 07.00 · 80 % · 34,00 kr. · lader 01.00–04.00". */
@@ -3869,12 +4148,11 @@ class EvPlannerPanel extends HTMLElement {
     </div>`;
   }
 
-  _rulesHtml(v, s) {
+  /* The car's rules in groups: each group is a tile with a short summary, and opens as a sheet. */
+  _ruleGroups(v, s) {
     const price = `${this._unit}/kWh`;
-    if (this._level === "simple") return `<p class="hint">${this._t("level_more")}</p>`;
-    const expert = this._level === "expert";
-    const rows = [];
-    rows.push(
+    const groups = { time: [], price: [], battery: [], supply: [], sun: [], look: [] };
+    groups.battery.push(
       this._ruleRow({
         icon: "charge",
         title: this._t("rule_min"),
@@ -3882,7 +4160,7 @@ class EvPlannerPanel extends HTMLElement {
         control: this._valueHtml("min_soc", s.min_soc, { unit: "%", label: this._t("rule_min") }),
       }),
     );
-    rows.push(
+    groups.price.push(
       this._ruleRow({
         icon: "rules",
         title: this._t("rule_ceiling"),
@@ -3900,7 +4178,7 @@ class EvPlannerPanel extends HTMLElement {
           : "",
       }),
     );
-    rows.push(
+    groups.price.push(
       this._ruleRow({
         icon: "lowprice",
         title: this._t("rule_low_price"),
@@ -3909,7 +4187,7 @@ class EvPlannerPanel extends HTMLElement {
         control: `${s.low_price_charging ? this._valueHtml("low_price_level", s.low_price_level, { unit: price, step: 0.01, min: -5, max: 20, label: this._t("rule_low_price") }) : ""}${this._switchHtml("low_price_charging", s.low_price_charging, this._t("rule_low_price"))}`,
       }),
     );
-    rows.push(
+    groups.battery.push(
       this._ruleRow({
         icon: "boost",
         title: this._t("rule_low_soc"),
@@ -3918,7 +4196,7 @@ class EvPlannerPanel extends HTMLElement {
         control: `${s.low_soc_charging ? this._valueHtml("low_soc_level", s.low_soc_level, { unit: "%", label: this._t("rule_low_soc") }) : ""}${this._switchHtml("low_soc_charging", s.low_soc_charging, this._t("rule_low_soc"))}`,
       }),
     );
-    rows.push(
+    groups.price.push(
       this._ruleRow({
         icon: "history",
         title: this._t("rule_early"),
@@ -3927,7 +4205,7 @@ class EvPlannerPanel extends HTMLElement {
         control: `${s.prefer_early ? this._valueHtml("early_within", s.early_within, { unit: price, step: 0.01, min: 0, max: 2, label: this._t("rule_early") }) : ""}${this._switchHtml("prefer_early", s.prefer_early, this._t("rule_early"))}`,
       }),
     );
-    rows.push(
+    groups.battery.push(
       this._ruleRow({
         icon: "depart",
         title: this._t("rule_topup"),
@@ -3943,7 +4221,7 @@ class EvPlannerPanel extends HTMLElement {
       const seg = (act, values, current, label) => `<div class="segmented opp" role="radiogroup" aria-label="${label}">${values.map(
         (value) => `<button role="radio" data-act="${act}" data-value="${value}" data-f="${act}-${value}" aria-checked="${value === current}" class="${value === current ? "on" : ""}">${this._t(`${act}_${value}`)}</button>`,
       ).join("")}</div>`;
-      rows.push(
+      groups.look.push(
         this._ruleRow({
           icon: "car",
           title: this._t("rule_look"),
@@ -3955,7 +4233,7 @@ class EvPlannerPanel extends HTMLElement {
     }
     if (this._state.solar) {
       const mode = ["surplus", "only"].includes(s.solar) ? s.solar : "off";
-      rows.push(
+      groups.sun.push(
         this._ruleRow({
           icon: "sun",
           title: this._t("rule_solar"),
@@ -3970,7 +4248,7 @@ class EvPlannerPanel extends HTMLElement {
     }
     if (this._state.supply) {
       const prio = s.priority === "first" ? "first" : "normal";
-      rows.push(
+      groups.supply.push(
         this._ruleRow({
           icon: "rules",
           title: this._t("rule_must"),
@@ -3982,8 +4260,7 @@ class EvPlannerPanel extends HTMLElement {
         }),
       );
     }
-    if (!expert) return rows.join("");
-    rows.push(
+    groups.price.push(
       this._ruleRow({
         icon: "plan",
         title: this._t("rule_join"),
@@ -3992,8 +4269,8 @@ class EvPlannerPanel extends HTMLElement {
         control: `${s.join_period && !s.continuous ? this._valueHtml("join_within", s.join_within, { unit: price, step: 0.01, min: 0, max: 2, label: this._t("rule_join") }) : ""}${this._switchHtml("join_period", s.join_period, this._t("rule_join"))}`,
       }),
     );
-    rows.push(this._opportunisticHtml(s));
-    rows.push(
+    groups.price.push(this._opportunisticHtml(s));
+    groups.time.push(
       this._ruleRow({
         icon: "charger",
         title: this._t("rule_keep_on"),
@@ -4002,7 +4279,7 @@ class EvPlannerPanel extends HTMLElement {
         control: this._switchHtml("keep_charger_on", s.keep_charger_on, this._t("rule_keep_on")),
       }),
     );
-    rows.push(
+    groups.time.unshift(
       this._ruleRow({
         icon: "history",
         title: this._t("rule_earliest"),
@@ -4011,7 +4288,64 @@ class EvPlannerPanel extends HTMLElement {
         control: `${s.use_earliest_start ? `<label class="chip-input time on"><input type="time" step="900" data-set="earliest_start" data-type="time" value="${esc(s.earliest_start || "18:00")}" aria-label="${this._t("rule_earliest")}"></label>` : ""}${this._switchHtml("use_earliest_start", s.use_earliest_start, this._t("rule_earliest"))}`,
       }),
     );
-    return rows.join("");
+    const pct = (x) => this._pct(x);
+    const money = (x) => this._money(x);
+    const on = (list) => list.filter(Boolean).join(" · ");
+    const summary = {
+      time: on([s.use_earliest_start && this._t("sum_earliest", { time: this._hhmm(s.earliest_start || "18:00") }), s.keep_charger_on && this._t("sum_keep_on")]),
+      price: on([
+        s.price_ceiling_enabled && (s.price_ceiling_relative ? this._t("sum_ceiling_avg", { pct: pct(s.price_ceiling_above) }) : this._t("sum_ceiling_fixed", { price: money(s.price_ceiling) })),
+        s.low_price_charging && this._t("sum_low_price", { price: money(s.low_price_level) }),
+        s.prefer_early && this._t("sum_early"),
+        s.join_period && !s.continuous && this._t("sum_join"),
+      ]),
+      battery: on([
+        isNum(s.min_soc) && Number(s.min_soc) > 0 && this._t("sum_min", { pct: pct(s.min_soc) }),
+        s.low_soc_charging && this._t("sum_low_soc", { pct: pct(s.low_soc_level) }),
+        s.topup && this._t("sum_topup", { pct: pct(s.topup_level ?? 80) }),
+      ]),
+      supply: on([Number(s.must_soc) > 0 && this._t("sum_must", { pct: pct(s.must_soc) }), s.priority === "first" && this._t("sum_first")]),
+      sun: ["surplus", "only"].includes(s.solar) ? this._t(`solar_${s.solar}`) : "",
+      look: this._t(`body_${ClayScene.BODIES.includes(s.body) || s.body === "photo" ? s.body : "sedan"}`),
+      notify: on([s.reminder && this._t("sum_reminder", { time: this._hhmm(s.reminder_time || "16:00") }), s.notify_receipt !== false && this._t("sum_receipt"), s.live_notification && this._t("sum_live")]),
+    };
+    const icons = { time: "history", price: "lowprice", battery: "charge", supply: "rules", sun: "sun", look: "car", notify: "bell" };
+    const list = ["price", "battery", "time", "notify", "supply", "sun", "look"]
+      .map((key) => ({ key, icon: icons[key], title: this._t(`tile_${key}`), summary: summary[key], rows: key === "notify" ? null : groups[key] }))
+      .filter((g) => g.rows === null || g.rows.length);
+    return list;
+  }
+
+  /* The rules view: tiles, and the open one as a sheet over the page. */
+  _renderRules(v, s) {
+    const root = this.shadowRoot;
+    const groups = this._ruleGroups(v, s);
+    const lang = this._lang;
+    this._patch(
+      root.querySelector(".car-page .tiles"),
+      JSON.stringify([groups.map((g) => [g.key, g.summary]), lang, this._sheet]),
+      `<div class="tile-grid">${groups
+        .map(
+          (g) => `<button class="tile${g.summary ? "" : " off"}" data-act="tile" data-tile="${g.key}" data-f="tile-${g.key}" aria-haspopup="dialog">
+            <span class="tile-icon">${ICONS[g.icon] || ""}</span>
+            <span class="tile-text"><strong>${esc(g.title)}</strong><small>${esc(g.summary || this._t("tile_off"))}</small></span>
+            <span class="tile-go">${ICONS.back}</span></button>`,
+        )
+        .join("")}</div>`,
+    );
+    const open = groups.find((g) => g.key === this._sheet);
+    const body = !open ? "" : open.key === "notify" ? this._notifyHtml(s) : open.rows.join("");
+    this._patch(
+      root.querySelector(".car-page .sheet-slot"),
+      JSON.stringify([this._sheet, this._ruleValues(s), s.reminder, s.reminder_time, s.reminder_soc, s.reminder_price_enabled, s.reminder_price, s.reminder_days, s.reminder_repeat, s.reminder_horizon, s.notify_targets, s.live_notification, s.notify_done, s.notify_receipt, this._state.config?.notify, this._currency, lang]),
+      open
+        ? `<div class="scrim in-page" data-act="sheet-close"></div>
+          <div class="sheet in-page" role="dialog" aria-modal="true" aria-label="${esc(open.title)}">
+            <header><h2>${ICONS[open.icon] || ""}<span>${esc(open.title)}</span></h2><button class="btn ghost small" data-act="sheet-close" data-f="sheet-close">${this._t("tile_close")}</button></header>
+            <div class="sheet-body">${body}</div>
+          </div>`
+        : "",
+    );
   }
 
   _opportunisticHtml(s) {
@@ -4469,7 +4803,7 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   get _homeShown() {
-    return !!(this._state?.supply || this._state?.solar || this._cars.length);
+    return !!(this._state?.supply || this._state?.solar || this._state?.home || this._cars.length || this._chargers.length);
   }
 
   /* The house is made once and moved into each fresh page, so its motion goes on. */
@@ -4495,17 +4829,22 @@ class EvPlannerPanel extends HTMLElement {
       return isNum(amps) ? kwOfAmps(amps) : Number(v.charge_power) || 0;
     };
     const carsKw = cars.reduce((sum, v) => sum + carKw(v), 0);
-    const sunKw = isNum(solar?.solar_kw) ? Number(solar.solar_kw) : null;
+    const home = this._state.home || {};
+    const sunKw = isNum(solar?.solar_kw) ? Number(solar.solar_kw) : isNum(home.solar_kw) ? Number(home.solar_kw) : null;
     const battery = solar?.battery || null;
     const gridKw = isNum(solar?.grid_kw)
       ? Number(solar.grid_kw)
+      : isNum(home.grid_kw) ? Number(home.grid_kw)
       : supply && isNum(supply.house_now) ? kwOfAmps(supply.house_now) + carsKw : null;
     let houseKw = null;
     if (isNum(solar?.grid_kw)) houseKw = Math.max(0, Number(solar.grid_kw) + (sunKw || 0) - (Number(battery?.kw) || 0) - carsKw);
+    else if (isNum(home.house_kw)) houseKw = Number(home.house_kw);
     else if (supply && isNum(supply.house_now)) houseKw = kwOfAmps(supply.house_now);
-    const flows = { sun: sunKw || 0, battery: Number(battery?.kw) || 0, home: houseKw || 0, grid: gridKw === null ? 0 : -gridKw, heat: Number(this._state.heat_pump?.kw) || 0 };
+    const heatKw = isNum(this._state.heat_pump?.kw) ? Number(this._state.heat_pump.kw) : isNum(home.heat_pump_kw) ? Number(home.heat_pump_kw) : null;
+    const flows = { sun: sunKw || 0, battery: Number(battery?.kw) || 0, home: houseKw || 0, grid: gridKw === null ? 0 : -gridKw, heat: heatKw || 0 };
     const labels = [];
-    if (solar) labels.push({ key: "sun", title: this._t("home_solar"), value: sunKw === null ? "–" : power(sunKw), short: sunKw === null ? "–" : power(sunKw), on: (sunKw || 0) > 0.05 });
+    if (heatKw !== null) labels.push({ key: "heat", title: this._t("home_heat"), value: power(heatKw), short: power(heatKw), on: heatKw > 0.05 });
+    if (solar || isNum(home.solar_kw)) labels.push({ key: "sun", title: this._t("home_solar"), value: sunKw === null ? "–" : power(sunKw), short: sunKw === null ? "–" : power(sunKw), on: (sunKw || 0) > 0.05 });
     labels.push({ key: "home", title: this._t("home_house"), value: houseKw === null ? "–" : power(houseKw), short: houseKw === null ? "–" : power(houseKw), on: (houseKw || 0) > 0.05 });
     if (battery) {
       const kw = Number(battery.kw) || 0;
@@ -4517,10 +4856,14 @@ class EvPlannerPanel extends HTMLElement {
       const text = Math.abs(gridKw) < 0.05 ? "0 W" : this._t(gridKw > 0 ? "home_buys" : "home_sells", { kw: power(gridKw) });
       labels.push({ key: "grid", title: this._t("home_grid"), value: text, short: Math.abs(gridKw) < 0.05 ? "0 W" : power(gridKw), on: Math.abs(gridKw) > 0.05 });
     }
+    const sun = this._hass?.states?.["sun.sun"];
+    const elevation = Number(sun?.attributes?.elevation);
+    const daylight = !Number.isFinite(elevation) ? (sun?.state === "below_horizon" ? "night" : "day") : elevation > 4 ? "day" : elevation > -6 ? "dusk" : "night";
     const model = {
-      solar: solar ? { kw: sunKw } : null,
+      daylight,
+      solar: solar || isNum(home.solar_kw) ? { kw: sunKw } : null,
       battery,
-      heat: this._state.heat_pump || null,
+      heat: this._state.heat_pump || (heatKw !== null ? { kw: heatKw } : null),
       chargers,
       cars: [],
       flows,
@@ -4544,16 +4887,95 @@ class EvPlannerPanel extends HTMLElement {
       });
       flows[`car${i}`] = kw;
       const doing = kw > 0.05 ? power(kw) : plugged ? this._t("home_idle") : this._t("home_unplugged");
-      labels.push({ key: `car${i}`, title: v.name, value: [soc, doing].filter(Boolean).join(" · "), short: soc || doing, on: kw > 0.05, bar: isNum(v.soc) ? Number(v.soc) : undefined });
+      labels.push({ key: `car${i}`, title: v.name, value: [soc, doing].filter(Boolean).join(" · "), short: kw > 0.05 ? `${soc} · ${power(kw)}` : soc || doing, on: kw > 0.05, bar: isNum(v.soc) ? Number(v.soc) : undefined });
     });
     return model;
   }
 
+  // ------------------------------------------------------------------ the Home tab
+
   _homeHtml() {
     const supply = this._state.supply;
-    const scene = `<section class="panel home-flow"><div class="panel-head"><h2>${esc(this._t("home_title"))}</h2></div>
-        <div class="scene-slot" role="img" aria-label="${esc(this._t("home_title"))}"></div>`;
-    if (!supply) return `<div class="home-page">${scene}</section></div>`;
+    const scene = `<section class="panel home-flow"><div class="scene-slot" role="img" aria-label="${esc(this._t("home_title"))}"></div>`;
+    const now = this._homeNowHtml();
+    const tonight = this._tonightHtml();
+    const today = this._state.home?.history ? `<section class="panel home-today"><div class="panel-head"><h2>${ICONS.history}<span>${esc(this._t("home_today"))}</span></h2></div><div class="today-body">${this._todayBodyHtml()}</div></section>` : "";
+    const chargers = this._chargersHtml();
+    let shared = "";
+    if (supply) shared = this._supplyHtml(supply);
+    return `<div class="home-page">${scene}${now}</section>${tonight}${shared}${today}${chargers}</div>`;
+  }
+
+  /* Live numbers under the house: only those the home has. */
+  _homeNowHtml() {
+    const h = this._state.home || {};
+    const power = (kw) => (Math.abs(kw) < 1 ? `${Math.round(Math.abs(kw) * 1000)} W` : `${this._num(Math.abs(kw), 1)} kW`);
+    const chips = [];
+    const add = (icon, label, value, cls = "") => chips.push(`<div class="now-chip ${cls}"><span class="nc-icon">${ICONS[icon] || ""}</span><span class="nc-text"><small>${esc(label)}</small><b>${esc(value)}</b></span></div>`);
+    if (isNum(h.grid_kw)) add("grid", this._t("home_grid_now"), `${h.grid_kw < -0.05 ? "−" : ""}${power(h.grid_kw)}`, h.grid_kw < -0.05 ? "good" : "");
+    if (isNum(h.house_kw)) add("home", this._t("home_house_now_short"), power(h.house_kw));
+    if (isNum(h.cars_kw) && (h.cars_kw > 0.05 || this._cars.some((v) => v.charging))) add("car", this._t("home_cars_now"), power(h.cars_kw), h.cars_kw > 0.05 ? "live" : "");
+    if (isNum(h.solar_kw)) add("sun", this._t("home_sun_now"), power(h.solar_kw), h.solar_kw > 0.05 ? "sun" : "");
+    if (isNum(h.heat_pump_kw)) add("heat", this._t("home_heat_now"), power(h.heat_pump_kw));
+    const price = this._priceNow();
+    if (price !== null) add("lowprice", this._t("home_price_now"), `${this._money(price)}/kWh`);
+    if (isNum(h.temperature)) add("temp", this._t("home_outside"), `${this._num(h.temperature, 1)} °C`);
+    return chips.length ? `<div class="now-chips">${chips.join("")}</div>` : "";
+  }
+
+  _priceNow() {
+    const now = Date.now();
+    const slot = (this._state.prices || []).find((p) => new Date(p.start).getTime() <= now && new Date(p.end).getTime() > now);
+    return slot && isNum(slot.price) ? Number(slot.price) : null;
+  }
+
+  /* Tonight: every car's plan on one line of time, over the prices. */
+  _tonightHtml() {
+    const cars = this._cars.filter((v) => hasSegments(v.plan));
+    const head = `<div class="panel-head"><h2>${ICONS.plan}<span>${esc(this._t("home_tonight"))}</span></h2></div>`;
+    if (!cars.length) return `<section class="panel tonight">${head}<p class="hint">${esc(this._t("home_tonight_none"))}</p></section>`;
+    const t0 = Date.now();
+    const ends = cars.map((v) => new Date(v.plan.segments.at(-1).end).getTime());
+    const t1 = Math.max(t0 + 8 * 3600e3, ...ends) + 1800e3;
+    const span = t1 - t0;
+    const x = (t) => ((clamp(t, t0, t1) - t0) / span) * 100;
+    const prices = (this._state.prices || []).filter((p) => new Date(p.end).getTime() > t0 && new Date(p.start).getTime() < t1);
+    const values = prices.map((p) => p.price);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const bars = prices
+      .map((p, i) => {
+        const a = x(new Date(p.start).getTime());
+        const b = x(new Date(p.end).getTime());
+        const t = max > min ? (p.price - min) / (max - min) : 0.5;
+        return `<i style="left:${a.toFixed(2)}%;width:${Math.max(0.2, b - a - 0.25).toFixed(2)}%;height:${(25 + t * 75).toFixed(0)}%;background:${priceColor(t)};--d:${i * 25}ms" title="${esc(`${this._time(p.start)}: ${this._money(p.price)}`)}"></i>`;
+      })
+      .join("");
+    const rows = cars
+      .map((v, i) => {
+        const segs = v.plan.segments
+          .map((seg, k) => {
+            const a = x(new Date(seg.start).getTime());
+            const b = x(new Date(seg.end).getTime());
+            return `<i style="left:${a.toFixed(2)}%;width:${Math.max(0.6, b - a).toFixed(2)}%;background:${this._carColor(i)};--d:${200 + k * 80}ms"></i>`;
+          })
+          .join("");
+        return `<div class="tn-row"><span class="tn-name"><em style="background:${this._carColor(i)}"></em>${esc(v.name)}</span><div class="tn-track">${segs}</div><span class="tn-cost">${this._money(v.plan.cost)}</span></div>`;
+      })
+      .join("");
+    const ticks = [];
+    for (let t = Math.ceil(t0 / 3600e3) * 3600e3; t < t1; t += 3600e3) {
+      const hour = new Date(t).getHours();
+      if (hour % 3 === 0) ticks.push(`<span style="left:${x(t).toFixed(2)}%">${String(hour).padStart(2, "0")}</span>`);
+    }
+    const energy = cars.reduce((sum, v) => sum + (Number(v.plan.energy) || 0), 0);
+    const cost = cars.reduce((sum, v) => sum + (Number(v.plan.cost) || 0), 0);
+    return `<section class="panel tonight">${head}
+      <div class="tn-chart"><div class="tn-prices">${bars}</div>${rows}<div class="tn-axis">${ticks.join("")}</div></div>
+      <p class="hint">${esc(this._t("home_tonight_total", { kwh: this._kwh(energy), cost: this._money(cost) }))}</p></section>`;
+  }
+
+  _supplyHtml(supply) {
     const amps = (a) => `${Math.round(Number(a))} A`;
     const cars = this._cars.filter((v) => v.connected);
     const house = isNum(supply.house_now) ? Number(supply.house_now) : isNum(supply.house_expected) ? Number(supply.house_expected) : 0;
@@ -4564,7 +4986,6 @@ class EvPlannerPanel extends HTMLElement {
     const gauge = `<div class="home-gauge" role="img" aria-label="${esc(this._t("home_used", { used: amps(used), limit: amps(limit) }))}">
         <div class="hg-house" style="width:${Math.min(100, (house / limit) * 100)}%"></div>${cars.map((v, i) => `<div style="width:${Math.min(100, (carAmps(v) / limit) * 100)}%;background:${this._carColor(i)}"></div>`).join("")}
       </div><div class="home-gauge-text"><span>${esc(this._t("home_used", { used: amps(used), limit: amps(limit) }))}</span><span class="${share > 0.95 ? "bad-text" : ""}">${esc(this._t("home_limit", { limit: amps(limit) }))}</span></div>`;
-    // Who gets the current, slot by slot.
     const rows = supply.timeline || [];
     let chart = "";
     if (rows.length) {
@@ -4584,7 +5005,6 @@ class EvPlannerPanel extends HTMLElement {
       });
       chart = `<svg class="home-chart" viewBox="0 0 ${cw} ${ch + 18}" role="img" aria-label="${esc(this._t("home_timeline"))}">${chart}</svg>`;
     }
-    // Why, in one line.
     const why = [];
     const charging = cars.filter((v) => rows.some((r) => r.cars?.[v.id]));
     if (!charging.length) why.push(this._t("home_why_none"));
@@ -4597,30 +5017,475 @@ class EvPlannerPanel extends HTMLElement {
     for (const v of cars) if (isNum(supply.short?.[v.id])) why.push(this._t("home_why_short", { name: v.name, kwh: this._kwh(supply.short[v.id]) }));
     if (supply.guard) why.push(this._t("home_guard"));
     const legend = `<div class="home-legend"><span><i style="background:var(--evp-line)"></i>${esc(this._t("home_house"))}</span>${cars.map((v, i) => `<span><i style="background:${this._carColor(i)}"></i>${esc(v.name)}</span>`).join("")}</div>`;
-    return `<div class="home-page">
-      ${scene}
+    return `<section class="panel"><div class="panel-head"><h2>${ICONS.rules}<span>${esc(this._t("home_timeline"))}</span></h2></div>
         ${gauge}
         <p class="hint">${esc(isNum(supply.house_now) ? this._t("home_house_now", { amps: amps(supply.house_now) }) : supply.meter ? this._t("home_house_expected", { amps: amps(house) }) : this._t("home_no_meter", { amps: amps(house) }))}</p>
-      </section>
-      <section class="panel"><div class="panel-head"><h2>${esc(this._t("home_timeline"))}</h2></div>
         <p class="hint">${esc(this._t("home_timeline_hint", { limit: amps(limit) }))}</p>
         ${chart}${legend}
         ${why.map((t) => `<p class="why">${esc(t)}</p>`).join("")}
-      </section>
-    </div>`;
+      </section>`;
+  }
+
+  /* Today: the whole house from Home Assistant's statistics, and the cars' part of it. */
+  _todayBodyHtml() {
+    const data = this._houseData?.[this._histKey("day", 0)];
+    if (!data) return `<p class="hint">…</p>`;
+    const kwh = data.rows.reduce((sum, r) => sum + (Number(r.kwh) || 0), 0);
+    const costs = data.rows.map((r) => r.cost).filter(isNum);
+    const cost = costs.length ? costs.reduce((a, b) => a + Number(b), 0) : null;
+    const [start, end] = this._histRange("day", 0);
+    const cars = this._sessionsIn(start, end).reduce((sum, e) => sum + (Number(e.energy) || 0), 0);
+    const share = kwh > 0 ? Math.min(100, (cars / kwh) * 100) : 0;
+    const peak = Math.max(0.01, ...data.rows.map((r) => Number(r.kwh) || 0));
+    const hours = Array.from({ length: 24 }, (_, h) => {
+      const row = data.rows.find((r) => new Date(r.start).getHours() === h);
+      const value = row ? Number(row.kwh) || 0 : 0;
+      return `<i style="height:${((value / peak) * 100).toFixed(1)}%;--d:${h * 20}ms" title="${esc(`${String(h).padStart(2, "0")}: ${this._kwh(value, 2)}`)}"></i>`;
+    }).join("");
+    return `<dl class="today-nums">
+        <div><dt>${esc(this._t("home_today_house"))}</dt><dd data-count="${kwh.toFixed(2)}" data-unit="kwh">${this._kwh(kwh)}</dd></div>
+        ${cost !== null ? `<div><dt>${esc(this._t("hist_cost"))}</dt><dd>${this._money(cost)}</dd></div>` : ""}
+        <div><dt>${esc(this._t("home_today_cars"))}</dt><dd>${this._kwh(cars)} · ${this._pct(share)}</dd></div>
+      </dl>
+      <div class="share-bar"><i style="width:${share.toFixed(1)}%"></i></div>
+      <div class="hour-bars" aria-hidden="true">${hours}</div>`;
+  }
+
+  async _afterHome() {
+    this._countAll();
+    if (!this._state.home?.history) return;
+    const key = this._histKey("day", 0);
+    const fresh = this._houseAt?.[key] && Date.now() - this._houseAt[key] < 10 * 60e3;
+    if (fresh) return;
+    await this._loadHouse("day", 0);
+    this._patch(this.shadowRoot.querySelector(".home-today .today-body"), `today:${this._houseAt?.[key]}:${this._lang}`, this._todayBodyHtml());
+  }
+
+  // ------------------------------------------------------------------ the history
+
+  /* Where a period begins and ends: ``offset`` periods back from the current one. */
+  _histRange(period, offset = 0) {
+    const now = new Date();
+    let start;
+    let end;
+    if (period === "day") {
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+      end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1);
+    } else if (period === "week") {
+      const monday = (now.getDay() + 6) % 7;
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - monday + offset * 7);
+      end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7);
+    } else if (period === "year") {
+      start = new Date(now.getFullYear() + offset, 0, 1);
+      end = new Date(start.getFullYear() + 1, 0, 1);
+    } else {
+      start = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+      end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+    }
+    return [start, end];
+  }
+
+  _histKey(period, offset) {
+    const [start] = this._histRange(period, offset);
+    return `${period}:${start.toISOString()}`;
+  }
+
+  /* The buckets of a period: hours of a day, days of a week or month, months of a year. */
+  _buckets(period, start, end) {
+    const out = [];
+    let t = new Date(start);
+    while (t < end) {
+      const next =
+        period === "day" ? new Date(t.getFullYear(), t.getMonth(), t.getDate(), t.getHours() + 1)
+        : period === "year" ? new Date(t.getFullYear(), t.getMonth() + 1, 1)
+        : new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1);
+      out.push([new Date(t), next]);
+      t = next;
+    }
+    return out;
+  }
+
+  _bucketLabel(period, start) {
+    if (period === "day") return String(start.getHours()).padStart(2, "0");
+    if (period === "week") return new Intl.DateTimeFormat(this._locale, { weekday: "short" }).format(start).replace(".", "");
+    if (period === "year") return new Intl.DateTimeFormat(this._locale, { month: "short" }).format(start).replace(".", "").slice(0, 3);
+    return String(start.getDate());
+  }
+
+  _periodTitle(period, start, end) {
+    const f = (opts, d) => new Intl.DateTimeFormat(this._locale, opts).format(d);
+    if (period === "day") return f({ weekday: "long", day: "numeric", month: "long" }, start);
+    if (period === "week") {
+      const thursday = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 3);
+      const first = new Date(thursday.getFullYear(), 0, 4);
+      const week = 1 + Math.round(((thursday - first) / 86400e3 - 3 + ((first.getDay() + 6) % 7)) / 7);
+      return `${this._t("hist_week_of", { week })} · ${f({ day: "numeric", month: "short" }, start)}–${f({ day: "numeric", month: "short" }, new Date(end - 1))}`;
+    }
+    if (period === "year") return String(start.getFullYear());
+    return f({ month: "long", year: "numeric" }, start);
+  }
+
+  /* Who is in a scope: [{key, name, color, sessions}] for the cars, and the guests. */
+  _scopeSeries(scope) {
+    const cars = this._cars;
+    const guestEntries = (this._guest?.history || []).map((e) => ({ ...e, energy: (e.measured_energy ?? e.energy) || 0, cost: (e.measured_cost ?? e.cost) || 0, guest: true }));
+    const series = [];
+    const chargerId = scope.startsWith("charger:") ? scope.slice(8) : null;
+    const charger = chargerId ? this._charger(chargerId) : null;
+    cars.forEach((v, i) => {
+      if (scope.startsWith("car:") && scope !== `car:${v.id}`) return;
+      if (chargerId && v.charger?.id !== chargerId) return;
+      if (scope === "guests") return;
+      series.push({ key: v.id, name: v.name, color: this._carColor(i), sessions: v.history || [], months: v.months || {}, car: v });
+    });
+    if (scope === "all" || scope === "guests" || scope === "house" || (charger && guestEntries.some((e) => e.charger === charger.name))) {
+      const entries = charger ? guestEntries.filter((e) => e.charger === charger.name) : guestEntries;
+      if (entries.length) series.push({ key: "guest", name: this._t("hist_guests"), color: "var(--evp-sand)", sessions: entries, months: null });
+    }
+    return series;
+  }
+
+  _sessionsIn(start, end, scope = "all") {
+    const out = [];
+    for (const s of this._scopeSeries(scope)) for (const e of s.sessions) {
+      const t = new Date(e.start).getTime();
+      if (t >= start.getTime() && t < end.getTime()) out.push({ ...e, series: s });
+    }
+    return out.sort((a, b) => new Date(b.start) - new Date(a.start));
+  }
+
+  async _loadHouse(period, offset) {
+    const key = this._histKey(period, offset);
+    const [start, end] = this._histRange(period, offset);
+    this._houseData = this._houseData || {};
+    this._houseAt = this._houseAt || {};
+    try {
+      this._houseData[key] = await this._ws("ev_household_planner/history", { period, start: start.toISOString(), end: end.toISOString() });
+    } catch (_err) {
+      this._houseData[key] = { rows: [], typical_day: [] };
+    }
+    this._houseAt[key] = Date.now();
+    return this._houseData[key];
   }
 
   _historyHtml() {
+    const view = this._histView === "learned" ? "learned" : "history";
+    const switcher = `<nav class="segmented hist-views" role="tablist">${["history", "learned"]
+      .map((k) => `<button role="tab" data-act="hist-view" data-value="${k}" data-f="hv-${k}" aria-selected="${k === view}" class="${k === view ? "on" : ""}">${this._t(k === "history" ? "view_history" : "view_learned")}</button>`)
+      .join("")}</nav>`;
+    if (view === "learned") return `<div class="page stack hist-page">${switcher}${this._learnedHtml()}</div>`;
     const cars = this._cars;
     const guestHistory = this._guest?.history || [];
-    const carsWithData = cars.filter((v) => (v.history || []).length || Object.keys(v.months || {}).length);
-    if (!carsWithData.length && !guestHistory.length) {
-      return `<section class="empty">${MARK}<p>${this._t(cars.length ? "car_history_empty" : "history_empty")}</p></section>`;
+    if (!cars.some((v) => (v.history || []).length || Object.keys(v.months || {}).length) && !guestHistory.length && !this._state.home?.history) {
+      return `<div class="page stack hist-page">${switcher}<section class="empty">${MARK}<p>${this._t(cars.length ? "car_history_empty" : "history_empty")}</p></section></div>`;
     }
-    return `<div class="page stack">
-      ${carsWithData.map((v) => this._carHistoryHtml(v)).join("")}
-      ${guestHistory.length ? this._guestHistoryHtml(guestHistory) : ""}
-    </div>`;
+    const period = HIST_PERIODS.includes(this._histPeriod) ? this._histPeriod : "month";
+    const offset = Math.min(0, this._histOffset || 0);
+    const scopes = [["all", this._t("hist_all")], ...cars.map((v) => [`car:${v.id}`, v.name]), ...this._chargers.map((c) => [`charger:${c.id}`, c.name])];
+    if (guestHistory.length) scopes.push(["guests", this._t("hist_guests")]);
+    if (this._state.home?.history) scopes.push(["house", this._t("hist_house")]);
+    const scope = scopes.some(([k]) => k === this._histScope) ? this._histScope : "all";
+    const [start, end] = this._histRange(period, offset);
+    const controls = `<div class="hist-controls">
+        <div class="segmented hist-period" role="radiogroup">${HIST_PERIODS.map((p) => `<button role="radio" data-act="hist-period" data-value="${p}" data-f="hp-${p}" aria-checked="${p === period}" class="${p === period ? "on" : ""}">${this._t(`hist_${p}`)}</button>`).join("")}</div>
+        <div class="chips hist-scope">${scopes.map(([k, name]) => `<button data-act="hist-scope" data-value="${esc(k)}" data-f="hs-${esc(k)}" class="${k === scope ? "on" : ""}" aria-pressed="${k === scope}">${esc(name)}</button>`).join("")}</div>
+        <div class="hist-nav"><button class="icon" data-act="hist-move" data-step="-1" data-f="hm-prev" aria-label="${this._t("hist_prev")}">${ICONS.back}</button>
+          <strong>${esc(this._periodTitle(period, start, end))}</strong>
+          <button class="icon fwd" data-act="hist-move" data-step="1" data-f="hm-next" aria-label="${this._t("hist_next")}" ${offset >= 0 ? "disabled" : ""}>${ICONS.back}</button></div>
+      </div>`;
+    return `<div class="page stack hist-page">${switcher}${controls}<div class="hist-body" data-scope="${esc(scope)}">${this._histBodyHtml(period, offset, scope)}</div></div>`;
+  }
+
+  _histBodyHtml(period, offset, scope) {
+    const [start, end] = this._histRange(period, offset);
+    const buckets = this._buckets(period, start, end);
+    const series = this._scopeSeries(scope);
+    const house = scope === "house" ? this._houseData?.[this._histKey(period, offset)] : null;
+    if (scope === "house" && !house) return `<p class="hint">…</p>`;
+    // Energy and cost per bucket and series.
+    const grid = buckets.map(() => ({}));
+    let energy = 0;
+    let cost = 0;
+    let sun = 0;
+    let count = 0;
+    const indexOf = (t) => buckets.findIndex(([a, b]) => t >= a.getTime() && t < b.getTime());
+    for (const s of series) {
+      if (period === "year" && s.months) {
+        for (const [key, m] of Object.entries(s.months)) {
+          const [y, mo] = key.split("-").map(Number);
+          const i = indexOf(new Date(y, mo - 1, 1).getTime());
+          if (i < 0) continue;
+          grid[i][s.key] = (grid[i][s.key] || 0) + (Number(m.energy) || 0);
+          energy += Number(m.energy) || 0;
+          cost += Number(m.cost) || 0;
+          count += Number(m.sessions) || 0;
+        }
+        continue;
+      }
+      for (const e of s.sessions) {
+        const i = indexOf(new Date(e.start).getTime());
+        if (i < 0) continue;
+        grid[i][s.key] = (grid[i][s.key] || 0) + (Number(e.energy) || 0);
+        energy += Number(e.energy) || 0;
+        cost += Number(e.cost) || 0;
+        sun += Number(e.solar) || 0;
+        count += 1;
+      }
+    }
+    let houseRows = null;
+    if (house) {
+      houseRows = buckets.map(([a, b]) => house.rows.filter((r) => { const t = new Date(r.start).getTime(); return t >= a.getTime() && t < b.getTime(); }).reduce((sum, r) => sum + (Number(r.kwh) || 0), 0));
+    }
+    const houseKwh = houseRows ? houseRows.reduce((a, b) => a + b, 0) : null;
+    const houseCost = house ? house.rows.map((r) => r.cost).filter(isNum).reduce((a, b) => a + Number(b), 0) : null;
+    // The numbers that count up.
+    const nums = [];
+    const num = (label, value, kind, cls = "") => nums.push(`<div class="${cls}"><dt>${esc(label)}</dt><dd data-count="${Number(value).toFixed(3)}" data-unit="${kind}">${kind === "kwh" ? this._kwh(value) : kind === "money" ? this._money(value) : kind === "pct" ? this._pct(value) : this._num(value, 0)}</dd></div>`);
+    if (houseKwh !== null) {
+      num(this._t("hist_house"), houseKwh, "kwh");
+      if (houseCost) num(this._t("hist_cost"), houseCost, "money");
+      num(this._t("home_today_cars"), energy, "kwh");
+      if (houseKwh > 0) num(this._t("hist_cars_share", { pct: "" }).replace(/\s+$/, ""), Math.min(100, (energy / houseKwh) * 100), "pct");
+    } else {
+      num(this._t("hist_energy"), energy, "kwh");
+      num(this._t("hist_cost"), cost, "money");
+      if (energy > 0) num(this._t("hist_avg"), cost / energy, "money", "small");
+      num(this._t("hist_sessions"), count, "n");
+      if (sun > 0.05 && energy > 0) num(this._t("hist_sun"), Math.min(100, (sun / energy) * 100), "pct", "sun");
+    }
+    // The chart: one bar per bucket, the cars stacked, the rest of the house behind them.
+    const totals = buckets.map((_, i) => Object.values(grid[i]).reduce((a, b) => a + b, 0));
+    const peak = Math.max(0.1, ...totals, ...(houseRows || []));
+    const n = buckets.length;
+    const cw = 600;
+    const ch = 180;
+    const gap = n > 24 ? 2 : 4;
+    const bw = cw / n;
+    let bars = "";
+    const axis = [];
+    for (const f of [0.25, 0.5, 0.75, 1]) bars += `<line class="hb-grid" x1="0" x2="${cw}" y1="${(ch - f * ch).toFixed(1)}" y2="${(ch - f * ch).toFixed(1)}"/>`;
+    buckets.forEach(([a], i) => {
+      const x = i * bw + gap / 2;
+      const w = Math.max(1, bw - gap);
+      if (houseRows) {
+        const h = (houseRows[i] / peak) * ch;
+        bars += `<rect class="hb-bar house" x="${x.toFixed(1)}" y="${(ch - h).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="${Math.min(4, w / 3).toFixed(1)}" style="--d:${i * 18}ms"><title>${esc(`${this._bucketLabel(period, a)}: ${this._kwh(houseRows[i], 2)}`)}</title></rect>`;
+      }
+      let top = ch;
+      for (const s of series) {
+        const value = grid[i][s.key] || 0;
+        if (!value) continue;
+        const h = (value / peak) * ch;
+        top -= h;
+        bars += `<rect class="hb-bar" x="${x.toFixed(1)}" y="${top.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="${Math.min(4, w / 3).toFixed(1)}" style="fill:${s.color};--d:${i * 18 + 120}ms"><title>${esc(`${s.name} · ${this._bucketLabel(period, a)}: ${this._kwh(value, 1)}`)}</title></rect>`;
+      }
+      const every = n > 24 ? 5 : n > 12 ? 3 : 1;
+      if (i % every === 0) axis.push(`<span style="left:${(((x + w / 2) / cw) * 100).toFixed(2)}%">${esc(this._bucketLabel(period, a))}</span>`);
+    });
+    const chart = `<svg class="hist-chart" viewBox="0 -6 ${cw} ${ch + 8}" preserveAspectRatio="none" role="img" aria-label="${esc(this._periodTitle(period, start, end))}">${bars}</svg><div class="hb-axis">${axis.join("")}</div>
+      <div class="home-legend">${houseRows ? `<span><i style="background:var(--evp-line)"></i>${esc(this._t("hist_house"))}</span>` : ""}${series.map((s) => `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join("")}</div>`;
+    // A year: every day as a square, coloured by how much was charged.
+    let calendar = "";
+    if (period === "year" && scope !== "house") {
+      const days = new Map();
+      for (const s of series) for (const e of s.sessions) {
+        const d = new Date(e.start);
+        if (d < start || d >= end) continue;
+        const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+        days.set(key, (days.get(key) || 0) + (Number(e.energy) || 0));
+      }
+      const most = Math.max(0.1, ...days.values());
+      const first = (start.getDay() + 6) % 7;
+      let cells = "";
+      for (let k = 0, t = new Date(start); t < end; k += 1, t = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1)) {
+        const value = days.get(`${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`) || 0;
+        const col = Math.floor((k + first) / 7);
+        const row = (k + first) % 7;
+        cells += `<rect x="${col * 11}" y="${row * 11}" width="9" height="9" rx="2" class="cal-day" style="fill-opacity:${value ? (0.25 + 0.75 * (value / most)).toFixed(2) : 1};${value ? "fill:var(--evp-a)" : ""};--d:${col * 12}ms"><title>${esc(`${this._date(t.toISOString())}: ${this._kwh(value)}`)}</title></rect>`;
+      }
+      calendar = `<div class="cal-wrap"><svg class="cal" viewBox="0 0 ${54 * 11} 77" aria-hidden="true">${cells}</svg></div>`;
+    }
+    // The charges in the period.
+    const sessions = scope === "house" ? [] : this._sessionsIn(start, end, scope);
+    const list = sessions.length
+      ? `<ul class="sessions">${sessions.slice(0, 40).map((e) => (e.series.car ? this._carSessionHtml(e.series.car, e, { name: scope === "all" || scope.startsWith("charger:") }) : this._guestSessionHtml(e))).join("")}</ul>`
+      : scope === "house" ? "" : `<p class="hint">${esc(this._t("hist_none"))}</p>`;
+    const empty = scope === "house" && !house.rows.length ? `<p class="hint">${esc(this._t("hist_house_none"))}</p>` : "";
+    return `<section class="panel hist-hero"><dl class="hist-nums">${nums.join("")}</dl>${empty}${chart}${calendar}</section>${list}`;
+  }
+
+  _guestSessionHtml(e) {
+    return `<li>
+      <div class="when"><b>${new Date(e.start).getDate()}</b><span>${new Intl.DateTimeFormat(this._locale, { month: "short" }).format(new Date(e.start))}</span></div>
+      <div class="what"><strong>${esc(e.car || this._t("unknown_car"))}</strong><span>${e.plate ? `<em class="mini-plate">${esc(e.plate)}</em>` : ""}${this._time(e.start)}–${this._time(e.end)}</span></div>
+      <div class="nums"><b>${this._money(e.cost)}</b><span>${this._kwh(e.energy)}</span></div>
+      <div class="row-actions"><button class="icon" data-act="bill" data-id="${esc(e.id)}" aria-label="${this._t("bill")}">${ICONS.receipt}</button></div>
+    </li>`;
+  }
+
+  async _afterHistory() {
+    this._countAll();
+    if (this._histView === "learned") {
+      if (!this._state.home?.history) return;
+      const key = this._histKey("day", 0);
+      if (!this._houseData?.[key]) {
+        await this._loadHouse("day", 0);
+        if (this._tab === "history" && this._histView === "learned") this._render();
+      }
+      return;
+    }
+    const scope = this.shadowRoot.querySelector(".hist-body")?.dataset.scope;
+    if (scope !== "house") return;
+    const period = HIST_PERIODS.includes(this._histPeriod) ? this._histPeriod : "month";
+    const offset = Math.min(0, this._histOffset || 0);
+    const key = this._histKey(period, offset);
+    if (this._houseData?.[key] && Date.now() - this._houseAt[key] < 10 * 60e3) return;
+    await this._loadHouse(period, offset);
+    if (this._tab === "history" && this._histScope === "house") this._render();
+  }
+
+  /* Numbers that count up from nothing the first time they are shown. */
+  _countAll() {
+    const seen = (this._counted = this._counted || new Set());
+    for (const el of this.shadowRoot.querySelectorAll("[data-count]")) {
+      const key = `${this._tab}:${el.closest("div")?.querySelector("dt")?.textContent}:${el.dataset.count}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const value = Number(el.dataset.count);
+      const unit = el.dataset.unit;
+      const format = (x) => (unit === "kwh" ? this._kwh(x) : unit === "money" ? this._money(x) : unit === "pct" ? this._pct(x) : this._num(x, 0));
+      if (typeof requestAnimationFrame === "undefined" || !isNum(value)) continue;
+      const t0 = performance.now();
+      const step = (now) => {
+        const k = clamp((now - t0) / 900, 0, 1);
+        el.textContent = format(value * (1 - Math.pow(1 - k, 3)));
+        if (k < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }
+  }
+
+  // ------------------------------------------------------------------ what EV Planner has learned
+
+  _learnedHtml() {
+    const cars = this._cars;
+    const parts = cars.map((v) => this._learnedCarHtml(v, { title: true }));
+    parts.push(this._learnedHouseHtml());
+    const body = parts.filter(Boolean).join("");
+    return `<h2 class="section-title">${ICONS.learn}<span>${esc(this._t("learn_title"))}</span></h2>${body || `<p class="hint">${esc(this._t("learn_empty"))}</p>`}`;
+  }
+
+  /* How sure: five dots, one for each few observations. */
+  _sureHtml(count, per = 2) {
+    const filled = Math.max(0, Math.min(5, Math.round((Number(count) || 0) / per)));
+    return `<span class="sure" title="${esc(this._t("learn_sure"))}" aria-label="${esc(this._t("learn_sure"))} ${filled}/5">${Array.from({ length: 5 }, (_, i) => `<i class="${i < filled ? "on" : ""}" style="--d:${i * 90}ms"></i>`).join("")}</span>`;
+  }
+
+  _learnedCarHtml(v, { title = false } = {}) {
+    const cards = [];
+    const history = v.history || [];
+    // Charging speed: a gauge.
+    if (isNum(v.charge_speed)) {
+      const learned = v.charge_speed_source === "learned";
+      const count = Number(v.charge_speed_learned_from) || 0;
+      const from = learned ? (count === 1 ? this._t("learn_from_one") : this._t("learn_from", { n: count })) : this._t("learn_estimated");
+      const share = clamp(Number(v.charge_speed) / 40, 0.03, 1);
+      const arc = (k) => {
+        const a = Math.PI * (1 - k);
+        return [60 + 48 * Math.cos(a), 60 - 48 * Math.sin(a)];
+      };
+      const [ex, ey] = arc(share);
+      cards.push(`<div class="learn-card">
+        <svg class="gauge" viewBox="0 0 120 70" aria-hidden="true"><path d="M12 60 A48 48 0 0 1 108 60" class="g-track"/><path d="M12 60 A48 48 0 0 1 ${ex.toFixed(1)} ${ey.toFixed(1)}" class="g-fill" pathLength="1"/></svg>
+        <div><small>${esc(this._t("learn_speed"))}</small><b>${esc(this._t("learn_speed_text", { speed: this._num(v.charge_speed), kw: this._num(v.charge_power ?? v.power) }))}</b>
+        <span class="soft">${esc(from)}</span>${learned ? this._sureHtml(count, 1) : ""}</div></div>`);
+    }
+    // Slower at the end: the speed in each band.
+    const curve = v.curve || {};
+    const bands = ["80-90", "90-100"].filter((k) => isNum(curve[k]));
+    if (bands.length && isNum(v.charge_speed)) {
+      const top = Math.max(Number(v.charge_speed), ...bands.map((k) => Number(curve[k])));
+      const bars = [["0-80", Number(v.charge_speed)], ...bands.map((k) => [k, Number(curve[k])])]
+        .map(([k, val], i) => `<div class="cb"><b>${this._num(val)}</b><i style="height:${Math.max(4, (val / top) * 56).toFixed(0)}px;--d:${i * 120}ms"></i><span>${esc(k.replace("-", "–"))} %</span></div>`)
+        .join("");
+      cards.push(`<div class="learn-card"><div class="curve-bars">${bars}</div><div><small>${esc(this._t("learn_curve"))}</small>
+        <b>${esc(bands.map((k) => this._t("learn_curve_text", { from: this._pct(Number(k.split("-")[0])), speed: this._num(curve[k]) })).join(" · "))}</b></div></div>`);
+    }
+    // When the car charges: a clock of the hours it has charged in.
+    if (history.length >= 2) {
+      const hours = new Array(24).fill(0);
+      for (const e of history) {
+        const periods = e.periods?.length ? e.periods : [{ start: e.start, end: e.end }];
+        for (const p of periods) {
+          for (let t = new Date(p.start).getTime(); t < new Date(p.end).getTime(); t += 1800e3) hours[new Date(t).getHours()] += 0.5;
+        }
+      }
+      const most = Math.max(0.5, ...hours);
+      const spokes = hours
+        .map((value, h) => {
+          const len = 10 + (value / most) * 34;
+          const a = (h / 24) * Math.PI * 2 - Math.PI / 2;
+          const x2 = 60 + Math.cos(a) * (14 + len);
+          const y2 = 60 + Math.sin(a) * (14 + len);
+          return `<line x1="${(60 + Math.cos(a) * 14).toFixed(1)}" y1="${(60 + Math.sin(a) * 14).toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" class="spoke${value ? " on" : ""}" style="--d:${h * 30}ms"/>`;
+        })
+        .join("");
+      const median = (list) => {
+        const sorted = list.filter(isNum).map(Number).sort((a, b) => a - b);
+        return sorted.length ? sorted[Math.floor(sorted.length / 2)] : null;
+      };
+      const startMinutes = median(history.map((e) => { const d = new Date(e.start); return d.getHours() * 60 + d.getMinutes(); }));
+      const arrive = median(history.map((e) => e.start_soc));
+      const perSession = history.reduce((sum, e) => sum + (Number(e.energy) || 0), 0) / history.length;
+      const first = Math.min(...history.map((e) => new Date(e.start).getTime()));
+      const weeks = Math.max(1, (Date.now() - first) / (7 * 86400e3));
+      const hhmm = startMinutes === null ? "–" : `${String(Math.floor(startMinutes / 60)).padStart(2, "0")}:${String(Math.round(startMinutes % 60 / 15) * 15 % 60).padStart(2, "0")}`;
+      cards.push(`<div class="learn-card wide">
+        <svg class="hour-clock" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="12" class="hc-face"/>${spokes}
+          ${[0, 6, 12, 18].map((h) => { const a = (h / 24) * Math.PI * 2 - Math.PI / 2; return `<text x="${(60 + Math.cos(a) * 54).toFixed(1)}" y="${(60 + Math.sin(a) * 54 + 3).toFixed(1)}">${String(h).padStart(2, "0")}</text>`; }).join("")}</svg>
+        <dl class="habits">
+          <div><dt>${esc(this._t("learn_plug_in"))}</dt><dd>${esc(this._hhmm(hhmm))}</dd></div>
+          <div><dt>${esc(this._t("learn_arrive"))}</dt><dd>${this._pct(arrive)}</dd></div>
+          <div><dt>${esc(this._t("learn_per_session"))}</dt><dd>${this._kwh(perSession)}</dd></div>
+          <div><dt>${esc(this._t("learn_per_week"))}</dt><dd>${this._num(history.length / weeks, 1)}</dd></div>
+        </dl>${this._sureHtml(history.length, 3)}</div>`);
+    }
+    if (Number(v.margin) > 0) cards.push(`<div class="learn-card"><div><small>${esc(this._t("learn_margin"))}</small><b>${esc(this._t("learn_margin_text", { minutes: v.margin }))}</b></div></div>`);
+    if (v.receipt && isNum(v.receipt.soc)) {
+      const r = v.receipt;
+      const ok = !r.late;
+      cards.push(`<div class="learn-card"><div class="promise ${ok ? "ok" : "late"}"><b>${this._pct(r.soc)}</b><span>/ ${this._pct(r.planned_soc)}</span></div>
+        <div><small>${esc(this._t("learn_promise"))}</small><b>${esc(this._t("receipt_line", { soc: this._pct(r.soc), time: this._time(r.at), planned: this._pct(r.planned_soc) }))}</b></div></div>`);
+    }
+    if (!cards.length) return title ? "" : `<p class="hint">${esc(this._t("learn_empty"))}</p>`;
+    return `<section class="panel learn">${title ? `<h2>${ICONS.car}<span>${esc(v.name)}</span></h2>` : `<h2>${ICONS.learn}<span>${esc(this._t("learn_title"))}</span></h2>`}<div class="learn-grid">${cards.join("")}</div></section>`;
+  }
+
+  _learnedHouseHtml() {
+    const cards = [];
+    const typical = this._houseData?.[this._histKey("day", 0)]?.typical_day || [];
+    if (typical.some(isNum)) {
+      const most = Math.max(0.05, ...typical.filter(isNum));
+      const spokes = typical
+        .map((value, h) => {
+          const len = 6 + ((Number(value) || 0) / most) * 38;
+          const a = (h / 24) * Math.PI * 2 - Math.PI / 2;
+          return `<line x1="${(60 + Math.cos(a) * 14).toFixed(1)}" y1="${(60 + Math.sin(a) * 14).toFixed(1)}" x2="${(60 + Math.cos(a) * (14 + len)).toFixed(1)}" y2="${(60 + Math.sin(a) * (14 + len)).toFixed(1)}" class="spoke on house" style="--d:${h * 30}ms"><title>${String(h).padStart(2, "0")}: ${this._kwh(value, 2)}</title></line>`;
+        })
+        .join("");
+      const sum = typical.filter(isNum).reduce((a, b) => a + Number(b), 0);
+      cards.push(`<div class="learn-card wide"><svg class="hour-clock" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="12" class="hc-face"/>${spokes}
+        ${[0, 6, 12, 18].map((h) => { const a = (h / 24) * Math.PI * 2 - Math.PI / 2; return `<text x="${(60 + Math.cos(a) * 54).toFixed(1)}" y="${(60 + Math.sin(a) * 54 + 3).toFixed(1)}">${String(h).padStart(2, "0")}</text>`; }).join("")}</svg>
+        <div><small>${esc(this._t("learn_house"))}</small><b>${this._kwh(sum)} / ${esc(this._t("hist_day").toLowerCase())}</b><span class="soft">${esc(this._t("learn_house_text"))}</span></div></div>`);
+    }
+    const weather = this._state.supply?.weather;
+    if (weather) {
+      const slope = weather.slope;
+      cards.push(`<div class="learn-card"><div class="thermo"><b>${isNum(weather.now) ? `${this._num(weather.now, 1)}°` : "–"}</b></div><div><small>${esc(this._t("learn_weather"))}</small>
+        <b>${esc(isNum(slope) ? this._t("learn_weather_text", { amps: this._num(-slope, 2) }) : this._t("learn_weather_none"))}</b></div></div>`);
+    }
+    if (!cards.length) return "";
+    return `<section class="panel learn"><h2>${ICONS.home}<span>${esc(this._t("home_house"))}</span></h2><div class="learn-grid">${cards.join("")}</div></section>`;
   }
 
   _carHistoryHtml(v) {
@@ -4675,8 +5540,9 @@ class EvPlannerPanel extends HTMLElement {
     </div>`;
   }
 
-  _carSessionHtml(v, e) {
+  _carSessionHtml(v, e, { name = false } = {}) {
     const parts = [];
+    if (name) parts.push(v.name);
     if (isNum(e.start_soc) || isNum(e.end_soc)) parts.push(`${this._pct(e.start_soc)} → ${this._pct(e.end_soc)}`);
     const periods = (e.periods || []).length;
     if (periods > 1) parts.push(this._t("periods_n", { n: periods }));
@@ -4814,19 +5680,26 @@ class EvPlannerPanel extends HTMLElement {
     const config = s.config || {};
     const notify = config.notify || [];
     const appUrl = `${location.origin}${this._panel?.config?.app_url || "/ev_planner_app"}/app.html`;
-    return `<div class="page settings-page">
-      <section class="panel">
-        <h2>${ICONS.receipt}<span>${this._t("settings_billing")}</span></h2>
-        <label class="field col"><span>${this._t("bill_rate")}</span>
+    const supply = s.supply;
+    const home = s.home;
+    const lines = (list) => list.filter(Boolean).join(" · ");
+    const sections = {
+      billing: {
+        icon: "receipt",
+        title: this._t("settings_billing"),
+        summary: lines([isNum(settings.bill_price) && `${this._money(settings.bill_price)}/kWh`, settings.payment_text && this._t("payment_text")]),
+        body: `<label class="field col"><span>${this._t("bill_rate")}</span>
           <div class="unit-input"><input id="bill-rate" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(settings.bill_price ?? "")}"><span>${esc(this._unit)}/kWh</span></div>
           <small>${this._t("bill_rate_hint")}</small></label>
         <label class="field col"><span>${this._t("payment_text")}</span>
           <input id="payment-text" type="text" maxlength="200" value="${esc(settings.payment_text || "")}">
-          <small>${this._t("payment_hint")}</small></label>
-      </section>
-      <section class="panel">
-        <h2>${ICONS.bell}<span>${this._t("settings_notifications")}</span></h2>
-        <div class="field col"><span>${this._t("notify_language")}</span>
+          <small>${this._t("payment_hint")}</small></label>`,
+      },
+      notifications: {
+        icon: "bell",
+        title: this._t("settings_notifications"),
+        summary: lines([this._t(`lang_${settings.language || "auto"}`), notify.length ? notify.map((n) => config.notify_names?.[n] || n).join(", ") : this._t("not_set")]),
+        body: `<div class="field col"><span>${this._t("notify_language")}</span>
           <div class="chips">${["auto", "da", "en"]
             .map((code) => {
               const on = (settings.language || "auto") === code;
@@ -4834,24 +5707,64 @@ class EvPlannerPanel extends HTMLElement {
             })
             .join("")}</div>
           <small>${this._t("notify_language_hint")}</small></div>
-      </section>
-      <section class="panel">
-        <h2>${ICONS.settings}<span>${this._t("settings_sources")}</span></h2>
-        <dl class="sources">
+          <dl class="sources"><div><dt>${this._t("notify_phones")}</dt><dd>${notify.length ? notify.map((n) => `<code>${esc(config.notify_names?.[n] || n)}</code>`).join(" ") : this._t("not_set")}</dd></div></dl>`,
+      },
+      house: {
+        icon: "home",
+        title: this._t("settings_house"),
+        summary: lines([
+          supply && `${this._t("tile_supply")} ${Math.round(supply.limit)} A`,
+          s.solar && this._t("home_solar"),
+          supply?.weather && this._t("learn_weather"),
+          s.heat_pump && this._t("home_heat"),
+          home && this._t("settings_from_energy"),
+        ]) || this._t("tile_off"),
+        body: `<dl class="sources">
+            <div><dt>${this._t("tile_supply")}</dt><dd>${supply ? `${Math.round(supply.limit)} A · ${supply.phases} ${this._lang === "da" ? "faser" : "phases"}${supply.guard ? ` · ${this._t("home_guard")}` : ""}` : this._t("off")}</dd></div>
+            <div><dt>${this._t("home_solar")}</dt><dd>${s.solar ? this._t("on") : this._t("off")}</dd></div>
+            <div><dt>${this._t("learn_weather")}</dt><dd>${supply?.weather ? this._t("on") : this._t("off")}</dd></div>
+            <div><dt>${this._t("home_heat")}</dt><dd>${s.heat_pump ? this._t("on") : home?.heat_pump_kw != null ? this._t("settings_from_energy") : this._t("off")}</dd></div>
+            ${home ? `<div><dt>${this._t("settings_from_energy")}</dt><dd>${[isNum(home.grid_kw) && this._t("home_grid_now"), isNum(home.solar_kw) && this._t("home_sun_now"), ...(home.devices || []).map((d) => d.name)].filter(Boolean).map((n) => `<code>${esc(n)}</code>`).join(" ")}</dd></div>` : ""}
+          </dl>
+          <p class="hint">${this._t("settings_house_hint")} <a href="/config/integrations/integration/ev_household_planner" target="_top">${this._t("open_integration")}</a></p>`,
+      },
+      sources: {
+        icon: "settings",
+        title: this._t("settings_sources"),
+        summary: this._entityName(config.price_entity),
+        body: `<dl class="sources">
           <div><dt>${this._t("price_sensor")}</dt><dd>${esc(this._entityName(config.price_entity))}</dd></div>
-          <div><dt>${this._t("notify_phones")}</dt><dd>${notify.length ? notify.map((n) => `<code>${esc(n)}</code>`).join(" ") : this._t("not_set")}</dd></div>
           <div><dt>${this._t("widgets_refresh")}</dt><dd>${config.update_widgets ? this._t("on") : this._t("off")}</dd></div>
         </dl>
-        <p class="hint">${this._t("change_in_ha")} <a href="/config/integrations/integration/ev_household_planner" target="_top">${this._t("open_integration")}</a></p>
-      </section>
-      <section class="panel">
-        <h2>${ICONS.share}<span>${this._t("app_title")}</span></h2>
-        <p class="hint">${this._t("app_hint")}</p>
+        <p class="hint">${this._t("change_in_ha")} <a href="/config/integrations/integration/ev_household_planner" target="_top">${this._t("open_integration")}</a></p>`,
+      },
+      app: {
+        icon: "share",
+        title: this._t("app_title"),
+        summary: this._t("widgets_title"),
+        body: `<p class="hint">${this._t("app_hint")}</p>
         <a class="btn ghost" href="${esc(appUrl)}" target="_blank" rel="noopener">${ICONS.share}<span>${this._t("open_app")}</span></a>
         <h3>${this._t("widgets_title")}</h3>
-        <p class="hint">${esc(this._t("widgets_text"))}</p>
-      </section>
-    </div>`;
+        <p class="hint">${esc(this._t("widgets_text"))}</p>`,
+      },
+    };
+    const open = sections[this._sheet];
+    const tiles = Object.entries(sections)
+      .map(
+        ([key, g]) => `<button class="tile" data-act="tile" data-tile="${key}" data-f="tile-${key}" aria-haspopup="dialog">
+          <span class="tile-icon">${ICONS[g.icon] || ""}</span>
+          <span class="tile-text"><strong>${esc(g.title)}</strong><small>${esc(g.summary || "")}</small></span>
+          <span class="tile-go">${ICONS.back}</span></button>`,
+      )
+      .join("");
+    const sheet = open
+      ? `<div class="scrim in-page" data-act="sheet-close"></div>
+        <div class="sheet in-page" role="dialog" aria-modal="true" aria-label="${esc(open.title)}">
+          <header><h2>${ICONS[open.icon] || ""}<span>${esc(open.title)}</span></h2><button class="btn ghost small" data-act="sheet-close" data-f="sheet-close">${this._t("tile_close")}</button></header>
+          <div class="sheet-body">${open.body}</div>
+        </div>`
+      : "";
+    return `<div class="page settings-page"><div class="tile-grid">${tiles}</div>${sheet}</div>`;
   }
 
   // ------------------------------------------------------------------ events
@@ -4877,6 +5790,51 @@ class EvPlannerPanel extends HTMLElement {
       case "tab":
         this._setTab(button.dataset.tab);
         break;
+      case "car-view":
+        this._carView = CAR_VIEWS.includes(button.dataset.view) ? button.dataset.view : "now";
+        this._sheet = null;
+        this._lastView = null;
+        this._render();
+        this.shadowRoot.querySelector(`[data-f="cv-${this._carView}"]`)?.focus({ preventScroll: true });
+        break;
+      case "tile":
+        this._sheet = button.dataset.tile;
+        if (this._tab === "settings") this._render();
+        else this._renderCarPage({ live: false });
+        this.shadowRoot.querySelector('[data-f="sheet-close"]')?.focus();
+        break;
+      case "sheet-close": {
+        const was = this._sheet;
+        this._sheet = null;
+        if (this._tab === "settings") this._render();
+        else this._renderCarPage({ live: false });
+        this.shadowRoot.querySelector(`[data-f="tile-${was}"]`)?.focus();
+        break;
+      }
+      case "hist-period":
+        this._histPeriod = HIST_PERIODS.includes(button.dataset.value) ? button.dataset.value : "month";
+        this._histOffset = 0;
+        this._render();
+        break;
+      case "hist-scope":
+        this._histScope = button.dataset.value || "all";
+        this._render();
+        break;
+      case "hist-move":
+        this._histOffset = Math.min(0, (this._histOffset || 0) + Number(button.dataset.step || 0));
+        this._render();
+        break;
+      case "hist-view":
+        this._histView = button.dataset.value === "learned" ? "learned" : "history";
+        this._render();
+        break;
+      case "scene-label": {
+        button.classList.toggle("open");
+        const open = (this._scene.open = this._scene.open || new Set());
+        if (button.classList.contains("open")) open.add(button.dataset.key);
+        else open.delete(button.dataset.key);
+        break;
+      }
       case "mode":
         this._setMode(id, button.dataset.mode);
         break;
@@ -5096,6 +6054,7 @@ class EvPlannerPanel extends HTMLElement {
 
   _onKey(ev) {
     if (ev.target.id === "plate" && ev.key === "Enter" && this._guest?.lookup) this._lookup();
+    if (ev.key === "Escape" && this._sheet) this.shadowRoot.querySelector('[data-act="sheet-close"][data-f]')?.click();
   }
 
   /* A rule's value field: a time or a number within its limits. Empty or invalid input is ignored. */
@@ -5409,7 +6368,7 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 @keyframes ping { to { box-shadow: 0 0 0 10px transparent; } }
 
 /* ---------- car page */
-.car-head { display: flex; align-items: center; gap: 10px; }
+.car-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .car-head .back { flex: none; }
 .car-title { display: grid; min-width: 0; flex: 1; }
 .car-title h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.015em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -5435,6 +6394,7 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .rule-text strong { font-weight: 600; font-size: 15px; }
 .rule-text small { color: var(--evp-soft); font-size: 13px; line-height: 1.4; }
 .rule-ctl { display: flex; align-items: center; gap: 10px; justify-self: end; }
+.sheet-body .rule:has(.unit-input, .chip-input) .rule-ctl { justify-self: stretch; }
 .rule-full { grid-column: 2 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 8px; }
 .rule.wide { grid-template-columns: 28px 1fr; }
 .opp-level { display: inline-flex; align-items: center; gap: 8px; color: var(--evp-soft); font-size: 14px; }
@@ -5687,13 +6647,159 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 @keyframes fade { from { opacity: 0; } }
 @keyframes up { from { transform: translate(-50%, 100%); } }
 
+
+/* ---------- 2.3: views, tiles and sheets */
+.app { overflow-x: clip; }
+.content { overflow-x: hidden; }
+.car-views { width: 100%; grid-column: 1 / -1; }
+.car-views button, .hist-views button { padding: 9px 10px; font-weight: 600; }
+.hist-views { width: 100%; }
+.tile-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); grid-column: 1 / -1; }
+.tile { display: grid; grid-template-columns: 40px 1fr 18px; align-items: center; gap: 12px; text-align: left; padding: 14px 14px 14px 12px; cursor: pointer;
+  background: var(--evp-card); color: var(--evp-ink); border: 1px solid var(--ha-card-border-color, var(--evp-line)); border-radius: var(--evp-radius);
+  transition: transform .15s, box-shadow .2s; animation: tile-in .45s cubic-bezier(.2,.8,.2,1) both; }
+.tile:nth-child(2) { animation-delay: 40ms; } .tile:nth-child(3) { animation-delay: 80ms; } .tile:nth-child(4) { animation-delay: 120ms; }
+.tile:nth-child(5) { animation-delay: 160ms; } .tile:nth-child(6) { animation-delay: 200ms; } .tile:nth-child(7) { animation-delay: 240ms; }
+.tile:hover { box-shadow: 0 8px 24px -14px rgba(0,0,0,.45); }
+.tile:active { transform: scale(.985); }
+.tile:focus-visible { outline: 2px solid var(--evp-accent); outline-offset: 2px; }
+.tile-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-content: center; background: color-mix(in srgb, var(--evp-a) 14%, transparent); }
+.tile-icon svg { width: 20px; height: 20px; fill: none; stroke: var(--evp-a); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tile.off .tile-icon { background: color-mix(in srgb, var(--evp-ink) 6%, transparent); }
+.tile.off .tile-icon svg { stroke: var(--evp-soft); }
+.tile-text { display: grid; gap: 2px; min-width: 0; }
+.tile-text strong { font-size: 15px; font-weight: 600; }
+.tile-text small { color: var(--evp-soft); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile-go svg { width: 16px; height: 16px; transform: rotate(180deg); fill: none; stroke: var(--evp-soft); stroke-width: 2; }
+.sheet.in-page { display: grid; gap: 12px; }
+.sheet.in-page header { position: sticky; top: -18px; background: var(--evp-card); padding: 4px 0 8px; z-index: 1; }
+.sheet.in-page h2 { display: flex; align-items: center; gap: 8px; }
+.sheet.in-page h2 svg { width: 20px; height: 20px; fill: none; stroke: var(--evp-a); stroke-width: 1.8; }
+.sheet-body { display: grid; gap: 4px; }
+.sheet-body .rule { border-top: 1px solid var(--evp-line); padding-top: 12px; }
+.sheet-body .rule:first-child { border-top: 0; padding-top: 0; }
+.sheet-body .rule:has(.unit-input, .chip-input) .rule-ctl { grid-column: 2 / -1; grid-row: 2; justify-content: flex-start; }
+.sheet-body .rule:has(.unit-input, .chip-input) .rule-ctl .switch { margin-left: auto; }
+@keyframes tile-in { from { opacity: 0; transform: translateY(8px); } }
+.dial .ceil-ring { fill: none; stroke: var(--evp-ink); stroke-opacity: .55; stroke-width: 1.4; stroke-dasharray: 3 4; }
+.ceil-note { color: var(--evp-soft); font-size: 13px; margin: 6px 0 0; text-align: center; }
+
+/* ---------- 2.3: the Home tab */
+.home-page { display: grid; gap: 14px; max-width: 1180px; margin: 0 auto; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 1000px) {
+  .home-page { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+  .home-page > .home-flow { grid-row: span 4; }
+}
+.home-flow { padding: 12px; }
+.now-chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; margin-top: 12px; }
+.now-chip { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 14px; background: color-mix(in srgb, var(--evp-ink) 5%, transparent); animation: tile-in .5s both; }
+.now-chip .nc-icon svg { width: 18px; height: 18px; fill: none; stroke: var(--evp-soft); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.now-chip .nc-text { display: grid; line-height: 1.15; min-width: 0; }
+.now-chip small { color: var(--evp-soft); font-size: 11.5px; }
+.now-chip b { font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.now-chip.live .nc-icon svg, .now-chip.good .nc-icon svg { stroke: var(--evp-a); }
+.now-chip.sun .nc-icon svg { stroke: #F5B92E; }
+.tn-chart { position: relative; display: grid; gap: 8px; padding-top: 40px; }
+.tn-prices { position: absolute; left: 112px; right: 82px; top: 0; height: 30px; }
+.tn-prices i { position: absolute; bottom: 0; border-radius: 3px 3px 0 0; opacity: .75; transform-origin: bottom; animation: grow .6s cubic-bezier(.2,.8,.2,1) both; animation-delay: var(--d); }
+.tn-row { display: grid; grid-template-columns: 104px 1fr 74px; align-items: center; gap: 8px; }
+.tn-name { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tn-name em { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+.tn-track { position: relative; height: 14px; border-radius: 7px; background: color-mix(in srgb, var(--evp-ink) 6%, transparent); overflow: hidden; }
+.tn-track i { position: absolute; top: 0; bottom: 0; border-radius: 7px; transform-origin: left; animation: sweep .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: var(--d); }
+.tn-cost { font-size: 12.5px; font-variant-numeric: tabular-nums; text-align: right; color: var(--evp-soft); white-space: nowrap; }
+.tn-axis { position: relative; height: 14px; margin: 0 82px 0 112px; }
+.tn-axis span { position: absolute; transform: translateX(-50%); font-size: 11px; color: var(--evp-soft); }
+.today-nums { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; margin: 0 0 12px; }
+.today-nums dt, .hist-nums dt { color: var(--evp-soft); font-size: 12.5px; }
+.today-nums dd, .hist-nums dd { margin: 2px 0 0; font-size: 22px; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.share-bar { height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--evp-ink) 7%, transparent); overflow: hidden; }
+.share-bar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--evp-a), var(--evp-b)); transform-origin: left; animation: sweep .9s cubic-bezier(.2,.8,.2,1) both; }
+.hour-bars { display: flex; align-items: flex-end; gap: 3px; height: 64px; margin-top: 14px; }
+.hour-bars i { flex: 1; min-height: 2px; border-radius: 3px 3px 1px 1px; background: color-mix(in srgb, var(--evp-a) 65%, var(--evp-line)); transform-origin: bottom; animation: grow .6s cubic-bezier(.2,.8,.2,1) both; animation-delay: var(--d); }
+@keyframes grow { from { transform: scaleY(0); } }
+@keyframes sweep { from { transform: scaleX(0); } }
+
+/* ---------- 2.3: the history */
+.hist-page { max-width: 980px; }
+.hist-controls { display: grid; gap: 10px; }
+.hist-period { width: 100%; }
+.hist-scope { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; scrollbar-width: none; }
+.hist-scope button { white-space: nowrap; }
+.hist-nav { display: grid; grid-template-columns: 36px 1fr 36px; align-items: center; text-align: center; }
+.hist-nav strong { font-size: 15px; text-transform: capitalize; }
+.hist-nav .icon { width: 36px; height: 36px; border: 0; background: transparent; cursor: pointer; display: grid; place-content: center; color: var(--evp-ink); }
+.hist-nav .icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; }
+.hist-nav .fwd svg { transform: rotate(180deg); }
+.hist-nav .icon:disabled { opacity: .3; cursor: default; }
+.hist-nums { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin: 0 0 14px; }
+.hist-nums .small dd { font-size: 18px; }
+.hist-nums .sun dd { color: #D99A00; }
+.hist-chart { width: 100%; height: 190px; overflow: visible; display: block; }
+.hb-axis { position: relative; height: 18px; margin-top: 4px; }
+.hb-axis span { position: absolute; transform: translateX(-50%); font-size: 11.5px; color: var(--evp-soft); white-space: nowrap; }
+.hist-chart .hb-grid { stroke: var(--evp-line); stroke-width: 1; }
+.hist-chart .hb-bar { transform-box: fill-box; transform-origin: bottom; animation: grow .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: var(--d); }
+.hist-chart .hb-bar.house { fill: color-mix(in srgb, var(--evp-ink) 13%, transparent); }
+
+.cal-wrap { overflow-x: auto; margin-top: 14px; }
+.cal { width: 100%; min-width: 480px; height: auto; }
+.cal .cal-day { fill: color-mix(in srgb, var(--evp-ink) 7%, transparent); animation: tile-in .5s both; animation-delay: var(--d); }
+
+/* ---------- 2.3: what EV Planner has learned */
+.learn-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); }
+.learn-card { display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 16px; background: color-mix(in srgb, var(--evp-ink) 4%, transparent); animation: tile-in .5s both; }
+.learn-card.wide { grid-column: 1 / -1; flex-wrap: wrap; }
+.learn-card > div { display: grid; gap: 3px; min-width: 0; }
+.learn-card > .curve-bars { display: flex; }
+.learn-card small { color: var(--evp-soft); font-size: 12.5px; }
+.learn-card b { font-size: 15px; font-weight: 650; }
+.learn-card .soft { color: var(--evp-soft); font-size: 13px; }
+.gauge { width: 96px; flex: none; }
+.gauge .g-track { fill: none; stroke: color-mix(in srgb, var(--evp-ink) 10%, transparent); stroke-width: 10; stroke-linecap: round; }
+.gauge .g-fill { fill: none; stroke: url(#evp-win); stroke: var(--evp-a); stroke-width: 10; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1.1s .15s cubic-bezier(.2,.8,.2,1) forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.curve-bars { display: flex; align-items: stretch; gap: 8px; height: 96px; flex: none; }
+.curve-bars .cb { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 3px; width: 44px; }
+.curve-bars i { display: block; width: 24px; border-radius: 6px 6px 2px 2px; background: linear-gradient(180deg, var(--evp-b), var(--evp-a)); transform-origin: bottom; animation: grow .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: var(--d); max-height: 60px; }
+.curve-bars span { font-size: 10px; color: var(--evp-soft); white-space: nowrap; }
+.curve-bars b { font-size: 11px; }
+.hour-clock { width: 130px; flex: none; }
+.hour-clock .hc-face { fill: color-mix(in srgb, var(--evp-ink) 6%, transparent); }
+.hour-clock .spoke { stroke: color-mix(in srgb, var(--evp-ink) 10%, transparent); stroke-width: 4; stroke-linecap: round; }
+.hour-clock .spoke.on { stroke: var(--evp-a); animation: spoke .6s cubic-bezier(.2,.8,.2,1) both; animation-delay: var(--d); }
+.hour-clock .spoke.house { stroke: color-mix(in srgb, var(--evp-sand) 85%, var(--evp-ink)); }
+.hour-clock text { font-size: 8px; fill: var(--evp-soft); text-anchor: middle; }
+@keyframes spoke { from { opacity: 0; } }
+.habits { display: grid; grid-template-columns: repeat(2, minmax(110px, 1fr)); gap: 10px 18px; margin: 0; flex: 1; }
+.habits dt { color: var(--evp-soft); font-size: 12px; }
+.habits dd { margin: 2px 0 0; font-size: 16px; font-weight: 650; }
+.sure { display: inline-flex; gap: 4px; align-items: center; }
+.sure i { width: 7px; height: 7px; border-radius: 50%; background: color-mix(in srgb, var(--evp-ink) 12%, transparent); animation: tile-in .4s both; animation-delay: var(--d); }
+.sure i.on { background: var(--evp-a); }
+.promise { display: flex; align-items: baseline; gap: 4px; flex: none; padding: 10px 12px; border-radius: 14px; background: color-mix(in srgb, var(--evp-a) 14%, transparent); }
+.promise.late { background: color-mix(in srgb, var(--evp-coral) 14%, transparent); }
+.promise b { font-size: 22px; }
+.promise span { color: var(--evp-soft); font-size: 12px; }
+.thermo { width: 54px; height: 54px; border-radius: 50%; flex: none; display: grid; place-content: center; background: conic-gradient(from 200deg, #4BA3FF, var(--evp-a), #F5B92E, var(--evp-coral)); }
+.thermo b { width: 42px; height: 42px; border-radius: 50%; display: grid; place-content: center; background: var(--evp-card); font-size: 13px; }
+
 /* ---------- narrow screens */
 @media (max-width: 860px) {
   .content { padding: 14px 12px calc(96px + var(--evp-safe-bottom)); }
   .page { grid-template-columns: minmax(0, 1fr); gap: 14px; }
   .col { gap: 14px; }
   .cars-grid, .side-grid { gap: 14px; }
-  .tabs { position: fixed; left: 0; right: 0; bottom: 0; justify-self: stretch; justify-content: space-around; background: var(--evp-card); border-top: 1px solid var(--evp-line); padding: 6px 8px calc(6px + var(--evp-safe-bottom)); z-index: 5; }
+  .tabs { position: fixed; left: 0; right: 0; bottom: 0; justify-self: stretch; justify-content: space-around; background: var(--evp-card); background-color: var(--card-background-color, var(--evp-bg)); border-top: 1px solid var(--evp-line); padding: 6px 8px calc(6px + var(--evp-safe-bottom)); z-index: 5; isolation: isolate; }
+  /* The tabs sit in the header: above everything on the page, below the sheets. */
+  .bar { z-index: 12; }
+  .toast { z-index: 14; }
+  .tn-prices { left: 86px; right: 74px; }
+  .tn-row { grid-template-columns: 80px 1fr 68px; gap: 6px; }
+  .tn-axis { margin: 0 74px 0 86px; }
+  .car-head { display: grid; grid-template-columns: auto auto minmax(0, 1fr); column-gap: 10px; row-gap: 4px; }
+  .car-head .pill { grid-column: 3; justify-self: start; }
+  .car-title h1 { font-size: 20px; }
   .tabs button { flex-direction: column; gap: 2px; font-size: 12px; padding: 6px 10px; border-radius: 12px; }
   .tabs button em { position: absolute; top: 2px; right: 6px; }
   .bar { grid-template-columns: auto 1fr; }
