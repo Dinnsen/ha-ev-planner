@@ -2,7 +2,8 @@
   "domain": "ev_household_planner",
   "name": "EV Planner",
   "after_dependencies": [
-    "energy"
+    "energy",
+    "recorder"
   ],
   "codeowners": [
     "@Dinnsen"

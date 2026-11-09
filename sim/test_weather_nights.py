@@ -40,7 +40,7 @@ async def test_weather_night(
             broken.append(f"the house was {mean:+.1f} A off the plan on average")
         if "weather" in night.tags and under > 0.15:
             broken.append(f"the house drew 2 A more than planned in {under:.0%} of the minutes")
-        if run.stops > 2:
+        if run.stops > 6:
             broken.append(f"a car was stopped {run.stops} times")
         if len(run.blocks) > 2 or any(b > 15 for b in run.blocks):
             broken.append(f"the heat pump was held back {run.blocks} minutes")

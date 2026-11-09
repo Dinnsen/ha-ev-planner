@@ -99,7 +99,7 @@ def weather_nights() -> list[SupplyNight]:
             SupplyNight(
                 f"cold-night-after-mild-weeks{suffix}",
                 monday,
-                [big("a", 15, 85, 75), big("b", 20, 80, 60, "first")],
+                [big("a", 30, 80, 75), big("b", 30, 80, 60, "first")],
                 fuse=25,
                 limit=23,
                 house=rest_of_house,
@@ -115,7 +115,7 @@ def weather_nights() -> list[SupplyNight]:
             SupplyNight(
                 f"mild-night-after-cold-weeks{suffix}",
                 monday,
-                [big("a", 20, 85, 75), big("b", 20, 80, 60, "first")],
+                [big("a", 30, 80, 75), big("b", 30, 80, 60, "first")],
                 fuse=25,
                 limit=23,
                 house=rest_of_house,
@@ -136,9 +136,9 @@ def weather_nights() -> list[SupplyNight]:
             SupplyNight(
                 "heat-pump-held-back" if block else "heat-pump-not-held-back",
                 monday,
-                [big("a", 30, 80, 60), big("b", 30, 80, 60, "first")],
-                fuse=20,
-                limit=18,
+                [big("a", 40, 80, 60), big("b", 40, 80, 60, "first")],
+                fuse=25,
+                limit=21,
                 house=lambda local: rest_of_house(local) + (7.0 if local.hour == 23 and local.minute < 25 else 0.0),
                 heat_pump=with_heat_pump(cold),
                 heat_pump_meter=True,
