@@ -76,6 +76,24 @@
           "currency": "Currency of the electricity prices.",
           "notify_services": "Where reminders, live notifications and messages go, e.g. notify.mobile_app_my_iphone. Live notifications need the companion app.",
           "update_widgets": "Ask the iOS companion app to refresh its widgets when a car's status changes (at most every 15 minutes)."
+        },
+        "sections": {
+          "supply": {
+            "name": "Shared supply (beta)",
+            "description": "Several cars behind one fuse: EV Planner plans them together under the limit, the house first. It does not protect the fuse; your charger's own load balancing does that.",
+            "data": {
+              "supply_limit": "Limit per phase",
+              "supply_phases": "Phases",
+              "supply_meter": "Meter: current per phase",
+              "supply_reserve": "The house without a meter"
+            },
+            "data_description": {
+              "supply_limit": "The most the house may draw per phase, e.g. 23 A on a 25 A supply, or the circuit the chargers share. 0 turns it off.",
+              "supply_phases": "How many phases the supply and the cars charge on.",
+              "supply_meter": "Current sensors (A) for the phases, e.g. from a HAN/P1 reader, a Shelly EM or an Equalizer. EV Planner learns what the house draws hour by hour.",
+              "supply_reserve": "Without a meter: what the house is expected to draw per phase."
+            }
+          }
         }
       }
     }
@@ -142,13 +160,15 @@
                 "charge_power": "Charging power",
                 "charger": "Charger",
                 "control": "Who starts and stops charging",
-                "control_entity": "The car's charge switch"
+                "control_entity": "The car's charge switch",
+                "current_entity": "Charging current"
               },
               "data_description": {
                 "charge_power": "What the car draws when charging at home (kW). A starting point: a car with a charging power sensor is measured instead.",
                 "charger": "The charger the car uses. Cars on the same charger share it.",
                 "control": "Choose the car, the charger, or neither.",
-                "control_entity": "Needed when the car starts and stops charging, e.g. switch.model3_charge."
+                "control_entity": "Needed when the car starts and stops charging, e.g. switch.model3_charge.",
+                "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit. With it, cars on a shared supply share the current; without it they take turns."
               }
             },
             "trips": {
@@ -208,13 +228,15 @@
                 "charge_power": "Charging power",
                 "charger": "Charger",
                 "control": "Who starts and stops charging",
-                "control_entity": "The car's charge switch"
+                "control_entity": "The car's charge switch",
+                "current_entity": "Charging current"
               },
               "data_description": {
                 "charge_power": "What the car draws when charging at home (kW). A starting point: a car with a charging power sensor is measured instead.",
                 "charger": "The charger the car uses. Cars on the same charger share it.",
                 "control": "Choose the car, the charger, or neither.",
-                "control_entity": "Needed when the car starts and stops charging, e.g. switch.model3_charge."
+                "control_entity": "Needed when the car starts and stops charging, e.g. switch.model3_charge.",
+                "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit. With it, cars on a shared supply share the current; without it they take turns."
               }
             },
             "trips": {
@@ -267,7 +289,8 @@
             "switch_entity": "Charger switch",
             "energy_entity": "Energy meter",
             "connected_entity": "Car plugged in",
-            "unplugged_states": "States that mean unplugged"
+            "unplugged_states": "States that mean unplugged",
+            "current_entity": "Charging current"
           },
           "data_description": {
             "name": "For example Carport.",
@@ -276,7 +299,8 @@
             "switch_entity": "Optional. Lets EV Planner start and pause this charger.",
             "energy_entity": "Optional. The charger's total energy (kWh), to measure what the guest used.",
             "connected_entity": "Optional. Ends the guest session when the guest car is unplugged.",
-            "unplugged_states": "Default: off."
+            "unplugged_states": "Default: off.",
+            "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit. With it, cars on a shared supply share the current; without it they take turns."
           }
         },
         "reconfigure": {
@@ -288,7 +312,8 @@
             "switch_entity": "Charger switch",
             "energy_entity": "Energy meter",
             "connected_entity": "Car plugged in",
-            "unplugged_states": "States that mean unplugged"
+            "unplugged_states": "States that mean unplugged",
+            "current_entity": "Charging current"
           },
           "data_description": {
             "name": "For example Carport.",
@@ -297,7 +322,8 @@
             "switch_entity": "Optional. Lets EV Planner start and pause this charger.",
             "energy_entity": "Optional. The charger's total energy (kWh), to measure what the guest used.",
             "connected_entity": "Optional. Ends the guest session when the guest car is unplugged.",
-            "unplugged_states": "Default: off."
+            "unplugged_states": "Default: off.",
+            "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit. With it, cars on a shared supply share the current; without it they take turns."
           }
         }
       }
@@ -395,6 +421,9 @@
       },
       "price_ceiling_above": {
         "name": "Price ceiling above average"
+      },
+      "must_soc": {
+        "name": "Must have by the ready-by time"
       }
     },
     "select": {
@@ -417,6 +446,13 @@
       },
       "guest_charger": {
         "name": "Charger"
+      },
+      "priority": {
+        "name": "Priority",
+        "state": {
+          "normal": "Normal",
+          "first": "First"
+        }
       }
     },
     "sensor": {
@@ -652,6 +688,12 @@
       "options": {
         "denmark": "Denmark",
         "other": "Other country (no license plate lookup)"
+      }
+    },
+    "phases": {
+      "options": {
+        "1": "1 phase",
+        "3": "3 phases"
       }
     }
   },

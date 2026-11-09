@@ -115,6 +115,7 @@ from .rules import (
     parse_hhmm,
     plan_vehicle,
 )
+from .supply_control import SupplyControl
 from .vehicle import Vehicle, elapsed, is_charging_state, to_float
 
 _LOGGER = logging.getLogger(__name__)
@@ -227,6 +228,7 @@ class Household(DataUpdateCoordinator[None]):
         self._recalc_timer: CALLBACK_TYPE | None = None
         self._verify_timers: dict[str, CALLBACK_TYPE] = {}
         self._unplug_timers: dict[str, CALLBACK_TYPE] = {}
+        self.supply = SupplyControl(self)
         self._widgets_sent: datetime | None = None
         # The status words in Danish and English, for the summary line widgets show.
         self._status_texts: dict[str, dict[str, str]] = {}
@@ -342,6 +344,17 @@ class Household(DataUpdateCoordinator[None]):
     async def _async_update_data(self) -> None:
         return None
 
+    def state_of(self, entity_id: str | None) -> str | None:
+        """An entity's state, or None."""
+        return self._state(entity_id)
+
+    def is_charging(self, vehicle: Vehicle) -> bool:
+        return self._is_charging(vehicle)
+
+    def power_reading(self, vehicle: Vehicle) -> float | None:
+        """The car's charging power now (kW), when it reports one."""
+        return power_value(self.hass.states.get(vehicle.power_entity)) if vehicle.power_entity else None
+
     def _state(self, entity_id: str | None) -> str | None:
         if not entity_id:
             return None
@@ -380,6 +393,7 @@ class Household(DataUpdateCoordinator[None]):
             last = data.get("guest_last_sent")
             charger.guest_last_sent = last if last in (CONTROL_CHARGE, CONTROL_PAUSE) else None
         self.guest.load(stored.get("guest"))
+        self.supply.load(stored.get("supply_forecast"))
         self.settings = {**SETTINGS_DEFAULTS, **(stored.get("settings") or {})}
         self.images = self._known_images(stored.get("images"))
         self.originals = {
@@ -405,6 +419,7 @@ class Household(DataUpdateCoordinator[None]):
             "vehicles": {vehicle_id: vehicle.to_store() for vehicle_id, vehicle in self.vehicles.items()},
             "chargers": {cid: {"guest_last_sent": charger.guest_last_sent} for cid, charger in self.chargers.items()},
             "guest": self.guest.to_store(),
+            "supply_forecast": self.supply.to_store(),
             "settings": self.settings,
             "images": self.images,
             "image_originals": self.originals,
@@ -894,6 +909,8 @@ class Household(DataUpdateCoordinator[None]):
                 self.plan_one(vehicle, now, blocked, stable=not force)
             if charger_id and vehicle.plan is not None and vehicle.connected is True:
                 taken.setdefault(charger_id, []).extend(vehicle.plan.segments)
+        # On a shared supply the plugged-in cars are planned together, under the limit.
+        self.supply.replan(now)
         await self.async_evaluate(now, apply=apply)
 
     # ------------------------------------------------------------------
@@ -914,6 +931,8 @@ class Household(DataUpdateCoordinator[None]):
             if vehicle.deadline is not None and vehicle.deadline <= now:
                 replan = True
             self._count_time(vehicle, now)
+        if self.supply.sample(now):
+            self.async_save()
         # How the morning went, before the plan moves on to the next ready-by time.
         await self._async_receipts(now)
         if replan:
@@ -1045,6 +1064,7 @@ class Household(DataUpdateCoordinator[None]):
                     # Acted on with what the car says: from now on the plan is an ordinary one.
                     vehicle.plan_restored = False
         if apply and self._started:
+            await self.supply.async_apply(now)
             await self._async_apply_guest(now)
             self._maybe_refresh_widgets(now)
         self.async_update_listeners()

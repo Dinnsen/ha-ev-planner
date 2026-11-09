@@ -98,3 +98,44 @@ async def test_after_a_restart_a_finished_period_is_planned_again(
     tesla = entry.runtime_data.vehicles[TESLA]
     assert tesla.plan_restored is False
     assert tesla.plan is None or tesla.plan.end != end
+
+
+async def test_settings_and_what_was_learned_survive_a_restart(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    """Every setting made in the panel, and the house the supply has learned, are there after a restart or an update."""
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass)
+    entry = await _setup(
+        hass,
+        freezer,
+        entry_with(charger_sub(), vehicle_sub(TESLA, "Tesla", tesla_data()), options={"supply_limit": 23}),
+    )
+    household = entry.runtime_data
+    changes = {
+        "must_soc": 70.0,
+        "priority": "first",
+        "price_ceiling_enabled": True,
+        "price_ceiling_relative": True,
+        "price_ceiling_above": 15.0,
+        "prefer_early": True,
+        "topup": True,
+        "topup_level": 75.0,
+        "day_targets": {"fri": 100},
+        "ready_by": "06:30",
+    }
+    await household.async_set_vehicle(TESLA, dict(changes))
+    household.supply.forecast.add(2, True, 9.5)
+    household.async_save()
+    await settle(hass, freezer)
+
+    await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    household = entry.runtime_data
+    settings = household.vehicles[TESLA].settings
+    for key, value in changes.items():
+        assert settings[key] == value, key
+    assert household.supply.forecast.samples == {"02c": [9.5]}
+    assert household.supply.limit == 23

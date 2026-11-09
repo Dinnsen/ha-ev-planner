@@ -76,6 +76,24 @@
           "currency": "Elprisernes valuta.",
           "notify_services": "Hvor påmindelser, live-notifikationer og beskeder sendes hen, fx notify.mobile_app_min_iphone. Live-notifikationer kræver companion-appen.",
           "update_widgets": "Bed iOS companion-appen om at opdatere sine widgets, når en bils status ændres (højst hvert 15. minut)."
+        },
+        "sections": {
+          "supply": {
+            "name": "Fælles forsyning (beta)",
+            "description": "Flere biler bag én sikring: EV Planner planlægger dem sammen under grænsen, og huset kommer først. Den beskytter ikke sikringen; det gør laderens egen lastbalancering.",
+            "data": {
+              "supply_limit": "Grænse pr. fase",
+              "supply_phases": "Faser",
+              "supply_meter": "Måler: strøm pr. fase",
+              "supply_reserve": "Huset uden måler"
+            },
+            "data_description": {
+              "supply_limit": "Det mest, huset må trække pr. fase, fx 23 A på en 25 A stikledning, eller det kredsløb laderne deler. 0 slår det fra.",
+              "supply_phases": "Hvor mange faser forsyningen og bilerne lader på.",
+              "supply_meter": "Strømsensorer (A) for faserne, fx fra en HAN/P1-læser, en Shelly EM eller en Equalizer. EV Planner lærer, hvad huset trækker time for time.",
+              "supply_reserve": "Uden måler: hvad huset forventes at trække pr. fase."
+            }
+          }
         }
       }
     }
@@ -142,13 +160,15 @@
                 "charge_power": "Ladeeffekt",
                 "charger": "Ladepunkt",
                 "control": "Hvem starter og stopper ladningen",
-                "control_entity": "Bilens ladekontakt"
+                "control_entity": "Bilens ladekontakt",
+                "current_entity": "Ladestrøm"
               },
               "data_description": {
                 "charge_power": "Hvad bilen trækker, når den lader hjemme (kW). Et udgangspunkt: en bil med en sensor for ladeeffekt måles i stedet.",
                 "charger": "Ladepunktet bilen bruger. Biler på samme ladepunkt deler det.",
                 "control": "Vælg bilen, laderen eller ingen af dem.",
-                "control_entity": "Skal udfyldes, når bilen starter og stopper ladningen, fx switch.model3_charge."
+                "control_entity": "Skal udfyldes, når bilen starter og stopper ladningen, fx switch.model3_charge.",
+                "current_entity": "Et tal, der sætter ladestrømmen (A), fx bilens ladeampere eller laderens strømgrænse. Med det deler bilerne på en fælles forsyning strømmen; uden det lader de efter tur."
               }
             },
             "trips": {
@@ -208,13 +228,15 @@
                 "charge_power": "Ladeeffekt",
                 "charger": "Ladepunkt",
                 "control": "Hvem starter og stopper ladningen",
-                "control_entity": "Bilens ladekontakt"
+                "control_entity": "Bilens ladekontakt",
+                "current_entity": "Ladestrøm"
               },
               "data_description": {
                 "charge_power": "Hvad bilen trækker, når den lader hjemme (kW). Et udgangspunkt: en bil med en sensor for ladeeffekt måles i stedet.",
                 "charger": "Ladepunktet bilen bruger. Biler på samme ladepunkt deler det.",
                 "control": "Vælg bilen, laderen eller ingen af dem.",
-                "control_entity": "Skal udfyldes, når bilen starter og stopper ladningen, fx switch.model3_charge."
+                "control_entity": "Skal udfyldes, når bilen starter og stopper ladningen, fx switch.model3_charge.",
+                "current_entity": "Et tal, der sætter ladestrømmen (A), fx bilens ladeampere eller laderens strømgrænse. Med det deler bilerne på en fælles forsyning strømmen; uden det lader de efter tur."
               }
             },
             "trips": {
@@ -267,7 +289,8 @@
             "switch_entity": "Laderens kontakt",
             "energy_entity": "Energimåler",
             "connected_entity": "Bil tilsluttet",
-            "unplugged_states": "Tilstande, der betyder ikke tilsluttet"
+            "unplugged_states": "Tilstande, der betyder ikke tilsluttet",
+            "current_entity": "Ladestrøm"
           },
           "data_description": {
             "name": "Fx Carport.",
@@ -276,7 +299,8 @@
             "switch_entity": "Valgfri. Lader EV Planner starte og pause laderen.",
             "energy_entity": "Valgfri. Laderens samlede energi (kWh), til at måle hvad gæsten brugte.",
             "connected_entity": "Valgfri. Afslutter gæstesessionen, når gæstebilen tages ud.",
-            "unplugged_states": "Standard: off."
+            "unplugged_states": "Standard: off.",
+            "current_entity": "Et tal, der sætter ladestrømmen (A), fx bilens ladeampere eller laderens strømgrænse. Med det deler bilerne på en fælles forsyning strømmen; uden det lader de efter tur."
           }
         },
         "reconfigure": {
@@ -288,7 +312,8 @@
             "switch_entity": "Laderens kontakt",
             "energy_entity": "Energimåler",
             "connected_entity": "Bil tilsluttet",
-            "unplugged_states": "Tilstande, der betyder ikke tilsluttet"
+            "unplugged_states": "Tilstande, der betyder ikke tilsluttet",
+            "current_entity": "Ladestrøm"
           },
           "data_description": {
             "name": "Fx Carport.",
@@ -297,7 +322,8 @@
             "switch_entity": "Valgfri. Lader EV Planner starte og pause laderen.",
             "energy_entity": "Valgfri. Laderens samlede energi (kWh), til at måle hvad gæsten brugte.",
             "connected_entity": "Valgfri. Afslutter gæstesessionen, når gæstebilen tages ud.",
-            "unplugged_states": "Standard: off."
+            "unplugged_states": "Standard: off.",
+            "current_entity": "Et tal, der sætter ladestrømmen (A), fx bilens ladeampere eller laderens strømgrænse. Med det deler bilerne på en fælles forsyning strømmen; uden det lader de efter tur."
           }
         }
       }
@@ -395,6 +421,9 @@
       },
       "price_ceiling_above": {
         "name": "Prisloft over gennemsnit"
+      },
+      "must_soc": {
+        "name": "Skal have til klar-tiden"
       }
     },
     "select": {
@@ -417,6 +446,13 @@
       },
       "guest_charger": {
         "name": "Ladepunkt"
+      },
+      "priority": {
+        "name": "Prioritet",
+        "state": {
+          "normal": "Normal",
+          "first": "Først"
+        }
       }
     },
     "sensor": {
@@ -652,6 +688,12 @@
       "options": {
         "denmark": "Danmark",
         "other": "Andet land (uden nummerplade-opslag)"
+      }
+    },
+    "phases": {
+      "options": {
+        "1": "1 fase",
+        "3": "3 faser"
       }
     }
   },

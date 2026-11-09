@@ -63,5 +63,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # A beta (2.2.0b1) or release candidate is a pre-release: only those who show beta versions get it.
+          extra=""
+          case "$VERSION" in *b*|*rc*) extra="--prerelease --latest=false" ;; esac
           gh release create "v$VERSION" ev_household_planner.zip \
-            --target "$GITHUB_SHA" --title "EV Planner $VERSION" --notes-file notes.md
+            --target "$GITHUB_SHA" --title "EV Planner $VERSION" --notes-file notes.md $extra

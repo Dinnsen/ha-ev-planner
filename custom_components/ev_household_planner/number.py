@@ -23,6 +23,7 @@ from .const import (
     SET_LOW_SOC_LEVEL,
     SET_MANUAL_SOC,
     SET_MIN_SOC,
+    SET_MUST_SOC,
     SET_OPPORTUNISTIC_LEVEL,
     SET_REMINDER_HORIZON,
     SET_REMINDER_PRICE,
@@ -109,6 +110,7 @@ VEHICLE_NUMBERS: tuple[PlannerNumberDescription, ...] = (
         price=True,
     ),
     _percent("topup_level", SET_TOPUP_LEVEL, config=True),
+    _percent("must_soc", SET_MUST_SOC, config=True),
     PlannerNumberDescription(
         key="opportunistic_level",
         setting=SET_OPPORTUNISTIC_LEVEL,

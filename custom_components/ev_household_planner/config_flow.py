@@ -44,6 +44,7 @@ from .const import (
     CONF_CONTROL_ENTITY,
     CONF_COUNTRY,
     CONF_CURRENCY,
+    CONF_CURRENT_ENTITY,
     CONF_DEVICE,
     CONF_ENERGY_ENTITY,
     CONF_HOME_ENTITY,
@@ -58,6 +59,10 @@ from .const import (
     CONF_PRICE_ENTITY,
     CONF_SOC_ENTITY,
     CONF_SOURCE,
+    CONF_SUPPLY_LIMIT,
+    CONF_SUPPLY_METER,
+    CONF_SUPPLY_PHASES,
+    CONF_SUPPLY_RESERVE,
     CONF_SWITCH_ENTITY,
     CONF_TARGET_ENTITY,
     CONF_UNPLUGGED_STATES,
@@ -77,6 +82,7 @@ from .const import (
     DEFAULT_NAME,
     DEFAULT_PLATE_PROVIDER,
     DEFAULT_PRICE_ENTITY,
+    DEFAULT_SUPPLY_RESERVE,
     DOMAIN,
     ESC_DOMAIN,
     NO_CHARGER,
@@ -111,6 +117,7 @@ CONF_IMPORTED_SETTINGS = "imported_settings"
 SECTION_SENSORS = "sensors"
 SECTION_CHARGING = "charging"
 SECTION_TRIPS = "trips"
+SECTION_SUPPLY = "supply"
 
 PRICE_ENTITY_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor"))
 COUNTRY_SELECTOR = selector.SelectSelector(
@@ -141,6 +148,14 @@ HOME_SELECTOR = selector.EntitySelector(
     selector.EntitySelectorConfig(domain=["device_tracker", "person", "binary_sensor"])
 )
 SWITCH_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain=["switch", "input_boolean"]))
+CURRENT_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain=["number", "input_number"]))
+METER_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", multiple=True))
+AMPS_SELECTOR = selector.NumberSelector(
+    selector.NumberSelectorConfig(min=0, max=200, step=1, unit_of_measurement="A", mode=selector.NumberSelectorMode.BOX)
+)
+PHASES_SELECTOR = selector.SelectSelector(
+    selector.SelectSelectorConfig(options=["1", "3"], mode=selector.SelectSelectorMode.LIST, translation_key="phases")
+)
 ENERGY_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", device_class="energy"))
 POWER_ENTITY_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", device_class="power"))
 CAPACITY_ENTITY_SELECTOR = selector.EntitySelector(
@@ -328,7 +343,8 @@ class EVPlannerOptionsFlow(OptionsFlow):
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
+            supply = user_input.pop(SECTION_SUPPLY, None) or {}
+            return self.async_create_entry(data={**user_input, **supply})
         options = self.config_entry.options
         schema = vol.Schema(
             {
@@ -337,6 +353,23 @@ class EVPlannerOptionsFlow(OptionsFlow):
                 ),
                 vol.Optional(CONF_NOTIFY, default=list(options.get(CONF_NOTIFY) or [])): _notify_selector(self.hass),
                 vol.Optional("update_widgets", default=bool(options.get("update_widgets", False))): bool,
+                vol.Optional(SECTION_SUPPLY): section(
+                    vol.Schema(
+                        {
+                            vol.Optional(CONF_SUPPLY_LIMIT, default=options.get(CONF_SUPPLY_LIMIT) or 0): AMPS_SELECTOR,
+                            vol.Optional(
+                                CONF_SUPPLY_PHASES, default=str(options.get(CONF_SUPPLY_PHASES) or "3")
+                            ): PHASES_SELECTOR,
+                            vol.Optional(
+                                CONF_SUPPLY_METER, default=list(options.get(CONF_SUPPLY_METER) or [])
+                            ): METER_SELECTOR,
+                            vol.Optional(
+                                CONF_SUPPLY_RESERVE, default=options.get(CONF_SUPPLY_RESERVE, DEFAULT_SUPPLY_RESERVE)
+                            ): AMPS_SELECTOR,
+                        }
+                    ),
+                    {"collapsed": not options.get(CONF_SUPPLY_LIMIT)},
+                ),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)
@@ -503,6 +536,7 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
                                 CONF_CONTROL, default=values.get(CONF_CONTROL, CONTROL_NONE)
                             ): CONTROL_SELECTOR,
                             opt(CONF_CONTROL_ENTITY): SWITCH_SELECTOR,
+                            opt(CONF_CURRENT_ENTITY): CURRENT_SELECTOR,
                         }
                     ),
                     {"collapsed": False},
@@ -644,6 +678,7 @@ class ChargerSubentryFlow(ConfigSubentryFlow):
                 vol.Required(CONF_MODEL, default=values.get(CONF_MODEL) or MODEL_OTHER): _model_selector(auto=False),
                 vol.Required(CONF_POWER, default=values.get(CONF_POWER, DEFAULT_CHARGE_POWER)): POWER_SELECTOR,
                 opt(CONF_SWITCH_ENTITY): SWITCH_SELECTOR,
+                opt(CONF_CURRENT_ENTITY): CURRENT_SELECTOR,
                 opt(CONF_ENERGY_ENTITY): ENERGY_SELECTOR,
                 opt(CONF_CONNECTED_ENTITY): ANY_ENTITY_SELECTOR,
                 opt(CONF_UNPLUGGED_STATES): STATES_SELECTOR,
