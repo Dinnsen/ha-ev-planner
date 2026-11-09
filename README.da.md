@@ -130,4 +130,8 @@ En integration kan ikke selv lægge widgets på telefonen, men companion-appens 
 
 Fjern EV Planner under **Indstillinger → Enheder og tjenester**. Indstillinger, planer og historik slettes med den. Bilerne og ladepunkterne ændres ikke.
 
+## Tak til
+
+[EV Smart Charging](https://github.com/jonasbkarlsson/ev_smart_charging) af Jonas Karlsson, som viste vejen for prisstyret opladning i Home Assistant. Flere af reglerne og *Fra EV Smart Charging* bygger på dens idéer.
+
 Se den [engelske README](README.md) for entiteter, handlinger, begrænsninger og fejlfinding.
