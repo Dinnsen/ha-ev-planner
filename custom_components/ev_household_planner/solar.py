@@ -160,7 +160,7 @@ class SurplusController:
         # Only when that has been so for a while (a cloud is not a reason), and a while after the last change.
         want_phases = phases
         if car.can_switch and car.adjustable:
-            lowest = min([kw for at, kw in state.seen if now - at < RAISE_WINDOW] + [available])
+            lowest = low_end([kw for at, kw in state.seen if now - at < RAISE_WINDOW] + [available])
             if phases == 3 and available < min_kw(3) and available >= min_kw(1):
                 want_phases = 1
             elif phases == 1 and lowest >= min_kw(3) + 0.5:
