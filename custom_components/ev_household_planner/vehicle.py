@@ -8,11 +8,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from typing import Any
 from uuid import uuid4
 
 from .const import (
+    BLIP_KWH,
+    COMMANDS_PER_HOUR,
     CONF_BATTERY_CAPACITY,
     CONF_CALENDAR_ENTITY,
     CONF_CALENDAR_KEYWORD,
@@ -44,6 +46,7 @@ from .const import (
     MODE_PAUSE,
     NO_CHARGER,
     OPPORTUNISTIC_OFF,
+    PERIOD_JOIN,
     SET_CEILING,
     SET_CEILING_ENABLED,
     SET_CONTINUOUS,
@@ -89,6 +92,8 @@ CHARGING_STATES = {"on", "charging", "true", "yes", "active"}
 # A single charge level step above this is a glitch (or a car swap), not charging.
 MAX_SOC_STEP = 60.0
 MONTHS_KEPT = 24
+# A session keeps at most this many periods; older ones are joined.
+MAX_PERIODS = 30
 # Settings of older versions that are no longer used.
 RETIRED_SETTINGS = ("charging_efficiency",)
 
@@ -130,14 +135,79 @@ def month_key(moment: datetime) -> str:
 
 
 @dataclass(slots=True)
+class Period:
+    """A stretch of charging inside a session; ``end`` is None while it charges."""
+
+    start: datetime
+    end: datetime | None = None
+
+    def minutes(self, now: datetime) -> float:
+        return max(0.0, ((self.end or now) - self.start).total_seconds() / 60)
+
+    def to_dict(self) -> dict[str, str | None]:
+        return {"start": self.start.isoformat(), "end": self.end.isoformat() if self.end else None}
+
+
+@dataclass(slots=True)
 class Session:
-    """A charge in progress, for history and notifications."""
+    """A charge, for history and notifications.
+
+    With a plug sensor a session runs from the first charging after the car
+    is plugged in until it is unplugged, so a plan in several periods (and the
+    few minutes a car charges by itself when it is plugged in) is one entry.
+    Without one, a session is one charge.
+    """
 
     start: datetime
     start_soc: float | None
     energy: float = 0.0
     cost: float = 0.0
     reason: str = ""
+    periods: list[Period] = field(default_factory=list)
+    # The session's energy when the running (or last) period began.
+    period_energy: float = 0.0
+    # kWh by how they were counted: power, soc (the rising level) or time.
+    sources: dict[str, float] = field(default_factory=dict)
+
+    @property
+    def charging(self) -> bool:
+        return bool(self.periods) and self.periods[-1].end is None
+
+    @property
+    def last_period_energy(self) -> float:
+        return max(0.0, self.energy - self.period_energy)
+
+    @property
+    def open_since(self) -> datetime | None:
+        """When the running period began; None when it does not charge."""
+        return self.periods[-1].start if self.charging else None
+
+    def open_period(self, now: datetime) -> bool:
+        """Charging (again); True when a period that had ended is taken up again after a real pause."""
+        if self.charging:
+            return False
+        last = self.periods[-1] if self.periods else None
+        if last is not None and last.end is not None and now - last.end <= PERIOD_JOIN:
+            # A charging sensor that flickers: the same period goes on.
+            last.end = None
+            return False
+        self.periods.append(Period(now))
+        self.period_energy = self.energy
+        if len(self.periods) > MAX_PERIODS:
+            first, second = self.periods[0], self.periods.pop(1)
+            first.end = second.end
+        return last is not None
+
+    def close_period(self, now: datetime) -> bool:
+        """Charging stopped; True when a period was running."""
+        if not self.charging:
+            return False
+        period = self.periods[-1]
+        period.end = max(now, period.start)
+        return True
+
+    def charging_minutes(self, now: datetime) -> float:
+        return sum(period.minutes(now) for period in self.periods)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -146,6 +216,9 @@ class Session:
             "energy": self.energy,
             "cost": self.cost,
             "reason": self.reason,
+            "periods": [period.to_dict() for period in self.periods],
+            "period_energy": self.period_energy,
+            "sources": dict(self.sources),
         }
 
     @classmethod
@@ -154,12 +227,26 @@ class Session:
             start = datetime.fromisoformat(str(data["start"]))
         except (KeyError, ValueError):
             return None
+        periods: list[Period] = []
+        for item in data.get("periods") or []:
+            try:
+                begin = datetime.fromisoformat(str(item["start"]))
+                end = datetime.fromisoformat(str(item["end"])) if item.get("end") else None
+            except (KeyError, TypeError, ValueError, AttributeError):
+                continue
+            periods.append(Period(begin, end))
+        sources = data.get("sources")
         return cls(
             start=start,
             start_soc=to_float(data.get("start_soc")),
             energy=float(data.get("energy") or 0.0),
             cost=float(data.get("cost") or 0.0),
             reason=str(data.get("reason") or ""),
+            periods=periods,
+            period_energy=float(data.get("period_energy") or 0.0),
+            sources={str(k): float(v) for k, v in sources.items() if isinstance(v, int | float)}
+            if isinstance(sources, Mapping)
+            else {},
         )
 
 
@@ -202,10 +289,19 @@ class Vehicle:
 
     # Control
     last_sent: str | None = None
+    last_sent_at: datetime | None = None
+    # When commands went to the car or charger in the last hour (a limit against flooding it).
+    sent_log: list[datetime] = field(default_factory=list)
     enforce_until: datetime | None = None
     control_error: str | None = None
     problem: bool = False
     verify_attempts: int = 0
+
+    # When the plug sensor last said "unplugged" (None while plugged in or unknown).
+    unplugged_at: datetime | None = None
+    # When the charging sensor last changed, and up to when energy was counted by time.
+    charging_changed_at: datetime | None = None
+    counted_at: datetime | None = None
 
     # Statistics
     session: Session | None = None
@@ -451,6 +547,11 @@ class Vehicle:
     def continuous(self) -> bool:
         return bool(self.settings.get(SET_CONTINUOUS))
 
+    @property
+    def plan_continuous(self) -> bool:
+        """Plan in one period: the setting, or a car that does not charge again after a pause."""
+        return self.continuous or self.learned.resumes is False
+
     def next_deadline(self, now: datetime) -> datetime | None:
         return next_deadline(
             now,
@@ -523,7 +624,7 @@ class Vehicle:
     # ------------------------------------------------------------------
     # Statistics
 
-    def add_energy(self, now: datetime, kwh: float, price: float | None) -> None:
+    def add_energy(self, now: datetime, kwh: float, price: float | None, source: str = "power") -> None:
         """Count energy from the grid for the running session and the month."""
         if kwh <= 0:
             return
@@ -534,8 +635,14 @@ class Vehicle:
         if self.session is not None:
             self.session.energy += kwh
             self.session.cost += cost
+            self.session.sources[source] = round(self.session.sources.get(source, 0.0) + kwh, 4)
         for key in sorted(self.months)[:-MONTHS_KEPT]:
             self.months.pop(key, None)
+
+    @property
+    def plug_sessions(self) -> bool:
+        """Whether a charge lasts until the car is unplugged (the car has a plug sensor)."""
+        return self.connected_entity is not None
 
     @staticmethod
     def soc_energy(old: float | None, new: float | None, speed: float, power: float) -> float:
@@ -547,17 +654,31 @@ class Vehicle:
             return 0.0
         return step / speed * power
 
-    def start_session(self, now: datetime, reason: str) -> None:
+    def start_session(self, now: datetime, reason: str) -> bool:
+        """The car charges: a session (and a period in it) is running.
+
+        Returns True when charging is taken up again after a pause in the same
+        session, which shows the car starts again after a pause.
+        """
         if self.session is None:
             self.session = Session(start=now, start_soc=self.current_soc, reason=reason)
+        return self.session.open_period(now)
 
-    def end_session(self, now: datetime) -> dict[str, Any] | None:
+    def stop_charging(self, now: datetime) -> bool:
+        """Charging stopped; True when a period was running."""
+        return self.session is not None and self.session.close_period(now)
+
+    def end_session(self, now: datetime, *, min_energy: float = 0.1) -> dict[str, Any] | None:
         """Close the session; returns the history entry when something was charged."""
         session, self.session = self.session, None
-        if session is None or session.energy < 0.1:
+        if session is None:
+            return None
+        session.close_period(now)
+        if session.energy < min_energy:
             return None
         month = self.months.setdefault(month_key(session.start), {"energy": 0.0, "cost": 0.0, "sessions": 0.0})
         month["sessions"] = month.get("sessions", 0.0) + 1
+        source = max(session.sources, key=lambda key: session.sources[key]) if session.sources else None
         entry = {
             "id": uuid4().hex,
             "start": session.start.isoformat(),
@@ -567,9 +688,30 @@ class Vehicle:
             "start_soc": session.start_soc,
             "end_soc": self.current_soc,
             "reason": session.reason,
+            "periods": [period.to_dict() for period in session.periods],
+            "charging_minutes": round(session.charging_minutes(now)),
+            "plugged": self.plug_sessions,
+            "source": source,
         }
         self.history = [entry, *self.history][:HISTORY_LIMIT]
         return entry
+
+    def session_is_blip(self) -> bool:
+        """A session too small to stand on its own in the history (no rise in the charge level)."""
+        session = self.session
+        if session is None or session.energy >= BLIP_KWH:
+            return False
+        soc = self.current_soc
+        rose = soc is not None and session.start_soc is not None and soc - session.start_soc >= 1
+        return not rose
+
+    def count_command(self, now: datetime) -> bool:
+        """Note a command to the car or charger; False when the hourly limit is reached."""
+        self.sent_log = [moment for moment in self.sent_log if now - moment < timedelta(hours=1)]
+        if len(self.sent_log) >= COMMANDS_PER_HOUR:
+            return False
+        self.sent_log.append(now)
+        return True
 
     def month(self, now: datetime) -> dict[str, float]:
         return self.months.get(month_key(now), {"energy": 0.0, "cost": 0.0, "sessions": 0.0})

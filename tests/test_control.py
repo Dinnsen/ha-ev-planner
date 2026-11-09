@@ -146,15 +146,24 @@ async def test_charging_that_does_not_start_is_retried_then_reported(
     start = _night(now, 2)
     await move(hass, freezer, start)
     assert switches.calls == [("turn_on", CHARGE_SWITCH)]
-    # The car says it is not charging: try once more after a few minutes ...
+    # The car says it is not charging: try again after a few minutes, and again a little later ...
     await move(hass, freezer, start + timedelta(minutes=7))
-    assert switches.calls == [("turn_on", CHARGE_SWITCH), ("turn_on", CHARGE_SWITCH)]
+    assert switches.calls == [("turn_on", CHARGE_SWITCH)] * 2
+    await move(hass, freezer, start + timedelta(minutes=13))
+    assert switches.calls == [("turn_on", CHARGE_SWITCH)] * 3
     assert hass.states.get("binary_sensor.tesla_charging_problem").state == "off"
     # ... then report it.
-    await move(hass, freezer, start + timedelta(minutes=14))
+    await move(hass, freezer, start + timedelta(minutes=25))
     assert hass.states.get("binary_sensor.tesla_charging_problem").state == "on"
     problem = [call for call in notify.calls if call.get("data", {}).get("tag") == f"evp_problem_{TESLA}"]
     assert problem and problem[0]["data"]["notification_icon"] == "mdi:ev-plug-type2"
+    assert problem[0]["message"].startswith("Tesla should be charging")
+    # While it is reported, it is tried now and then; once it charges, the report goes.
+    await move(hass, freezer, start + timedelta(minutes=56))
+    assert switches.calls == [("turn_on", CHARGE_SWITCH)] * 4
+    hass.states.async_set(CHARGING, "on")
+    await move(hass, freezer, start + timedelta(minutes=87))
+    assert hass.states.get("binary_sensor.tesla_charging_problem").state == "off"
 
 
 async def test_a_car_that_keeps_charging_on_pause_is_reported(
@@ -174,10 +183,13 @@ async def test_a_car_that_keeps_charging_on_pause_is_reported(
     await settle(hass, freezer)
     # The switch already says off, so nothing is sent yet ...
     assert switches.calls == []
-    # ... but the car still charges: pause it again, then report it.
+    # ... but the car still charges: pause it again (twice), then report it.
     await move(hass, freezer, now + timedelta(minutes=7))
     assert switches.calls == [("turn_off", CHARGE_SWITCH)]
-    await move(hass, freezer, now + timedelta(minutes=14))
+    await move(hass, freezer, now + timedelta(minutes=13))
+    assert switches.calls == [("turn_off", CHARGE_SWITCH)] * 2
+    assert hass.states.get("binary_sensor.tesla_charging_problem").state == "off"
+    await move(hass, freezer, now + timedelta(minutes=25))
     assert hass.states.get("binary_sensor.tesla_charging_problem").state == "on"
     problem = [call for call in notify.calls if call.get("data", {}).get("tag") == f"evp_problem_{TESLA}"]
     assert problem and "still charging" in problem[0]["message"]
@@ -195,8 +207,8 @@ async def test_a_full_car_that_does_not_charge_is_fine(
     )
     await settle(hass, freezer)
     assert switches.calls == [("turn_on", CHARGE_SWITCH)]
-    await move(hass, freezer, now + timedelta(minutes=7))
-    await move(hass, freezer, now + timedelta(minutes=14))
+    for minutes in (7, 13, 25):
+        await move(hass, freezer, now + timedelta(minutes=minutes))
     assert switches.calls == [("turn_on", CHARGE_SWITCH)]
     assert hass.states.get("binary_sensor.tesla_charging_problem").state == "off"
 

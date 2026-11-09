@@ -150,3 +150,26 @@ def test_learned_store_round_trip() -> None:
     assert Learned.from_dict(None) == Learned()
     assert Learned.from_dict({"speed": -1, "power": "x", "basis": [60]}) == Learned()
     assert Learned.from_dict({"basis": [60, "x"]}).basis is None
+
+
+def test_whether_the_car_charges_again_after_a_pause() -> None:
+    learned = Learned()
+    assert learned.resumes is None
+    # Once can be a car that was asleep.
+    assert learned.did_not_resume() is False
+    assert learned.resumes is None
+    assert learned.did_not_resume() is True
+    assert learned.resumes is False
+    assert learned.did_not_resume() is False  # already known
+    again = Learned.from_dict(learned.to_dict())
+    assert again.resumes is False and again.resume_failures == 3
+    learned.resumed()
+    assert learned.resumes is True and learned.resume_failures == 0
+    learned.forget_resume()
+    assert learned.resumes is None
+    # A changed setup does not forget it: it is about the car, not its figures.
+    learned.resumes = False
+    learned.check_basis((60, 11))
+    learned.check_basis((60, 10))
+    assert learned.resumes is False
+    assert Learned.from_dict({"resumes": "yes"}).resumes is None

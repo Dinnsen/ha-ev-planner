@@ -31,8 +31,11 @@ from homeassistant.util import dt as dt_util
 from .const import (
     ACTION_CHARGE_NOW,
     ACTION_FOLLOW_PLAN,
+    BLIP_HOLD,
+    BLIP_KWH,
     CALENDAR_LOOKAHEAD,
     CALENDAR_REFRESH,
+    COMMAND_REPEAT,
     CONF_CONNECTED_ENTITY,
     CONF_COUNTRY,
     CONF_CURRENCY,
@@ -57,6 +60,7 @@ from .const import (
     DEFAULT_UNPLUGGED_STATES,
     DOMAIN,
     EVENT_NOTIFICATION_ACTION,
+    FORGET_RESUME,
     ISSUE_PRICE_ENTITY_MISSING,
     LIVE_MIN_INTERVAL,
     MODE_CHARGE_NOW,
@@ -65,6 +69,7 @@ from .const import (
     MODE_SMART,
     MODES,
     PLANNING_HORIZON,
+    PROBLEM_RECHECK,
     RECALCULATE_DELAY,
     REMINDER_MAX_REPEATS,
     SET_LIVE,
@@ -85,6 +90,8 @@ from .const import (
     STORAGE_VERSION,
     SUBENTRY_CHARGER,
     SUBENTRY_VEHICLE,
+    UNPLUG_CONFIRM,
+    VERIFY_BACKOFF,
     VERIFY_DELAY,
     WEEKDAYS,
     WIDGET_MIN_INTERVAL,
@@ -253,9 +260,12 @@ class Household(DataUpdateCoordinator[None]):
         await self._async_load()
         await self._async_load_status_texts()
         hass = self.hass
+        start = dt_util.now()
         for vehicle in self.vehicles.values():
             self._read_vehicle(vehicle)
             vehicle.last_soc_seen = vehicle.soc if vehicle.soc is not None else vehicle.last_soc_seen
+            if vehicle.connected is False:
+                vehicle.unplugged_at = start
             if entities := vehicle.watched_entities():
                 self._unsub.append(
                     async_track_state_change_event(
@@ -477,7 +487,10 @@ class Household(DataUpdateCoordinator[None]):
         if vehicle.home_entity:
             vehicle.home = vehicle.read_home(self._state(vehicle.home_entity))
         if vehicle.charging_entity:
-            vehicle.charging = is_charging_state(self._state(vehicle.charging_entity))
+            charging = is_charging_state(self._state(vehicle.charging_entity))
+            if charging is not None and vehicle.charging is not None and charging != vehicle.charging:
+                vehicle.charging_changed_at = dt_util.now()
+            vehicle.charging = charging
 
     @callback
     def _handle_vehicle_state(self, vehicle_id: str, event: Event[EventStateChangedData]) -> None:
@@ -491,6 +504,10 @@ class Household(DataUpdateCoordinator[None]):
         entity_id = event.data["entity_id"]
         if entity_id == vehicle.soc_entity and vehicle.soc is not None:
             self._count_soc(vehicle, old_soc, vehicle.soc, now)
+        if vehicle.connected is False and was_connected is not False:
+            vehicle.unplugged_at = now
+        elif vehicle.connected is True:
+            vehicle.unplugged_at = None
         if vehicle.connected is False and was_connected is True and vehicle.finish_measurement(unplugged=True):
             self.async_save()
         if vehicle.connected is True and was_connected is False:
@@ -517,7 +534,7 @@ class Household(DataUpdateCoordinator[None]):
             vehicle.start_session(now, vehicle.decision.reason)
             # A car that reports its power has its energy counted by that, every minute.
             if not self._power_counted(vehicle, now):
-                vehicle.add_energy(now, kwh, current_price(self.price_slots(now), now))
+                vehicle.add_energy(now, kwh, current_price(self.price_slots(now), now), "soc")
             self.async_save()
 
     @callback
@@ -612,7 +629,7 @@ class Household(DataUpdateCoordinator[None]):
                 now,
                 deadline=vehicle.deadline,
                 earliest=vehicle.earliest_start,
-                continuous=vehicle.continuous,
+                continuous=vehicle.plan_continuous,
                 blocked=blocked,
                 reserved=self.reserved_for(vehicle),
             )
@@ -721,25 +738,66 @@ class Household(DataUpdateCoordinator[None]):
         charging = self._is_charging(vehicle) and vehicle.at_home is not False
         reading = power_value(self.hass.states.get(vehicle.power_entity)) if vehicle.power_entity else None
         vehicle.power_from_car = reading
-        hours = TICK.total_seconds() / 3600
-        vehicle.meter.tick(TICK.total_seconds(), charging, reading)
         if not charging:
+            vehicle.counted_at = None
             return
+        since = self._counted_since(vehicle)
+        vehicle.counted_at = now
+        if since is None:
+            # The first sign of charging: counted from now on.
+            return
+        seconds = min(max(0.0, (now - since).total_seconds()), 2 * TICK.total_seconds())
+        vehicle.meter.tick(seconds, True, reading)
+        self._count_energy(vehicle, now, seconds, reading)
+
+    @staticmethod
+    def _counted_since(vehicle: Vehicle) -> datetime | None:
+        """Since when the charging has not been counted: the last count, or the start of the period."""
+        opened = vehicle.session.open_since if vehicle.session is not None else None
+        moments = [moment for moment in (vehicle.counted_at, opened) if moment is not None]
+        return max(moments) if moments else None
+
+    def _count_energy(self, vehicle: Vehicle, now: datetime, seconds: float, reading: float | None) -> None:
+        """Energy for ``seconds`` of charging up to ``now``: the reported power, else the charging power.
+
+        A car with a charge level sensor but no power reading is counted by
+        its rising level instead (``_count_soc``).
+        """
+        if seconds <= 0:
+            return
+        hours = seconds / 3600
         if reading is not None and reading >= MIN_POWER_KW:
             vehicle.power_counted_at = now
-            kwh = reading * hours
+            kwh, source = reading * hours, "power"
         elif vehicle.has_soc_sensor:
             self.async_save()
             return
         else:
-            kwh = self.vehicle_power(vehicle) * hours
+            kwh, source = self.vehicle_power(vehicle) * hours, "time"
         vehicle.start_session(now, vehicle.decision.reason)
-        vehicle.add_energy(now, kwh, current_price(self.price_slots(now), now))
+        vehicle.add_energy(now, kwh, current_price(self.price_slots(now), now), source)
         if not vehicle.has_soc_sensor:
             speed, _source = vehicle.charge_speed(self.vehicle_power(vehicle))
             soc = to_float(vehicle.settings.get(SET_MANUAL_SOC)) or 0.0
             vehicle.settings[SET_MANUAL_SOC] = round(min(100.0, soc + speed * hours), 2)
         self.async_save()
+
+    def _count_tail(self, vehicle: Vehicle, now: datetime) -> None:
+        """Charging stopped: count the part since the last minute, up to when it stopped."""
+        since = self._counted_since(vehicle)
+        vehicle.counted_at = None
+        if since is None:
+            return
+        changed = vehicle.charging_changed_at
+        stop = changed if changed is not None and since < changed <= now else now
+        seconds = min(max(0.0, (stop - since).total_seconds()), TICK.total_seconds())
+        reading = vehicle.power_from_car
+        if vehicle.power_entity:
+            current = power_value(self.hass.states.get(vehicle.power_entity))
+            if current is not None and current >= MIN_POWER_KW:
+                reading = current
+        vehicle.meter.tick(seconds, True, reading)
+        self._count_energy(vehicle, stop, seconds, reading)
 
     @staticmethod
     def _power_counted(vehicle: Vehicle, now: datetime) -> bool:
@@ -820,8 +878,10 @@ class Household(DataUpdateCoordinator[None]):
             return
         now = dt_util.now()
         enforcing = vehicle.enforce_until is not None and now < vehicle.enforce_until
-        if not force and not enforcing and desired == vehicle.last_sent:
-            return
+        if not force and desired == vehicle.last_sent:
+            recent = vehicle.last_sent_at is not None and now - vehicle.last_sent_at < COMMAND_REPEAT
+            if not enforcing or recent:
+                return
         entity_id = self.control_entity(vehicle)
         if not entity_id:
             vehicle.control_error = "no_control_entity"
@@ -833,10 +893,15 @@ class Household(DataUpdateCoordinator[None]):
             vehicle.last_sent = desired
             vehicle.control_error = None
             return
+        if not vehicle.count_command(now):
+            # A car or charger that does not listen is not flooded; the check tries again later.
+            vehicle.control_error = "rate_limited"
+            return
         error = await self._async_switch(entity_id, want_on)
         vehicle.control_error = error
         if error is None:
             vehicle.last_sent = desired
+            vehicle.last_sent_at = now
             self.async_save()
 
     async def _async_apply_guest(self, now: datetime) -> None:
@@ -903,24 +968,50 @@ class Household(DataUpdateCoordinator[None]):
                 await self.notifier.clear(tag_for("problem", vehicle_id), to=vehicle.notify_to)
                 self.async_update_listeners()
             return
-        if vehicle.verify_attempts == 0:
-            vehicle.verify_attempts = 1
+        attempt = vehicle.verify_attempts
+        if attempt < len(VERIFY_BACKOFF):
+            # Not what it was told: tell it again, and look again a little later each time.
+            vehicle.verify_attempts += 1
             await self._async_apply(vehicle, force=True)
             self._verify_timers[vehicle_id] = async_call_later(
-                self.hass, VERIFY_DELAY, partial(self._verify_soon, vehicle_id)
+                self.hass, VERIFY_BACKOFF[attempt], partial(self._verify_soon, vehicle_id)
             )
             return
         if not vehicle.problem:
             vehicle.problem = True
+            key = "problem" if want else "problem_pause"
+            if want and self._after_pause(vehicle):
+                key = "problem_resume_learned" if vehicle.learned.did_not_resume() else "problem_resume"
+                self.async_save()
+                if key == "problem_resume_learned":
+                    self.schedule_recalculate(force=True)
             await self.notifier.send(
                 title=vehicle.name,
-                message=self._text("problem" if want else "problem_pause", name=vehicle.name),
+                message=self._text(key, name=vehicle.name),
                 tag=tag_for("problem", vehicle_id),
                 to=vehicle.notify_to,
                 icon="mdi:ev-plug-type2",
                 color=COLOR_ERROR,
             )
+        else:
+            # Still wrong: one more try now and then, in case the car has woken up.
+            await self._async_apply(vehicle, force=True)
+        self._verify_timers[vehicle_id] = async_call_later(
+            self.hass, PROBLEM_RECHECK, partial(self._verify_soon, vehicle_id)
+        )
         self.async_update_listeners()
+
+    @staticmethod
+    def _after_pause(vehicle: Vehicle) -> bool:
+        """Whether the car should take up a planned charge after a pause it has charged before."""
+        session = vehicle.session
+        return (
+            vehicle.decision.reason == "planned"
+            and session is not None
+            and not session.charging
+            and bool(session.periods)
+            and session.energy >= BLIP_KWH
+        )
 
     # ------------------------------------------------------------------
     # Sessions, live notifications and widgets
@@ -945,7 +1036,11 @@ class Household(DataUpdateCoordinator[None]):
             rising = vehicle.last_rise is not None and now - vehicle.last_rise < IDLE_END
             charging = rising and vehicle.connected is not False
         if charging:
-            vehicle.start_session(now, vehicle.decision.reason)
+            resumed = vehicle.start_session(now, vehicle.decision.reason)
+            if resumed and vehicle.decision.reason == "planned" and vehicle.learned.resumes is not True:
+                # Charging again after a pause in the plan: the car does that.
+                vehicle.learned.resumed()
+                self.async_save()
             if vehicle.pause_notice:
                 # Charging again: the "paused" message is no longer true.
                 vehicle.pause_notice = False
@@ -959,34 +1054,68 @@ class Household(DataUpdateCoordinator[None]):
             vehicle.live_active = False
             vehicle.live_sent_at = None
             await self.notifier.clear(tag_for("live", vehicle.vehicle_id), to=vehicle.notify_to)
-        if vehicle.session is not None:
-            entry = vehicle.end_session(now)
+        if vehicle.session is None:
+            return
+        if vehicle.session.charging:
+            self._count_tail(vehicle, now)
+            vehicle.stop_charging(now)
             # A charge that rose enough teaches the car's speed; a smaller one is measured on.
             vehicle.finish_measurement()
             self.async_save()
-            if entry and vehicle.settings.get(SET_NOTIFY_DONE) and self.notifier.enabled:
-                soc = vehicle.current_soc
-                # Stopped short of the target: say so, and when it goes on.
-                full = soc is None or soc >= vehicle.target - 1 or vehicle.connected is False
-                plan = vehicle.plan
-                resume = plan.start if plan is not None and plan.start is not None and plan.start > now else None
-                key = "done" if full else "paused_until" if resume is not None else "paused"
-                vehicle.pause_notice = key != "done"
-                await self.notifier.send(
-                    title=vehicle.name,
-                    message=self._text(
-                        key,
-                        soc=self._num(soc, 0) if soc is not None else "?",
-                        energy=self._num(entry["energy"], 1),
-                        cost=self._money(entry["cost"]),
-                        target=self._num(vehicle.target, 0),
-                        window=self._plan_windows(plan) if resume is not None and plan is not None else "-",
-                    ),
-                    tag=tag_for("done", vehicle.vehicle_id),
-                    to=vehicle.notify_to,
-                    icon="mdi:battery-charging-100",
-                    color=COLOR_CHARGE,
-                )
+            if vehicle.session.last_period_energy >= 0.1:
+                await self._async_notify_stopped(vehicle, now)
+        if self._session_over(vehicle, now):
+            blip = vehicle.session_is_blip() and not vehicle.plug_sessions
+            vehicle.end_session(now, min_energy=BLIP_KWH if blip else 0.1)
+            self.async_save()
+
+    def _session_over(self, vehicle: Vehicle, now: datetime) -> bool:
+        """Whether the stopped charge goes to the history now.
+
+        With a plug sensor: once the car has been unplugged for a little
+        while (or has left home). Without one: right away, except a blip,
+        which waits for a charge to join.
+        """
+        session = vehicle.session
+        if session is None or session.charging:
+            return False
+        if vehicle.plug_sessions:
+            if vehicle.at_home is False:
+                return True
+            unplugged = vehicle.unplugged_at
+            return vehicle.connected is False and unplugged is not None and now - unplugged >= UNPLUG_CONFIRM
+        if not vehicle.session_is_blip():
+            return True
+        last = session.periods[-1].end if session.periods else session.start
+        return last is None or now - last >= BLIP_HOLD
+
+    async def _async_notify_stopped(self, vehicle: Vehicle, now: datetime) -> None:
+        """Charging stopped: done, or paused until the plan goes on."""
+        session = vehicle.session
+        if session is None or not vehicle.settings.get(SET_NOTIFY_DONE) or not self.notifier.enabled:
+            return
+        soc = vehicle.current_soc
+        # Stopped short of the target: say so, and when it goes on.
+        full = soc is None or soc >= vehicle.target - 1 or vehicle.connected is False
+        plan = vehicle.plan
+        resume = plan.start if plan is not None and plan.start is not None and plan.start > now else None
+        key = "done" if full else "paused_until" if resume is not None else "paused"
+        vehicle.pause_notice = key != "done"
+        await self.notifier.send(
+            title=vehicle.name,
+            message=self._text(
+                key,
+                soc=self._num(soc, 0) if soc is not None else "?",
+                energy=self._num(round(session.energy, 2), 1),
+                cost=self._money(round(session.cost, 2)),
+                target=self._num(vehicle.target, 0),
+                window=self._plan_windows(plan) if resume is not None and plan is not None else "-",
+            ),
+            tag=tag_for("done", vehicle.vehicle_id),
+            to=vehicle.notify_to,
+            icon="mdi:battery-charging-100",
+            color=COLOR_CHARGE,
+        )
 
     async def _async_live(self, vehicle: Vehicle, now: datetime) -> None:
         soc = vehicle.current_soc
@@ -1227,6 +1356,10 @@ class Household(DataUpdateCoordinator[None]):
         if vehicle is None:
             raise ServiceValidationError(translation_domain=DOMAIN, translation_key="car_not_found")
         mode_changed = False
+        changes = dict(changes)
+        if changes.pop(FORGET_RESUME, False):
+            # "Try again": the car may charge again after a pause after all (e.g. a new charger).
+            vehicle.learned.forget_resume()
         for key, value in changes.items():
             if key == SET_MODE and value not in MODES:
                 raise ServiceValidationError(translation_domain=DOMAIN, translation_key="invalid_mode")
@@ -1373,6 +1506,9 @@ class Household(DataUpdateCoordinator[None]):
 TEXT_EN: dict[str, str] = {
     "problem": "{name} should be charging, but it is not. Check the car and the charger.",
     "problem_pause": "{name} should be paused, but it is still charging. Check the car and the charger.",
+    "problem_resume": "{name} did not charge again after the pause. Some cars must be plugged in again.",
+    "problem_resume_learned": "{name} did not charge again after the pause. Some cars must be plugged in again. "
+    "From now on it charges in one go.",
     "reminder_cheapest": "Cheapest price: {price}/kWh ({when}).",
     "done": "Charged to {soc} %: {energy} kWh for {cost}.",
     "paused": "Paused at {soc} % of {target} %: {energy} kWh for {cost} so far.",
@@ -1390,6 +1526,9 @@ TEXT_EN: dict[str, str] = {
 TEXT_DA: dict[str, str] = {
     "problem": "{name} skulle lade, men gør det ikke. Tjek bilen og laderen.",
     "problem_pause": "{name} skulle holde pause, men lader stadig. Tjek bilen og laderen.",
+    "problem_resume": "{name} startede ikke igen efter pausen. Nogle biler skal have stikket sat i igen.",
+    "problem_resume_learned": "{name} startede ikke igen efter pausen. Nogle biler skal have stikket sat i igen. "
+    "Fremover lader den i ét stræk.",
     "reminder_cheapest": "Billigste pris: {price}/kWh ({when}).",
     "done": "Ladet til {soc} %: {energy} kWh for {cost}.",
     "paused": "Pause ved {soc} % af {target} %: {energy} kWh for {cost} indtil nu.",

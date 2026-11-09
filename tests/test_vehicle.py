@@ -374,3 +374,107 @@ def test_an_unreadable_stored_plan_is_dropped(stored) -> None:
     from custom_components.ev_household_planner.rules import VehiclePlan
 
     assert VehiclePlan.from_dict(stored) is None
+
+
+def test_a_session_runs_in_periods_until_the_car_is_unplugged() -> None:
+    """With a plug sensor, a plan in two periods is one session with two periods."""
+    vehicle = make(connected_entity="binary_sensor.cable", soc_entity="sensor.soc")
+    assert vehicle.plug_sessions
+    vehicle.soc = 50
+    assert vehicle.start_session(NOW, "planned") is False  # the first period
+    vehicle.add_energy(NOW, 5, 0.5, "power")
+    assert vehicle.session is not None and vehicle.session.charging
+    assert vehicle.session.open_since == NOW
+    assert vehicle.stop_charging(NOW + timedelta(hours=1)) is True
+    assert vehicle.stop_charging(NOW + timedelta(hours=1)) is False
+    session = vehicle.session
+    assert session.open_since is None
+    assert session.last_period_energy == 5
+    # A charging sensor that flickers off and on: the same period goes on.
+    assert vehicle.start_session(NOW + timedelta(hours=1, minutes=1), "planned") is False
+    assert len(session.periods) == 1 and session.charging
+    vehicle.stop_charging(NOW + timedelta(hours=1, minutes=2))
+    # After a real pause: a new period, and it says the car took up charging again.
+    assert vehicle.start_session(NOW + timedelta(hours=3), "planned") is True
+    vehicle.add_energy(NOW + timedelta(hours=3), 3, 0.6, "soc")
+    assert session.last_period_energy == 3
+    vehicle.soc = 70
+    entry = vehicle.end_session(NOW + timedelta(hours=4))
+    assert entry is not None
+    assert entry["energy"] == 8 and entry["cost"] == pytest.approx(4.3)
+    assert entry["start_soc"] == 50 and entry["end_soc"] == 70
+    assert [period["start"] for period in entry["periods"]] == [
+        NOW.isoformat(),
+        (NOW + timedelta(hours=3)).isoformat(),
+    ]
+    assert entry["periods"][1]["end"] == (NOW + timedelta(hours=4)).isoformat()
+    assert entry["charging_minutes"] == 62 + 60
+    assert entry["plugged"] is True
+    assert entry["source"] == "power"
+    assert vehicle.month(NOW)["sessions"] == 1
+
+
+def test_a_session_survives_a_restart_with_its_periods() -> None:
+    vehicle = make(connected_entity="binary_sensor.cable")
+    vehicle.start_session(NOW, "planned")
+    vehicle.add_energy(NOW, 2, 1.0, "time")
+    vehicle.stop_charging(NOW + timedelta(minutes=30))
+    vehicle.start_session(NOW + timedelta(hours=2), "planned")
+    again = make(connected_entity="binary_sensor.cable")
+    again.load(vehicle.to_store())
+    assert again.session is not None
+    assert [(p.start, p.end) for p in again.session.periods] == [
+        (NOW, NOW + timedelta(minutes=30)),
+        (NOW + timedelta(hours=2), None),
+    ]
+    assert again.session.sources == {"time": 2}
+    assert again.session.period_energy == 2
+    # Unreadable periods are left out.
+    again.load({"session": {"start": NOW.isoformat(), "periods": [{"start": "bad"}, None], "sources": "x"}})
+    assert again.session is not None and again.session.periods == [] and again.session.sources == {}
+
+
+def test_many_periods_are_joined() -> None:
+    vehicle = make()
+    for hour in range(40):
+        vehicle.start_session(NOW + timedelta(hours=hour), "planned")
+        vehicle.stop_charging(NOW + timedelta(hours=hour, minutes=10))
+    assert vehicle.session is not None
+    periods = vehicle.session.periods
+    assert len(periods) == 30
+    assert periods[0].start == NOW and periods[0].end == NOW + timedelta(hours=10, minutes=10)
+    assert periods[0].minutes(NOW) == pytest.approx(610)
+
+
+def test_a_blip_is_not_a_charge_of_its_own() -> None:
+    vehicle = make(soc_entity="sensor.soc")
+    assert vehicle.session_is_blip() is False  # no session
+    vehicle.soc = 50
+    vehicle.start_session(NOW, "waiting")
+    vehicle.add_energy(NOW, 0.3, 1.0)
+    assert vehicle.session_is_blip() is True
+    vehicle.soc = 51
+    assert vehicle.session_is_blip() is False  # the level rose
+    vehicle.soc = 50
+    vehicle.add_energy(NOW, 0.3, 1.0)
+    assert vehicle.session_is_blip() is False  # enough energy
+    assert vehicle.end_session(NOW, min_energy=1.0) is None
+
+
+def test_commands_per_hour_are_limited() -> None:
+    vehicle = make()
+    for minute in range(12):
+        assert vehicle.count_command(NOW + timedelta(minutes=minute)) is True
+    assert vehicle.count_command(NOW + timedelta(minutes=30)) is False
+    # An hour after the first ones, there is room again.
+    assert vehicle.count_command(NOW + timedelta(minutes=61)) is True
+
+
+def test_a_car_that_does_not_charge_after_a_pause_plans_in_one_go() -> None:
+    vehicle = make()
+    assert vehicle.plan_continuous is False
+    vehicle.learned.resumes = False
+    assert vehicle.plan_continuous is True
+    vehicle.learned.forget_resume()
+    vehicle.settings["continuous"] = True
+    assert vehicle.plan_continuous is True

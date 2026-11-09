@@ -267,8 +267,20 @@ async def test_live_notification_while_charging_and_message_when_done(
     # Stopped short of the target, so it does not say "charged".
     assert done[0]["message"].startswith("Paused at 56 % of 80 %")
     assert hass.states.get("sensor.tesla_energy_this_month").state != "0.0"
-    history = household.runtime_data.vehicles[TESLA].history
+    # The charge goes to the history when the car is unplugged, not when it pauses.
+    tesla = household.runtime_data.vehicles[TESLA]
+    assert tesla.history == []
+    assert tesla.session is not None and not tesla.session.charging
+    hass.states.async_set(CABLE, "off")
+    await settle(hass, freezer)
+    assert tesla.history == []
+    await move(hass, freezer, dt_util.now() + timedelta(minutes=3))
+    history = tesla.history
     assert history and history[0]["energy"] > 0
+    assert history[0]["plugged"] is True
+    assert len(history[0]["periods"]) == 1
+    # Only one message for the stop: unplugging does not send another.
+    assert len([c for c in notify.calls if c.get("data", {}).get("tag") == f"evp_done_{TESLA}"]) == 1
 
 
 async def test_notification_actions_set_the_mode(

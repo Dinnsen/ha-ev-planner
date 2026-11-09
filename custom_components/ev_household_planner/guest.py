@@ -46,6 +46,7 @@ from .const import (
     GUEST_COMPLETED,
     GUEST_CONTINUOUS,
     GUEST_LIMIT,
+    GUEST_PAUSE_UNPLUG_CHECK,
     GUEST_PLANNED,
     GUEST_PLATE,
     GUEST_POWER,
@@ -186,6 +187,11 @@ class GuestSession:
         # (or until the guest car is unplugged, when the charger can tell).
         self._hold_until: datetime | None = None
         self._meter_last: float | None = None
+        # What was charged under earlier plans of the same session (planned again, or
+        # "Charge now", while it charged): it stays on the bill.
+        self._carried: list[dict[str, Any]] = []
+        # When the guest car was seen unplugged in a pause between periods.
+        self._unplugged_at: datetime | None = None
         self._boundaries: list[CALLBACK_TYPE] = []
         self._tick: CALLBACK_TYPE | None = None
         self._unplug_timer: CALLBACK_TYPE | None = None
@@ -227,6 +233,7 @@ class GuestSession:
             "release": self._release,
             "car_present": self._car_present,
             "hold_until": self._hold_until.isoformat() if self._hold_until else None,
+            "carried": self._carried,
             "history": self.history,
         }
 
@@ -252,6 +259,8 @@ class GuestSession:
         self._hold_until = dt_util.parse_datetime(hold) if isinstance(hold, str) else None
         meter = stored.get("meter_last")
         self._meter_last = float(meter) if isinstance(meter, int | float) else None
+        carried = stored.get("carried")
+        self._carried = [part for part in carried if isinstance(part, dict)] if isinstance(carried, list) else []
         self.history = [entry for entry in stored.get("history") or [] if isinstance(entry, dict)][:HISTORY_LIMIT]
 
     def _changed(self) -> None:
@@ -494,14 +503,8 @@ class GuestSession:
             self._changed()
             self.household.schedule_recalculate()
             return
-        planned = sum((seg["end"] - seg["start"]).total_seconds() for seg in self.segments)
-        kept = [{"start": seg["start"], "end": min(seg["end"], now)} for seg in self.segments if seg["start"] < now]
-        charged = sum((seg["end"] - seg["start"]).total_seconds() for seg in kept)
-        if self.plan_info is not None and planned > 0:
-            share = charged / planned
-            for key in ("energy", "battery_energy", "cost", "savings"):
-                if isinstance(value := self.plan_info.get(key), int | float):
-                    self.plan_info[key] = round(value * share, 2)
+        kept = self._scale_to(now)
+        if self.plan_info is not None:
             self.plan_info["stopped"] = True
         self._auto_recalculate = False
         self._set_plan(kept)
@@ -512,11 +515,45 @@ class GuestSession:
         self._changed()
         self.household.schedule_recalculate()
 
+    def _scale_to(self, now: datetime) -> list[Segment]:
+        """The plan's periods up to ``now``, with the planned energy and cost cut to that share."""
+        planned = sum((seg["end"] - seg["start"]).total_seconds() for seg in self.segments)
+        kept = [{"start": seg["start"], "end": min(seg["end"], now)} for seg in self.segments if seg["start"] < now]
+        charged = sum((seg["end"] - seg["start"]).total_seconds() for seg in kept)
+        if self.plan_info is not None and planned > 0:
+            share = min(1.0, charged / planned)
+            for key in ("energy", "battery_energy", "cost", "savings"):
+                if isinstance(value := self.plan_info.get(key), int | float):
+                    self.plan_info[key] = round(value * share, 2)
+        return kept
+
+    def _charging_part(self, now: datetime) -> dict[str, Any] | None:
+        """What the running session has charged so far under its plan, or None when it has not begun."""
+        if self._recorded or self.plan_info is None or self._release is not None or not self.segments:
+            return None
+        if now <= self.segments[0]["start"]:
+            return None
+        info = dict(self.plan_info)
+        self.plan_info = info
+        kept = self._scale_to(now)
+        return {
+            "periods": serialize_segments(kept),
+            **{key: info.get(key) for key in ("energy", "battery_energy", "cost", "savings")},
+        }
+
     def _apply(self, plan: Plan, now: datetime, *, new_session: bool) -> None:
-        """Store a new plan; a new session first records the previous one."""
+        """Store a new plan; a new session first records the previous one.
+
+        A plan made while the guest's charge is running (planned again, or
+        "Charge now") keeps the session: what was charged so far stays on the
+        bill, and the energy meter counts on.
+        """
         if new_session:
-            self._maybe_record(now, ended=True)
-            self._start_session()
+            if (part := self._charging_part(now)) is not None:
+                self._carried.append(part)
+            else:
+                self._maybe_record(now, ended=True)
+                self._start_session()
         visible = self.household.visible_slots(self.household.price_slots(now))
         self.results.update(
             {
@@ -562,6 +599,8 @@ class GuestSession:
         self._recorded = False
         self._release = None
         self._hold_until = None
+        self._carried = []
+        self._unplugged_at = None
         if self.energy_entity:
             self.results["measured_energy"] = 0.0
             self.results["measured_cost"] = 0.0
@@ -579,6 +618,7 @@ class GuestSession:
             self.results[key] = None
         self.plan_info = None
         self._recorded = True
+        self._carried = []
 
     async def async_new_guest(self) -> None:
         """Forget the guest and the plan; a finished plan goes to the history."""
@@ -717,6 +757,7 @@ class GuestSession:
         """The charger's car connected sensor changed."""
         if connected is True:
             self._cancel_unplug_timer()
+            self._unplugged_at = None
             self._car_present = True
         elif connected is False:
             now = dt_util.now()
@@ -727,8 +768,20 @@ class GuestSession:
                 self._handle_unplugged(now)
                 return
             elif self._unplug_timer is None:
-                self._unplug_timer = async_call_later(self.hass, UNPLUG_DELAY, self._handle_unplugged)
+                self._unplugged_at = now
+                following = self._next_start(now)
+                if following is not None and not self.is_charge_now(now):
+                    # In a pause: some chargers say "no car" while charging is paused.
+                    # The car is gone only if it is still missing when charging should go on.
+                    delay = following + GUEST_PAUSE_UNPLUG_CHECK - now
+                else:
+                    delay = UNPLUG_DELAY
+                self._unplug_timer = async_call_later(self.hass, delay, self._handle_unplugged)
         self._changed()
+
+    def _next_start(self, now: datetime) -> datetime | None:
+        """When the next period of the plan begins, if one is still to come."""
+        return next((seg["start"] for seg in self.segments if seg["start"] > now), None)
 
     @callback
     def _handle_unplugged(self, now: datetime) -> None:
@@ -738,12 +791,23 @@ class GuestSession:
         active = self.session_active(now)
         self._car_present = False
         if active:
-            self._release = {"at": now.isoformat(), "reason": RELEASE_UNPLUGGED}
+            # Gone since it was first seen unplugged: that is where the charge ended.
+            gone = min(self._unplugged_at or now, now)
+            self._unplugged_at = None
+            if self.measured_energy is None:
+                # No meter: the bill is the share of the plan that was charged.
+                self._set_plan(self._scale_to(gone) or self.segments)
+            self._release = {"at": gone.isoformat(), "reason": RELEASE_UNPLUGGED}
             self._auto_recalculate = False
-            self._maybe_record(now, released=True)
+            self._maybe_record(gone, released=True)
             self._stop_tick()
         self._changed()
         self.household.schedule_recalculate()
+
+    @property
+    def measured_energy(self) -> float | None:
+        value = self.results.get("measured_energy")
+        return float(value) if self.energy_entity and isinstance(value, int | float) else None
 
     def _cancel_unplug_timer(self) -> None:
         if self._unplug_timer is not None:
@@ -805,14 +869,25 @@ class GuestSession:
             end = min(now, end)
         elif now < end + (timedelta() if ended else METER_GRACE):
             return
+        periods = [period for part in self._carried for period in part.get("periods") or []]
+        until = end
+        periods += serialize_segments(
+            [{"start": seg["start"], "end": min(seg["end"], until)} for seg in self.segments if seg["start"] < until]
+        )
         entry = {
             **self.plan_info,
             "id": uuid4().hex,
-            "start": self.segments[0]["start"].isoformat(),
+            "start": periods[0]["start"] if periods else self.segments[0]["start"].isoformat(),
             "end": end.isoformat(),
+            "periods": periods,
             "measured_energy": self.results.get("measured_energy"),
             "measured_cost": self.results.get("measured_cost"),
         }
+        for key in ("energy", "battery_energy", "cost", "savings"):
+            values = [part.get(key) for part in self._carried] + [entry.get(key)]
+            numbers = [float(value) for value in values if isinstance(value, int | float)]
+            if self._carried and len(numbers) == len(values):
+                entry[key] = round(sum(numbers), 2)
         self.history = [entry, *self.history][:HISTORY_LIMIT]
         self._recorded = True
         self.household.async_save()
