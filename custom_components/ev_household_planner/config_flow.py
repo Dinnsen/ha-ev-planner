@@ -353,7 +353,7 @@ class EVPlannerOptionsFlow(OptionsFlow):
                 ),
                 vol.Optional(CONF_NOTIFY, default=list(options.get(CONF_NOTIFY) or [])): _notify_selector(self.hass),
                 vol.Optional("update_widgets", default=bool(options.get("update_widgets", False))): bool,
-                vol.Required(SECTION_SUPPLY): section(
+                vol.Optional(SECTION_SUPPLY): section(
                     vol.Schema(
                         {
                             vol.Optional(CONF_SUPPLY_LIMIT, default=options.get(CONF_SUPPLY_LIMIT) or 0): AMPS_SELECTOR,

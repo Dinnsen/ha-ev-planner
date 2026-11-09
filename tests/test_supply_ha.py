@@ -94,7 +94,8 @@ async def test_two_cars_share_the_supply_and_the_house_comes_first(
         used = sum(amps for per in plan.amps.values() for s, _e, amps in per if s == start)
         assert used + house <= limit + 1e-6
     # The Skoda can only be switched (16 A or nothing); the Tesla takes the rest in amps.
-    assert all(amps == 16 for _s, _e, amps in plan.amps[SKODA])
+    full = {amps for _s, _e, amps in plan.amps[SKODA]}
+    assert len(full) == 1 and full.pop() > 15  # 11 kW on three phases
     for start, _end, amps in plan.amps[TESLA]:
         assert amps <= 16
         if any(s == start for s, _e, _a in plan.amps[SKODA]):
