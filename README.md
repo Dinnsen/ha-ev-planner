@@ -103,12 +103,15 @@ Run both for a while with **who starts and stops charging** set to *neither* in 
 
 ## The panel
 
-**EV Planner** in the sidebar has four tabs:
+**EV Planner** in the sidebar has five tabs:
 
-- **Cars:** a card per car with a small price clock, the charge level and target, the status and the mode. Tap a car for its page: the large price clock, the plan, the battery with handles, ready by and the weekday schedule, the rules, notifications and the next two days' prices.
+- **Cars:** a card per car with a small price clock, the charge level and target, the status and the mode. Tap a car for its page in three views: *Now* (the large price clock, the plan, the battery with handles, ready by and the weekday schedule, and the next two days' prices), *Rules* (tiles for price, battery, time, messages and more, each opening as a sheet) and *History* (what EV Planner has learned about the car, and its charges).
+- **Home:** the house as a clay model with the cars, chargers, sun, battery and heat pump it has, by day and by night; what the home draws right now, tonight's plans over the prices, today's use of the whole house, and the chargers.
 - **Guest:** the guest car, as in EV Guest.
-- **History:** per car and month, and the guest history with bills.
-- **Settings:** billing guests, data sources, and the home-screen app (`/ev_planner_app/app.html`).
+- **History:** by day, week, month or year, for all, one car, one charger, the guests or the whole house; and *Learned*: what EV Planner has learned.
+- **Settings:** billing guests, notifications, house and supply, data sources, and the home-screen app (`/ev_planner_app/app.html`).
+
+The Home tab and the whole house's history read the Energy dashboard by themselves: the grid's power and energy, the sun, the home battery and the devices with their power.
 
 Each page has its own address, so you can link straight to it: `/ev-planner/car/<id>`, `/ev-planner/charger/<id>`, `/ev-planner/guest`, `/ev-planner/history` and `/ev-planner/settings`. A charger's page (tap its name on the overview) shows what it is doing, who is next and the cars that use it. In the home-screen app the same pages open with `app.html#car/<id>` and so on.
 
@@ -273,6 +276,10 @@ Remove EV Planner under **Settings → Devices & services**. Its settings, plans
 Several cars behind one fuse, or two chargers on one circuit: in the options, under *Shared supply*, set the most the house may draw per phase (for example 23 A on a 25 A supply), the phases, and a meter if you have one. EV Planner then plans the plugged-in cars together under that limit, cheapest slots first. The house comes first (learned from the meter, or a fixed reserve), every car first gets what it must have by its ready-by time, and then they fill up by priority. A car or charger with a current setting gets its share in amps; one that can only be switched on and off takes its turn. Plans aim to be done an hour early. EV Planner does not protect the fuse; keep your charger's own load balancing on.
 
 An Easee charger needs no number: pick any sensor of the charger as its charging current, and EV Planner uses Easee's own action (with a 30-minute time limit, renewed, so the charger falls back by itself if Home Assistant stops). Without an Equalizer, you can turn on the *guard*: it watches the meter and turns the cars down at once when the house needs more, and puts them at the least current if the meter stops reporting. It reacts in seconds, not milliseconds, and is not a fuse. The *Home* tab in the panel shows the house, the cars and who gets the current through the night.
+
+### Weather and heat pump (beta)
+
+Under *Shared supply* you can also pick a weather entity: EV Planner learns how much more the house draws when it is colder and counts on the night's forecast. A heat pump's power is shown in the Home tab; with a switch that holds it back (SG Ready or a blocking contact, on = held back), the guard holds it back for at most 15 minutes, twice a night, before it stops a car.
 
 ## The sun and the home battery (beta)
 
