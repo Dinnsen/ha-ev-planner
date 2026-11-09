@@ -310,6 +310,14 @@ async def _run_one(
         if (started := _parse(entry.get("start"))) is not None and started >= since
     ]
     result.entries = len(entries)
+    for entry in entries:
+        periods = ", ".join(
+            f"{p.get('start', '')[11:16]}-{str(p.get('end') or '')[11:16]}" for p in entry.get("periods", [])
+        )
+        result.history_log.append(
+            f"{str(entry.get('start'))[11:16]}-{str(entry.get('end'))[11:16]} {entry.get('energy')} kWh"
+            f" ({entry.get('source', '?')}, {entry.get('charging_minutes', '?')} min; {periods})"
+        )
     result.counted = round(sum(float(entry.get("energy") or 0) for entry in entries), 3)
     return result
 
