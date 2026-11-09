@@ -273,13 +273,18 @@ async def _run_one(
 
         windows = _windows(household.vehicles[VEHICLE])
         if run.plugged(moment) and run.soc < night.goal() - 1:
-            if previous and _future(previous, moment) != _future(windows, moment):
+            first = not previous and not result.changes_log and bool(windows)
+            changed = bool(previous) and _future(previous, moment) != _future(windows, moment)
+            if changed:
                 result.plan_changes += 1
-                if len(result.changes_log) < 12:
-                    shown = ", ".join(
-                        f"{night.local(a):%H:%M}-{night.local(b):%H:%M}" for a, b in _future(windows, moment)
-                    )
-                    result.changes_log.append(f"{night.local(moment):%H:%M} {round(run.soc, 1)} %: {shown or 'none'}")
+            if (first or changed) and len(result.changes_log) < 12:
+                shown = ", ".join(
+                    f"{night.local(a):%d %H:%M}-{night.local(b):%H:%M}" for a, b in _future(windows, moment)
+                )
+                label = "plan" if first else "change"
+                result.changes_log.append(
+                    f"{label} {night.local(moment):%H:%M} at {round(run.soc, 1)} %: {shown or 'none'}"
+                )
             # A plan that is charging now goes on charging.
             if _covers(previous, moment - MINUTE) and _covers(previous, moment) and not _covers(windows, moment):
                 result.moved.append(moment)
@@ -287,7 +292,8 @@ async def _run_one(
 
     if deadline is not None and result.soc_at_deadline is None and deadline >= night.end:
         result.soc_at_deadline = round(run.soc, 2)
-    if result.soc_at_deadline is not None:
+    if result.soc_at_deadline is not None and deadline is not None and car.unplug >= deadline:
+        # Only when the car was still there at the ready-by time.
         result.on_time = result.soc_at_deadline >= night.goal() - 0.5
 
     soc_from = car.soc

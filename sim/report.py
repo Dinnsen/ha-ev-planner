@@ -81,12 +81,24 @@ def report(files: list[Path]) -> str:
                     cells.append("-")
                     continue
                 ready = {True: "ready", False: "NOT ready", None: "-"}[row["on_time"]]
-                cell = f"{ready}, {_fmt(row['over'], 1, ' %')} dearer, {row['commands']} cmd, {row['plan_changes']} changes"
+                cell = (
+                    f"{ready}, {_fmt(row['over'], 1, ' %')} dearer, {row['commands']} cmd, "
+                    f"{row['plan_changes']} changes, energy {_fmt(row['energy_error'], 1, ' %')}"
+                )
                 if row["violations"]:
                     cell += " ⚠ " + "; ".join(row["violations"])
                 cells.append(cell)
             lines.append(f"| {name} | " + " | ".join(cells) + " |")
         lines.append("")
+        lines += ["<details><summary>Plans and changes, night by night</summary>", ""]
+        for version, rows in sets:
+            lines.append(f"**{version}**")
+            lines.append("")
+            for row in rows:
+                if row.get("changes_log"):
+                    lines.append(f"- {row['name']}: " + " / ".join(row["changes_log"]))
+            lines.append("")
+        lines += ["</details>", ""]
     return "\n".join(lines)
 
 
