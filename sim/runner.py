@@ -244,10 +244,20 @@ async def _run_one(
         result.slack_minutes = slack.total_seconds() / 60
     energy_in_window, cost_in_window, soc_at_window_end = 0.0, 0.0, car.soc
     previous: list[tuple[datetime, datetime]] = []
+    had_plan = False
+    # Minutes charged in the cheapest slot before the ready-by time, for the summer time rule.
+    cheapest_slot = min(
+        ((s, p) for s, p in night.prices if s >= car.plug_in and s + night.step <= window_end),
+        key=lambda slot: slot[1],
+        default=None,
+    )
+    result.cheapest_slot_minutes = 0
     moment = night.start
     while moment < night.end:
         run.now = moment
         wall = run.advance(moment)
+        if wall > 0 and cheapest_slot is not None and cheapest_slot[0] <= moment < cheapest_slot[0] + night.step:
+            result.cheapest_slot_minutes += 1
         price = night.price_at(moment) or 0.0
         result.energy += wall
         result.cost += wall * price
@@ -272,9 +282,11 @@ async def _run_one(
         await _tick(hass, freezer, moment + timedelta(seconds=3))
 
         windows = _windows(household.vehicles[VEHICLE])
-        if run.plugged(moment) and run.soc < night.goal() - 1:
-            first = not previous and not result.changes_log and bool(windows)
-            changed = bool(previous) and _future(previous, moment) != _future(windows, moment)
+        # Until the ready-by time (or the car leaves): the next night's plan is not a change.
+        if run.plugged(moment) and run.soc < night.goal() - 1 and moment < window_end:
+            first = not had_plan and bool(windows)
+            changed = had_plan and _future(previous, moment) != _future(windows, moment)
+            had_plan = had_plan or bool(windows)
             if changed:
                 result.plan_changes += 1
             if (first or changed) and len(result.changes_log) < 12:
@@ -358,9 +370,16 @@ def _check(result: Result, night: Night, run: Run, moved: list[datetime]) -> Non
         result.violations.append(f"{result.entries} history entries for one plug-in")
     if result.counted is not None and result.counted < 0:
         result.violations.append("negative energy in the history")
-    # 5. Summer time: the cheapest hours are the right hours, and the earliest start holds on the wall clock.
-    if "dst" in night.tags and result.over is not None and result.over > 5:
-        result.violations.append(f"summer time: {result.over:.1f} % dearer than the cheapest hours")
+    # 5. Summer time: the cheapest hour is the right hour (also the one that comes twice, or is skipped),
+    #    the energy is counted right, and the earliest start holds on the wall clock.
+    if "dst" in night.tags:
+        slot_minutes = night.step.total_seconds() / 60
+        if result.cheapest_slot_minutes < slot_minutes - 5 and result.energy > 0.5:
+            result.violations.append(
+                f"summer time: charged {result.cheapest_slot_minutes} of {slot_minutes:.0f} minutes in the cheapest slot"
+            )
+        if result.energy_error is not None and abs(result.energy_error) > 5:
+            result.violations.append(f"summer time: the energy is {result.energy_error:+.0f} % off")
     if night.settings.get("use_earliest_start") and run.first_charge is not None:
         earliest = time.fromisoformat(str(night.settings["earliest_start"]))
         started = night.local(run.first_charge)

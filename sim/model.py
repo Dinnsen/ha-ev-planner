@@ -250,6 +250,7 @@ class Result:
     history_log: list[str] = field(default_factory=list)  # EV Planner's history entries for the night
     violations: list[str] = field(default_factory=list)
     moved: list[datetime] = field(default_factory=list)  # minutes a charging plan stopped covering
+    cheapest_slot_minutes: int = 0  # minutes charged in the night's cheapest slot
 
     @property
     def over(self) -> float | None:
