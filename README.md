@@ -31,20 +31,26 @@ EV Planner is built from [EV Guest](https://github.com/Dinnsen/EV-Guest) (the pl
 - **You choose who starts and stops charging, per car:** the car (its charge switch), the charger (its switch), or neither – then EV Planner plans, reminds and publishes a *Charger control* sensor for your own automations.
 - **The cheapest plan** from 15-minute or hourly prices: in whole quarters of an hour (like EV Smart Charging), one period or the cheapest periods, with cost and savings. A car stops by itself at its limit, so the quarter it does not need in full costs nothing.
 - **Learns how fast each car charges.** Plans are made from the charging speed in % per hour that the car itself shows, so a car that draws less than its setting, or a battery that is not the size you expected, still gets a plan that is long enough. Nothing to set: no efficiency, no guessing.
-- **Ready by** a time, per weekday, or by a trip in a calendar ("Aarhus 90 %" charges to 90 %).
+- **Ready by** a time, per weekday (with its own target if you like, e.g. Friday 100 %), or by a trip in a calendar ("Aarhus 90 %" charges to 90 %).
+- **Learns the car's charging curve:** many cars charge slower near the top, so the speed is learned per band of the charge level (0–50, 50–80, 80–90, 90–100 %), and a plan to 100 % gives the last per cent the time they take. A morning the car was not quite ready makes the next plans finish a little earlier (in quarters, at most an hour); three mornings on time bring it back.
+- **Prefer early:** the plan that is done soonest while it costs at most a few øre per kWh more than the cheapest – prices that are almost the same do not push the charge late into the night.
+- **Top up before departure:** charge to e.g. 80 % at the cheapest prices and the rest just before the ready-by time, so the car does not stand at 100 % all night.
+- **A plan that does not move for a few øre:** a new price or reading keeps the plan from before unless a new one saves more than 0.50 (or 2 %).
 - **Rules from EV Smart Charging:** minimum level whatever the price, price ceiling, charge at a low price, charge at a low battery, opportunistic charging (lower the ceiling when cheap prices are coming, or follow the last known price), earliest start, keep the charger on after the plan (precondition from the grid).
 - **Finish in one go:** when charging on now, or in one period, costs at most a set amount more per kWh than the cheapest plan (e.g. 0.05), the car is charged in one go instead of stopping at dawn and finishing the next night for a few øre less. Another car plugged in on the same charger keeps the hours it has planned; a car that is not plugged in reserves nothing, since on a charger with one cable the car that is plugged in charges in its own plan.
 - **Modes:** Smart, Charge now (back to Smart when full or unplugged), Pause, Off.
-- **Checks that charging started:** tries once more, then tells you.
-- **Plug-in reminder** with *Charge now* and *Follow the plan* buttons, **live notifications** while charging (Live Activities on iPhone, Live Updates on Android) and a **message when charged** – all with icons.
-- **The guest car** exactly as in EV Guest: license plate lookup, price clock, bill and history.
-- **Statistics:** energy, cost and sessions per car and month.
-- **Panel** in the sidebar and as an app on the home screen, in English and Danish, light and dark.
+- **Checks that charging started:** tries again after 6 and 12 minutes, then tells you, and keeps trying now and then. At most 12 commands per car per hour. A car that does not charge again after a pause in the plan (some cars must be plugged in again) is learned, and then charges in one go.
+- **Without prices, still ready:** waiting for prices, a car with a ready-by time has a plan that ends just before it, in case the prices never come. Real prices replace it.
+- **Plug-in reminder** with *Charge now* and *Follow the plan* buttons, **live notifications** while charging (Live Activities on iPhone, Live Updates on Android), a **message when charged**, and a **morning receipt** at the ready-by time with a warning when the car cannot make it – all with icons.
+- **The guest car** exactly as in EV Guest: license plate lookup, price clock, bill and history. A plan in two periods is billed for both, and planning again while the guest charges keeps what was charged.
+- **History per plug-in:** with a plug sensor, a charge goes to the history when the car is unplugged – one entry with its charging periods, not one per pause.
+- **Statistics:** energy, cost and charges per car and month.
+- **Panel** in the sidebar and as an app on the home screen, in English and Danish, light and dark. Each car's page says at a glance when it is ready, to what, for how much and when it charges, and why it does what it does now; the price graph shows when it really charged. *Simple*, *Smart* and *Expert* show fewer or more choices.
 
 ## Requirements
 
 - Home Assistant 2026.3 or newer (live notifications: 2026.7 or newer and the companion app).
-- A price sensor with today's and tomorrow's prices, e.g. **Energi Data Service** or **Nord Pool** (as in EV Guest).
+- A price sensor with today's and tomorrow's prices: **Energi Data Service**, **Nord Pool**, **ENTSO-e**, **GE-Spot**, or any sensor with a list of prices (`prices`, `data`, `today`/`tomorrow`) whose items have a start (`start`, `time`, `hour`, `start_time`, `startsAt`, `datetime`) and a price (`price`, `value`, `total`, `price_ct_per_kwh`). For Home Assistant's own Nord Pool integration, make a template sensor with such a list, as for EV Smart Charging.
 - For each car, whatever Home Assistant knows about it: charge level, charge limit, plugged in, at home, charging, and a charge switch. All are optional.
 
 ## Installation
@@ -164,7 +170,8 @@ Choose phones under **Configure**. Then, per car:
 - **Plug-in reminder** (`switch.<car>_plug_in_reminder`): at the reminder time, when the car is home, not plugged in and below the level, with tonight's cheapest window and buttons *Charge now* and *Follow the plan*.
 - **Live notification** (`switch.<car>_live_notification`): while the car charges, a Live Activity (iPhone, iOS 17.2+) or Live Update (Android) with the charge level, the target and a countdown to the end of the charging period. It ends when charging stops. iOS ends Live Activities after 8 hours and may delay frequent updates; EV Planner updates at most every 5 minutes.
 - **Message when charged** (`switch.<car>_notify_when_charged`): what was charged and what it cost.
-- A message when a car should charge but does not, even after one more try.
+- **Morning receipt and warnings** (`switch.<car>_morning_receipt_and_warnings`, on by default): at the ready-by time, the level the car got to, what it cost and whether it was on time; and once per ready-by time a warning (with *Charge now*) when a plugged-in car cannot reach its target in time.
+- A message when a car should charge but does not, even after trying again.
 
 Notify actions that are not the companion app get the text only.
 
@@ -224,7 +231,7 @@ Cars that Home Assistant cannot start or stop (choose **neither**) still get pla
 
 A car without a ready-by time looks at most 24 hours ahead, and price forecasts (such as Energi Data Service's week ahead) are never used for opportunistic charging.
 
-Every car is planned again when prices, its charge level, target, connection or settings change, and when a plan ends. A plan that is charging right now is kept until its period ends, so it never moves away under the car. Cars on the same charger are planned in order of their deadline; the periods of the first are not used by the next, and *Finish in one go* never takes the planned periods of another car that is plugged in. Each minute EV Planner decides what each car should do now – charge for a low level or a low price, follow the plan, keep the charger on, or pause – and switches only when that changes, or for a few minutes after the car is plugged in (many cars start charging by themselves). A charge you start yourself is left alone until the plan changes.
+Every car is planned again when prices, its charge level, target, connection or settings change, and when a plan ends. A plan that is charging right now is kept until its period ends, so it never moves away under the car; any other plan is kept when a new one would save at most 0.50 (or 2 %), unless a setting changed. Cars on the same charger are planned in order of their deadline; the periods of the first are not used by the next, and *Finish in one go* never takes the planned periods of another car that is plugged in. Each minute EV Planner decides what each car should do now – charge for a low level or a low price, follow the plan, keep the charger on, or pause – and switches only when that changes, or for a few minutes after the car is plugged in (many cars start charging by themselves). A charge you start yourself is left alone until the plan changes.
 
 ### Charging speed
 
@@ -234,16 +241,22 @@ The charging time comes from the charging speed in % per hour, the way EV Smart 
 2. **Learned:** after a charge in which the level rose at least **30 %**, the speed it showed is learned. It is measured over the time the car actually charged, so a plan in several periods counts as one charge. A new charge moves the learned speed 30 % of the way, so one odd night does not take over.
 3. **While charging:** once the charge going on has risen 30 %, the plan follows the speed it shows, so a car charged with another current is followed the same night.
 
+4. **Per band:** the speed is also learned in each band of the charge level (0–50, 50–80, 80–90 and 90–100 %) from a rise of at least 5 % inside the band, and the plan uses a band's own speed there. A car that slows down above 80 % then gets the time it needs.
+
 A rise of 30 % or more is needed because charge levels come in steps: over a few percent, a car that reports whole percent can be far off. Changing the car's battery capacity or charging power in its setup starts learning over. The status sensor shows the speed and where it comes from (`charge_speed`, `charge_speed_source`: `estimated`, `imported`, `learned` or `measuring`, and `charge_speed_learned_from`).
 
 The energy and cost are the charging time at the charging power – what the car draws, losses included. With the car's charging power sensor, the power is learned too (`charge_power`, `charge_power_source`), and the energy per month is counted from that sensor. Without it, the energy comes from the rising charge level, and without a charge level sensor from the charging time; the level you set yourself is then moved forward at the charging speed.
+
+### History
+
+With a plug sensor (`connected_entity`), a charge goes to the history when the car has been unplugged for two minutes (or has left home): one entry from the first charging to the unplug, with its charging periods and charging time. A plan in two periods, and the few minutes a car charges by itself when it is plugged in, are part of the same entry. Without a plug sensor, an entry ends when charging stops; a blip of less than 0.5 kWh without a rise in the level is joined to the next charge within six hours, or left out. Energy is counted for the seconds the car charged.
 
 ## Known limitations
 
 - A car with neither control is only planned: it charges whenever it is plugged in unless the car itself waits.
 - Prices for tomorrow usually arrive early in the afternoon; until then a plan for tomorrow morning shows *Waiting for prices*.
 - Two cars on one charger with no *plugged in* sensors cannot be told apart; both are planned.
-- License plate lookup is Danish (MotorAPI).
+- License plate lookup is Danish (MotorAPI). Elsewhere, choose *Other country* in the setup; the guest's battery and charging power are then entered by hand.
 
 ## Troubleshooting
 
