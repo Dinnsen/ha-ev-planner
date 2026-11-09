@@ -19,6 +19,7 @@ All notable changes to EV Planner. The version is the one in `custom_components/
 - **Panel:** a line to read at a glance, *why* the car does what it does now, when it really charged in the price graph, *Simple / Smart / Expert*, the learned curve, margin and last morning, and periods in the history.
 
 ### Changed
+- **The first night:** before a car has shown its speed, the estimate leaves 10 % for charging losses (11 kW and 77 kWh is 12.9 %/h, was 14.3 %/h), so a first night no longer ends a few percent short.
 - **A plan does not move for a few øre:** a new price or reading keeps the plan from before unless a new one saves more than 0.50 (or 2 %).
 - **Commands that do not take** are sent again after 6 and 12 minutes before a problem is reported, then now and then; at most 12 per car per hour.
 - **A car that does not charge again after a pause** in its plan is learned (the second time) and then charges in one go; *Try again* on its page forgets it.
@@ -28,6 +29,7 @@ All notable changes to EV Planner. The version is the one in `custom_components/
 - **Energy of a short charge:** a charge of a few seconds no longer counts a whole minute.
 - **The night the clocks go back:** a charge through the repeated hour is counted in full (time that passed is measured in UTC).
 - **A charge without prices holds still:** its end no longer moves a few minutes every time the charge level rises.
+- **A plug that blinks while the car charges** (reads unplugged for a moment) no longer drops the plan and pauses the charge: while charging, an unplug counts after two minutes.
 
 ### Development
 - **A simulator** (`sim/`) runs nights through EV Planner minute by minute against a simulated car (charging curve, sensors that drop out, a car that does not start again after a pause), checks the rules that must never break, and compares with 2.0.1 on every push.
