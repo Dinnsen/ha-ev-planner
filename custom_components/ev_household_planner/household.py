@@ -104,7 +104,17 @@ from .learning import MIN_POWER_KW
 from .notifications import COLOR_CHARGE, COLOR_ERROR, COLOR_WARN, Notifier, tag_for
 from .planner import PlanError, PriceSlot, Segment, segments_to_schedule
 from .prices import extract_price_slots
-from .rules import Car, current_price, decide, fallback_plan, in_segments, keep_previous, parse_hhmm, plan_vehicle
+from .rules import (
+    Car,
+    current_price,
+    decide,
+    fallback_plan,
+    in_segments,
+    keep_fallback,
+    keep_previous,
+    parse_hhmm,
+    plan_vehicle,
+)
 from .vehicle import Vehicle, elapsed, is_charging_state, to_float
 
 _LOGGER = logging.getLogger(__name__)
@@ -655,12 +665,13 @@ class Household(DataUpdateCoordinator[None]):
             vehicle.plan_done = False
             self._note_night(vehicle, now)
         except PlanError as err:
-            if vehicle.plan is not None and vehicle.plan.end is not None and vehicle.plan.end <= now:
+            old = vehicle.plan
+            if old is not None and old.end is not None and old.end <= now:
                 vehicle.plan_done = True
             vehicle.plan, vehicle.plan_error = None, err.key
             if err.key in ("no_price_data", "not_enough_prices"):
                 # Waiting for prices: in case they never come, charge just in time anyway.
-                vehicle.plan = fallback_plan(car, now, aim)
+                vehicle.plan = keep_fallback(old, fallback_plan(car, now, aim), now)
         vehicle.planned_at = now
 
     @staticmethod
