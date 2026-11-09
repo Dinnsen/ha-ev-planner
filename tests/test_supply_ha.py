@@ -143,3 +143,15 @@ async def test_without_a_limit_nothing_changes(
     assert household.supply.vehicle_amps(TESLA, now) is None
     assert household.supply.current_entity(household.vehicles[TESLA]) == AMPS
     assert CARPORT in household.chargers
+
+
+async def test_a_car_at_its_target_leaves_the_supply_to_the_other(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass, soc=80, limit=80)
+    _skoda(hass, soc=20)
+    entry = _entry()
+    await _setup(hass, freezer, entry)
+    plan = entry.runtime_data.supply.plan
+    assert plan is not None and TESLA not in plan.amps and plan.amps[SKODA]

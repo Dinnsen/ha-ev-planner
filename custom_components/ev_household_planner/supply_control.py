@@ -32,7 +32,7 @@ from .const import (
     SET_MUST_SOC,
     SET_PRIORITY,
 )
-from .planner import PriceSlot, charge_need, price_at
+from .planner import PlanError, PriceSlot, charge_need, price_at
 from .supply import BUFFER, HouseForecast, SharedCar, SupplyPlan, amps_for, cheap_hours, kw, plan_supply
 from .vehicle import elapsed, to_float
 
@@ -149,15 +149,21 @@ class SupplyControl:
         power = self.household.vehicle_power(vehicle)
         speed = vehicle.charge_speed(power)[0]
         curve = vehicle.learned.speeds()
-        want = charge_need(soc, vehicle.target, vehicle.capacity, power, speed=speed, curve=curve).grid_kwh
+
+        def grid_kwh(level: float) -> float:
+            """Energy from the wall to ``level`` (0 when the car is there already)."""
+            if level <= soc:
+                return 0.0
+            try:
+                return charge_need(soc, level, vehicle.capacity, power, speed=speed, curve=curve).grid_kwh
+            except PlanError:
+                return 0.0
+
+        want = grid_kwh(vehicle.target)
+        if want <= 0:
+            return None
         must_soc = to_float(vehicle.settings.get(SET_MUST_SOC)) or 0.0
-        must = (
-            want
-            if must_soc <= 0
-            else charge_need(
-                soc, min(must_soc, vehicle.target), vehicle.capacity, power, speed=speed, curve=curve
-            ).grid_kwh
-        )
+        must = want if must_soc <= 0 else grid_kwh(min(must_soc, vehicle.target))
         deadline = vehicle.deadline
         if deadline is not None and elapsed(deadline - BUFFER, now) > timedelta(0):
             deadline -= BUFFER

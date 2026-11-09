@@ -268,6 +268,10 @@ With a plug sensor (`connected_entity`), a charge goes to the history when the c
 
 Remove EV Planner under **Settings → Devices & services**. Its settings, plans and history are deleted with it. Remove it in the Marketplace and restart Home Assistant. Your cars and chargers are not changed.
 
+## Shared supply (beta)
+
+Several cars behind one fuse, or two chargers on one circuit: in the options, under *Shared supply*, set the most the house may draw per phase (for example 23 A on a 25 A supply), the phases, and a meter if you have one. EV Planner then plans the plugged-in cars together under that limit, cheapest slots first. The house comes first (learned from the meter, or a fixed reserve), every car first gets what it must have by its ready-by time, and then they fill up by priority. A car or charger with a current setting gets its share in amps; one that can only be switched on and off takes its turn. Plans aim to be done an hour early. EV Planner does not protect the fuse; keep your charger's own load balancing on.
+
 ## Thanks
 
 To [EV Smart Charging](https://github.com/jonasbkarlsson/ev_smart_charging) by Jonas Karlsson, which showed the way for price-driven charging in Home Assistant. Several of the rules and *Moving from EV Smart Charging* build on its ideas.

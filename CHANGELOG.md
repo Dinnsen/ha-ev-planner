@@ -2,6 +2,23 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
 
+## [2.2.0b1] - 2026-11-09
+
+Beta: only those who show beta versions in the Marketplace get it.
+
+### Added
+- **Shared supply: several cars behind one fuse** (options, *Shared supply*). Set the most the house may draw per phase (e.g. 23 A on a 25 A supply, or the circuit the chargers share), the phases, and a meter if you have one (current per phase, from a HAN/P1 reader, a Shelly EM or an Equalizer). The plugged-in cars are then planned together under the limit, a slot at a time, cheapest first. The house comes first: what it is expected to draw is taken from the limit, learned from the meter hour by hour, apart for the cheap hours (a heat pump on a price plan runs then); without a meter, a fixed reserve.
+- **Must have and priority** per car: every car first gets what it must have by its ready-by time, then the cars fill up by priority (*Normal* or *First*). Asking for 100 % makes it a must.
+- **Charging current:** a car or charger with a current setting (the car's charging amps, the charger's current limit) is told how many amps its share is in each slot. A charger that can only be switched on and off takes its turn instead.
+- **An hour to spare:** on a shared supply a plan aims to be done an hour before the ready-by time, so the house can take what it needs on the way; the last hour catches up.
+- The panel shows each car's share and what the house is expected to draw, and says when there is not enough current for the whole target.
+
+EV Planner plans under the limit; it does not protect the fuse. A charger's own load balancing (an Easee Equalizer, say) does that, and when it turns a car down, the next plan follows the car's measured speed.
+
+### Development
+- The simulator runs two cars behind one fuse with an Equalizer: a house with room for both, a heat pump that runs in the cheap hours, and a night with too little for both (the first car first, the other its must).
+- The release workflow publishes beta versions as pre-releases.
+
 ## [2.1.2] - 2026-11-09
 
 ### Fixed
