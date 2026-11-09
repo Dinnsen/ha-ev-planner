@@ -267,6 +267,74 @@ def suggest_entities(hass: HomeAssistant, device_id: str, model: ChargerModel | 
     return suggested
 
 
+SOC_GOOD = ("battery", "level", "soc", "state_of_charge", "charge")
+SOC_BAD = ("range", "12v", "temperature", "temp", "health", "capacity", "limit", "target", "voltage")
+LIMIT_GOOD = ("limit", "target", "max_charge", "charge_level", "soc")
+LIMIT_BAD = ("current", "amp", "temperature", "climate", "seat")
+CABLE_GOOD = ("cable", "plug", "connected", "charge_port_latch", "charging_cable")
+CABLE_BAD = ("door", "port_door", "window", "trunk", "frunk")
+CHARGING_GOOD = ("charging", "charge_state", "charger_state")
+CHARGING_BAD = ("cable", "plug", "port", "rate", "power", "time", "energy", "added", "limit")
+SWITCH_CAR_GOOD = ("charge", "charging", "charger")
+SWITCH_CAR_BAD = ("port", "door", "heater", "climate", "sentry", "valet", "seat", "defrost", "steering")
+CAR_POWER_GOOD = ("charg", "power")
+
+
+def _best(candidates: Iterable[tuple[er.RegistryEntry, int]]) -> str | None:
+    found = [(entry, score) for entry, score in candidates if score > 0]
+    return max(found, key=lambda item: item[1])[0].entity_id if found else None
+
+
+def suggest_vehicle_entities(hass: HomeAssistant, device_id: str) -> dict[str, Any]:
+    """Guess a car's entities from its device: charge level, limit, plug, charging, switch, location, power.
+
+    Works by device class first and by the words in the entities' names, so it
+    fits most car integrations (Tesla, Mercedes, Volkswagen, Kia/Hyundai …).
+    """
+    registry = er.async_get(hass)
+    entries = [entry for entry in er.async_entries_for_device(registry, device_id) if not entry.disabled_by]
+
+    def device_class(entry: er.RegistryEntry) -> str | None:
+        return entry.device_class or entry.original_device_class
+
+    suggested: dict[str, Any] = {}
+    soc = _best(
+        (e, _score(_words(e), SOC_GOOD, SOC_BAD) + (3 if device_class(e) == "battery" else 0))
+        for e in entries
+        if e.domain == "sensor"
+    )
+    limit = _best((e, _score(_words(e), LIMIT_GOOD, LIMIT_BAD)) for e in entries if e.domain == "number")
+    cable = _best(
+        (e, _score(_words(e), CABLE_GOOD, CABLE_BAD) + (3 if device_class(e) == "plug" else 0))
+        for e in entries
+        if e.domain == "binary_sensor"
+    )
+    charging = _best(
+        (e, _score(_words(e), CHARGING_GOOD, CHARGING_BAD) + (3 if device_class(e) == "battery_charging" else 0))
+        for e in entries
+        if e.domain in ("binary_sensor", "sensor")
+    )
+    switch = _best((e, _score(_words(e), SWITCH_CAR_GOOD, SWITCH_CAR_BAD)) for e in entries if e.domain == "switch")
+    tracker = next((e.entity_id for e in entries if e.domain == "device_tracker"), None)
+    power = _best(
+        (e, _score(_words(e), CAR_POWER_GOOD)) for e in entries if e.domain == "sensor" and device_class(e) == "power"
+    )
+    for key, value in (
+        ("soc_entity", soc),
+        ("target_entity", limit),
+        ("connected_entity", cable),
+        ("charging_entity", charging),
+        ("home_entity", tracker),
+        ("power_entity", power),
+        ("control_entity", switch),
+    ):
+        if value:
+            suggested[key] = value
+    if switch:
+        suggested["control"] = "car"
+    return suggested
+
+
 def describe_device(hass: HomeAssistant, device_id: str) -> tuple[str | None, ChargerModel | None]:
     """The device's name and the catalog model it matches."""
     device = dr.async_get(hass).async_get(device_id)

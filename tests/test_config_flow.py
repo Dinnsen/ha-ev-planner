@@ -116,6 +116,8 @@ async def _start_vehicle_flow(hass: HomeAssistant, entry: MockConfigEntry) -> di
 async def test_add_a_car(hass: HomeAssistant, init_integration: MockConfigEntry) -> None:
     result = await _start_vehicle_flow(hass, init_integration)
     assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "user"
+    result = await hass.config_entries.subentries.async_configure(result["flow_id"], {})
     assert result["step_id"] == "details"
     user_input = {
         "name": "Zoe",
@@ -351,9 +353,10 @@ async def test_add_a_car_from_ev_smart_charging(hass: HomeAssistant, init_integr
         new = init_integration.subentries[new.subentry_id]
         assert ("imported_speed" in new.data) is kept
 
-    # Already imported: straight to the form.
+    # Already imported: only the device to choose.
     result = await _start_vehicle_flow(hass, init_integration)
-    assert result["step_id"] == "details"
+    assert result["step_id"] == "user"
+    assert "source" not in result["data_schema"].schema
 
 
 async def test_manual_choice_when_ev_smart_charging_exists(
@@ -383,3 +386,43 @@ async def test_another_country_works_without_plate_lookup(hass: HomeAssistant, n
     entry = hass.config_entries.async_get_entry(result["result"].entry_id)
     await hass.async_block_till_done()
     assert entry is not None and entry.runtime_data.motorapi_key == ""
+
+
+async def test_add_a_car_from_its_device(hass: HomeAssistant, init_integration: MockConfigEntry) -> None:
+    from homeassistant.helpers import device_registry as dr, entity_registry as er
+
+    car_entry = MockConfigEntry(domain="tesla_fleet")
+    car_entry.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=car_entry.entry_id, identifiers={("tesla_fleet", "vin")}, name="Model Y"
+    )
+    registry = er.async_get(hass)
+
+    def add(domain: str, key: str, **kwargs: object) -> str:
+        return registry.async_get_or_create(
+            domain, "tesla_fleet", key, config_entry=car_entry, device_id=device.id, **kwargs
+        ).entity_id
+
+    soc = add("sensor", "battery_level", original_device_class="battery", original_name="Battery level")
+    limit = add("number", "charge_limit", original_name="Charge limit")
+    cable = add("binary_sensor", "charge_cable", original_name="Charge cable")
+    switch = add("switch", "charge", original_name="Charge")
+    add("switch", "charge_port_door", original_name="Charge port door")
+
+    result = await _start_vehicle_flow(hass, init_integration)
+    result = await hass.config_entries.subentries.async_configure(result["flow_id"], {"device": device.id})
+    assert result["step_id"] == "details"
+    schema = result["data_schema"].schema
+    suggested = {
+        str(key): key.description["suggested_value"]
+        for section in schema.values()
+        if hasattr(section, "schema")
+        for key in section.schema.schema
+        if getattr(key, "description", None)
+    }
+    assert suggested["soc_entity"] == soc
+    assert suggested["target_entity"] == limit
+    assert suggested["connected_entity"] == cable
+    assert suggested["control_entity"] == switch
+    name = next(key for key in schema if str(key) == "name")
+    assert name.default() == "Model Y"

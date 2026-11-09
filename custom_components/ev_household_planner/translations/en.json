@@ -90,9 +90,13 @@
       "step": {
         "user": {
           "title": "Add car",
-          "description": "Start from a car in EV Smart Charging, or from scratch. EV Smart Charging is not changed.",
+          "description": "Pick the car's device in Home Assistant and EV Planner fills in its sensors and charge switch (you check them on the next page). You can also start from a car in EV Smart Charging (it is not changed), or from scratch.",
           "data": {
-            "source": "Start from"
+            "source": "Start from",
+            "device": "The car in Home Assistant"
+          },
+          "data_description": {
+            "device": "Optional. Its charge level, charge limit, plug, charging and location are found for you."
           }
         },
         "details": {
