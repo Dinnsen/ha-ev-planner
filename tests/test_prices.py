@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from homeassistant.core import State
+from homeassistant.util import dt as dt_util
 import pytest
 
 from custom_components.ev_household_planner.planner import PriceSlot
@@ -66,8 +67,9 @@ def test_ge_spot_and_generic_lists() -> None:
     )
     slots = extract_price_slots(tibber, NOW)
     assert [slot.price for slot in slots] == [1.5, 1.6]
-    assert slots[0].start == datetime(2026, 11, 9, 0, 0, tzinfo=TZ)
-    assert slots[0].end == datetime(2026, 11, 9, 1, 0, tzinfo=TZ)
+    local = dt_util.get_default_time_zone()
+    assert slots[0].start == datetime(2026, 11, 9, 0, 0, tzinfo=local)
+    assert slots[0].end == datetime(2026, 11, 9, 1, 0, tzinfo=local)
 
 
 def test_bad_prices_are_left_out() -> None:
