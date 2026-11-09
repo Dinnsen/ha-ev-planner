@@ -26,6 +26,11 @@ All notable changes to EV Planner. The version is the one in `custom_components/
 ### Fixed
 - **Guest bill with a plan in two periods** (from the community): a charger that says "no car" while charging is paused no longer ends the guest; *Plan again* or *Charge now* while the guest charges keeps what was charged on the bill; unplugging without an energy meter bills the share that was charged, not the whole plan. The bill lists the periods.
 - **Energy of a short charge:** a charge of a few seconds no longer counts a whole minute.
+- **The night the clocks go back:** a charge through the repeated hour is counted in full (time that passed is measured in UTC).
+- **A charge without prices holds still:** its end no longer moves a few minutes every time the charge level rises.
+
+### Development
+- **A simulator** (`sim/`) runs nights through EV Planner minute by minute against a simulated car (charging curve, sensors that drop out, a car that does not start again after a pause), checks the rules that must never break, and compares with 2.0.1 on every push.
 
 ## [2.0.1] - 2026-11-08
 
