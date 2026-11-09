@@ -11,6 +11,8 @@ from custom_components.ev_household_planner.solar import (
     DISABLE_DELAY,
     ENABLE_DELAY,
     PHASE_EVERY,
+    RAISE_DELAY,
+    RAISE_EVERY,
     SolarCar,
     SolarState,
     SurplusController,
@@ -70,6 +72,23 @@ def test_the_current_follows_the_surplus_in_whole_amps_between_six_and_the_most(
     assert ctl.step(T0 + ENABLE_DELAY * 2, 5.0, cars)["a"].amps == 7
     assert ctl.step(T0 + ENABLE_DELAY * 3, 5.2, cars)["a"].amps == 7  # less than an amp: unchanged
     assert ctl.step(T0 + ENABLE_DELAY * 4, 3.0, cars)["a"].amps == 6  # never under six while on
+
+
+def test_the_current_goes_down_at_once_and_up_only_after_a_while() -> None:
+    ctl = SurplusController()
+    cars = [car()]
+    ctl.step(T0, 5.0, cars)
+    t = T0 + ENABLE_DELAY
+    assert ctl.step(t, 5.0, cars)["a"].amps == 7
+    # A cloud: down at once.
+    assert ctl.step(t + timedelta(minutes=1), 4.4, cars)["a"].amps == 6
+    # The sun is back: up only when it has stayed, and not sooner than the last change allows.
+    back = t + timedelta(minutes=2)
+    assert ctl.step(back, 8.0, cars)["a"].amps == 6
+    assert ctl.step(back + RAISE_DELAY, 8.0, cars)["a"].amps == 6
+    assert ctl.step(t + timedelta(minutes=1) + RAISE_EVERY, 8.0, cars)["a"].amps == 11
+    # A dip shorter than the wait does not raise and lower it.
+    assert ctl.step(t + timedelta(minutes=12), 8.0, cars)["a"].amps == 11
 
 
 def test_one_phase_when_the_sun_is_small_and_three_again_when_it_grows() -> None:

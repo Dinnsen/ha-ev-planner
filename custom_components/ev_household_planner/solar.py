@@ -25,8 +25,11 @@ DISABLE_DELAY = timedelta(minutes=4)
 PHASE_EVERY = timedelta(minutes=10)
 # Kept back from the surplus, so the house does not buy for a car by a small margin.
 RESERVE_KW = 0.1
-# A car's current follows the surplus in whole amps, a change only when it is at least this.
-STEP_AMPS = 1.0
+# A car's current follows the surplus in whole amps. It goes down at once when the house would buy,
+# up only when there has been room for a while, and not more often than this, so a passing cloud
+# costs two changes and the charger's cloud is not asked too often.
+RAISE_DELAY = timedelta(minutes=2)
+RAISE_EVERY = timedelta(minutes=5)
 # Of the sun the forecast promises before the ready-by time, the plan counts on this share at most.
 FORECAST_TRUST = 0.5
 
@@ -101,6 +104,8 @@ class SolarState:
     phases: int | None = None
     phases_at: datetime | None = None
     amps: float | None = None
+    raise_since: datetime | None = None
+    changed_at: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {"on": self.on, "phases": self.phases}
@@ -173,9 +178,21 @@ class SurplusController:
             return SolarDecision(False, phases=phases if car.can_switch else None)
         if not car.adjustable:
             return SolarDecision(True)
-        amps = max(MIN_AMPS, min(car.max_amps, float(int(amps_for(max(0.0, available), phases)))))
-        if state.amps is not None and abs(amps - state.amps) < STEP_AMPS:
-            amps = state.amps
+        target = max(MIN_AMPS, min(car.max_amps, float(int(amps_for(max(0.0, available), phases)))))
+        amps = target if state.amps is None else state.amps
+        if state.amps is not None and target < state.amps:
+            amps, state.raise_since = target, None
+        elif state.amps is not None and target >= state.amps + 1:
+            if state.raise_since is None:
+                state.raise_since = now
+            waited = now - state.raise_since >= RAISE_DELAY
+            rested = state.changed_at is None or now - state.changed_at >= RAISE_EVERY
+            if waited and rested:
+                amps, state.raise_since = target, None
+        else:
+            state.raise_since = None
+        if amps != state.amps:
+            state.changed_at = now
         state.amps = amps
         return SolarDecision(True, amps, phases if car.can_switch else None)
 
