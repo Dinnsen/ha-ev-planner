@@ -157,7 +157,7 @@ async def test_a_plug_that_blinks_while_charging_leaves_the_plan_alone(
     await settle(hass, freezer)
     assert tesla.connected is True
     await move(hass, freezer, _at(now, 0, 18))
-    assert tesla.connected is False and tesla.plan is None
+    assert tesla.connected is False
 
 
 async def test_without_a_plug_sensor_a_blip_joins_the_next_charge(

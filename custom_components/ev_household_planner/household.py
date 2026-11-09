@@ -522,9 +522,16 @@ class Household(DataUpdateCoordinator[None]):
         self._read_vehicle(vehicle)
         now = dt_util.now()
         entity_id = event.data["entity_id"]
-        if vehicle.connected is False and was_connected is True and not self._unplug_confirmed(vehicle, now):
-            # A plug that reads unplugged for a moment is not an unplug: the car
-            # stays plugged in (and its plan stands) until it has read so for a while.
+        charging = vehicle.charging is True or vehicle_id in self._unplug_timers
+        if (
+            vehicle.connected is False
+            and was_connected is True
+            and charging
+            and not self._unplug_confirmed(vehicle, now)
+        ):
+            # A plug that reads unplugged for a moment while the car charges is not an
+            # unplug: the car stays plugged in (and its plan stands) until the plug has
+            # read unplugged for two minutes.
             vehicle.connected = True
             if vehicle.unplugged_at is None:
                 vehicle.unplugged_at = now
