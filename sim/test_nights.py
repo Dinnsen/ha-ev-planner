@@ -39,7 +39,9 @@ def _params() -> list[object]:
         pytest.param(
             night,
             id=night.name,
-            marks=[pytest.mark.xfail(reason=KNOWN[night.name], strict=True)] if night.name in KNOWN else [],
+            marks=[pytest.mark.xfail(reason=KNOWN[night.name], strict=True)]
+            if night.name in KNOWN and not os.environ.get("SIM_REPORT_ONLY")
+            else [],
         )
         for night in NIGHTS
     ]
