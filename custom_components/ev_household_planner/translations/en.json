@@ -382,6 +382,12 @@
       },
       "guest_charger_power": {
         "name": "Charging power"
+      },
+      "early_within": {
+        "name": "Early within"
+      },
+      "topup_level": {
+        "name": "Top up from"
       }
     },
     "select": {
@@ -570,6 +576,15 @@
       },
       "guest_continuous": {
         "name": "One period"
+      },
+      "prefer_early": {
+        "name": "Prefer charging early"
+      },
+      "topup": {
+        "name": "Top up before departure"
+      },
+      "notify_receipt": {
+        "name": "Morning receipt and warnings"
       }
     },
     "text": {

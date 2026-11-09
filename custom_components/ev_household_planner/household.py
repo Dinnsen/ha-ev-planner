@@ -76,6 +76,7 @@ from .const import (
     SET_MANUAL_SOC,
     SET_MODE,
     SET_NOTIFY_DONE,
+    SET_NOTIFY_RECEIPT,
     SET_REMINDER,
     SET_REMINDER_DAYS,
     SET_REMINDER_HORIZON,
@@ -610,6 +611,8 @@ class Household(DataUpdateCoordinator[None]):
         """Make the car's plan. A plan that is charging now is kept until its period ends."""
         vehicle.deadline = vehicle.next_deadline(now)
         vehicle.plan_restored = False
+        if vehicle.deadline is None and vehicle.night is not None:
+            vehicle.night = None
         soc = vehicle.current_soc
         if soc is None:
             vehicle.plan, vehicle.plan_error = None, None
@@ -620,6 +623,7 @@ class Household(DataUpdateCoordinator[None]):
             capacity=vehicle.capacity,
             power=(power := self.vehicle_power(vehicle)),
             speed=vehicle.charge_speed(power)[0],
+            curve=vehicle.learned.speeds(),
         )
         try:
             vehicle.plan = plan_vehicle(
@@ -627,7 +631,7 @@ class Household(DataUpdateCoordinator[None]):
                 car,
                 vehicle.rules(),
                 now,
-                deadline=vehicle.deadline,
+                deadline=self._aim(vehicle, now),
                 earliest=vehicle.earliest_start,
                 continuous=vehicle.plan_continuous,
                 blocked=blocked,
@@ -635,11 +639,131 @@ class Household(DataUpdateCoordinator[None]):
             )
             vehicle.plan_error = None
             vehicle.plan_done = False
+            self._note_night(vehicle, now)
         except PlanError as err:
             if vehicle.plan is not None and vehicle.plan.end is not None and vehicle.plan.end <= now:
                 vehicle.plan_done = True
             vehicle.plan, vehicle.plan_error = None, err.key
         vehicle.planned_at = now
+
+    @staticmethod
+    def _aim(vehicle: Vehicle, now: datetime) -> datetime | None:
+        """The time a plan aims to be done by: the ready-by time, less what the car has taught."""
+        deadline = vehicle.deadline
+        margin = timedelta(minutes=vehicle.learned.margin)
+        if deadline is None or not margin or deadline - margin <= now:
+            return deadline
+        return deadline - margin
+
+    @staticmethod
+    def _note_night(vehicle: Vehicle, now: datetime) -> None:
+        """Remember what the plan for the ready-by time promises, for the morning receipt."""
+        plan, deadline = vehicle.plan, vehicle.deadline
+        if plan is None or deadline is None or not plan.segments:
+            return
+        earlier = dt_util.parse_datetime(str(vehicle.night.get("deadline"))) if vehicle.night else None
+        if earlier is not None and earlier <= now and earlier != deadline:
+            # The last ready-by time has passed and its receipt is still to go out.
+            return
+        vehicle.night = {
+            "deadline": deadline.isoformat(),
+            "planned_soc": round(plan.end_soc, 1),
+            "target": round(vehicle.target, 1),
+            "speed": plan.speed,
+            # A plan that cannot reach the target is no lesson about the car.
+            "short": plan.short or plan.limited or plan.min_only,
+        }
+
+    async def _async_receipts(self, now: datetime) -> None:
+        """At the ready-by time: how it went."""
+        for vehicle in self.vehicles.values():
+            night = vehicle.night
+            deadline = dt_util.parse_datetime(str(night.get("deadline"))) if night else None
+            if night is not None and (deadline is None or now >= deadline):
+                vehicle.night = None
+                self.async_save()
+                if deadline is not None:
+                    await self._async_receipt(vehicle, night, deadline)
+
+    async def _async_receipt(self, vehicle: Vehicle, night: Mapping[str, Any], deadline: datetime) -> None:
+        soc = vehicle.current_soc
+        if soc is None or vehicle.connected is False or vehicle.at_home is False:
+            # Driven off before the ready-by time, or not known: nothing to tell or learn.
+            return
+        planned = to_float(night.get("planned_soc")) or 0.0
+        target = to_float(night.get("target")) or vehicle.target
+        speed = to_float(night.get("speed")) or 0.0
+        late = 0.0
+        if not night.get("short") and speed > 0 and soc < planned - 2:
+            late = (planned - soc) / speed * 60
+        changed = False if night.get("short") else vehicle.learned.morning(late)
+        session = vehicle.session
+        energy = session.energy if session is not None else 0.0
+        cost = session.cost if session is not None else 0.0
+        vehicle.last_receipt = {
+            "at": deadline.isoformat(),
+            "soc": round(soc, 1),
+            "planned_soc": planned,
+            "target": target,
+            "energy": round(energy, 2),
+            "cost": round(cost, 2),
+            "late": late > 1,
+            "margin": vehicle.learned.margin,
+        }
+        self.async_save()
+        self.async_update_listeners()
+        if not vehicle.settings.get(SET_NOTIFY_RECEIPT) or not self.notifier.enabled:
+            return
+        key = "receipt" if soc >= min(planned, target) - 2 else "receipt_short"
+        message = self._text(
+            key,
+            time=self._time(deadline),
+            soc=self._num(soc, 0),
+            target=self._num(target, 0),
+            planned=self._num(planned, 0),
+            energy=self._num(round(energy, 2), 1),
+            cost=self._money(round(cost, 2)),
+        )
+        if changed and late > 1:
+            message = f"{message} " + self._text("receipt_margin", minutes=vehicle.learned.margin)
+        await self.notifier.send(
+            title=vehicle.name,
+            message=message,
+            tag=tag_for("receipt", vehicle.vehicle_id),
+            to=vehicle.notify_to,
+            icon="mdi:car-clock",
+            color=COLOR_CHARGE if key == "receipt" else COLOR_WARN,
+        )
+
+    async def _async_warn_short(self, vehicle: Vehicle) -> None:
+        """Once per ready-by time: the plugged-in car cannot reach its target in time."""
+        plan, deadline = vehicle.plan, vehicle.deadline
+        if plan is None or deadline is None or not plan.short or vehicle.connected is not True:
+            return
+        key = deadline.isoformat()
+        if vehicle.warned_for == key:
+            return
+        vehicle.warned_for = key
+        self.async_save()
+        if not vehicle.settings.get(SET_NOTIFY_RECEIPT) or not self.notifier.enabled:
+            return
+        await self.notifier.send(
+            title=vehicle.name,
+            message=self._text(
+                "short_warning",
+                name=vehicle.name,
+                target=self._num(vehicle.target, 0),
+                time=self._time(deadline),
+                soc=self._num(plan.end_soc, 0),
+            ),
+            tag=tag_for("short", vehicle.vehicle_id),
+            to=vehicle.notify_to,
+            icon="mdi:clock-alert-outline",
+            color=COLOR_WARN,
+            actions=[
+                {"action": f"{ACTION_CHARGE_NOW}_{vehicle.vehicle_id}", "title": self._text("action_charge_now")},
+            ],
+        )
 
     def vehicle_power(self, vehicle: Vehicle) -> float:
         """The car's charging power: what it has shown, else its setting, at most what its charger can give."""
@@ -719,6 +843,8 @@ class Household(DataUpdateCoordinator[None]):
             if vehicle.deadline is not None and vehicle.deadline <= now:
                 replan = True
             self._count_time(vehicle, now)
+        # How the morning went, before the plan moves on to the next ready-by time.
+        await self._async_receipts(now)
         if replan:
             # Planned again before acting, so a car that goes on charging (finishing in
             # one go) is not paused and started again in between.
@@ -726,6 +852,8 @@ class Household(DataUpdateCoordinator[None]):
         else:
             await self.async_evaluate(now)
         await self._async_reminders(now)
+        for vehicle in self.vehicles.values():
+            await self._async_warn_short(vehicle)
 
     def _count_time(self, vehicle: Vehicle, now: datetime) -> None:
         """A minute of charging: for the measurement, and for the energy when nothing else counts it.
@@ -1510,6 +1638,10 @@ TEXT_EN: dict[str, str] = {
     "problem_resume_learned": "{name} did not charge again after the pause. Some cars must be plugged in again. "
     "From now on it charges in one go.",
     "reminder_cheapest": "Cheapest price: {price}/kWh ({when}).",
+    "receipt": "Ready at {time}: {soc} % of {target} %, {energy} kWh for {cost}.",
+    "receipt_short": "Not quite ready at {time}: {soc} % of {target} % (planned {planned} %). {energy} kWh for {cost}.",
+    "receipt_margin": "From now on it aims to be done {minutes} minutes earlier.",
+    "short_warning": "{name} cannot reach {target} % by {time}: about {soc} %. Charge now, or set a later time.",
     "done": "Charged to {soc} %: {energy} kWh for {cost}.",
     "paused": "Paused at {soc} % of {target} %: {energy} kWh for {cost} so far.",
     "paused_until": "Paused at {soc} % of {target} %: {energy} kWh for {cost} so far. Charges on {window}.",
@@ -1530,6 +1662,10 @@ TEXT_DA: dict[str, str] = {
     "problem_resume_learned": "{name} startede ikke igen efter pausen. Nogle biler skal have stikket sat i igen. "
     "Fremover lader den i ét stræk.",
     "reminder_cheapest": "Billigste pris: {price}/kWh ({when}).",
+    "receipt": "Klar kl. {time}: {soc} % af {target} %, {energy} kWh for {cost}.",
+    "receipt_short": "Ikke helt klar kl. {time}: {soc} % af {target} % (planlagt {planned} %). {energy} kWh for {cost}.",
+    "receipt_margin": "Fremover sigter den efter at være færdig {minutes} minutter før.",
+    "short_warning": "{name} kan ikke nå {target} % til kl. {time}: ca. {soc} %. Lad nu, eller vælg et senere tidspunkt.",
     "done": "Ladet til {soc} %: {energy} kWh for {cost}.",
     "paused": "Pause ved {soc} % af {target} %: {energy} kWh for {cost} indtil nu.",
     "paused_until": "Pause ved {soc} % af {target} %: {energy} kWh for {cost} indtil nu. Lader videre {window}.",

@@ -480,3 +480,18 @@ def test_the_night_of_28_october_charges_in_whole_blocks_without_creeping() -> N
     assert short.segments == [
         {"start": midnight + timedelta(hours=2), "end": midnight + timedelta(hours=2, minutes=15)}
     ]
+
+
+def test_the_curve_gives_the_slow_top_its_time() -> None:
+    from custom_components.ev_household_planner.planner import charge_need, charging_hours
+
+    # 60 % to 100 %: 20 %/h up to 80 %, then 10 %/h from 80 % to 90 % and 5 %/h above.
+    curve = ((80.0, 90.0, 10.0), (90.0, 100.0, 5.0))
+    assert charging_hours(60, 100, 20, curve) == pytest.approx(1 + 1 + 2)
+    assert charging_hours(60, 80, 20, curve) == pytest.approx(1)
+    assert charging_hours(85, 95, 20, curve) == pytest.approx(0.5 + 1)
+    need = charge_need(60, 100, 60, 10, speed=20, curve=curve)
+    assert need.hours == 4
+    assert need.speed_pct_per_hour == pytest.approx(10)
+    # Without a curve, as before.
+    assert charge_need(60, 100, 60, 10, speed=20).hours == 2

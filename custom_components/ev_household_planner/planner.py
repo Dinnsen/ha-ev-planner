@@ -94,6 +94,28 @@ def estimated_speed(battery_kwh: float, charger_kw: float) -> float:
     return charger_kw / battery_kwh * 100 if battery_kwh > 0 else 0.0
 
 
+type Curve = tuple[tuple[float, float, float], ...]
+"""Bands of the charge level with their own speed: (from %, to %, % per hour)."""
+
+
+def charging_hours(soc: float, limit: float, speed: float, curve: Curve = ()) -> float:
+    """Hours from ``soc`` to ``limit`` at ``speed``, or at a band's own speed inside that band."""
+    hours = 0.0
+    level = soc
+    for low, high, band_speed in sorted(curve):
+        if high <= level or low >= limit or band_speed <= 0:
+            continue
+        if low > level:
+            hours += (low - level) / speed
+            level = low
+        top = min(high, limit)
+        hours += (top - level) / band_speed
+        level = top
+    if level < limit:
+        hours += (limit - level) / speed
+    return hours
+
+
 def charge_need(
     soc: float,
     limit: float,
@@ -101,12 +123,14 @@ def charge_need(
     charger_kw: float,
     *,
     speed: float | None = None,
+    curve: Curve = (),
 ) -> ChargeNeed:
     """Energy and time needed to charge from ``soc`` to ``limit`` (both in %).
 
     The time comes from the charging speed in % per hour: the speed the car
     has shown, or ``charger_kw`` against ``battery_kwh`` when it has shown
-    none, rounded up to whole blocks of ``BLOCK_MINUTES``. The energy is what
+    none (inside a band of ``curve``, that band's own speed), rounded up to
+    whole blocks of ``BLOCK_MINUTES``. The energy is what
     the car draws in that time at ``charger_kw``, so charging losses are part
     of the speed and need no separate figure. A car stops by itself at its
     limit, so the block that is not needed in full costs nothing.
@@ -118,14 +142,15 @@ def charge_need(
     if limit <= soc:
         raise PlanError("limit_not_above_soc")
 
-    blocks = ceil((limit - soc) / speed * 60 / BLOCK_MINUTES - EPSILON)
+    exact = charging_hours(soc, limit, speed, curve)
+    blocks = ceil(exact * 60 / BLOCK_MINUTES - EPSILON)
     hours = blocks * BLOCK_MINUTES / 60
     return ChargeNeed(
         battery_kwh=battery_kwh * (limit - soc) / 100,
         grid_kwh=hours * charger_kw,
         hours=hours,
         minutes=ceil(hours * 60 - EPSILON),
-        speed_pct_per_hour=speed,
+        speed_pct_per_hour=(limit - soc) / exact if curve else speed,
     )
 
 

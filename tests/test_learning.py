@@ -173,3 +173,71 @@ def test_whether_the_car_charges_again_after_a_pause() -> None:
     learned.check_basis((60, 10))
     assert learned.resumes is False
     assert Learned.from_dict({"resumes": "yes"}).resumes is None
+
+
+def test_the_speed_per_band_of_the_charge_level() -> None:
+    from custom_components.ev_household_planner.learning import band_speeds
+
+    # 20 %/h up to 80 %, 10 %/h above: readings every 5 minutes.
+    readings: list[tuple[float, float]] = []
+    soc, seconds = 60.0, 0.0
+    while soc < 100:
+        readings.append((round(soc, 1), seconds))
+        speed = 20.0 if soc < 80 else 10.0
+        soc += speed * 5 / 60
+        seconds += 300
+    speeds = band_speeds(readings)
+    assert speeds["50-80"] == pytest.approx(20, rel=0.05)
+    assert speeds["80-90"] == pytest.approx(10, rel=0.05)
+    assert speeds["90-100"] == pytest.approx(10, rel=0.1)
+    assert "0-50" not in speeds  # no readings there
+    # Too little rise inside a band, or a broken sensor, teaches nothing.
+    assert band_speeds([(81, 0), (83, 600)]) == {}
+    assert band_speeds([(81, 0), (90, 1)]) == {}
+
+
+def test_a_charge_teaches_the_curve_and_it_is_stored() -> None:
+    meter = ChargeMeter()
+    meter.tick(MINUTE, True)
+    soc = 70.0
+    for _ in range(40):
+        meter.reading(round(soc, 1))
+        meter.tick(300, True)
+        soc += (20.0 if soc < 80 else 8.0) * 5 / 60
+    learned = Learned()
+    learned.add(meter)
+    assert learned.curve["80-90"] == pytest.approx(8, rel=0.1)
+    assert learned.curve_counts["80-90"] == 1
+    assert [band[:2] for band in learned.speeds()] == [(50, 80), (80, 90), (90, 100)]
+    again = Learned.from_dict(learned.to_dict())
+    assert again.curve == pytest.approx(learned.curve, abs=0.001)
+    assert again.curve_counts == learned.curve_counts
+    assert Learned.from_dict({"curve": {"80-90": 1000, "nonsense": 5, "50-80": "x"}}).curve == {}
+    # A changed setup drops the curve with the speed.
+    learned.check_basis((60, 11))
+    learned.check_basis((60, 10))
+    assert learned.curve == {}
+    # The readings survive a restart and go when the level falls.
+    stored = ChargeMeter.from_dict(meter.to_dict())
+    assert stored.readings == pytest.approx(meter.readings)
+    meter.reading(10)
+    assert meter.readings == []
+
+
+def test_a_late_morning_teaches_a_margin() -> None:
+    learned = Learned()
+    assert learned.morning(0) is False
+    # 20 minutes short: aim two quarters earlier.
+    assert learned.morning(20) is True
+    assert learned.margin == 30
+    # Never more than an hour.
+    learned.morning(200)
+    assert learned.margin == 60
+    # Three mornings on time: a quarter later again.
+    assert learned.morning(0) is False
+    assert learned.morning(0) is False
+    assert learned.morning(0) is True
+    assert learned.margin == 45
+    again = Learned.from_dict(learned.to_dict())
+    assert again.margin == 45 and again.on_time == 0
+    assert Learned.from_dict({"margin": 500}).margin == 60

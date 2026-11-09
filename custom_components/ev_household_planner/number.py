@@ -15,6 +15,7 @@ from .const import (
     GUEST_POWER,
     GUEST_SOC,
     SET_CEILING,
+    SET_EARLY_WITHIN,
     SET_FOLLOW_LEVEL,
     SET_JOIN_WITHIN,
     SET_LOW_PRICE_LEVEL,
@@ -27,6 +28,7 @@ from .const import (
     SET_REMINDER_REPEAT,
     SET_REMINDER_SOC,
     SET_TARGET_SOC,
+    SET_TOPUP_LEVEL,
 )
 from .entity import GuestEntity, VehicleEntity
 from .household import EVPlannerConfigEntry, Household
@@ -85,6 +87,17 @@ VEHICLE_NUMBERS: tuple[PlannerNumberDescription, ...] = (
         price=True,
     ),
     _percent("low_soc_level", SET_LOW_SOC_LEVEL, config=True),
+    PlannerNumberDescription(
+        key="early_within",
+        setting=SET_EARLY_WITHIN,
+        native_min_value=0,
+        native_max_value=2,
+        native_step=0.01,
+        mode=NumberMode.BOX,
+        entity_category=EntityCategory.CONFIG,
+        price=True,
+    ),
+    _percent("topup_level", SET_TOPUP_LEVEL, config=True),
     PlannerNumberDescription(
         key="opportunistic_level",
         setting=SET_OPPORTUNISTIC_LEVEL,
