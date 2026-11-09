@@ -67,9 +67,10 @@ def learned(temperature: Callable[[datetime], float], first: date) -> dict[str, 
     samples: dict[str, list[float]] = {}
     temps: dict[str, list[float]] = {}
     for day in range(HISTORY_DAYS):
+        swing = 3.0 * math.sin(day * 1.3)  # no two days alike: a few degrees up or down
         for hour in range(24):
             moment = datetime(first.year, first.month, first.day, hour, 30) + timedelta(days=day)
-            t = temperature(moment)
+            t = temperature(moment) + swing
             defrost = 3.0 * 6 / 55 if t < 3 else 0.0
             amps = round(rest_of_house(moment) + heat_pump_amps(t) + defrost, 2)
             for cheap in (True, False):

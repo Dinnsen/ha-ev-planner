@@ -50,7 +50,7 @@ async def test_the_home_tab_reads_the_energy_dashboard(hass: HomeAssistant, init
     home: HomeInfo = household.home
     _set(hass, "sensor.grid_power", 2500)
     _set(hass, "sensor.solar_power", 1.5, "kW")
-    _set(hass, "sensor.battery_power", -500)  # the dashboard's inverted sensor: the battery charges 0.5 kW
+    _set(hass, "sensor.battery_power", -500)  # an inverted sensor: the battery gives 0.5 kW
     _set(hass, "sensor.pump_power", 800)
     hass.states.async_set("sensor.fridge_energy", "3", {"friendly_name": "Fridge"})
     with _manager(PREFS):
@@ -61,8 +61,8 @@ async def test_the_home_tab_reads_the_energy_dashboard(hass: HomeAssistant, init
     assert home.solar_power_entity == "sensor.solar_power" and home.has_solar
     state = home.state(dt_util.now())
     assert state is not None
-    assert state["grid_kw"] == 2.5 and state["solar_kw"] == 1.5 and state["battery_kw"] == 0.5
-    assert state["house_kw"] == pytest.approx(3.5)
+    assert state["grid_kw"] == 2.5 and state["solar_kw"] == 1.5 and state["battery_kw"] == -0.5
+    assert state["house_kw"] == pytest.approx(4.5)
     assert state["heat_pump_kw"] == 0.8
     assert [d["name"] for d in state["devices"]] == ["Varmepumpe", "Fridge"]
     assert state["devices"][1]["kw"] is None and state["history"] is True
