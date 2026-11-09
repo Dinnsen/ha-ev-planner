@@ -8,7 +8,7 @@ curve, so the planner never knows more than it would at home.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, time, timedelta
 import json
 from pathlib import Path
@@ -37,6 +37,25 @@ class CarSpec:
     outages: list[tuple[datetime, datetime]] = field(default_factory=list)  # sensors unavailable
     flickers: list[datetime] = field(default_factory=list)  # the cable reads unplugged for a moment
 
+    def __post_init__(self) -> None:
+        # Everything in UTC: a minute added to a local time is a wall-clock minute in Python,
+        # which skips or repeats an hour when the clocks change.
+        self.plug_in = None if self.plug_in is None else _utc(self.plug_in)
+        self.unplug = None if self.unplug is None else _utc(self.unplug)
+        self.blips = [_utc(moment) for moment in self.blips]
+        self.outages = [(_utc(start), _utc(end)) for start, end in self.outages]
+        self.flickers = [_utc(moment) for moment in self.flickers]
+
+    def shifted(self, delta: timedelta) -> CarSpec:
+        return replace(
+            self,
+            plug_in=None if self.plug_in is None else self.plug_in + delta,
+            unplug=None if self.unplug is None else self.unplug + delta,
+            blips=[moment + delta for moment in self.blips],
+            outages=[(start + delta, end + delta) for start, end in self.outages],
+            flickers=[moment + delta for moment in self.flickers],
+        )
+
     def factor(self, soc: float) -> float:
         for low, high, share in self.curve:
             if low <= soc < high:
@@ -64,6 +83,27 @@ class Night:
     published: time | None = time(13, 0)  # when tomorrow's prices come; None: never
     tags: list[str] = field(default_factory=list)
     private: bool = False  # a real night: only totals are shown
+    hidden_after: datetime | None = None  # prices from here on never reach the sensor
+    nights: int = 1  # the same night this many times in a row, to see what EV Planner learns
+
+    def __post_init__(self) -> None:
+        self.start = _utc(self.start)
+        self.end = _utc(self.end)
+        self.prices = [(_utc(start), price) for start, price in self.prices]
+        self.hidden_after = _utc(self.hidden_after) if self.hidden_after is not None else None
+
+    def shifted(self, days: int) -> Night:
+        """The same night ``days`` later (24 hours a day)."""
+        delta = timedelta(days=days)
+        return replace(
+            self,
+            start=self.start + delta,
+            end=self.end + delta,
+            prices=[(start + delta, price) for start, price in self.prices],
+            car=self.car.shifted(delta),
+            hidden_after=None if self.hidden_after is None else self.hidden_after + delta,
+            nights=1,
+        )
 
     @property
     def zone(self) -> ZoneInfo:
@@ -77,6 +117,20 @@ class Night:
             if start <= moment < start + self.step:
                 return price
         return None
+
+    def priced(self, start: datetime, end: datetime) -> bool:
+        """Is every minute from ``start`` to ``end`` priced?"""
+        moment = start
+        while moment < end:
+            if self.price_at(moment) is None:
+                return False
+            moment += self.step
+        return self.price_at(end - MINUTE) is not None
+
+    @property
+    def learns(self) -> bool:
+        """A car EV Planner has to learn before it can plan it right: a charging curve, or no restart after a pause."""
+        return self.car.no_resume or any(share < 1 for _low, _high, share in self.car.curve)
 
     def deadline(self) -> datetime | None:
         """The ready-by time after plug-in, on the wall clock, as EV Planner should see it."""
@@ -109,10 +163,15 @@ class Night:
         """What the price sensor shows at ``now``: today's prices and, once published, tomorrow's."""
         today = self.local(now).date()
         tomorrow = today + timedelta(days=1)
-        shown_today = [(s, p) for s, p in self.prices if self.local(s).date() == today]
+        known = [(s, p) for s, p in self.prices if self.hidden_after is None or s < self.hidden_after]
+        shown_today = [(s, p) for s, p in known if self.local(s).date() == today]
         published = self.published is not None and self.local(now).time() >= self.published
-        shown_tomorrow = [(s, p) for s, p in self.prices if published and self.local(s).date() == tomorrow]
+        shown_tomorrow = [(s, p) for s, p in known if published and self.local(s).date() == tomorrow]
         return shown_today, shown_tomorrow
+
+
+def _utc(moment: datetime) -> datetime:
+    return moment.astimezone(UTC)
 
 
 def wall_time(day: date, moment: time, zone: ZoneInfo) -> datetime:
@@ -140,28 +199,28 @@ def feasible_by(night: Night, deadline: datetime) -> tuple[bool, timedelta]:
 
 
 def cheapest_cost(night: Night, start: datetime, end: datetime, soc_from: float, soc_to: float) -> float | None:
-    """The cost of charging ``soc_from`` to ``soc_to`` in the cheapest slots between ``start`` and ``end``.
+    """A floor under the cost of charging ``soc_from`` to ``soc_to`` between ``start`` and ``end``.
 
-    Knows every price in advance, which no planner does: a yardstick, not a goal.
-    Slots are added cheapest first; the car charges through them in time order
-    at its own curve, until it has what it needs.
+    The energy from the wall is bought in the cheapest slots first, as if the car
+    took full power all the time and every price were known in advance. No
+    planner can do better, so a plan's cost is measured against it.
     """
     car = night.car
+    energy, soc = 0.0, soc_from
+    while soc < soc_to - 0.01:
+        wall, soc = car.minute(soc)
+        if wall <= 0:
+            return None
+        energy += wall
     slots = sorted(
-        ((max(s, start), min(s + night.step, end), p) for s, p in night.prices if s + night.step > start and s < end),
-        key=lambda slot: (slot[2], slot[0]),
+        (p, max(s, start), min(s + night.step, end)) for s, p in night.prices if s + night.step > start and s < end
     )
-    chosen: list[tuple[datetime, datetime, float]] = []
-    for slot in slots:
-        chosen.append(slot)
-        cost, soc = 0.0, soc_from
-        for begin, finish, price in sorted(chosen):
-            moment = begin
-            while moment < finish and soc < soc_to - 0.01:
-                wall, soc = car.minute(soc)
-                cost += wall * price
-                moment += MINUTE
-        if soc >= soc_to - 0.01:
+    cost = 0.0
+    for price, begin, finish in slots:
+        take = min(energy, car.power * (finish - begin).total_seconds() / 3600)
+        cost += take * price
+        energy -= take
+        if energy <= 1e-9:
             return cost
     return None
 
@@ -186,7 +245,10 @@ class Result:
     plan_changes: int = 0
     counted: float | None = None  # kWh EV Planner wrote in its history
     entries: int = 0  # history entries for the night
+    learning: bool = False  # EV Planner has not had the nights to learn this car yet
+    changes_log: list[str] = field(default_factory=list)  # when the plan changed, and to what
     violations: list[str] = field(default_factory=list)
+    moved: list[datetime] = field(default_factory=list)  # minutes a charging plan stopped covering
 
     @property
     def over(self) -> float | None:
@@ -222,6 +284,8 @@ class Result:
             "counted": self.counted,
             "entries": self.entries,
             "energy_error": None if self.energy_error is None else round(self.energy_error, 2),
+            "learning": self.learning,
+            "changes_log": self.changes_log,
             "violations": self.violations,
         }
 
@@ -258,6 +322,7 @@ def night_from_dict(data: dict[str, Any]) -> Night:
     step = timedelta(minutes=int(data.get("step_minutes", 60)))
     prices = [(_when(s, zone), float(p)) for s, p in data["prices"]]
     published = data.get("published", "13:00")
+    hidden = data.get("hidden_after")
     return Night(
         name=str(data["name"]),
         start=_when(data["start"], zone),
@@ -270,6 +335,8 @@ def night_from_dict(data: dict[str, Any]) -> Night:
         published=None if published is None else time.fromisoformat(str(published)),
         tags=list(data.get("tags", [])),
         private=bool(data.get("private", False)),
+        hidden_after=_when(hidden, zone) if hidden else None,
+        nights=int(data.get("nights", 1)),
     )
 
 

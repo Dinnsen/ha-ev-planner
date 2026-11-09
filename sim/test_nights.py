@@ -30,10 +30,12 @@ NIGHTS = _nights()
 
 @pytest.mark.parametrize("night", NIGHTS, ids=[night.name for night in NIGHTS])
 async def test_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, night: Night) -> None:
-    result = await run_night(hass, freezer, night)
+    results = await run_night(hass, freezer, night)
     out = os.environ.get("SIM_OUT")
     if out:
         with Path(out).open("a", encoding="utf-8") as file:
-            file.write(json.dumps(result.to_dict(), ensure_ascii=False) + "\n")
+            for result in results:
+                file.write(json.dumps(result.to_dict(), ensure_ascii=False) + "\n")
+    broken = [f"{result.name}: {v}" for result in results for v in result.violations]
     if not os.environ.get("SIM_REPORT_ONLY"):
-        assert not result.violations, "; ".join(result.violations)
+        assert not broken, "; ".join(broken) + " | plan changes: " + " / ".join(results[-1].changes_log)

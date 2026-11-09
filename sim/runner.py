@@ -135,14 +135,22 @@ class Run:
         power = car.power * car.factor(self.soc) if charging else 0.0
         self.hass.states.async_set(POWER, str(round(power, 2)), {"unit_of_measurement": "kW", "device_class": "power"})
 
-    def advance(self, moment: datetime) -> tuple[float, bool]:
-        """One minute of charging from ``moment``: the wall energy, and whether it charged."""
+    def advance(self, moment: datetime) -> float:
+        """One minute of charging from ``moment``: the wall energy."""
         if not self.charging(moment):
-            return 0.0, False
+            return 0.0
         wall, self.soc = self.night.car.minute(self.soc)
         if self.first_charge is None:
             self.first_charge = moment
-        return wall, True
+        return wall
+
+    def start_night(self, night: Night) -> None:
+        """A new night: the car comes home as full as it was the first time."""
+        self.night = night
+        self.soc = night.car.soc
+        self.commands = []
+        self.first_charge = None
+        self.price_shown = None
 
     # The price sensor ----------------------------------------------------------
     def publish_prices(self, moment: datetime) -> None:
@@ -185,14 +193,10 @@ async def _tick(hass: HomeAssistant, freezer: FrozenDateTimeFactory, moment: dat
     await hass.async_block_till_done()
 
 
-async def run_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, night: Night) -> Result:
-    """Run ``night`` and measure it."""
-    car = night.car
-    assert car.plug_in is not None and car.unplug is not None
+async def run_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, night: Night) -> list[Result]:
+    """Run ``night`` (and its repeats, one day apart) and measure each."""
     await hass.config.async_set_time_zone(night.tz)
     run = Run(hass, night)
-    result = Result(name=night.name, version=version(), tags=night.tags, private=night.private, goal=night.goal())
-
     freezer.move_to(night.start)
     run.publish_prices(night.start)
     run.publish(night.start)
@@ -203,92 +207,120 @@ async def run_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, night: 
     async def switch(household: Any, entity_id: str, on: bool) -> str | None:
         return await run.switch(household, entity_id, on)
 
+    results: list[Result] = []
     with patch(f"custom_components.{DOMAIN}.household.Household._async_switch", switch):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
         household = entry.runtime_data
         if night.settings:
             await household.async_set_vehicle(VEHICLE, dict(night.settings))
-        await _tick(hass, freezer, night.start + timedelta(seconds=5))
-
-        deadline = night.deadline()
-        window_end = min(deadline, car.unplug) if deadline is not None else car.unplug
-        if deadline is not None:
-            result.feasible, slack = feasible_by(night, deadline)
-            result.slack_minutes = slack.total_seconds() / 60
-        energy_in_window, cost_in_window, soc_at_window_end = 0.0, 0.0, car.soc
-        previous: list[tuple[datetime, datetime]] = []
-        moved: list[datetime] = []
-        moment = night.start
-        while moment < night.end:
-            run.now = moment
-            wall, _charged = run.advance(moment)
-            price = night.price_at(moment) or 0.0
-            result.energy += wall
-            result.cost += wall * price
-            if moment < window_end:
-                energy_in_window += wall
-                cost_in_window += wall * price
-                soc_at_window_end = run.soc
-            moment += MINUTE
-            run.now = moment
-            if deadline is not None and moment == deadline.replace(second=0, microsecond=0):
-                result.soc_at_deadline = round(run.soc, 2)
-            run.publish_prices(moment)
-            if any(moment <= blip < moment + MINUTE for blip in car.blips) and run.plugged(moment):
-                for entity in (SOC, CABLE, CHARGING, POWER):
-                    hass.states.async_set(entity, "unavailable")
-                await _tick(hass, freezer, moment)
-            if any(moment <= flicker < moment + MINUTE for flicker in car.flickers) and run.plugged(moment):
-                hass.states.async_set(CABLE, "off")
-                await _tick(hass, freezer, moment)
-            run.publish(moment)
-            await _tick(hass, freezer, moment)
-            await _tick(hass, freezer, moment + timedelta(seconds=3))
-
-            vehicle = household.vehicles[VEHICLE]
-            windows = _windows(vehicle)
-            if run.plugged(moment) and run.soc < night.goal() - 1:
-                if previous and _future(previous, moment) != _future(windows, moment):
-                    result.plan_changes += 1
-                # A plan that is charging now goes on charging.
-                if _covers(previous, moment - MINUTE) and _covers(previous, moment) and not _covers(windows, moment):
-                    moved.append(moment)
-            previous = windows
-
-        if deadline is not None and result.soc_at_deadline is None and deadline >= night.end:
-            result.soc_at_deadline = round(run.soc, 2)
-        if result.soc_at_deadline is not None:
-            result.on_time = result.soc_at_deadline >= night.goal() - 0.5
-
-        soc_from = car.soc
-        if energy_in_window > 0.1 and soc_at_window_end > soc_from:
-            result.cheapest = cheapest_cost(night, car.plug_in, window_end, soc_from, soc_at_window_end)
-            # Compare like with like: what was charged before the ready-by time.
-            if result.cheapest is not None:
-                result.cost, result.energy = cost_in_window, energy_in_window
-        result.commands = sum(
-            1 for when, _on in run.commands if car.plug_in <= when <= car.unplug + timedelta(minutes=5)
-        )
-        entries = [
-            entry
-            for entry in getattr(household.vehicles[VEHICLE], "history", [])
-            if str(entry.get("start", "")) >= (car.plug_in - timedelta(minutes=1)).isoformat()
-        ]
-        result.entries = len(entries)
-        result.counted = round(sum(float(entry.get("energy") or 0) for entry in entries), 3)
-
-        _check(result, night, run, moved)
+        for index in range(night.nights):
+            this = night.shifted(index) if index else night
+            run.start_night(this)
+            result = await _run_one(hass, freezer, household, run, this)
+            # Nights before the last of a series, or a single night with a car to learn.
+            result.learning = this.learns and index < max(night.nights - 1, 1)
+            if night.nights > 1:
+                result.name = f"{night.name} #{index + 1}"
+            _check(result, this, run, result.moved)
+            results.append(result)
         await hass.config_entries.async_unload(entry.entry_id)
         await hass.async_block_till_done()
+    return results
+
+
+async def _run_one(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, household: Any, run: Run, night: Night
+) -> Result:
+    car = night.car
+    assert car.plug_in is not None and car.unplug is not None
+    result = Result(name=night.name, version=version(), tags=night.tags, private=night.private, goal=night.goal())
+    await _tick(hass, freezer, night.start + timedelta(seconds=5))
+
+    deadline = night.deadline()
+    window_end = min(deadline, car.unplug) if deadline is not None else car.unplug
+    if deadline is not None:
+        result.feasible, slack = feasible_by(night, deadline)
+        result.slack_minutes = slack.total_seconds() / 60
+    energy_in_window, cost_in_window, soc_at_window_end = 0.0, 0.0, car.soc
+    previous: list[tuple[datetime, datetime]] = []
+    moment = night.start
+    while moment < night.end:
+        run.now = moment
+        wall = run.advance(moment)
+        price = night.price_at(moment) or 0.0
+        result.energy += wall
+        result.cost += wall * price
+        if moment < window_end:
+            energy_in_window += wall
+            cost_in_window += wall * price
+            soc_at_window_end = run.soc
+        moment += MINUTE
+        run.now = moment
+        if deadline is not None and moment == deadline.replace(second=0, microsecond=0):
+            result.soc_at_deadline = round(run.soc, 2)
+        run.publish_prices(moment)
+        if any(moment <= blip < moment + MINUTE for blip in car.blips) and run.plugged(moment):
+            for entity in (SOC, CABLE, CHARGING, POWER):
+                hass.states.async_set(entity, "unavailable")
+            await _tick(hass, freezer, moment)
+        if any(moment <= flicker < moment + MINUTE for flicker in car.flickers) and run.plugged(moment):
+            hass.states.async_set(CABLE, "off")
+            await _tick(hass, freezer, moment)
+        run.publish(moment)
+        await _tick(hass, freezer, moment)
+        await _tick(hass, freezer, moment + timedelta(seconds=3))
+
+        windows = _windows(household.vehicles[VEHICLE])
+        if run.plugged(moment) and run.soc < night.goal() - 1:
+            if previous and _future(previous, moment) != _future(windows, moment):
+                result.plan_changes += 1
+                if len(result.changes_log) < 12:
+                    shown = ", ".join(
+                        f"{night.local(a):%H:%M}-{night.local(b):%H:%M}" for a, b in _future(windows, moment)
+                    )
+                    result.changes_log.append(f"{night.local(moment):%H:%M} {round(run.soc, 1)} %: {shown or 'none'}")
+            # A plan that is charging now goes on charging.
+            if _covers(previous, moment - MINUTE) and _covers(previous, moment) and not _covers(windows, moment):
+                result.moved.append(moment)
+        previous = windows
+
+    if deadline is not None and result.soc_at_deadline is None and deadline >= night.end:
+        result.soc_at_deadline = round(run.soc, 2)
+    if result.soc_at_deadline is not None:
+        result.on_time = result.soc_at_deadline >= night.goal() - 0.5
+
+    soc_from = car.soc
+    if energy_in_window > 0.1 and soc_at_window_end > soc_from and night.priced(car.plug_in, window_end):
+        result.cheapest = cheapest_cost(night, car.plug_in, window_end, soc_from, soc_at_window_end)
+        # Compare like with like: what was charged before the ready-by time.
+        if result.cheapest is not None:
+            result.cost, result.energy = cost_in_window, energy_in_window
+    result.commands = sum(1 for when, _on in run.commands if car.plug_in <= when <= car.unplug + timedelta(minutes=5))
+    since = car.plug_in - timedelta(minutes=1)
+    entries = [
+        entry
+        for entry in getattr(household.vehicles[VEHICLE], "history", [])
+        if (started := _parse(entry.get("start"))) is not None and started >= since
+    ]
+    result.entries = len(entries)
+    result.counted = round(sum(float(entry.get("energy") or 0) for entry in entries), 3)
     return result
+
+
+def _parse(value: Any) -> datetime | None:
+    try:
+        moment = datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
+    return moment if moment.tzinfo else None
 
 
 def _check(result: Result, night: Night, run: Run, moved: list[datetime]) -> None:
     """The rules that must never break."""
     car = night.car
     # 1. Ready by the ready-by time whenever it is possible (with an hour to spare, as the car's curve is learned).
-    if result.feasible and (result.slack_minutes or 0) >= 60 and result.on_time is False:
+    if result.feasible and (result.slack_minutes or 0) >= 60 and result.on_time is False and not result.learning:
         result.violations.append(
             f"not ready: {result.soc_at_deadline} % of {result.goal} % ({result.slack_minutes:.0f} min to spare)"
         )
