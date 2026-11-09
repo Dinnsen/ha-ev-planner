@@ -26,11 +26,14 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_CURRENT_ENTITY,
+    CONF_HEAT_PUMP_BLOCK,
+    CONF_HEAT_PUMP_POWER,
     CONF_SUPPLY_GUARD,
     CONF_SUPPLY_LIMIT,
     CONF_SUPPLY_METER,
     CONF_SUPPLY_PHASES,
     CONF_SUPPLY_RESERVE,
+    CONF_WEATHER_ENTITY,
     DEFAULT_SUPPLY_RESERVE,
     PRIORITY_FIRST,
     SET_MUST_SOC,
@@ -61,6 +64,15 @@ GUARD_SETTLE = timedelta(seconds=60)
 GUARD_PAUSE = timedelta(minutes=5)
 # The plan raises a car the guard watches only into what the meter shows is free, less this.
 HEADROOM_MARGIN = 1.0
+# The weather forecast is fetched again after this long.
+WEATHER_EVERY = timedelta(minutes=55)
+# A plan is made again when the forecast moves this much (°C) in the hours ahead.
+WEATHER_REPLAN = 2.0
+# The heat pump is held back for at most this long at a time, and this many times a night.
+HOLD_HEAT_PUMP = timedelta(minutes=15)
+HOLDS_PER_NIGHT = 2
+# Without a power reading, holding the heat pump back is counted as freeing this much (A per phase).
+HEAT_PUMP_AMPS = 3.0
 
 
 class SupplyControl:
@@ -78,6 +90,12 @@ class SupplyControl:
         self._paused: dict[str, datetime] = {}
         self._unsub: CALLBACK_TYPE | None = None
         self.guard_events = 0
+        self._temps: list[float] = []
+        self._weather: dict[datetime, float] = {}
+        self._weather_at: datetime | None = None
+        self._held_until: datetime | None = None
+        self._held_amps = 0.0
+        self._holds: list[datetime] = []
 
     @property
     def hass(self) -> HomeAssistant:
@@ -154,16 +172,91 @@ class SupplyControl:
         if self._hour is not None and hour != self._hour and self._readings:
             slots = self.household.price_slots(self._hour)
             cheap = any(start == self._hour for start in cheap_hours(slots))
-            self.forecast.add(self._hour.hour, cheap, sum(self._readings) / len(self._readings))
+            temperature = sum(self._temps) / len(self._temps) if self._temps else None
+            self.forecast.add(self._hour.hour, cheap, sum(self._readings) / len(self._readings), temperature)
             self._readings = []
+            self._temps = []
             saved = True
         self._hour = hour
         if (amps := self.house_now()) is not None:
             self._readings.append(amps)
+            if (temperature := self.temperature_now()) is not None:
+                self._temps.append(temperature)
         return saved
 
     def house_at(self, slot: PriceSlot, cheap: set[datetime]) -> float:
-        return self.forecast.predict(slot.start.hour, slot.start in cheap, self.reserve)
+        return self.forecast.predict(
+            slot.start.hour, slot.start in cheap, self.reserve, self.temperature_at(slot.start)
+        )
+
+    # ------------------------------------------------------------------
+    # The weather
+
+    @property
+    def weather_entity(self) -> str | None:
+        value = self.household.config.get(CONF_WEATHER_ENTITY)
+        return str(value) if value else None
+
+    @staticmethod
+    def _celsius(value: Any, unit: Any) -> float | None:
+        number = to_float(value)
+        if number is None:
+            return None
+        return (number - 32) * 5 / 9 if unit in ("°F", "F") else number
+
+    def temperature_now(self) -> float | None:
+        """Outside now, from the weather entity (°C)."""
+        if not self.weather_entity or (state := self.hass.states.get(self.weather_entity)) is None:
+            return None
+        return self._celsius(state.attributes.get("temperature"), state.attributes.get("temperature_unit"))
+
+    def temperature_at(self, moment: datetime) -> float | None:
+        """The temperature expected in the hour from ``moment``: the forecast, else now for the hour ahead."""
+        if not self.weather_entity:
+            return None
+        hour = dt_util.as_utc(moment).replace(minute=0, second=0, microsecond=0)
+        if (value := self._weather.get(hour)) is not None:
+            return value
+        if abs(elapsed(moment, self._now())) < timedelta(hours=1):
+            return self.temperature_now()
+        return None
+
+    async def async_refresh_weather(self, now: datetime, force: bool = False) -> bool:
+        """Fetch the hourly forecast; True when it moved enough to plan again."""
+        entity = self.weather_entity
+        if not self.active or not entity:
+            return False
+        if not force and self._weather_at is not None and elapsed(now, self._weather_at) < WEATHER_EVERY:
+            return False
+        self._weather_at = now
+        try:
+            response = await self.hass.services.async_call(
+                "weather",
+                "get_forecasts",
+                {"entity_id": entity, "type": "hourly"},
+                blocking=True,
+                return_response=True,
+            )
+        except (HomeAssistantError, ValueError) as err:
+            _LOGGER.debug("No weather forecast from %s: %s", entity, err)
+            return False
+        state = self.hass.states.get(entity)
+        unit = state.attributes.get("temperature_unit") if state else None
+        forecast = (response or {}).get(entity) if isinstance(response, dict) else None
+        items = forecast.get("forecast") if isinstance(forecast, dict) else None
+        hours: dict[datetime, float] = {}
+        for item in items if isinstance(items, list) else []:
+            if not isinstance(item, dict):
+                continue
+            when = dt_util.parse_datetime(str(item.get("datetime") or ""))
+            value = self._celsius(item.get("temperature"), unit)
+            if when is not None and value is not None:
+                hours[dt_util.as_utc(when).replace(minute=0, second=0, microsecond=0)] = value
+        if not hours:
+            return False
+        before, self._weather = self._weather, hours
+        moved = [abs(value - before[hour]) for hour, value in hours.items() if hour in before]
+        return not before or (bool(moved) and max(moved) >= WEATHER_REPLAN)
 
     # ------------------------------------------------------------------
     # The plan
@@ -248,12 +341,82 @@ class SupplyControl:
         readings = [value for value in values if value is not None]
         return max(readings) if readings else None
 
+    def _room_reading(self) -> float | None:
+        """The meter as it will be when a heat pump held back runs again: what there is room for."""
+        reading = self._meter_reading()
+        return None if reading is None else reading + (self._held_amps if self._held_until is not None else 0.0)
+
+    # ------------------------------------------------------------------
+    # The heat pump
+
+    @property
+    def heat_pump_power(self) -> str | None:
+        value = self.household.config.get(CONF_HEAT_PUMP_POWER)
+        return str(value) if value else None
+
+    @property
+    def heat_pump_block(self) -> str | None:
+        value = self.household.config.get(CONF_HEAT_PUMP_BLOCK)
+        return str(value) if value else None
+
+    def heat_pump_kw(self) -> float | None:
+        from .household import power_value
+
+        if not self.heat_pump_power:
+            return None
+        return power_value(self.hass.states.get(self.heat_pump_power))
+
+    def _holds_tonight(self, now: datetime) -> int:
+        """Times the heat pump was held back since noon."""
+        noon = dt_util.as_local(now).replace(hour=12, minute=0, second=0, microsecond=0)
+        if dt_util.as_local(now) < noon:
+            noon -= timedelta(days=1)
+        self._holds = [at for at in self._holds if at >= noon]
+        return len(self._holds)
+
+    async def _async_hold_heat_pump(self, now: datetime) -> float:
+        """Hold the heat pump back, when allowed; the amps that frees (0 when it was not held)."""
+        entity = self.heat_pump_block
+        if not entity or self._held_until is not None or self._holds_tonight(now) >= HOLDS_PER_NIGHT:
+            return 0.0
+        power = self.heat_pump_kw()
+        if power is not None and power < 0.2:
+            return 0.0  # it is not running: nothing to free
+        if await self.household._async_switch(entity, True) is not None:
+            return 0.0
+        amps = amps_for(power, self.phases) if power is not None else HEAT_PUMP_AMPS
+        self._held_until = now + HOLD_HEAT_PUMP
+        self._held_amps = amps
+        self._holds.append(now)
+        self.guard_events += 1
+        return amps
+
+    async def async_release_heat_pump(self, now: datetime, force: bool = False) -> None:
+        """Let the heat pump run again after its time, or at once with ``force``."""
+        if self._held_until is None or (not force and now < self._held_until):
+            return
+        self._held_until = None
+        self._held_amps = 0.0
+        if self.heat_pump_block:
+            await self.household._async_switch(self.heat_pump_block, False)
+
+    def heat_pump_state(self, now: datetime) -> dict[str, Any] | None:
+        if not self.heat_pump_power and not self.heat_pump_block:
+            return None
+        power = self.heat_pump_kw()
+        return {
+            "kw": None if power is None else round(power, 2),
+            "held": self._held_until is not None,
+            "held_until": self._held_until.isoformat() if self._held_until else None,
+            "holds_tonight": self._holds_tonight(now),
+        }
+
     def holds_off(self, vehicle: Vehicle, now: datetime) -> bool:
         """The guard stopped this car: it waits, then until the meter shows room for it."""
         until = self._paused.get(vehicle.vehicle_id)
         if until is None:
             return False
-        reading = self._meter_reading()
+        reading = self._room_reading()
         if not self.guard or (now >= until and (reading is None or self.limit - reading >= MIN_AMPS + HEADROOM_MARGIN)):
             del self._paused[vehicle.vehicle_id]
             self._sent.pop(vehicle.vehicle_id, None)
@@ -315,7 +478,7 @@ class SupplyControl:
                 continue  # the guard lowered it a moment ago
             if self.guard and last is not None and value > last[0]:
                 # Up only into what the meter shows is free now.
-                reading = self._meter_reading()
+                reading = self._room_reading()
                 room = 0.0 if reading is None else self.limit - reading - HEADROOM_MARGIN
                 value = min(value, float(int(last[0] + max(0.0, room))))
                 if value < last[0] + 1:
@@ -346,6 +509,10 @@ class SupplyControl:
         if self._unsub is not None:
             self._unsub()
             self._unsub = None
+        if self._held_until is not None and self.heat_pump_block:
+            # Never leave the heat pump held back.
+            self.hass.async_create_task(self.household._async_switch(self.heat_pump_block, False))
+            self._held_until = None
 
     @callback
     def _handle_meter(self, _event: Event[EventStateChangedData]) -> None:
@@ -407,7 +574,13 @@ class SupplyControl:
                         return
         if over is None or over <= 0:
             return
-        # Every car at the least it can take, and still too much: stop the last in line.
+        # Every car at the least it can take, and still too much: hold the heat pump back for a while,
+        # when that is allowed, then stop the last car in line.
+        if (freed := await self._async_hold_heat_pump(now)) > 0:
+            self._cuts.append((now, freed))
+            over -= freed
+            if over <= 0:
+                return
         for vehicle in charging:
             if self.household.control_entity(vehicle) is None:
                 continue
@@ -446,6 +619,7 @@ class SupplyControl:
             "cars_now": self.cars_now(),
             "guard": self.guard,
             "timeline": self.timeline(now),
+            "weather": {"now": self.temperature_now(), "slope": self.forecast.slope} if self.weather_entity else None,
         }
 
     def cars_now(self) -> dict[str, float]:
@@ -481,7 +655,7 @@ class SupplyControl:
     def vehicle_amps(self, vehicle_id: str, now: datetime) -> float | None:
         return self.plan.amps_at(vehicle_id, now) if self.plan else None
 
-    def to_store(self) -> dict[str, list[float]]:
+    def to_store(self) -> dict[str, Any]:
         return self.forecast.to_dict()
 
     def load(self, data: Any) -> None:

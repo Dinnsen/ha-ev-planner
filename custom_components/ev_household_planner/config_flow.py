@@ -54,6 +54,8 @@ from .const import (
     CONF_ENERGY_ENTITY,
     CONF_GRID_INVERTED,
     CONF_GRID_POWER,
+    CONF_HEAT_PUMP_BLOCK,
+    CONF_HEAT_PUMP_POWER,
     CONF_HOME_ENTITY,
     CONF_IMPORTED_FROM,
     CONF_IMPORTED_SPEED,
@@ -77,6 +79,7 @@ from .const import (
     CONF_SWITCH_ENTITY,
     CONF_TARGET_ENTITY,
     CONF_UNPLUGGED_STATES,
+    CONF_WEATHER_ENTITY,
     CONNECTION_KEYS,
     CONTROL_CAR,
     CONTROL_CHARGER,
@@ -185,6 +188,7 @@ PHASES_SELECTOR = selector.SelectSelector(
 )
 ENERGY_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", device_class="energy"))
 POWER_ENTITY_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", device_class="power"))
+WEATHER_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="weather"))
 CAPACITY_ENTITY_SELECTOR = selector.EntitySelector(
     selector.EntitySelectorConfig(domain=["sensor", "number", "input_number"])
 )
@@ -378,6 +382,10 @@ class EVPlannerOptionsFlow(OptionsFlow):
         def sug(key: str) -> vol.Optional:
             return vol.Optional(key, description={"suggested_value": options.get(key)})
 
+        # The weather entity, when there is only one: suggested for the house forecast.
+        weathers = self.hass.states.async_entity_ids("weather")
+        only_weather = weathers[0] if len(weathers) == 1 else None
+
         schema = vol.Schema(
             {
                 vol.Required(CONF_CURRENCY, default=options.get(CONF_CURRENCY) or DEFAULT_CURRENCY): _currency_selector(
@@ -399,6 +407,12 @@ class EVPlannerOptionsFlow(OptionsFlow):
                                 CONF_SUPPLY_RESERVE, default=options.get(CONF_SUPPLY_RESERVE, DEFAULT_SUPPLY_RESERVE)
                             ): AMPS_SELECTOR,
                             vol.Optional(CONF_SUPPLY_GUARD, default=bool(options.get(CONF_SUPPLY_GUARD, False))): bool,
+                            vol.Optional(
+                                CONF_WEATHER_ENTITY,
+                                description={"suggested_value": options.get(CONF_WEATHER_ENTITY, only_weather)},
+                            ): WEATHER_SELECTOR,
+                            sug(CONF_HEAT_PUMP_POWER): POWER_ENTITY_SELECTOR,
+                            sug(CONF_HEAT_PUMP_BLOCK): SWITCH_SELECTOR,
                         }
                     ),
                     {"collapsed": not options.get(CONF_SUPPLY_LIMIT)},

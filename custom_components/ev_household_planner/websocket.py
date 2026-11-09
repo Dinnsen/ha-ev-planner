@@ -415,6 +415,7 @@ def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
         "price_issue": price_issue(household.price_slots(now), now),
         "supply": household.supply.state(now),
         "solar": household.solar.state(now),
+        "heat_pump": household.supply.heat_pump_state(now),
         "vehicles": [vehicle_state(household, vehicle) for vehicle in vehicles],
         "chargers": chargers,
         "guest": guest_state(household, household.guest),

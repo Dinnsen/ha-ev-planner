@@ -951,6 +951,9 @@ class Household(DataUpdateCoordinator[None]):
             self._count_time(vehicle, now)
         if self.supply.sample(now):
             self.async_save()
+        await self.supply.async_release_heat_pump(now)
+        if await self.supply.async_refresh_weather(now):
+            replan = True
         if await self.solar.async_refresh_forecast(now):
             replan = True
         # How the morning went, before the plan moves on to the next ready-by time.

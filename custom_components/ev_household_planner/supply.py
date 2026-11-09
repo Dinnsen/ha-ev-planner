@@ -21,6 +21,13 @@ MIN_AMPS = 6.0  # the least a charger can give (IEC 61851)
 # The house: the 80th percentile of what it drew at the same hour on recent days.
 FORECAST_SHARE = 0.8
 FORECAST_DAYS = 14
+# The weather: how many more amps the house draws for each degree colder, learned from its own
+# hours. Only with enough hours and enough spread in the temperature, never more than MAX_SLOPE,
+# and never further than WEATHER_REACH degrees beyond the temperatures it has seen.
+MIN_WEATHER_HOURS = 24
+MIN_WEATHER_SPREAD = 1.0  # °C, as a standard deviation around each hour's own mean
+MAX_SLOPE = 1.0  # A per °C
+WEATHER_REACH = 10.0  # °C
 # A plan on a shared supply aims to be done this long before the ready-by time,
 # so the house can take what it needs on the way; the last stretch is for catching up.
 BUFFER = timedelta(hours=1)
@@ -46,41 +53,98 @@ class HouseForecast:
 
     Kept apart for cheap hours (the cheapest third of the day's prices), since
     a heat pump or a water heater on a price plan runs then, and for the rest.
+    With the weather, each hour also keeps the temperature it had, and the
+    house's answer to the cold (amps per degree) is learned from all hours
+    together: a cold night after mild weeks is then expected to draw more.
     """
 
     samples: dict[str, list[float]] = field(default_factory=dict)
+    temps: dict[str, list[float | None]] = field(default_factory=dict)  # line up with the last samples
+    slope: float | None = None  # amps per °C (negative: more when colder), None until it is known
 
     @staticmethod
     def _key(hour: int, cheap: bool) -> str:
         return f"{hour:02d}{'c' if cheap else 'n'}"
 
-    def add(self, hour: int, cheap: bool, amps: float) -> None:
-        values = self.samples.setdefault(self._key(hour, cheap), [])
+    def add(self, hour: int, cheap: bool, amps: float, temperature: float | None = None) -> None:
+        key = self._key(hour, cheap)
+        values = self.samples.setdefault(key, [])
         values.append(round(max(0.0, amps), 2))
         del values[:-FORECAST_DAYS]
+        temps = self.temps.setdefault(key, [])
+        temps.append(None if temperature is None else round(temperature, 1))
+        del temps[: max(0, len(temps) - len(values))]
+        self.slope = self._slope()
 
-    def predict(self, hour: int, cheap: bool, reserve: float) -> float:
-        """The house at ``hour``: the 80th percentile of its days, else of the other kind of hour, else ``reserve``."""
+    def _pairs(self, key: str) -> list[tuple[float, float]]:
+        """(temperature, amps) for the hours of ``key`` that have both."""
+        temps = self.temps.get(key) or []
+        values = self.samples.get(key) or []
+        if not temps or len(temps) > len(values):
+            return []
+        return [(t, a) for t, a in zip(temps, values[-len(temps) :], strict=True) if t is not None]
+
+    def _slope(self) -> float | None:
+        """Amps per °C from all hours, each around its own mean, or None without enough to go on."""
+        top = bottom = 0.0
+        count = 0
+        for key in self.samples:
+            pairs = self._pairs(key)
+            if len(pairs) < 3:
+                continue
+            mean_t = sum(t for t, _a in pairs) / len(pairs)
+            mean_a = sum(a for _t, a in pairs) / len(pairs)
+            top += sum((t - mean_t) * (a - mean_a) for t, a in pairs)
+            bottom += sum((t - mean_t) ** 2 for t, _a in pairs)
+            count += len(pairs)
+        if count < MIN_WEATHER_HOURS or bottom / count < MIN_WEATHER_SPREAD**2:
+            return None
+        return max(-MAX_SLOPE, min(0.0, top / bottom))
+
+    def predict(self, hour: int, cheap: bool, reserve: float, temperature: float | None = None) -> float:
+        """The house at ``hour``: the 80th percentile of its days, else of the other kind of hour, else ``reserve``.
+
+        With the temperature expected then, the hour is moved by the house's
+        answer to the cold, from the temperature its days had.
+        """
         for key in (self._key(hour, cheap), self._key(hour, not cheap)):
             values = sorted(self.samples.get(key, []))
             if len(values) >= 3:
-                return values[min(len(values) - 1, int(FORECAST_SHARE * len(values)))]
+                amps = values[min(len(values) - 1, int(FORECAST_SHARE * len(values)))]
+                pairs = self._pairs(key)
+                if temperature is None or self.slope is None or len(pairs) < 3:
+                    return amps
+                seen = [t for t, _a in pairs]
+                temperature = max(min(seen) - WEATHER_REACH, min(max(seen) + WEATHER_REACH, temperature))
+                return max(0.0, amps + self.slope * (temperature - sum(seen) / len(seen)))
         return reserve
 
-    def to_dict(self) -> dict[str, list[float]]:
-        return {key: list(values) for key, values in self.samples.items()}
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            **{key: list(values) for key, values in self.samples.items()},
+            "temps": {key: list(values) for key, values in self.temps.items()},
+        }
 
     @classmethod
     def from_dict(cls, data: Any) -> HouseForecast:
         if not isinstance(data, dict):
             return cls()
-        return cls(
+        forecast = cls(
             {
                 str(k): [float(v) for v in values][-FORECAST_DAYS:]
                 for k, values in data.items()
                 if isinstance(values, list)
             }
         )
+        temps = data.get("temps")
+        if isinstance(temps, dict):
+            for key, values in temps.items():
+                count = len(forecast.samples.get(str(key)) or [])
+                if count and isinstance(values, list):
+                    clean = [float(v) if isinstance(v, int | float) else None for v in values]
+                    forecast.temps[str(key)] = clean[-count:]
+        forecast.slope = forecast._slope()
+        return forecast
 
 
 def cheap_hours(slots: Sequence[PriceSlot]) -> set[datetime]:
