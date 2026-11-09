@@ -56,6 +56,9 @@
       "price_ceiling": {
         "default": "mdi:cash-lock"
       },
+      "price_ceiling_above": {
+        "default": "mdi:chart-bell-curve-cumulative"
+      },
       "low_price_level": {
         "default": "mdi:cash-minus"
       },
@@ -215,6 +218,9 @@
       },
       "price_ceiling_enabled": {
         "default": "mdi:cash-lock"
+      },
+      "price_ceiling_relative": {
+        "default": "mdi:chart-bell-curve-cumulative"
       },
       "low_price_charging": {
         "default": "mdi:cash-minus"

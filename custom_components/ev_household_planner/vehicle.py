@@ -48,7 +48,9 @@ from .const import (
     OPPORTUNISTIC_OFF,
     PERIOD_JOIN,
     SET_CEILING,
+    SET_CEILING_ABOVE,
     SET_CEILING_ENABLED,
+    SET_CEILING_RELATIVE,
     SET_CONTINUOUS,
     SET_DAY_TARGETS,
     SET_EARLIEST_START,
@@ -561,6 +563,9 @@ class Vehicle:
         return Rules(
             min_soc=to_float(s.get(SET_MIN_SOC)) or 0.0,
             ceiling=to_float(s.get(SET_CEILING)) if s.get(SET_CEILING_ENABLED) else None,
+            ceiling_above=(to_float(s.get(SET_CEILING_ABOVE)) or 0.0)
+            if s.get(SET_CEILING_ENABLED) and s.get(SET_CEILING_RELATIVE)
+            else None,
             opportunistic=str(s.get(SET_OPPORTUNISTIC) or OPPORTUNISTIC_OFF),
             opportunistic_level=to_float(s.get(SET_OPPORTUNISTIC_LEVEL)) or 50.0,
             follow_level=to_float(s.get(SET_FOLLOW_LEVEL)) or 90.0,

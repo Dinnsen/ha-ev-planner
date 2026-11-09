@@ -392,6 +392,9 @@
       },
       "topup_level": {
         "name": "Top up from"
+      },
+      "price_ceiling_above": {
+        "name": "Price ceiling above average"
       }
     },
     "select": {
@@ -589,6 +592,9 @@
       },
       "notify_receipt": {
         "name": "Morning receipt and warnings"
+      },
+      "price_ceiling_relative": {
+        "name": "Price ceiling: average + %"
       }
     },
     "text": {

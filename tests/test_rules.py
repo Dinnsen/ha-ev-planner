@@ -641,3 +641,24 @@ def test_a_running_plan_without_prices_holds_still() -> None:
     real = plan_vehicle(slots(NIGHT), CAR, Rules(), NOW, deadline=DEADLINE)
     assert keep_fallback(old, real, running) is real
     assert keep_fallback(None, later, running) is later
+
+
+def test_a_ceiling_that_follows_the_prices() -> None:
+    """The ceiling as the average price up to the ready-by time plus a share of it."""
+    from custom_components.ev_household_planner.rules import average_ceiling
+
+    window = slots([1.0, 2.0, 3.0])
+    assert average_ceiling(window, 10) == pytest.approx(2.2)
+    assert average_ceiling(slots([-1.0, -1.0]), 10) == pytest.approx(-0.9)
+    assert average_ceiling([], 10) is None
+    # A dear night: a fixed ceiling of 1 kr leaves the car empty, one that follows the prices does not.
+    dear = slots([3.0, 2.0, 2.5, 3.5, 4.0, 3.0, 2.2, 2.4, 3.0, 3.0, 3.0])
+    with pytest.raises(PlanError):
+        plan_vehicle(dear, CAR, Rules(ceiling=1.0), NOW, deadline=DEADLINE)
+    following = plan_vehicle(dear, CAR, Rules(ceiling_above=10), NOW, deadline=DEADLINE)
+    assert following.ceiling == pytest.approx(average_ceiling(dear, 10))
+    assert following.minutes > 0 and all(
+        slot.price <= following.ceiling
+        for slot in dear
+        if any(s["start"] <= slot.start < s["end"] for s in following.segments)
+    )

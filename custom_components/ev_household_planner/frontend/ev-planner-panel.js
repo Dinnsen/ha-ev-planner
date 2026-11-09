@@ -192,7 +192,8 @@ const TEXT = {
     rule_min: "Minimum",
     rule_min_hint: "Nås altid, uanset prisen.",
     rule_ceiling: "Prisloft",
-    rule_ceiling_hint: "Lad aldrig, når prisen er højere.",
+    rule_ceiling_hint: "Lad aldrig, når prisen er højere. Som fast pris, eller som gennemsnittet frem til klar-tiden plus en procent, så loftet følger dagens priser.",
+    ceiling_relative: "Gns. + %",
     rule_low_price: "Lad ved lav pris",
     rule_low_price_hint: "Lad med det samme, når prisen er på eller under.",
     rule_low_soc: "Lad ved lavt batteri",
@@ -598,7 +599,8 @@ const TEXT = {
     rule_min: "Minimum",
     rule_min_hint: "Always reached, whatever the price.",
     rule_ceiling: "Price ceiling",
-    rule_ceiling_hint: "Never charge when the price is higher.",
+    rule_ceiling_hint: "Never charge when the price is higher. As a fixed price, or as the average up to the ready-by time plus a percentage, so the ceiling follows the day's prices.",
+    ceiling_relative: "Avg. + %",
     rule_low_price: "Charge at a low price",
     rule_low_price_hint: "Charge right away when the price is at or below.",
     rule_low_soc: "Charge at a low battery",
@@ -2240,7 +2242,7 @@ class EvPlannerPanel extends HTMLElement {
   /* The ceiling to draw: the one the plan used (after opportunistic charging), or the setting. */
   _ceilingOf(v, settings, plan) {
     if (plan && isNum(plan.ceiling)) return Number(plan.ceiling);
-    if (settings?.price_ceiling_enabled && isNum(settings.price_ceiling)) return Number(settings.price_ceiling);
+    if (settings?.price_ceiling_enabled && !settings.price_ceiling_relative && isNum(settings.price_ceiling)) return Number(settings.price_ceiling);
     return null;
   }
 
@@ -3100,7 +3102,7 @@ class EvPlannerPanel extends HTMLElement {
 
   _ruleValues(s) {
     return [
-      "min_soc", "price_ceiling_enabled", "price_ceiling", "low_price_charging", "low_price_level", "low_soc_charging", "low_soc_level",
+      "min_soc", "price_ceiling_enabled", "price_ceiling", "price_ceiling_relative", "price_ceiling_above", "low_price_charging", "low_price_level", "low_soc_charging", "low_soc_level",
       "opportunistic", "opportunistic_level", "follow_level", "keep_charger_on", "use_earliest_start", "earliest_start",
       "join_period", "join_within", "continuous", "prefer_early", "early_within", "topup", "topup_level",
     ].map((key) => s[key]);
@@ -3143,7 +3145,13 @@ class EvPlannerPanel extends HTMLElement {
         title: this._t("rule_ceiling"),
         hint: this._t("rule_ceiling_hint"),
         off: !s.price_ceiling_enabled,
-        control: `${s.price_ceiling_enabled ? this._valueHtml("price_ceiling", s.price_ceiling, { unit: price, step: 0.01, min: -5, max: 20, label: this._t("rule_ceiling") }) : ""}${this._switchHtml("price_ceiling_enabled", s.price_ceiling_enabled, this._t("rule_ceiling"))}`,
+        control: `${s.price_ceiling_enabled
+          ? (s.price_ceiling_relative
+              ? this._valueHtml("price_ceiling_above", s.price_ceiling_above, { unit: "%", step: 1, min: 0, max: 200, label: this._t("ceiling_relative") })
+              : this._valueHtml("price_ceiling", s.price_ceiling, { unit: price, step: 0.01, min: -5, max: 20, label: this._t("rule_ceiling") }))
+            + `<span class="ceiling-mode">${esc(this._t("ceiling_relative"))}</span>`
+            + this._switchHtml("price_ceiling_relative", s.price_ceiling_relative, this._t("ceiling_relative"))
+          : ""}${this._switchHtml("price_ceiling_enabled", s.price_ceiling_enabled, this._t("rule_ceiling"))}`,
       }),
     );
     rows.push(
@@ -4549,6 +4557,7 @@ input[type="text"], .unit-input { border: 1px solid var(--evp-line); border-radi
 .unit-input span { color: var(--evp-soft); white-space: nowrap; }
 .unit-input:focus-within { outline: 2px solid var(--evp-accent); outline-offset: 1px; }
 .unit-input.small { width: auto; padding: 0 10px; gap: 4px; border-radius: 999px; }
+  .ceiling-mode { font-size: 12px; color: var(--secondary-text-color); white-space: nowrap; }
 .unit-input.small input { width: 56px; flex: none; padding: 6px 0; text-align: right; font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
 .unit-input.small input::-webkit-outer-spin-button, .unit-input.small input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .unit-input.small span { font-size: 13px; }

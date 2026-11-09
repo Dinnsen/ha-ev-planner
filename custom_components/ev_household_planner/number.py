@@ -15,6 +15,7 @@ from .const import (
     GUEST_POWER,
     GUEST_SOC,
     SET_CEILING,
+    SET_CEILING_ABOVE,
     SET_EARLY_WITHIN,
     SET_FOLLOW_LEVEL,
     SET_JOIN_WITHIN,
@@ -75,6 +76,16 @@ MANUAL_SOC = _percent("manual_soc", SET_MANUAL_SOC)
 VEHICLE_NUMBERS: tuple[PlannerNumberDescription, ...] = (
     _percent("min_soc", SET_MIN_SOC, config=True),
     _price("price_ceiling", SET_CEILING),
+    PlannerNumberDescription(
+        key="price_ceiling_above",
+        setting=SET_CEILING_ABOVE,
+        native_min_value=0,
+        native_max_value=200,
+        native_step=1,
+        native_unit_of_measurement=PERCENTAGE,
+        mode=NumberMode.BOX,
+        entity_category=EntityCategory.CONFIG,
+    ),
     _price("low_price_level", SET_LOW_PRICE_LEVEL),
     PlannerNumberDescription(
         key="join_within",

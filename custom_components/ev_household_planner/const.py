@@ -111,6 +111,9 @@ SET_JOIN_ENABLED: Final = "join_period"
 SET_JOIN_WITHIN: Final = "join_within"
 SET_CEILING_ENABLED: Final = "price_ceiling_enabled"
 SET_CEILING: Final = "price_ceiling"
+# The ceiling as the average price up to the ready-by time plus this many percent.
+SET_CEILING_RELATIVE: Final = "price_ceiling_relative"
+SET_CEILING_ABOVE: Final = "price_ceiling_above"
 SET_LOW_PRICE_ENABLED: Final = "low_price_charging"
 SET_LOW_PRICE_LEVEL: Final = "low_price_level"
 SET_LOW_SOC_ENABLED: Final = "low_soc_charging"
@@ -176,6 +179,8 @@ DEFAULT_VEHICLE_SETTINGS: Final[dict[str, object]] = {
     SET_JOIN_WITHIN: 0.05,
     SET_CEILING_ENABLED: False,
     SET_CEILING: 2.0,
+    SET_CEILING_RELATIVE: False,
+    SET_CEILING_ABOVE: 10.0,
     SET_LOW_PRICE_ENABLED: False,
     SET_LOW_PRICE_LEVEL: 0.3,
     SET_LOW_SOC_ENABLED: False,
