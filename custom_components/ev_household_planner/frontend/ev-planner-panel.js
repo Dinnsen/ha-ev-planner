@@ -192,8 +192,10 @@ const TEXT = {
     rule_min: "Minimum",
     rule_min_hint: "Nås altid, uanset prisen.",
     rule_ceiling: "Prisloft",
-    rule_ceiling_hint: "Lad aldrig, når prisen er højere. Som fast pris, eller som gennemsnittet frem til klar-tiden plus en procent, så loftet følger dagens priser.",
-    ceiling_relative: "Gns. + %",
+    rule_ceiling_hint: "Lad aldrig, når prisen er højere.",
+    rule_ceiling_avg_hint: "Gennemsnittet frem til klar-tiden plus {pct}: følger dagens priser.",
+    ceiling_fixed: "Fast pris",
+    ceiling_relative: "Gennemsnit + %",
     rule_low_price: "Lad ved lav pris",
     rule_low_price_hint: "Lad med det samme, når prisen er på eller under.",
     rule_low_soc: "Lad ved lavt batteri",
@@ -599,8 +601,10 @@ const TEXT = {
     rule_min: "Minimum",
     rule_min_hint: "Always reached, whatever the price.",
     rule_ceiling: "Price ceiling",
-    rule_ceiling_hint: "Never charge when the price is higher. As a fixed price, or as the average up to the ready-by time plus a percentage, so the ceiling follows the day's prices.",
-    ceiling_relative: "Avg. + %",
+    rule_ceiling_hint: "Never charge when the price is higher.",
+    rule_ceiling_avg_hint: "The average up to the ready-by time plus {pct}: follows the day's prices.",
+    ceiling_fixed: "Fixed price",
+    ceiling_relative: "Average + %",
     rule_low_price: "Charge at a low price",
     rule_low_price_hint: "Charge right away when the price is at or below.",
     rule_low_soc: "Charge at a low battery",
@@ -3143,15 +3147,18 @@ class EvPlannerPanel extends HTMLElement {
       this._ruleRow({
         icon: "rules",
         title: this._t("rule_ceiling"),
-        hint: this._t("rule_ceiling_hint"),
+        hint: s.price_ceiling_enabled && s.price_ceiling_relative
+          ? this._t("rule_ceiling_avg_hint", { pct: this._pct(s.price_ceiling_above) })
+          : this._t("rule_ceiling_hint"),
         off: !s.price_ceiling_enabled,
-        control: `${s.price_ceiling_enabled
-          ? (s.price_ceiling_relative
+        control: this._switchHtml("price_ceiling_enabled", s.price_ceiling_enabled, this._t("rule_ceiling")),
+        extra: s.price_ceiling_enabled
+          ? `<div class="rule-under"><div class="segmented opp" role="radiogroup" aria-label="${this._t("rule_ceiling")}">${[false, true].map(
+              (rel) => `<button role="radio" data-act="ceilmode" data-value="${rel ? 1 : 0}" data-f="ceil-${rel ? "avg" : "fixed"}" aria-checked="${Boolean(s.price_ceiling_relative) === rel}" class="${Boolean(s.price_ceiling_relative) === rel ? "on" : ""}">${this._t(rel ? "ceiling_relative" : "ceiling_fixed")}</button>`,
+            ).join("")}</div>${s.price_ceiling_relative
               ? this._valueHtml("price_ceiling_above", s.price_ceiling_above, { unit: "%", step: 1, min: 0, max: 200, label: this._t("ceiling_relative") })
-              : this._valueHtml("price_ceiling", s.price_ceiling, { unit: price, step: 0.01, min: -5, max: 20, label: this._t("rule_ceiling") }))
-            + `<span class="ceiling-mode">${esc(this._t("ceiling_relative"))}</span>`
-            + this._switchHtml("price_ceiling_relative", s.price_ceiling_relative, this._t("ceiling_relative"))
-          : ""}${this._switchHtml("price_ceiling_enabled", s.price_ceiling_enabled, this._t("rule_ceiling"))}`,
+              : this._valueHtml("price_ceiling", s.price_ceiling, { unit: price, step: 0.01, min: -5, max: 20, label: this._t("rule_ceiling") })}</div>`
+          : "",
       }),
     );
     rows.push(
@@ -3986,6 +3993,9 @@ class EvPlannerPanel extends HTMLElement {
       case "opp":
         this._vchange({ opportunistic: button.dataset.value });
         break;
+      case "ceilmode":
+        this._vchange({ price_ceiling_relative: button.dataset.value === "1" });
+        break;
       case "level":
         this._level = LEVELS.includes(button.dataset.level) ? button.dataset.level : "smart";
         this._write(LEVEL_KEY, this._level === "smart" ? null : this._level);
@@ -4557,7 +4567,7 @@ input[type="text"], .unit-input { border: 1px solid var(--evp-line); border-radi
 .unit-input span { color: var(--evp-soft); white-space: nowrap; }
 .unit-input:focus-within { outline: 2px solid var(--evp-accent); outline-offset: 1px; }
 .unit-input.small { width: auto; padding: 0 10px; gap: 4px; border-radius: 999px; }
-  .ceiling-mode { font-size: 12px; color: var(--secondary-text-color); white-space: nowrap; }
+  .rule-under { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px; }
 .unit-input.small input { width: 56px; flex: none; padding: 6px 0; text-align: right; font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
 .unit-input.small input::-webkit-outer-spin-button, .unit-input.small input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .unit-input.small span { font-size: 13px; }

@@ -2,6 +2,11 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
 
+## [2.1.2] - 2026-11-09
+
+### Fixed
+- **The price ceiling in the panel on a phone:** the choice between a fixed price and the average + % sits under the rule as two buttons, with the value next to them, instead of squeezing the text into a narrow column.
+
 ## [2.1.1] - 2026-11-09
 
 ### Added
