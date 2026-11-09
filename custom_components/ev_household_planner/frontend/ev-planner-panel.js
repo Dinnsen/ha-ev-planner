@@ -1397,6 +1397,19 @@ const ClayScene = (() => {
     van: { L: 4.71, Wd: 1.98, wheels: [0.88, 3.88], r: 0.385, cs: 7, rs: 10, re: 11, ce: 14, pillars: [0.3, 0.6, 0.86], pts: [[0.06, 0.4, 0.12], [0.01, 0.55, 0.14], [0, 0.75, 0.14], [0.03, 0.95, 0.12], [0.15, 1.07, 0.08], [0.35, 1.12, 0.05], [0.5, 1.14, 0.05], [0.6, 1.16, 0.07], [0.8, 1.42, 0.11], [1.05, 1.76, 0.15], [1.3, 1.9, 0.17], [4.45, 1.94, 0.17], [4.6, 1.88, 0.16], [4.67, 1.7, 0.14], [4.7, 1.45, 0.1], [4.71, 1.25, 0.09], [4.71, 1.0, 0.1], [4.71, 0.65, 0.11], [4.68, 0.48, 0.12], [4.6, 0.4, 0.12]] },
   };
 
+  // Clay renders of each kind of car, from the front left as the house is seen: the picture's size,
+  // and where the car itself (without its shadow) sits in it.
+  const CAR_PICTURES = {"mini": {"w": 760, "h": 388, "solid": [96.4, 6.1, 686.5, 312.2]}, "sedan": {"w": 760, "h": 374, "solid": [95.5, 6.5, 690.5, 299.5]}, "suv": {"w": 760, "h": 413, "solid": [94.4, 5.7, 692.1, 331.6]}, "estate": {"w": 760, "h": 380, "solid": [90.6, 5.5, 694.0, 297.7]}, "van": {"w": 760, "h": 438, "solid": [106.0, 6.3, 691.8, 362.3]}};
+  const carPicture = (kind) => {
+    try {
+      const url = new URL(`./cars/${kind}.webp`, import.meta.url);
+      url.search = new URL(import.meta.url).search;
+      return url.href;
+    } catch (_err) {
+      return `/ev_household_planner_static/cars/${kind}.webp`;
+    }
+  };
+
   function shadow(ring, strength, blur = "cs-blur") {
     return poly(ring, `fill="${T.shadow}" fill-opacity="${strength}" filter="url(#${blur})"`);
   }
@@ -1410,13 +1423,25 @@ const ClayScene = (() => {
     const paint = PAINT[paintName] || PAINT.white;
     const M = (u, w, h) => [x0 + w, y0 + L - u, h];
     const tone = (lit) => (dark ? mix("#08090B", paint, Math.min(1.35, lit)) : mix("#737C89", paint, Math.min(1, lit)));
-    let s = shadow([M(-0.15, 0, 0), M(L + 0.15, 0, 0), M(L + 0.15, Wd + 0.1, 0), M(-0.15, Wd + 0.1, 0)], 0.42);
-    s += shadow([M(0.3, 0.25, 0), M(L - 0.3, 0.25, 0), M(L - 0.3, Wd - 0.25, 0), M(0.3, Wd - 0.25, 0)], 0.5, "cs-blur-s");
+    // The pictures bring their own shadow.
+    let s = CAR_PICTURES[kind] && !image ? "" : shadow([M(-0.15, 0, 0), M(L + 0.15, 0, 0), M(L + 0.15, Wd + 0.1, 0), M(-0.15, Wd + 0.1, 0)], 0.42);
+    if (!CAR_PICTURES[kind] || image) s += shadow([M(0.3, 0.25, 0), M(L - 0.3, 0.25, 0), M(L - 0.3, Wd - 0.25, 0), M(0.3, Wd - 0.25, 0)], 0.5, "cs-blur-s");
     if (charging) s += `<ellipse class="cs-carglow" transform="${onTop(x0 + Wd / 2, y0 + L / 2, 0)}" rx="${f1(Wd * 0.9)}" ry="${f1(L * 0.62)}" fill="url(#cs-glowg)"/>`;
     if (image) {
       const [cx, cy] = P(x0 + Wd / 2, y0 + L / 2, 0);
       const w = (L + Wd) * C * S * 1.05;
       return s + `<image href="${image}" x="${f1(cx - w / 2)}" y="${f1(cy - w * 0.62)}" width="${f1(w)}" height="${f1(w * 0.7)}" preserveAspectRatio="xMidYMax meet"/>`;
+    }
+    const picture = CAR_PICTURES[kind];
+    if (picture) {
+      // The car's own picture, fitted to where it stands: its width to the car's width on the ground, its wheels on it.
+      const corners = [M(0, 0, 0), M(0, Wd, 0), M(L, 0, 0), M(L, Wd, 0)].map((p) => P(...p));
+      const left = Math.min(...corners.map((c) => c[0]));
+      const right = Math.max(...corners.map((c) => c[0]));
+      const bottom = Math.max(...corners.map((c) => c[1]));
+      const [sx0, , sx1, sy1] = picture.solid;
+      const k = (right - left) / (sx1 - sx0);
+      return s + `<image href="${carPicture(kind)}" x="${f1(left - sx0 * k)}" y="${f1(bottom - sy1 * k + 3)}" width="${f1(picture.w * k)}" height="${f1(picture.h * k)}"/>`;
     }
     const glassTop = dark ? "#3E4756" : "#262B33";
     const glassSide = dark ? "#333B48" : "#2B3038";
@@ -3929,7 +3954,7 @@ class EvPlannerPanel extends HTMLElement {
           title: this._t("rule_look"),
           hint: this._t("rule_look_hint"),
           control: "",
-          extra: `<div class="rule-under carlook">${seg("body", bodies, body, this._t("rule_look"))}${body === "photo" ? "" : seg("paint", ["white", "black"], paint, this._t("rule_look"))}</div>`,
+          extra: `<div class="rule-under carlook">${seg("body", bodies, body, this._t("rule_look"))}</div>`,
         }),
       );
     }
