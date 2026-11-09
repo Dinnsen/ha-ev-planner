@@ -605,3 +605,19 @@ def test_new_plan_fields_are_stored() -> None:
     plan = plan_vehicle(slots(CREEPING), CAR, Rules(early_within=0.02), NOW, deadline=DEADLINE)
     again = VehiclePlan.from_dict(plan.to_dict())
     assert again is not None and again.early is True and again.topup is False and again.fallback is False
+
+
+def test_without_prices_the_car_charges_just_in_time() -> None:
+    from custom_components.ev_household_planner.rules import fallback_plan
+
+    plan = fallback_plan(CAR, NOW, DEADLINE)
+    assert plan is not None and plan.fallback
+    # Two hours (in quarters), ending half an hour before seven.
+    assert hhmm(plan.segments) == [("04:30", "06:30")]
+    assert plan.cost == 0 and plan.end_soc == 80
+    # Too late for the margin: from now.
+    soon = fallback_plan(CAR, NOW, NOW + timedelta(hours=1))
+    assert soon is not None and soon.segments[0]["start"] == NOW
+    assert fallback_plan(CAR, NOW, None) is None
+    assert fallback_plan(Car(soc=80, target=80, capacity=60, power=10), NOW, DEADLINE) is None
+    assert fallback_plan(Car(soc=50, target=80, capacity=0, power=10), NOW, DEADLINE) is None

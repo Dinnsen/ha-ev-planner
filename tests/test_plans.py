@@ -88,3 +88,31 @@ async def test_a_target_for_a_weekday(
     # The car's own limit is lower: the panel can say so.
     assert state["car_limit"] == 80
     assert tesla.plan is not None and tesla.plan.end_soc == 100
+
+
+async def test_waiting_for_prices_charges_just_in_time_if_they_never_come(
+    hass: HomeAssistant,
+    now: datetime,
+    init_integration: MockConfigEntry,
+    freezer: FrozenDateTimeFactory,
+    switches: SwitchCalls,
+) -> None:
+    household = init_integration.runtime_data
+    tesla = household.vehicles[TESLA]
+    # Prices only until midnight: tomorrow's have not come.
+    set_prices(hass, now, NIGHT[:4])
+    await settle(hass, freezer)
+    assert tesla.plan_error == "not_enough_prices"
+    assert hass.states.get("sensor.tesla_status").state == "not_enough_prices"
+    assert tesla.plan is not None and tesla.plan.fallback
+    assert _hours(tesla.plan) == [(4, 6)]
+    state = vehicle_state(household, tesla)
+    assert state["plan"]["fallback"] is True
+    # The price sensor stops altogether: still the plan for the morning.
+    hass.states.async_set("sensor.energi_data_service", "unavailable")
+    await settle(hass, freezer)
+    assert tesla.plan_error == "no_price_data"
+    assert tesla.plan is not None and tesla.plan.fallback
+    from custom_components.ev_household_planner.websocket import panel_state
+
+    assert panel_state(hass, household)["price_issue"] == "stale"
