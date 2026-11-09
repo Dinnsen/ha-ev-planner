@@ -98,10 +98,14 @@ def test_one_phase_when_the_sun_is_small_and_three_again_when_it_grows() -> None
     assert first.phases == 1 and not first.on
     on = ctl.step(T0 + ENABLE_DELAY, 2.5, cars)["a"]
     assert on.on and on.phases == 1 and on.amps == 10
-    # More sun, but not before the last change is old enough.
-    assert ctl.step(T0 + ENABLE_DELAY * 2, 8.0, cars)["a"].phases == 1
-    later = ctl.step(T0 + PHASE_EVERY, 8.0, cars)["a"]
+    # More sun: three phases again once it has stayed, not at the first bright minute.
+    seen = {minute: ctl.step(T0 + timedelta(minutes=minute), 8.0, cars)["a"] for minute in range(2, 21)}
+    assert all(seen[minute].phases == 1 for minute in range(2, 12))
+    later = seen[20]
     assert later.phases == 3 and later.amps == 11
+    # A cloud does not send it back to one phase.
+    assert ctl.step(T0 + timedelta(minutes=21), 2.0, cars)["a"].phases == 3
+    assert timedelta(minutes=20) >= PHASE_EVERY
 
 
 def test_a_car_without_a_current_setting_waits_for_its_full_power_and_cars_take_turns_by_priority() -> None:

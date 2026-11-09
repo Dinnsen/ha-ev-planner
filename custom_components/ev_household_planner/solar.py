@@ -110,6 +110,7 @@ class SolarState:
     raise_since: datetime | None = None
     changed_at: datetime | None = None
     seen: list[tuple[datetime, float]] = field(default_factory=list)
+    other_since: datetime | None = None  # since when the other number of phases would fit better
 
     def to_dict(self) -> dict[str, Any]:
         return {"on": self.on, "phases": self.phases}
@@ -155,17 +156,27 @@ class SurplusController:
     def _one(self, now: datetime, state: SolarState, car: SolarCar, available: float) -> SolarDecision:
         phases = state.phases or car.phases
         # On how many phases it would charge: one when the sun is small and the charger can switch.
+        # Only when that has been so for a while (a cloud is not a reason), and a while after the last change.
         want_phases = phases
         if car.can_switch and car.adjustable:
+            lowest = min([kw for at, kw in state.seen if now - at < RAISE_WINDOW] + [available])
             if phases == 3 and available < min_kw(3) and available >= min_kw(1):
                 want_phases = 1
-            elif phases == 1 and available >= min_kw(3) + 0.5:
+            elif phases == 1 and lowest >= min_kw(3) + 0.5:
                 want_phases = 3
-            if want_phases != phases and (state.phases_at is None or now - state.phases_at >= PHASE_EVERY):
+            if want_phases == phases:
+                state.other_since = None
+            elif state.other_since is None:
+                state.other_since = now
+            settled = state.phases_at is None or now - state.phases_at >= PHASE_EVERY
+            lasted = state.phases is None or (
+                state.other_since is not None and now - state.other_since >= DISABLE_DELAY
+            )
+            if want_phases != phases and settled and lasted:
                 state.phases, state.phases_at = want_phases, now
                 phases = want_phases
                 # Amps on other phases: start the current over.
-                state.amps, state.seen, state.raise_since = None, [], None
+                state.amps, state.raise_since, state.other_since = None, None, None
         need = min_kw(phases) if car.adjustable else car.full_kw
         if available >= need:
             state.short_since = None
@@ -185,7 +196,10 @@ class SurplusController:
         if not car.adjustable:
             return SolarDecision(True)
         state.seen = [(at, kw) for at, kw in state.seen if now - at < RAISE_WINDOW] + [(now, available)]
-        fit = lambda kw: max(MIN_AMPS, min(car.max_amps, float(int(amps_for(max(0.0, kw), phases)))))  # noqa: E731
+
+        def fit(kw: float) -> float:
+            return max(MIN_AMPS, min(car.max_amps, float(int(amps_for(max(0.0, kw), phases)))))
+
         target = fit(available)
         steady = fit(min(kw for _at, kw in state.seen))
         amps = target if state.amps is None else state.amps
