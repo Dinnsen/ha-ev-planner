@@ -53,6 +53,7 @@ from .const import (
     CONTROL_NONE,
     CONTROL_PAUSE,
     CONTROL_RELEASED,
+    COUNTRY_DENMARK,
     DEFAULT_CHARGE_POWER,
     DEFAULT_COUNTRY,
     DEFAULT_CURRENCY,
@@ -240,6 +241,9 @@ class Household(DataUpdateCoordinator[None]):
 
     @property
     def motorapi_key(self) -> str:
+        """The key for looking up guest cars; none outside Denmark, where MotorAPI has no cars."""
+        if self.country != COUNTRY_DENMARK:
+            return ""
         return str(self.config.get(CONF_MOTORAPI_KEY) or "").strip()
 
     @property

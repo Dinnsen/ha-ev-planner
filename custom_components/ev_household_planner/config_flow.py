@@ -59,6 +59,8 @@ from .const import (
     CONTROL_NONE,
     CONTROL_SOURCES,
     COUNTRIES,
+    COUNTRY_DENMARK,
+    COUNTRY_OTHER,
     CURRENCIES,
     DEFAULT_BATTERY_CAPACITY,
     DEFAULT_CHARGE_POWER,
@@ -104,8 +106,26 @@ SECTION_TRIPS = "trips"
 
 PRICE_ENTITY_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor"))
 COUNTRY_SELECTOR = selector.SelectSelector(
-    selector.SelectSelectorConfig(options=COUNTRIES, mode=selector.SelectSelectorMode.DROPDOWN)
+    selector.SelectSelectorConfig(
+        options=[country.lower() for country in COUNTRIES],
+        mode=selector.SelectSelectorMode.DROPDOWN,
+        translation_key="country",
+    )
 )
+
+
+def _country_option(value: Any) -> str:
+    """The selector's option for a stored country (``Denmark`` is stored as before)."""
+    return (
+        COUNTRY_DENMARK.lower() if str(value or DEFAULT_COUNTRY).lower() == COUNTRY_DENMARK.lower() else COUNTRY_OTHER
+    )
+
+
+def _country(value: Any) -> str:
+    """The country to store for the selector's option."""
+    return COUNTRY_DENMARK if _country_option(value) == COUNTRY_DENMARK.lower() else COUNTRY_OTHER
+
+
 API_KEY_SELECTOR = selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD))
 LEVEL_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain=["sensor", "number", "input_number"]))
 ANY_ENTITY_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig())
@@ -160,7 +180,7 @@ def _connection_schema(defaults: Mapping[str, Any]) -> dict[vol.Marker, Any]:
         vol.Required(CONF_PRICE_ENTITY, default=defaults.get(CONF_PRICE_ENTITY, DEFAULT_PRICE_ENTITY)): (
             PRICE_ENTITY_SELECTOR
         ),
-        vol.Required(CONF_COUNTRY, default=defaults.get(CONF_COUNTRY, DEFAULT_COUNTRY)): COUNTRY_SELECTOR,
+        vol.Required(CONF_COUNTRY, default=_country_option(defaults.get(CONF_COUNTRY))): COUNTRY_SELECTOR,
         vol.Optional(CONF_MOTORAPI_KEY, default=defaults.get(CONF_MOTORAPI_KEY, "")): API_KEY_SELECTOR,
     }
 
@@ -171,11 +191,11 @@ async def _async_validate_connection(hass: HomeAssistant, user_input: Mapping[st
     if not extract_price_slots(hass.states.get(user_input[CONF_PRICE_ENTITY]), dt_util.now()):
         errors[CONF_PRICE_ENTITY] = "invalid_price_entity"
     api_key = str(user_input.get(CONF_MOTORAPI_KEY) or "").strip()
-    if api_key:
+    if api_key and _country(user_input.get(CONF_COUNTRY)) == COUNTRY_DENMARK:
         try:
             await async_validate_plate_provider_credentials(
                 async_get_clientsession(hass),
-                country=user_input.get(CONF_COUNTRY, DEFAULT_COUNTRY),
+                country=COUNTRY_DENMARK,
                 provider=DEFAULT_PLATE_PROVIDER,
                 api_key=api_key,
             )
@@ -210,7 +230,7 @@ class EVPlannerConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
                 data = {
                     CONF_PRICE_ENTITY: user_input[CONF_PRICE_ENTITY],
-                    CONF_COUNTRY: user_input[CONF_COUNTRY],
+                    CONF_COUNTRY: _country(user_input[CONF_COUNTRY]),
                     CONF_MOTORAPI_KEY: str(user_input.get(CONF_MOTORAPI_KEY) or "").strip(),
                     CONF_PLATE_PROVIDER: DEFAULT_PLATE_PROVIDER,
                 }
@@ -249,7 +269,7 @@ class EVPlannerConfigFlow(ConfigFlow, domain=DOMAIN):
                     entry,
                     data_updates={
                         CONF_PRICE_ENTITY: user_input[CONF_PRICE_ENTITY],
-                        CONF_COUNTRY: user_input[CONF_COUNTRY],
+                        CONF_COUNTRY: _country(user_input[CONF_COUNTRY]),
                         CONF_MOTORAPI_KEY: str(user_input.get(CONF_MOTORAPI_KEY) or "").strip(),
                     },
                     options={k: v for k, v in entry.options.items() if k not in CONNECTION_KEYS},

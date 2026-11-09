@@ -14,7 +14,7 @@
         "data_description": {
           "name": "Shown as the name of the integration.",
           "price_entity": "A sensor with prices for today and tomorrow (hourly or 15-minute), such as Energi Data Service or Nord Pool.",
-          "country": "Country used for license plate lookup of guest cars.",
+          "country": "Only for looking up guest cars by license plate, which works in Denmark. Anywhere else, choose Other country: everything else works the same.",
           "motorapi_api_key": "Optional, for looking up guest cars by license plate. Get a free key at motorapi.dk.",
           "currency": "Currency of the electricity prices."
         }
@@ -29,7 +29,7 @@
         },
         "data_description": {
           "price_entity": "A sensor with prices for today and tomorrow (hourly or 15-minute), such as Energi Data Service or Nord Pool.",
-          "country": "Country used for license plate lookup of guest cars.",
+          "country": "Only for looking up guest cars by license plate, which works in Denmark. Anywhere else, choose Other country: everything else works the same.",
           "motorapi_api_key": "Optional, for looking up guest cars by license plate. Get a free key at motorapi.dk."
         }
       },
@@ -636,6 +636,12 @@
         "generic_post": "Charging post (22 kW)",
         "generic_portable": "Portable charger (11 kW)",
         "generic_socket": "Household socket (2.3 kW)"
+      }
+    },
+    "country": {
+      "options": {
+        "denmark": "Denmark",
+        "other": "Other country (no license plate lookup)"
       }
     }
   },

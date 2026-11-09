@@ -37,8 +37,10 @@ DEFAULT_PRICE_ENTITY: Final = "sensor.energi_data_service"
 DEFAULT_CURRENCY: Final = "DKK"
 CURRENCIES: Final = ["DKK", "EUR", "USD", "SEK", "NOK"]
 COUNTRY_DENMARK: Final = "Denmark"
+# Any other country: everything works, except looking up guest cars by license plate.
+COUNTRY_OTHER: Final = "other"
 DEFAULT_COUNTRY: Final = COUNTRY_DENMARK
-COUNTRIES: Final = [COUNTRY_DENMARK]
+COUNTRIES: Final = [COUNTRY_DENMARK, COUNTRY_OTHER]
 DEFAULT_PLATE_PROVIDER: Final = "motorapi_dk"
 
 # Settings that belong to the connection (changed via reconfigure) as opposed

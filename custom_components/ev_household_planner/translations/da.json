@@ -14,7 +14,7 @@
         "data_description": {
           "name": "Vises som integrationens navn.",
           "price_entity": "En sensor med priser for i dag og i morgen (timer eller kvarterer), fx Energi Data Service eller Nord Pool.",
-          "country": "Land til opslag af gæstebiler på nummerplade.",
+          "country": "Kun til at slå gæstebiler op på nummerpladen, som virker i Danmark. Andre steder: vælg Andet land – alt andet virker ens.",
           "motorapi_api_key": "Valgfri, til at slå gæstebiler op på nummerpladen. Få en gratis nøgle på motorapi.dk.",
           "currency": "Elprisernes valuta."
         }
@@ -29,7 +29,7 @@
         },
         "data_description": {
           "price_entity": "En sensor med priser for i dag og i morgen (timer eller kvarterer), fx Energi Data Service eller Nord Pool.",
-          "country": "Land til opslag af gæstebiler på nummerplade.",
+          "country": "Kun til at slå gæstebiler op på nummerpladen, som virker i Danmark. Andre steder: vælg Andet land – alt andet virker ens.",
           "motorapi_api_key": "Valgfri, til at slå gæstebiler op på nummerpladen. Få en gratis nøgle på motorapi.dk."
         }
       },
@@ -636,6 +636,12 @@
         "generic_post": "Ladestander (22 kW)",
         "generic_portable": "Mobil lader (11 kW)",
         "generic_socket": "Almindelig stikkontakt (2,3 kW)"
+      }
+    },
+    "country": {
+      "options": {
+        "denmark": "Danmark",
+        "other": "Andet land (uden nummerplade-opslag)"
       }
     }
   },
