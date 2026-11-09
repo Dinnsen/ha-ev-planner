@@ -22,7 +22,7 @@ MIN_AMPS = 6.0
 ENABLE_DELAY = timedelta(minutes=1)
 DISABLE_DELAY = timedelta(minutes=4)
 # A change of phases at most this often: a charger pauses to switch.
-PHASE_EVERY = timedelta(minutes=10)
+PHASE_EVERY = timedelta(minutes=15)
 # Kept back from the surplus, so the house does not buy for a car by a small margin.
 RESERVE_KW = 0.1
 # A car's current follows the surplus in whole amps. It goes down at once when the house would buy,
@@ -163,7 +163,7 @@ class SurplusController:
             lowest = low_end([kw for at, kw in state.seen if now - at < RAISE_WINDOW] + [available])
             if phases == 3 and available < min_kw(3) and available >= min_kw(1):
                 want_phases = 1
-            elif phases == 1 and lowest >= min_kw(3) + 0.5:
+            elif phases == 1 and lowest >= min_kw(3) + 1.0:
                 want_phases = 3
             if want_phases == phases:
                 state.other_since = None

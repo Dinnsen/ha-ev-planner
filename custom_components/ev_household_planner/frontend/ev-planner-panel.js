@@ -37,6 +37,7 @@ const TEXT = {
     body_suv: "SUV",
     body_estate: "Stationcar",
     body_van: "Minivan",
+    body_photo: "Mit billede",
     paint_white: "Hvid",
     paint_black: "Sort",
     home_guard: "Vagten holder øje med måleren og skruer bilerne ned med det samme, hvis huset pludselig skal bruge mere.",
@@ -507,6 +508,7 @@ const TEXT = {
     body_suv: "SUV",
     body_estate: "Estate",
     body_van: "Van",
+    body_photo: "My photo",
     paint_white: "White",
     paint_black: "Black",
     home_guard: "The guard watches the meter and turns the cars down at once if the house suddenly needs more.",
@@ -1385,40 +1387,42 @@ const ClayScene = (() => {
   /* ------------------------------------------------------------ the cars: five kinds, by their sides */
 
   // Each kind by its side: [u from the nose, h up, how far the body draws in from its full width there].
-  // Points 5 to 11 are the cabin: 5 the foot of the windscreen, 8 to 9 the roof, 11 the foot of the rear window.
+  // cs: the foot of the windscreen; rs and re: where the roof begins and ends; ce: the foot of the rear window.
+  // Proportions of each class of car; no maker's shapes or badges.
   const BODIES = {
-    mini: { L: 4.25, Wd: 1.8, wheels: [0.86, 3.52], r: 0.33, pts: [[0.06, 0.32, 0.12], [0, 0.5, 0.14], [0.07, 0.64, 0.12], [0.25, 0.74, 0.08], [0.6, 0.82, 0.04], [1.0, 0.88, 0.06], [1.45, 1.15, 0.16], [1.85, 1.38, 0.22], [2.3, 1.44, 0.24], [3.45, 1.45, 0.24], [3.85, 1.36, 0.22], [4.12, 1.05, 0.14], [4.2, 0.98, 0.1], [4.25, 0.82, 0.12], [4.24, 0.5, 0.13], [4.15, 0.32, 0.12]] },
-    sedan: { L: 4.72, Wd: 1.85, wheels: [0.98, 3.85], r: 0.34, glassRoof: true, pts: [[0.05, 0.3, 0.12], [0, 0.47, 0.15], [0.06, 0.6, 0.13], [0.22, 0.7, 0.09], [0.55, 0.78, 0.05], [1.1, 0.86, 0.06], [1.55, 1.12, 0.16], [2.0, 1.36, 0.22], [2.45, 1.43, 0.24], [3.1, 1.44, 0.24], [3.6, 1.33, 0.22], [4.12, 1.06, 0.15], [4.45, 0.99, 0.08], [4.68, 0.95, 0.12], [4.72, 0.78, 0.14], [4.7, 0.5, 0.14], [4.6, 0.3, 0.12]] },
-    suv: { L: 4.68, Wd: 1.86, wheels: [0.98, 3.82], r: 0.37, cladding: true, rails: true, pts: [[0.05, 0.36, 0.1], [0, 0.6, 0.12], [0.04, 0.82, 0.1], [0.25, 0.95, 0.06], [0.7, 1.02, 0.04], [1.05, 1.06, 0.06], [1.45, 1.4, 0.14], [1.75, 1.62, 0.18], [2.1, 1.68, 0.2], [4.25, 1.68, 0.2], [4.45, 1.6, 0.18], [4.62, 1.25, 0.12], [4.66, 1.15, 0.08], [4.68, 0.95, 0.1], [4.68, 0.55, 0.1], [4.6, 0.36, 0.1]] },
-    estate: { L: 4.95, Wd: 1.9, wheels: [1.02, 3.98], r: 0.35, rails: true, pts: [[0.05, 0.3, 0.12], [0, 0.48, 0.15], [0.06, 0.62, 0.13], [0.24, 0.72, 0.08], [0.6, 0.8, 0.04], [1.2, 0.88, 0.06], [1.65, 1.14, 0.15], [2.05, 1.38, 0.22], [2.5, 1.45, 0.24], [4.15, 1.44, 0.24], [4.55, 1.32, 0.2], [4.85, 1.04, 0.13], [4.9, 0.98, 0.08], [4.95, 0.84, 0.12], [4.94, 0.5, 0.13], [4.85, 0.3, 0.12]] },
-    van: { L: 4.72, Wd: 1.98, wheels: [0.9, 3.9], r: 0.38, twoTone: true, pts: [[0.04, 0.4, 0.12], [0, 0.7, 0.14], [0.04, 0.95, 0.12], [0.2, 1.06, 0.08], [0.4, 1.1, 0.05], [0.55, 1.14, 0.06], [0.82, 1.5, 0.12], [1.08, 1.82, 0.16], [1.4, 1.92, 0.18], [4.4, 1.93, 0.18], [4.62, 1.85, 0.16], [4.7, 1.6, 0.12], [4.71, 1.4, 0.08], [4.72, 1.1, 0.1], [4.72, 0.55, 0.1], [4.62, 0.4, 0.12]] },
+    mini: { L: 4.42, Wd: 1.8, wheels: [0.8, 3.53], r: 0.335, cs: 7, rs: 10, re: 11, ce: 14, pillars: [0.52], pts: [[0.1, 0.3, 0.14], [0.02, 0.42, 0.17], [0, 0.55, 0.17], [0.05, 0.66, 0.14], [0.2, 0.75, 0.09], [0.5, 0.82, 0.05], [0.85, 0.87, 0.04], [1.1, 0.9, 0.07], [1.45, 1.1, 0.14], [1.8, 1.3, 0.2], [2.1, 1.41, 0.24], [3.35, 1.43, 0.25], [3.75, 1.36, 0.23], [4.1, 1.16, 0.18], [4.28, 0.98, 0.13], [4.38, 0.94, 0.12], [4.42, 0.8, 0.14], [4.41, 0.55, 0.15], [4.36, 0.4, 0.15], [4.25, 0.3, 0.13]] },
+    sedan: { L: 4.72, Wd: 1.85, wheels: [0.97, 3.85], r: 0.345, cs: 7, rs: 10, re: 11, ce: 14, pillars: [0.48], glassRoof: true, pts: [[0.1, 0.28, 0.14], [0.02, 0.4, 0.17], [0, 0.5, 0.18], [0.06, 0.6, 0.15], [0.25, 0.69, 0.1], [0.6, 0.76, 0.06], [1.0, 0.82, 0.05], [1.25, 0.86, 0.07], [1.65, 1.08, 0.14], [2.05, 1.32, 0.21], [2.4, 1.42, 0.24], [3.05, 1.44, 0.25], [3.55, 1.35, 0.23], [3.95, 1.18, 0.19], [4.25, 1.03, 0.14], [4.55, 0.98, 0.1], [4.7, 0.94, 0.13], [4.72, 0.78, 0.15], [4.7, 0.52, 0.16], [4.62, 0.3, 0.14]] },
+    suv: { L: 4.68, Wd: 1.84, wheels: [0.98, 3.82], r: 0.37, cs: 7, rs: 10, re: 11, ce: 14, pillars: [0.4, 0.76], cladding: true, rails: true, pts: [[0.08, 0.36, 0.12], [0.02, 0.5, 0.14], [0, 0.68, 0.14], [0.04, 0.84, 0.12], [0.22, 0.96, 0.08], [0.6, 1.02, 0.05], [0.95, 1.06, 0.05], [1.15, 1.08, 0.07], [1.45, 1.32, 0.13], [1.75, 1.58, 0.18], [2.0, 1.66, 0.2], [4.3, 1.68, 0.2], [4.48, 1.62, 0.18], [4.58, 1.45, 0.15], [4.62, 1.22, 0.11], [4.66, 1.12, 0.09], [4.68, 0.95, 0.11], [4.68, 0.62, 0.12], [4.66, 0.45, 0.12], [4.58, 0.36, 0.11]] },
+    estate: { L: 4.93, Wd: 1.9, wheels: [1.0, 3.95], r: 0.35, cs: 7, rs: 10, re: 11, ce: 14, pillars: [0.4, 0.78], rails: true, pts: [[0.1, 0.29, 0.14], [0.02, 0.42, 0.17], [0, 0.53, 0.18], [0.06, 0.63, 0.15], [0.25, 0.72, 0.1], [0.62, 0.79, 0.06], [1.05, 0.85, 0.05], [1.3, 0.88, 0.07], [1.7, 1.1, 0.14], [2.1, 1.34, 0.21], [2.45, 1.44, 0.24], [4.25, 1.44, 0.24], [4.55, 1.36, 0.22], [4.78, 1.18, 0.18], [4.88, 1.02, 0.13], [4.92, 0.96, 0.11], [4.93, 0.82, 0.14], [4.92, 0.55, 0.15], [4.88, 0.4, 0.15], [4.8, 0.29, 0.13]] },
+    van: { L: 4.71, Wd: 1.98, wheels: [0.88, 3.88], r: 0.385, cs: 7, rs: 10, re: 11, ce: 14, pillars: [0.3, 0.6, 0.86], pts: [[0.06, 0.4, 0.12], [0.01, 0.55, 0.14], [0, 0.75, 0.14], [0.03, 0.95, 0.12], [0.15, 1.07, 0.08], [0.35, 1.12, 0.05], [0.5, 1.14, 0.05], [0.6, 1.16, 0.07], [0.8, 1.42, 0.11], [1.05, 1.76, 0.15], [1.3, 1.9, 0.17], [4.45, 1.94, 0.17], [4.6, 1.88, 0.16], [4.67, 1.7, 0.14], [4.7, 1.45, 0.1], [4.71, 1.25, 0.09], [4.71, 1.0, 0.1], [4.71, 0.65, 0.11], [4.68, 0.48, 0.12], [4.6, 0.4, 0.12]] },
   };
-  const CS = 5;
-  const RS = 8;
-  const RE = 9;
-  const CE = 11;
 
   function shadow(ring, strength, blur = "cs-blur") {
     return poly(ring, `fill="${T.shadow}" fill-opacity="${strength}" filter="url(#${blur})"`);
   }
 
-  // A car standing with its nose towards the viewer (+y), its right side (+x) showing.
-  function car(x0, y0, kind, paintName, { charging = false } = {}) {
+  // A car standing with its nose towards the viewer (+y), its right side (+x) showing. With ``image``
+  // (the owner's own cut-out photo of the car), that photo stands there instead of a drawing.
+  function car(x0, y0, kind, paintName, { charging = false, image = null } = {}) {
     const body = BODIES[kind] || BODIES.sedan;
-    const { L, Wd } = body;
-    const pts = body.pts;
+    const { L, Wd, pts, cs, rs, re, ce } = body;
     const dark = paintName === "black";
     const paint = PAINT[paintName] || PAINT.white;
     const M = (u, w, h) => [x0 + w, y0 + L - u, h];
-    const tone = (lit, base = paint) =>
-      base === PAINT.black ? mix("#0B0C0F", base, Math.min(1.25, lit)) : mix("#7D8693", base, Math.min(1, lit));
-    const upper = body.twoTone ? PAINT.white : paint;
-    const glassTop = dark ? "#4B5564" : "#2B3038";
-    const glassSide = dark ? "#3E4756" : "#2F343C";
-    let s = shadow([M(-0.15, -0.05, 0), M(L + 0.15, -0.05, 0), M(L + 0.15, Wd + 0.12, 0), M(-0.15, Wd + 0.12, 0)], 0.4);
+    const tone = (lit) => (dark ? mix("#08090B", paint, Math.min(1.35, lit)) : mix("#737C89", paint, Math.min(1, lit)));
+    let s = shadow([M(-0.15, 0, 0), M(L + 0.15, 0, 0), M(L + 0.15, Wd + 0.1, 0), M(-0.15, Wd + 0.1, 0)], 0.42);
+    s += shadow([M(0.3, 0.25, 0), M(L - 0.3, 0.25, 0), M(L - 0.3, Wd - 0.25, 0), M(0.3, Wd - 0.25, 0)], 0.5, "cs-blur-s");
     if (charging) s += `<ellipse class="cs-carglow" transform="${onTop(x0 + Wd / 2, y0 + L / 2, 0)}" rx="${f1(Wd * 0.9)}" ry="${f1(L * 0.62)}" fill="url(#cs-glowg)"/>`;
-    for (const u of body.wheels) s += `<g transform="${onX(x0 + 0.22, y0 + L - u, body.r)}"><circle r="${body.r}" fill="#1A1C20"/></g>`;
-    // The upper surfaces, facet by facet, lit by how they face the sky.
+    if (image) {
+      const [cx, cy] = P(x0 + Wd / 2, y0 + L / 2, 0);
+      const w = (L + Wd) * C * S * 1.05;
+      return s + `<image href="${image}" x="${f1(cx - w / 2)}" y="${f1(cy - w * 0.62)}" width="${f1(w)}" height="${f1(w * 0.7)}" preserveAspectRatio="xMidYMax meet"/>`;
+    }
+    const glassTop = dark ? "#3E4756" : "#262B33";
+    const glassSide = dark ? "#333B48" : "#2B3038";
+    // The far wheels peek out under the body.
+    for (const u of body.wheels) s += `<g transform="${onX(x0 + 0.2, y0 + L - u, body.r)}"><circle r="${body.r}" fill="#16181B"/></g>`;
+    // Bonnet, glass, roof, boot: facet by facet, lit by how each faces the sky.
     for (let k = 0; k < pts.length; k += 1) {
       const a = pts[k];
       const b = pts[(k + 1) % pts.length];
@@ -1426,56 +1430,86 @@ const ClayScene = (() => {
       const nh = b[0] - a[0];
       if (nu * -CAM[1] + nh * CAM[2] <= 0.001) continue;
       const len = Math.hypot(nu, nh) || 1;
-      const lit = 0.6 + 0.5 * Math.max(0, nh / len);
+      const lit = 0.62 + 0.48 * Math.max(0, nh / len);
       const quad = [M(a[0], a[2], a[1]), M(b[0], b[2], b[1]), M(b[0], Wd - b[2], b[1]), M(a[0], Wd - a[2], a[1])];
-      const glassy = (k >= CS && k < RS) || (k >= RE && k < CE) || (body.glassRoof && k >= RS && k < RE);
-      const base = k >= CS && k < CE ? upper : paint;
-      const fill = glassy ? glassTop : tone(lit, base);
+      const glassy = (k >= cs && k < rs) || (k >= re && k < ce) || (body.glassRoof && k >= rs && k < re);
+      const fill = glassy ? glassTop : tone(lit);
       s += poly(quad, `fill="${fill}" stroke="${fill}" stroke-width=".6" stroke-linejoin="round"`);
     }
-    // A thin light across the nose; roof rails on the bigger ones.
-    const nose = pts[2];
-    s += poly([M(nose[0] + 0.02, 0.28, nose[1] + 0.03), M(nose[0] + 0.05, 0.28, nose[1] + 0.07), M(nose[0] + 0.05, Wd - 0.28, nose[1] + 0.07), M(nose[0] + 0.02, Wd - 0.28, nose[1] + 0.03)], `fill="#FFFFFF" class="cs-lamp"`);
-    if (body.twoTone) s += `<path d="${path3([M(0.03, 0.2, 0.95), M(0.06, Wd / 2, 0.62), M(0.03, Wd - 0.2, 0.95)])}" stroke="${PAINT.white}" stroke-width="2" fill="none" stroke-linejoin="round"/>`;
-    if (body.rails) for (const w of [0.42, Wd - 0.42]) s += `<path d="${path3([M(pts[RS][0] + 0.15, w, pts[RS][1] + 0.05), M(pts[RE][0] - 0.1, w, pts[RE][1] + 0.05)])}" stroke="${dark ? "#4A4F57" : "#AEB5BF"}" stroke-width="1.6" stroke-linecap="round"/>`;
+    // The front: a slim light at each corner, a dark panel between them, an intake low down, a plate.
+    const onEdge = (k, t, w, lift = 0.004) => {
+      const a = pts[k];
+      const b = pts[k + 1];
+      return M(a[0] + (b[0] - a[0]) * t - lift, w, a[1] + (b[1] - a[1]) * t);
+    };
+    const patch = (k, t0, t1, w0, w1, attrs) => poly([onEdge(k, t0, w0), onEdge(k, t1, w0), onEdge(k, t1, w1), onEdge(k, t0, w1)], attrs);
+    const housing = dark ? "#3A3F47" : "#2C3036";
+    for (const [w0, w1] of [[0.12, 0.55], [Wd - 0.55, Wd - 0.12]]) {
+      s += patch(3, 0.05, 0.85, w0, w1, `fill="${housing}"`);
+      s += patch(3, 0.35, 0.6, w0 + 0.04, w1 - 0.04, `fill="#F6F8FB" class="cs-lamp"`);
+    }
+    s += patch(2, 0.2, 0.9, 0.58, Wd - 0.58, `fill="${dark ? "#15171A" : "#23262B"}"`);
+    s += patch(0, 0.25, 0.85, 0.4, Wd - 0.4, `fill="${dark ? "#121417" : "#2A2D33"}"`);
+    s += patch(1, 0.3, 0.75, Wd / 2 - 0.26, Wd / 2 + 0.26, `fill="#F2F3F5"`);
+    // A thin line of sky across the windscreen.
+    const ws = (t, w) => M(pts[cs][0] + (pts[rs][0] - pts[cs][0]) * t, w, pts[cs][1] + (pts[rs][1] - pts[cs][1]) * t + 0.01);
+    s += `<path d="${path3([ws(0.2, 0.3), ws(0.8, 0.75)])}" stroke="#fff" stroke-opacity="${dark ? 0.25 : 0.18}" stroke-width="2.2" stroke-linecap="round"/>`;
+    if (body.rails) for (const w of [0.38, Wd - 0.38]) s += `<path d="${path3([M(pts[rs][0] + 0.12, w, pts[rs][1] + 0.06), M(pts[re][0] - 0.08, w, pts[re][1] + 0.06)])}" stroke="${dark ? "#4A4F57" : "#9AA2AD"}" stroke-width="1.8" stroke-linecap="round"/>`;
     // The right side, flat on its plane; where the body draws in, it shows a little higher and further back.
     const side = plane(M(0, Wd, 0), [0, -1, 0], [0, 0, -1]);
     const xy = ([u, h, d]) => [u - d, -(h + d)];
     const str = (list) => list.map(([a, b]) => `${f1(a)},${b.toFixed(2)}`).join(" ");
-    const outline = str([...pts.slice(0, CS + 1), pts[CE], ...pts.slice(CE + 1)].map(xy));
-    const cabin = str(pts.slice(CS, CE + 1).map(xy));
-    const shrink = (p, du, dh) => xy([p[0] + du, p[1] + dh, p[2]]);
-    const pane = str([shrink(pts[CS], 0.2, 0.05), ...pts.slice(CS + 1, CE).map((p, i, arr) => shrink(p, i === 0 ? 0.06 : i === arr.length - 1 ? -0.06 : 0, -0.06)), shrink(pts[CE], -0.2, 0.05)]);
-    const pillars = body.twoTone ? [0.38, 0.66] : [0.5];
-    const span = (t) => xy([pts[RS][0] + (pts[RE][0] - pts[RS][0]) * t, pts[RS][1], pts[RS][2]]);
-    const belt = (t) => xy([pts[CS][0] + (pts[CE][0] - pts[CS][0]) * t, pts[CS][1] + (pts[CE][1] - pts[CS][1]) * t, pts[CS][2]]);
-    const sideTone = tone(0.88);
-    const sideUpper = tone(0.88, upper);
-    const arch = body.cladding ? "#24272C" : tone(0.42);
+    const outline = str([...pts.slice(0, cs + 1), pts[ce], ...pts.slice(ce + 1)].map(xy));
+    const cabin = str(pts.slice(cs, ce + 1).map(xy));
+    const pane = str([
+      xy([pts[cs][0] + 0.22, pts[cs][1] + 0.05, pts[cs][2]]),
+      ...pts.slice(cs + 1, ce).map((p, i, all) => xy([p[0] + (i === 0 ? 0.05 : i === all.length - 1 ? -0.05 : 0), p[1] - 0.07, p[2]])),
+      xy([pts[ce][0] - 0.2, pts[ce][1] + 0.05, pts[ce][2]]),
+    ]);
+    const roofAt = (t) => xy([pts[rs][0] + (pts[re][0] - pts[rs][0]) * t, pts[rs][1], pts[rs][2]]);
+    const beltAt = (t) => xy([pts[cs][0] + (pts[ce][0] - pts[cs][0]) * t, pts[cs][1] + (pts[ce][1] - pts[cs][1]) * t, pts[cs][2]]);
+    const cut = (a, b) => (a[0] + b[0]) / 2;
+    const doorU = body.pillars.map((t) => cut(roofAt(t), beltAt(t)));
+    const beltY = (u) => -(pts[cs][1] + ((pts[ce][1] - pts[cs][1]) * (u - pts[cs][0])) / (pts[ce][0] - pts[cs][0]) - 0.03);
+    const sill = -(body.r + 0.1);
+    const arch = body.cladding ? "#202327" : tone(0.38);
+    // The mirror, standing out from the door.
+    const mu = pts[cs][0] + 0.18;
+    const mh = pts[cs][1] + 0.06;
+    const mirror = str([xy([mu, mh, -0.14]), xy([mu + 0.26, mh, -0.12]), xy([mu + 0.24, mh + 0.13, -0.12]), xy([mu + 0.04, mh + 0.15, -0.14])]);
     s += `<g transform="${side}">
-      <polygon points="${cabin}" fill="${tone(0.72, upper)}"/>
+      <polygon points="${cabin}" fill="${tone(0.66)}"/>
       <polygon points="${pane}" fill="${glassSide}"/>
-      ${pillars.map((t) => `<path d="M${f1(span(t)[0] - 0.05)} ${(span(t)[1] + 0.06).toFixed(2)} L${f1(belt(t)[0] - 0.1)} ${(belt(t)[1] - 0.02).toFixed(2)}" stroke="${tone(0.72, upper)}" stroke-width=".09"/>`).join("")}
-      <polygon points="${outline}" fill="${sideTone}"/>
-      ${body.twoTone ? `<polygon points="${str([xy(pts[CS]), xy(pts[CE]), xy([pts[CE][0], pts[CE][1] - 0.32, pts[CE][2]]), xy([pts[3][0], pts[3][1] - 0.1, pts[3][2]])])}" fill="${sideUpper}"/>` : ""}
+      <polygon points="${pane}" fill="url(#cs-pane)"/>
+      ${body.pillars.map((t) => { const r = roofAt(t); const b = beltAt(t); return `<path d="M${f1(r[0] - 0.04)} ${(r[1] + 0.05).toFixed(2)} L${f1(b[0] - 0.08)} ${(b[1] - 0.03).toFixed(2)}" stroke="${tone(0.6)}" stroke-width=".085"/>`; }).join("")}
+      <polygon points="${outline}" fill="${tone(0.9)}"/>
       <polygon points="${outline}" fill="url(#cs-side)"/>
-      <path d="M${f1(xy(pts[3])[0])} ${(xy(pts[3])[1] + 0.06).toFixed(2)} L${f1(xy(pts[CE])[0])} ${(xy(pts[CE])[1] + 0.05).toFixed(2)}" stroke="#fff" stroke-opacity="${dark ? 0.16 : 0.6}" stroke-width=".025"/>
-      ${[pts[CS][0] + 0.25, (pts[RS][0] + pts[RE][0]) / 2 - 0.1].map((u) => `<path d="M${f1(u - 0.06)} ${(-(pts[CS][1] - 0.04)).toFixed(2)} V ${(-(body.r + 0.16)).toFixed(2)}" stroke="${tone(0.66)}" stroke-width=".018"/>`).join("")}
-      ${body.cladding ? `<path d="M${f1(body.wheels[0])} ${(-0.36).toFixed(2)} H ${f1(body.wheels[1])}" stroke="#24272C" stroke-width=".16"/>` : `<path d="M${f1(body.wheels[0] + 0.4)} -.33 H ${f1(body.wheels[1] - 0.4)}" stroke="${tone(0.6)}" stroke-width=".05"/>`}
-      ${body.wheels.map((u) => `<path d="M${f1(u - body.r - 0.14)} ${(-body.r + 0.06).toFixed(2)} A ${f1(body.r + 0.14)} ${f1(body.r + 0.14)} 0 0 1 ${f1(u + body.r + 0.14)} ${(-body.r + 0.06).toFixed(2)} Z" fill="${arch}"/>
-        <circle cx="${f1(u)}" cy="${-body.r}" r="${body.r}" fill="#1A1C20"/>
-        <circle cx="${f1(u)}" cy="${-body.r}" r="${f1(body.r * 0.66)}" fill="${dark ? "#3E434B" : "#C9CED6"}"/>
-        <circle cx="${f1(u)}" cy="${-body.r}" r="${f1(body.r * 0.66)}" fill="none" stroke="${dark ? "#2A2E34" : "#9AA2AD"}" stroke-width=".03" stroke-dasharray=".05 .07"/>
-        <circle cx="${f1(u)}" cy="${-body.r}" r=".06" fill="#2A2E34"/>`).join("")}
-      <circle class="cs-port${charging ? " on" : ""}" cx="${f1(L - 0.78)}" cy="${(-(pts[CE][1] - 0.2)).toFixed(2)}" r=".055"/>
+      <path d="M${f1(xy(pts[4])[0])} ${(xy(pts[4])[1] + 0.1).toFixed(2)} C ${f1(L * 0.35)} ${(beltY(L * 0.35) + 0.09).toFixed(2)} ${f1(L * 0.7)} ${(beltY(L * 0.7) + 0.08).toFixed(2)} ${f1(xy(pts[ce])[0] + 0.1)} ${(xy(pts[ce])[1] + 0.12).toFixed(2)}" stroke="#fff" stroke-opacity="${dark ? 0.22 : 0.75}" stroke-width=".035" fill="none"/>
+      ${[xy(pts[cs])[0] + 0.12, ...doorU.slice(0, -1).map((u) => u + 0.02), doorU[doorU.length - 1] + 0.02].map((u) => `<path d="M${f1(u)} ${beltY(u).toFixed(2)} V ${(sill - 0.02).toFixed(2)}" stroke="${tone(0.62)}" stroke-width=".016"/>`).join("")}
+      ${doorU.map((u) => `<rect x="${f1(u - 0.42)}" y="${(beltY(u) + 0.13).toFixed(2)}" width=".2" height=".035" rx=".015" fill="${tone(0.66)}"/>`).join("")}
+      <path d="M${f1(body.wheels[0] + body.r + 0.2)} ${sill.toFixed(2)} H ${f1(body.wheels[1] - body.r - 0.2)}" stroke="${body.cladding ? "#202327" : tone(0.62)}" stroke-width="${body.cladding ? 0.14 : 0.05}"/>
+      <polygon points="${mirror}" fill="${tone(0.75)}"/>
+      <path d="M${f1(mu + 0.04 + 0.14)} ${(-(mh + 0.14)).toFixed(2)} l.1 .06" stroke="#16181B" stroke-width=".04"/>
+      ${body.wheels.map((u) => {
+        const r = body.r;
+        const spokes = [0, 72, 144, 216, 288].map((a) => { const t = (a * Math.PI) / 180; return `M${f1(u + Math.cos(t) * r * 0.16)} ${(-r + Math.sin(t) * r * 0.16).toFixed(3)} L${f1(u + Math.cos(t + 0.18) * r * 0.6)} ${(-r + Math.sin(t + 0.18) * r * 0.6).toFixed(3)} L${f1(u + Math.cos(t - 0.18) * r * 0.6)} ${(-r + Math.sin(t - 0.18) * r * 0.6).toFixed(3)} Z`; }).join(" ");
+        return `<path d="M${f1(u - r - 0.13)} ${(-r + 0.07).toFixed(2)} A ${f1(r + 0.13)} ${f1(r + 0.13)} 0 0 1 ${f1(u + r + 0.13)} ${(-r + 0.07).toFixed(2)} Z" fill="${arch}"/>
+        <circle cx="${f1(u)}" cy="${-r}" r="${r}" fill="#17191C"/>
+        <circle cx="${f1(u)}" cy="${-r}" r="${f1(r * 0.86)}" fill="none" stroke="#2A2D32" stroke-width=".03"/>
+        <circle cx="${f1(u)}" cy="${-r}" r="${f1(r * 0.66)}" fill="${dark ? "#2E3238" : "#3A3F46"}"/>
+        <path d="${spokes}" fill="${dark ? "#5A616B" : "#C9CED6"}"/>
+        <circle cx="${f1(u)}" cy="${-r}" r="${f1(r * 0.66)}" fill="none" stroke="${dark ? "#5A616B" : "#C9CED6"}" stroke-width=".035"/>
+        <circle cx="${f1(u)}" cy="${-r}" r="${f1(r * 0.13)}" fill="${dark ? "#5A616B" : "#AEB5BF"}"/>`;
+      }).join("")}
+      <circle class="cs-port${charging ? " on" : ""}" cx="${f1(L - 0.78)}" cy="${(-(pts[ce][1] - 0.2)).toFixed(2)}" r=".055"/>
     </g>`;
     return s;
   }
   // Where a car's charging port is, in the world, for its cable.
   const portOf = (x0, y0, kind) => {
     const body = BODIES[kind] || BODIES.sedan;
-    const ce = body.pts[CE];
-    return [x0 + body.Wd - ce[2] + 0.01, y0 + 0.7 + ce[2], ce[1] - 0.2 + ce[2]];
+    const c = body.pts[body.ce];
+    return [x0 + body.Wd - c[2] + 0.01, y0 + 0.78 + c[2], c[1] - 0.2 + c[2]];
   };
 
   /* ------------------------------------------------------------ cables */
@@ -1681,6 +1715,8 @@ const ClayScene = (() => {
       <radialGradient id="cs-glowg"><stop offset="0" stop-color="${FLOW.car}" stop-opacity=".5"/><stop offset="1" stop-color="${FLOW.car}" stop-opacity="0"/></radialGradient>
       <filter id="cs-shadow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="9"/></filter>
       <filter id="cs-blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3.5"/></filter>
+      <filter id="cs-blur-s" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.6"/></filter>
+      <linearGradient id="cs-pane" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".35" stop-color="#fff" stop-opacity=".04"/><stop offset=".55" stop-color="#fff" stop-opacity=".14"/><stop offset=".7" stop-color="#fff" stop-opacity="0"/></linearGradient>
       <filter id="cs-line" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.4"/></filter>
     </defs>`;
   }
@@ -1693,7 +1729,7 @@ const ClayScene = (() => {
     }
 
     _key(m) {
-      return JSON.stringify([!!m.solar, !!m.battery, !!m.heat, m.chargers.length, m.cars.map((c) => [c.body, c.paint, !!c.plugged, !!c.charging, c.charger])]);
+      return JSON.stringify([!!m.solar, !!m.battery, !!m.heat, m.chargers.length, m.cars.map((c) => [c.body, c.paint, c.image || "", !!c.plugged, !!c.charging, c.charger])]);
     }
 
     update(m) {
@@ -1727,7 +1763,7 @@ const ClayScene = (() => {
       // The cars, the far one first, each with its cable when it is plugged in.
       cars.forEach((c, i) => {
         const slot = SLOTS[i];
-        s += `<g class="cs-car">${car(slot.x, slot.y, c.body, c.paint, { charging: c.charging })}</g>`;
+        s += `<g class="cs-car">${car(slot.x, slot.y, c.body, c.paint, { charging: c.charging, image: c.image })}</g>`;
         const box = c.charger ?? i;
         if (c.plugged && box < boxes.length) {
           const from = [BOX[box].x + 0.18, GARAGE.y1 + 0.15, 0.95];
@@ -3763,6 +3799,7 @@ class EvPlannerPanel extends HTMLElement {
       "min_soc", "must_soc", "priority", "price_ceiling_enabled", "price_ceiling", "price_ceiling_relative", "price_ceiling_above", "low_price_charging", "low_price_level", "low_soc_charging", "low_soc_level",
       "opportunistic", "opportunistic_level", "follow_level", "keep_charger_on", "use_earliest_start", "earliest_start",
       "join_period", "join_within", "continuous", "prefer_early", "early_within", "topup", "topup_level",
+      "solar", "body", "paint",
     ].map((key) => s[key]);
   }
 
@@ -3852,7 +3889,8 @@ class EvPlannerPanel extends HTMLElement {
       }),
     );
     {
-      const body = ClayScene.BODIES.includes(s.body) ? s.body : "sedan";
+      const bodies = v?.image_original ? [...ClayScene.BODIES, "photo"] : ClayScene.BODIES;
+      const body = bodies.includes(s.body) ? s.body : "sedan";
       const paint = s.paint === "black" ? "black" : "white";
       const seg = (act, values, current, label) => `<div class="segmented opp" role="radiogroup" aria-label="${label}">${values.map(
         (value) => `<button role="radio" data-act="${act}" data-value="${value}" data-f="${act}-${value}" aria-checked="${value === current}" class="${value === current ? "on" : ""}">${this._t(`${act}_${value}`)}</button>`,
@@ -3863,7 +3901,7 @@ class EvPlannerPanel extends HTMLElement {
           title: this._t("rule_look"),
           hint: this._t("rule_look_hint"),
           control: "",
-          extra: `<div class="rule-under carlook">${seg("body", ClayScene.BODIES, body, this._t("rule_look"))}${seg("paint", ["white", "black"], paint, this._t("rule_look"))}</div>`,
+          extra: `<div class="rule-under carlook">${seg("body", bodies, body, this._t("rule_look"))}${body === "photo" ? "" : seg("paint", ["white", "black"], paint, this._t("rule_look"))}</div>`,
         }),
       );
     }
@@ -4446,9 +4484,11 @@ class EvPlannerPanel extends HTMLElement {
       const plugged = v.connected === true || (v.connected == null && !!v.charging);
       const charger = chargers.findIndex((c) => c.id === v.charger?.id);
       const settings = v.settings || {};
+      const photo = settings.body === "photo" && v.image_original ? v.image : null;
       model.cars.push({
         id: v.id,
-        body: settings.body || "sedan",
+        image: photo,
+        body: photo || !ClayScene.BODIES.includes(settings.body) ? "sedan" : settings.body,
         paint: settings.paint === "black" ? "black" : "white",
         plugged,
         charging: kw > 0.05,

@@ -185,7 +185,7 @@ SOLAR_ONLY: Final = "only"
 SOLAR_OPTIONS: Final = [SOLAR_OFF, SOLAR_SURPLUS, SOLAR_ONLY]
 # How the car looks in the panel's drawing of the house.
 SET_BODY: Final = "body"
-BODY_OPTIONS: Final = ["mini", "sedan", "suv", "estate", "van"]
+BODY_OPTIONS: Final = ["mini", "sedan", "suv", "estate", "van", "photo"]
 SET_PAINT: Final = "paint"
 PAINT_OPTIONS: Final = ["white", "black"]
 # A target per weekday of the ready-by time: {"fri": 100}.
