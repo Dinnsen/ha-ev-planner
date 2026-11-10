@@ -20,6 +20,7 @@ from custom_components.ev_household_planner.const import (
     CONTROL_CHARGE,
     CONTROL_FAILS_ISSUE,
     CONTROL_PAUSE,
+    CONTROL_RELEASED,
     DOMAIN,
     ISSUE_CONTROL_FAILED,
     MIN_REST,
@@ -30,6 +31,7 @@ from custom_components.ev_household_planner.rules import Decision
 from custom_components.ev_household_planner.solar_control import SolarControl
 from custom_components.ev_household_planner.supply_control import METER_STALE
 from custom_components.ev_household_planner.vehicle import Vehicle
+from custom_components.ev_household_planner.websocket import vehicle_state
 
 from .conftest import CHARGE_SWITCH, CHARGING, NIGHT, TESLA, SwitchCalls, set_prices, set_tesla, settle
 from .test_supply_ha import AMPS, METER, _entry, _setup, _skoda
@@ -108,6 +110,56 @@ async def test_commands_that_fail_wait_longer_each_time_and_are_reported(
     assert await household.async_pause_for_house(vehicle)
     assert vehicle.fail_count == 0 and vehicle.retry_after is None
     assert issues.async_get_issue(DOMAIN, issue_id) is None
+
+
+async def test_a_command_that_failed_is_tried_again_quietly_and_forgotten_when_let_go(
+    hass: HomeAssistant, switches: SwitchCalls, init_integration: MockConfigEntry, freezer: FrozenDateTimeFactory
+) -> None:
+    """A Tesla that is plugged in starts by itself and is not awake yet: the stop does not get through.
+
+    The panel shows when it is tried again, until it has failed so often that it is a problem. Set to
+    Off, EV Planner lets go of the car, and what failed is no longer anything to report.
+    """
+    household = init_integration.runtime_data
+    vehicle = _tesla(init_integration)
+    issues = ir.async_get(hass)
+    issue_id = f"{ISSUE_CONTROL_FAILED}_{TESLA}"
+    switches.error = "vehicle is offline"
+    hass.states.async_set(CHARGE_SWITCH, "on")
+    _decide(vehicle, CONTROL_PAUSE)
+    assert not await household._async_apply(vehicle, force=True)
+    shown = vehicle_state(household, vehicle)
+    assert shown["control_error"] == "vehicle is offline"
+    assert shown["control_retry"] == (dt_util.now() + CONTROL_BACKOFF[0]).isoformat()
+    for count in range(2, CONTROL_FAILS_ISSUE + 1):
+        freezer.tick(CONTROL_BACKOFF[count - 2])
+        assert not await household._async_apply(vehicle, force=True)
+    # Failed time after time: now it is a problem, and a repair.
+    assert vehicle_state(household, vehicle)["control_retry"] is None
+    assert issues.async_get_issue(DOMAIN, issue_id) is not None
+    # Off: EV Planner lets go of the car, and the error goes with it.
+    vehicle.decision = Decision(CONTROL_RELEASED, "off")
+    assert not await household._async_apply(vehicle, force=False)
+    assert vehicle.control_error is None and vehicle.fail_count == 0 and vehicle.retry_after is None
+    assert issues.async_get_issue(DOMAIN, issue_id) is None
+    shown = vehicle_state(household, vehicle)
+    assert shown["control_error"] is None and shown["control_retry"] is None
+
+
+async def test_a_command_that_failed_is_forgotten_when_the_car_is_as_decided(
+    hass: HomeAssistant, switches: SwitchCalls, init_integration: MockConfigEntry
+) -> None:
+    household = init_integration.runtime_data
+    vehicle = _tesla(init_integration)
+    switches.error = "vehicle is offline"
+    hass.states.async_set(CHARGE_SWITCH, "on")
+    _decide(vehicle, CONTROL_PAUSE)
+    assert not await household._async_apply(vehicle, force=True)
+    assert vehicle.fail_count == 1
+    # The car stopped all the same: there is nothing to send, and nothing to report.
+    hass.states.async_set(CHARGE_SWITCH, "off")
+    assert await household._async_apply(vehicle, force=False)
+    assert vehicle.control_error is None and vehicle.fail_count == 0 and vehicle.retry_after is None
 
 
 async def test_a_car_that_was_paused_rests_before_it_starts_again(

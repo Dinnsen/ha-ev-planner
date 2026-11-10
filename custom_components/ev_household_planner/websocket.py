@@ -16,6 +16,7 @@ from homeassistant.util import dt as dt_util, slugify
 from .catalog import panel_info
 from .const import (
     BODY_OPTIONS,
+    CONTROL_FAILS_ISSUE,
     DOMAIN,
     FORGET_RESUME,
     GUEST_BATTERY,
@@ -283,6 +284,10 @@ def vehicle_state(household: Household, vehicle: Vehicle) -> dict[str, Any]:
         "control": vehicle.decision.control,
         "control_source": vehicle.control,
         "control_error": vehicle.control_error,
+        # A command that failed once or twice is tried again by itself: when, until it counts as a problem.
+        "control_retry": vehicle.retry_after.isoformat()
+        if vehicle.retry_after and vehicle.control_error and 0 < vehicle.fail_count < CONTROL_FAILS_ISSUE
+        else None,
         "problem": vehicle.problem,
         "mode": vehicle.mode,
         "soc": _r(vehicle.current_soc, 1),

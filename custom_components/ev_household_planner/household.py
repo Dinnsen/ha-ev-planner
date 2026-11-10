@@ -1223,8 +1223,11 @@ class Household(DataUpdateCoordinator[None]):
         """
         desired = vehicle.decision.control
         if vehicle.control == CONTROL_NONE or desired == CONTROL_RELEASED:
+            # Let go of: a command that failed before is no longer anything to report.
+            self._control_worked(vehicle)
             return False
         if vehicle.control == CONTROL_CHARGER and self.guest_holds(vehicle.charger_id, dt_util.now()):
+            self._control_worked(vehicle)
             return False
         now = dt_util.now()
         enforcing = vehicle.enforce_until is not None and now < vehicle.enforce_until
@@ -1239,9 +1242,9 @@ class Household(DataUpdateCoordinator[None]):
         want_on = desired == CONTROL_CHARGE
         current = self._state(entity_id)
         if not force and current in ("on", "off") and (current == "on") == want_on:
-            # Already there; do not wake the car for nothing.
+            # Already there; do not wake the car for nothing. A command that failed before no longer matters.
             vehicle.last_sent = desired
-            vehicle.control_error = None
+            self._control_worked(vehicle)
             return True
         if not urgent and vehicle.retry_after is not None and now < vehicle.retry_after:
             # The last command failed: wait a little longer each time before the next.
@@ -1285,6 +1288,8 @@ class Household(DataUpdateCoordinator[None]):
             )
 
     def _control_worked(self, vehicle: Vehicle) -> None:
+        """The car or charger is as decided, or EV Planner lets go of it: what failed before is forgotten."""
+        vehicle.control_error = None
         if vehicle.fail_count >= CONTROL_FAILS_ISSUE:
             ir.async_delete_issue(self.hass, DOMAIN, self._control_issue(vehicle))
         vehicle.fail_count = 0

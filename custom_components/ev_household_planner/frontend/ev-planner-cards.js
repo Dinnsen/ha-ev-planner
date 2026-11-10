@@ -656,7 +656,7 @@ class BubbleCard extends EvPlannerCard {
       label: r._t("open_car", { name }),
       icon: v.image ? `<img src="${esc(v.image)}" alt="" loading="lazy">` : ICONS.car,
       name,
-      state: `${v.problem || v.control_error ? `<i class="dot coral"></i>` : ""}${esc(parts.join(" · "))}`,
+      state: `${r._troubled(v) ? `<i class="dot coral"></i>` : ""}${esc(parts.join(" · "))}`,
       fill: soc,
       target,
       flow: charging,

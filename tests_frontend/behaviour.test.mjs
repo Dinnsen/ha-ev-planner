@@ -273,3 +273,58 @@ test("the grid's label shows an arrow and the power, and the words when it is ta
     assert.match(await car.locator(".cs-v").innerText(), /^\d+\s?%$/);
   });
 });
+
+test("the clock's charging window is drawn in full when it sweeps in", async () => {
+  await withPanel("two-cars", { size: PHONE, motion: true }, async ({ page, tap, state }) => {
+    const car = state.vehicles.find((v) => v.plan?.segments?.length);
+    await tap('.tabs button[data-tab="cars"]');
+    await tap(`[data-act="open-car"][data-id="${car.id}"]`);
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector(".dial .window.sweep"));
+    const drawn = await page.evaluate(async () => {
+      const windows = [...window.harness.panel.shadowRoot.querySelectorAll(".dial .window.sweep")];
+      await Promise.all(windows.flatMap((w) => w.getAnimations().map((a) => a.finished)));
+      return windows.map((w) => getComputedStyle(w).strokeDashoffset);
+    });
+    assert.ok(drawn.length > 0, "the window sweeps in");
+    for (const offset of drawn) assert.equal(parseFloat(offset), 0, "and stays drawn when the sweep is over");
+  });
+});
+
+test("each animation has a name of its own", async () => {
+  const source = await readFile(new URL("../custom_components/ev_household_planner/frontend/ev-planner-panel.js", import.meta.url), "utf8");
+  const seen = new Map();
+  for (const [, name, body] of source.matchAll(/@keyframes ([\w-]+) (\{.*\})/g)) {
+    // The same animation written twice does no harm; two different ones with one name do: the last wins.
+    if (seen.has(name)) assert.equal(body, seen.get(name), `two different animations are called ${name}`);
+    seen.set(name, body);
+  }
+  assert.ok(seen.size > 5);
+});
+
+test("a command that is tried again by itself is shown quietly, and as a problem when it keeps failing", async () => {
+  await withPanel("two-cars", { size: PHONE, known: true }, async ({ page, tap, state }) => {
+    await tap('.tabs button[data-tab="cars"]');
+    const car = state.vehicles[0];
+    const show = (changes) => page.evaluate((changed) => window.harness.patch({ patch: {}, items: { vehicles: { [changed.id]: changed } } }), { ...car, ...changes });
+    const seen = () => page.evaluate((id) => {
+      const root = window.harness.panel.shadowRoot;
+      const card = root.querySelector(`.modes[data-id="${id}"]`).closest("article, section, .vcard");
+      return {
+        badge: root.querySelector('.tabs button[data-tab="cars"] em')?.textContent || null,
+        notes: [...card.querySelectorAll(".note-line")].map((n) => [n.classList.contains("info") ? "info" : "bad", n.textContent.trim()]),
+      };
+    }, car.id);
+    await show({ control_error: "vehicle is offline", control_retry: "2026-01-14T21:24:00+01:00", problem: false });
+    let now = await seen();
+    assert.equal(now.badge, null, "no problem on the tab");
+    assert.deepEqual(now.notes, [["info", "The command did not get through. Trying again at 21:24."]]);
+    await show({ control_error: "vehicle is offline", control_retry: null, problem: false });
+    now = await seen();
+    assert.equal(now.badge, "1", "a problem once it keeps failing");
+    assert.deepEqual(now.notes, [["bad", "Could not control charging: vehicle is offline"]]);
+    await show({ control_error: null, control_retry: null, problem: false });
+    now = await seen();
+    assert.equal(now.badge, null);
+    assert.deepEqual(now.notes, []);
+  });
+});
