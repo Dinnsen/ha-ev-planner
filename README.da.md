@@ -122,6 +122,35 @@ vehicle: 01M59TAC12D9P50SH4HK4RN1JA   # eller charger: <id>, eller guest: true
 
 Kortene følger jeres tema uden card-mod: Home Assistants egne variabler for kort og dialoger, Bubble Cards `--bubble-*`-variabler for Bubble-kortet, menuen og pop-up'en, og [Theme Studio](https://github.com/Dinnsen/theme-studio)s glas-slør, hævede flade, chip-hjørner og pop-up-kant og -skygge. Den [engelske README](README.md#themes) har den fulde liste.
 
+## Panelet
+
+**EV Planner** i sidemenuen har fem faner: **Biler** (et kort pr. bil; tryk for bilens side med *Nu*, *Regler* og *Historik*), **Hjem** (huset som lermodel med biler, ladere, sol, batteri og varmepumpe, dag og nat), **Gæst**, **Historik** (dag, uge, måned og år, og *Eksportér CSV* med én linje pr. opladning) og **Indstillinger**.
+
+Under *Indstillinger → Hus* vælger I billedet i Hjem-fanen: det *klassiske* hus eller *vinkelhuset* (et vinkelhus set med garagen nærmest).
+
+## Priser
+
+EV Planner læser priserne fra én prissensor. Viser den spotprisen uden tariffer og afgifter, så sæt *Lægges til hver pris* i indstillingerne: et beløb pr. kWh, der lægges til hver time. Med solceller kan I angive, hvad I får for en solgt kWh, som tal eller sensor (*Solen og husbatteriet*): opladningens kWh fra solen regnes så til den pris i stedet for som gratis.
+
+## Fælles forsyning, sol og varmepumpe (beta)
+
+Flere biler bag én sikring: under *Fælles forsyning* sættes det, huset højst må trække pr. fase, faserne og en måler. Bilerne planlægges så sammen under grænsen, billigste timer først, og *vagten* skruer bilerne ned med det samme, når huset skal bruge mere. En måler, der ikke har meldt sig i fem minutter, stoles der ikke på: bilerne går til mindste strøm. Med en vejr-entitet regner EV Planner med nattens temperatur, og en varmepumpe kan holdes tilbage i højst 15 minutter, før en bil stoppes. Vagten er ikke en sikring; behold laderens egen lastbalancering.
+
+Under *Solen og husbatteriet* kan en bil lade på overskuddet fra solen: *Sol og plan* eller *Kun sol*.
+
+## Sådan passer den på bilen
+
+- Højst tolv kommandoer i timen til en bil eller lader; den sidste er gemt til et stop.
+- Efter en pause hviler bilen to minutter, før den startes igen (ikke når I selv beder om det).
+- Når en kommando fejler, venter næste forsøg længere og længere (1, 2, 5, 10 og 15 minutter), og efter tre fejl i træk kommer der en reparation i Home Assistant, som forsvinder af sig selv, når det virker igen. Et stop fra vagten sendes altid med det samme.
+- Det, EV Planner holder tilbage (varmepumpe, laderens strøm, faser), huskes over en genstart og slippes igen.
+
+## Fejlfinding
+
+- **Ingen plan:** se `sensor.<bil>_status` og dens attributter. *Venter på priser* er normalt, før morgendagens priser kommer.
+- **Bilen starter ikke:** `binary_sensor.<bil>_charging_problem` og attributten `control_error` siger hvorfor.
+- **Hent diagnostik** fra integrationens side til en fejlrapport; nummerplade og API-nøgle er fjernet.
+
 ## Widgets
 
 En integration kan ikke selv lægge widgets på telefonen, men companion-appens widgets kan vise EV Planner: på iOS fx et *Brugerdefineret*-, *Gauge*- eller *Sensorer*-widget med `sensor.<bil>_summary`, `sensor.<bil>_status` og bilens batteri. Slå **Opdater iOS-widgets** til under **Konfigurer**.
@@ -134,4 +163,4 @@ Fjern EV Planner under **Indstillinger → Enheder og tjenester**. Indstillinger
 
 [EV Smart Charging](https://github.com/jonasbkarlsson/ev_smart_charging) af Jonas Karlsson, som viste vejen for prisstyret opladning i Home Assistant. Flere af reglerne og *Fra EV Smart Charging* bygger på dens idéer.
 
-Se den [engelske README](README.md) for entiteter, handlinger, begrænsninger og fejlfinding.
+Se den [engelske README](README.md) for entiteter, handlinger og kendte begrænsninger.

@@ -108,8 +108,8 @@ Run both for a while with **who starts and stops charging** set to *neither* in 
 - **Cars:** a card per car with a small price clock, the charge level and target, the status and the mode. Tap a car for its page in three views: *Now* (the large price clock, the plan, the battery with handles, ready by and the weekday schedule, and the next two days' prices), *Rules* (tiles for price, battery, time, messages and more, each opening as a sheet) and *History* (what EV Planner has learned about the car, and its charges).
 - **Home:** the house as a clay model with the cars, chargers, sun, battery and heat pump it has, by day and by night; what the home draws right now, tonight's plans over the prices, today's use of the whole house, and the chargers.
 - **Guest:** the guest car, as in EV Guest.
-- **History:** by day, week, month or year, for all, one car, one charger, the guests or the whole house; and *Learned*: what EV Planner has learned.
-- **Settings:** billing guests, notifications, house and supply, data sources, and the home-screen app (`/ev_planner_app/app.html`).
+- **History:** by day, week, month or year, for all, one car, one charger, the guests or the whole house; and *Learned*: what EV Planner has learned. *Export CSV* saves the period you are looking at, one line per charge, for a spreadsheet or your employer.
+- **Settings:** billing guests, notifications, house and supply, data sources, and the home-screen app (`/ev_planner_app/app.html`). Under *House* you choose the picture in the Home tab: the *classic* house, or the *angle house* (an L-shaped house with the garage nearest).
 
 The Home tab and the whole house's history read the Energy dashboard by themselves: the grid's power and energy, the sun, the home battery and the devices with their power.
 
@@ -265,6 +265,7 @@ With a plug sensor (`connected_entity`), a charge goes to the history when the c
 
 - **No plan:** check `sensor.<car>_status` and its attributes (`plan_error`, `deadline`). *Waiting for prices* is normal before tomorrow's prices arrive.
 - **The car does not start:** `binary_sensor.<car>_charging_problem` and the status attribute `control_error` say why. Check that the charge switch works in Home Assistant.
+- **A repair says the car cannot be controlled:** three commands in a row failed. EV Planner keeps trying, with longer and longer waits (1, 2, 5, 10 and 15 minutes), so a car maker's cloud that is down is not hammered; the repair goes away by itself at the first command that works. A stop from the guard is always sent at once.
 - **Download diagnostics** from the integration's page for a bug report; the license plate and API key are removed.
 
 ## Removing the integration
@@ -284,6 +285,18 @@ Under *Shared supply* you can also pick a weather entity: EV Planner learns how 
 ## The sun and the home battery (beta)
 
 In the options, under *The sun and the home battery*, add a sensor for the power to and from the grid (positive when the house buys). Each car then has a *Solar* setting: *Off*, *Sun and plan* (charge on the surplus when the sun shines; the plan sees to the rest by the ready-by time) or *Only sun*. A car with a current setting follows the surplus; with a phase switch it charges on one phase when the sun is small. With a home battery, the battery comes first up to the level you choose. With a solar forecast in the Energy dashboard, *Sun and plan* buys less at night when the next day looks sunny. The history shows how much of each charge came from the sun.
+
+## Prices
+
+EV Planner reads the prices from one price sensor (Energi Data Service, Nordpool, Stromligning and others with the day's prices as an attribute). If your sensor shows the spot price without tariffs and taxes, set *Added to every price* in the options: an amount per kWh that is added to every hour. With solar panels you can set what you get for a kWh you sell, as a number or a sensor (*The sun and the home battery*): a charge's kWh from the sun are then counted at that price instead of as free, so the history shows what the charge really cost you.
+
+## How careful it is with the car
+
+- At most twelve commands an hour to a car or charger; the last one is kept for a stop.
+- After a pause the car rests two minutes before it is started again (not when you ask by hand).
+- When a command fails, the next try waits longer and longer; see *Troubleshooting*.
+- What EV Planner has held back (a heat pump, a charger's current, the phases) is remembered across a restart and released again.
+- A supply meter that has not reported for five minutes is not trusted: the cars go to the least current.
 
 ## Thanks
 
