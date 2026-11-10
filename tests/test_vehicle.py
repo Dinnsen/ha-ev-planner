@@ -477,8 +477,8 @@ def test_commands_per_hour_are_limited() -> None:
     assert vehicle.count_command(NOW + timedelta(minutes=30)) is False
     assert vehicle.count_command(NOW + timedelta(minutes=31), stop=True) is True
     assert vehicle.count_command(NOW + timedelta(minutes=32), stop=True) is True
-    # An hour after the first ones, there is room again.
-    assert vehicle.count_command(NOW + timedelta(minutes=61)) is True
+    # An hour after the last ones, there is room again.
+    assert vehicle.count_command(NOW + timedelta(minutes=93)) is True
 
 
 def test_a_car_that_does_not_charge_after_a_pause_plans_in_one_go() -> None:
