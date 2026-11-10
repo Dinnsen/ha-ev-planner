@@ -2885,7 +2885,8 @@ const ClayScene = (() => {
       s += `</g><g class="cs-lights">${LIGHTS.join("")}</g>`;
       if (this.edit) s += `<g class="cs-edit">${this._overlay(m, L, pos)}</g>`;
       if (!this.svg) {
-        this.el.innerHTML = `<svg class="cs-main" viewBox="0 0 ${W} ${H}" aria-hidden="true"></svg><svg class="cs-leaders" viewBox="0 0 ${W} ${H}" aria-hidden="true"></svg><div class="cs-labels"></div><div class="cs-tools"></div>`;
+        // The picture with its labels on top, and under it the editor's bar: the labels are placed in the picture alone.
+        this.el.innerHTML = `<div class="cs-pic"><svg class="cs-main" viewBox="0 0 ${W} ${H}" aria-hidden="true"></svg><svg class="cs-leaders" viewBox="0 0 ${W} ${H}" aria-hidden="true"></svg><div class="cs-labels"></div></div><div class="cs-tools"></div>`;
         this.svg = this.el.querySelector("svg");
       }
       this.svg.innerHTML = defs() + s;
@@ -2930,7 +2931,7 @@ const ClayScene = (() => {
       const view = [cx - w / 2, cy - h / 2, w, h].map((v) => Math.round(v));
       if (this.view && this.view.join() === view.join()) return;
       this.view = view;
-      for (const svg of this.el.querySelectorAll(":scope > svg")) svg.setAttribute("viewBox", view.join(" "));
+      for (const svg of this.el.querySelectorAll(".cs-pic > svg")) svg.setAttribute("viewBox", view.join(" "));
       if (this.model) this._labels(this.model);
     }
 
@@ -3089,6 +3090,10 @@ const ClayScene = (() => {
     // What can be grabbed in the tab that is open: the things, the stretches of wire, the places for panels.
     _overlay(m, L, pos) {
       const tab = this.edit.tab;
+      // At least 40 pixels to grab with a finger, however small the picture is.
+      const view = this.view || [0, 0, W, H];
+      const unit = view[2] / (this.el.clientWidth || W);
+      const reach = 40 * unit;
       let s = "";
       if (tab === "things") {
         const keys = ["gateway", ...m.chargers.slice(0, 2).map((_, i) => `charger${i}`)];
@@ -3097,10 +3102,12 @@ const ClayScene = (() => {
         for (const key of keys) {
           const corners = this._corners(L, key, pos);
           const xy = corners.map((c) => P(...c));
-          const x0 = Math.min(...xy.map((p) => p[0])) - 3;
-          const y0 = Math.min(...xy.map((p) => p[1])) - 3;
-          const x1 = Math.max(...xy.map((p) => p[0])) + 3;
-          const y1 = Math.max(...xy.map((p) => p[1])) + 3;
+          let x0 = Math.min(...xy.map((p) => p[0])) - 3;
+          let y0 = Math.min(...xy.map((p) => p[1])) - 3;
+          let x1 = Math.max(...xy.map((p) => p[0])) + 3;
+          let y1 = Math.max(...xy.map((p) => p[1])) + 3;
+          if (x1 - x0 < reach) [x0, x1] = [(x0 + x1 - reach) / 2, (x0 + x1 + reach) / 2];
+          if (y1 - y0 < reach) [y0, y1] = [(y0 + y1 - reach) / 2, (y0 + y1 + reach) / 2];
           s += `<rect class="cs-hit ${this.edit.sel === key ? "sel" : ""}" data-thing="${key}" x="${f1(x0)}" y="${f1(y0)}" width="${f1(x1 - x0)}" height="${f1(y1 - y0)}" rx="4"/>`;
         }
       } else if (tab === "wires") {
@@ -3112,10 +3119,10 @@ const ClayScene = (() => {
             const q = route[i + 1];
             const d = path3([p, q]);
             const free = this._axisFor(L, p, q) !== null;
-            s += `<path class="cs-seg ${free ? "" : "fixed"}" data-wire="${key}" data-seg="${i}" d="${d}"/>`;
+            s += `<path class="cs-seg ${free ? "" : "fixed"}" data-wire="${key}" data-seg="${i}" d="${d}" style="stroke-width:${f1(Math.max(14, reach * 0.7))}px"/>`;
             if (free) {
               const [mx, my] = P((p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2);
-              s += `<circle class="cs-grip ${sel ? "sel" : ""}" cx="${f1(mx)}" cy="${f1(my)}" r="3.6" data-wire="${key}" data-seg="${i}"/>`;
+              s += `<circle class="cs-grip ${sel ? "sel" : ""}" cx="${f1(mx)}" cy="${f1(my)}" r="${f1(Math.max(3.6, 7 * unit))}" data-wire="${key}" data-seg="${i}"/>`;
             }
           });
         }
@@ -3477,6 +3484,7 @@ const CLAY_CSS = `
 .cscene.is-dark .cs-stars circle { animation: cs-twinkle 4s ease-in-out infinite; animation-delay: var(--d); }
 @keyframes cs-twinkle { 50% { opacity: .25; } }
 .cscene svg { display: block; width: 100%; height: auto; }
+.cscene .cs-pic { position: relative; }
 .cscene .cs-leaders { position: absolute; inset: 0; height: 100%; pointer-events: none; }
 .cscene .cs-leader { stroke: #9AA3B2; stroke-width: 1.1; fill: none; }
 .cscene .cs-led { stroke: #9AA6B4; }
@@ -3521,6 +3529,7 @@ const CLAY_CSS = `
 .cscene .cs-editbtn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .cscene.editing { user-select: none; -webkit-user-select: none; }
 .cscene.editing .cs-main, .cscene.editing .cs-label { touch-action: none; }
+.cscene.editing .cs-label:not(.drag) { pointer-events: none; }
 .cscene.editing .cs-pk, .cscene.editing .cs-labels .cs-label:not(.drag) { opacity: .55; }
 .cscene.editing .cs-pk { display: none; }
 .cscene .cs-hit { fill: rgba(59,139,255,.06); stroke: #3B8BFF; stroke-width: 1.2; stroke-dasharray: 4 3; cursor: grab; }
