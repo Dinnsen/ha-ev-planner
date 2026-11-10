@@ -1,0 +1,17 @@
+{
+  "name": "ha-ev-planner-frontend-tests",
+  "description": "Tests of EV Planner's panel and dashboard cards in a real browser. Not part of the integration.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"tests_frontend/*.test.mjs\"",
+    "fixtures": "node tests_frontend/make-fixtures.mjs",
+    "screenshots": "node tests_frontend/screenshots.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "playwright": "1.56.0"
+  }
+}

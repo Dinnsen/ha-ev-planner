@@ -1,0 +1,241 @@
+/* What the panel does when it is used: the commands it sends to Home Assistant, the house
+   that is drawn again when its look changes, and the CSV file of the history. */
+
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { after, before, test } from "node:test";
+
+import { DESKTOP, PHONE, fixture, keepPicture, launch, openPage, serve } from "./lib/setup.mjs";
+
+const DOMAIN = "ev_household_planner";
+let browser;
+let server;
+
+before(async () => {
+  browser = await launch();
+  server = await serve();
+});
+
+after(async () => {
+  await browser?.close();
+  await server?.close();
+});
+
+/* The panel on a page with a fixture; `run` gets helpers that work inside the panel's shadow root.
+   `known: true` is for a fault that is known: no picture of it is kept. */
+async function withPanel(name, options, run) {
+  const state = typeof name === "string" ? fixture(name) : name;
+  const opened = await openPage(browser, server.url, { now: state.now, ...options });
+  const { page, context, errors } = opened;
+  const tools = {
+    page,
+    state,
+    // A real click with the mouse (Playwright's selectors look inside shadow roots).
+    tap: (selector) => page.locator(`ev-planner-panel ${selector}`).first().click({ timeout: 5000 }),
+    // A tap as on an iPhone, where the focus stays where it was.
+    touch: (selector) =>
+      page.evaluate((s) => {
+        const el = window.harness.panel.shadowRoot.querySelector(s);
+        if (!el) throw new Error(`Nothing to tap at ${s}`);
+        el.click();
+      }, selector),
+    read: (selector, attribute = null) =>
+      page.evaluate(([s, a]) => {
+        const el = window.harness.panel.shadowRoot.querySelector(s);
+        return el ? (a ? el.getAttribute(a) : el.textContent.trim()) : null;
+      }, [selector, attribute]),
+    calls: (type) => page.evaluate((t) => window.harness.calls.filter((c) => c.type === t), `${DOMAIN}/${type}`),
+    waitForCall: (type) => page.waitForFunction((t) => window.harness.calls.some((c) => c.type === t), `${DOMAIN}/${type}`, { timeout: 5000 }),
+    push: (next) => page.evaluate((s) => window.harness.push(s), next),
+  };
+  try {
+    await page.evaluate(([s, o]) => window.harness.mountPanel(s, o).then(() => null), [state, { lang: options.lang || "en", dark: false }]);
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector(".tabs button"));
+    await run(tools);
+    assert.deepEqual(errors, [], "nothing in the console");
+    assert.deepEqual(await page.evaluate(() => window.harness.unknown), [], "every command had an answer");
+  } catch (err) {
+    if (!options.known) await keepPicture(page, `behaviour ${err.message.slice(0, 40)}`);
+    throw err;
+  } finally {
+    await context.close();
+  }
+}
+
+test("the panel follows EV Planner once, and stops when it leaves the page", async () => {
+  await withPanel("two-cars", {}, async ({ page, calls }) => {
+    // Home Assistant gives the panel `hass` first and puts it on the page after: one subscription, not two.
+    assert.equal((await calls("subscribe")).length, 1);
+    assert.equal(await page.evaluate(() => window.harness.listeners.size), 1);
+    await page.evaluate(() => window.harness.panel.remove());
+    await page.waitForFunction(() => window.harness.listeners.size === 0);
+  });
+});
+
+test("a mode button stores the mode at once", async () => {
+  await withPanel("two-cars", {}, async ({ tap, read, calls, waitForCall, state }) => {
+    await tap('.tabs button[data-tab="cars"]');
+    const button = '.modes[data-id="tesla_model_y"] button[data-mode="pause"]';
+    assert.equal(await read(button, "aria-checked"), "false");
+    await tap(button);
+    await waitForCall("vehicle_set");
+    assert.deepEqual(await calls("vehicle_set"), [
+      { type: `${DOMAIN}/vehicle_set`, vehicle_id: "tesla_model_y", settings: { mode: "pause" }, entry_id: state.entry_id },
+    ]);
+    assert.equal(await read(button, "aria-checked"), "true");
+    assert.equal(await read('.modes[data-id="tesla_model_y"] button[data-mode="smart"]', "aria-checked"), "false");
+  });
+});
+
+test("changing a rule shows the plan it would give, then stores it", async () => {
+  await withPanel("two-cars", { size: PHONE }, async ({ page, tap, read, calls, waitForCall, state }) => {
+    await tap('.tabs button[data-tab="cars"]');
+    await tap('[data-act="open-car"][data-id="tesla_model_y"]');
+    await tap('[data-act="car-view"][data-view="rules"]');
+    await tap('[data-act="tile"][data-tile="price"]');
+    const key = await read('.sheet .switch[data-act="toggle"]', "data-key");
+    assert.ok(key, "the sheet has a switch");
+    const before = (await read(`.switch[data-key="${key}"]`, "aria-checked")) === "true";
+    assert.equal(before, Boolean(state.vehicles.find((v) => v.id === "tesla_model_y").settings[key]));
+    await tap(`.switch[data-key="${key}"]`);
+    // The switch moves at once; the preview is asked for shortly after, and the change is stored after that.
+    assert.equal(await read(`.switch[data-key="${key}"]`, "aria-checked"), String(!before));
+    assert.deepEqual(await calls("vehicle_set"), []);
+    await waitForCall("vehicle_preview");
+    await waitForCall("vehicle_set");
+    const expected = { vehicle_id: "tesla_model_y", settings: { [key]: !before }, entry_id: state.entry_id };
+    assert.deepEqual(await calls("vehicle_preview"), [{ type: `${DOMAIN}/vehicle_preview`, ...expected }]);
+    assert.deepEqual(await calls("vehicle_set"), [{ type: `${DOMAIN}/vehicle_set`, ...expected }]);
+    const order = await page.evaluate(() => window.harness.calls.map((c) => c.type.split("/")[1]));
+    assert.ok(order.indexOf("vehicle_preview") < order.indexOf("vehicle_set"), "the preview comes before the change is stored");
+  });
+});
+
+test("the house's look is stored, and the house is drawn again when it changes", async () => {
+  await withPanel("shared-supply", {}, async ({ page, tap, touch, read, calls, waitForCall, push, state }) => {
+    const scene = () => page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".cscene svg.cs-main")?.innerHTML || "");
+    await tap('.tabs button[data-tab="home"]');
+    const classic = await scene();
+    assert.ok(classic.includes("cs-wire"), "the classic house is drawn");
+
+    await tap('.tabs button[data-tab="settings"]');
+    await tap('[data-act="tile"][data-tile="house"]');
+    assert.equal(await read('[data-act="house-look"][data-house="classic"]', "aria-pressed"), "true");
+    // The focus is on the sheet's "Done" button and stays there: the choice must show all the same.
+    await touch('[data-act="house-look"][data-house="angle"]');
+    await waitForCall("settings");
+    assert.deepEqual(await calls("settings"), [{ type: `${DOMAIN}/settings`, settings: { house: "angle" }, entry_id: state.entry_id }]);
+
+    // Home Assistant stores it and sends the new state.
+    await push({ ...state, settings: { ...state.settings, house: "angle" } });
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector('[data-act="house-look"][data-house="angle"]')?.getAttribute("aria-pressed") === "true", null, { timeout: 5000 });
+    await tap('[data-act="sheet-close"][data-f]');
+    await tap('.tabs button[data-tab="home"]');
+    const angle = await scene();
+    assert.ok(angle.includes("cs-wire"), "the angle house is drawn");
+    assert.notEqual(angle, classic, "the picture changed");
+
+    // And back, while the Home tab is open.
+    await push({ ...state, settings: { ...state.settings, house: "classic" } });
+    await page.waitForFunction((was) => window.harness.panel.shadowRoot.querySelector(".cscene svg.cs-main")?.innerHTML !== was, angle, { timeout: 5000 });
+    assert.equal(await scene(), classic, "the classic house is back");
+  });
+});
+
+/* Click "Export CSV" and read the file the browser was given: {name, bytes, text}. */
+async function exported({ page, tap }) {
+  const [download] = await Promise.all([page.waitForEvent("download"), tap('[data-act="hist-export"]')]);
+  const bytes = await readFile(await download.path());
+  return { name: download.suggestedFilename(), bytes, text: bytes.toString("utf8") };
+}
+
+test("the history as CSV: what the view shows, for Excel in English", async () => {
+  await withPanel("two-cars", {}, async (tools) => {
+    await tools.tap('.tabs button[data-tab="history"]');
+    assert.equal(await tools.read('[data-act="hist-export"]'), "Export CSV");
+    const file = await exported(tools);
+    assert.equal(file.name, "ev-planner-2026-11-01-2026-11-30.csv");
+    assert.deepEqual([...file.bytes.subarray(0, 3)], [0xef, 0xbb, 0xbf], "UTF-8 with a byte order mark");
+    assert.deepEqual(file.text.slice(1).split("\r\n"), [
+      "Start,End,Car or guest,Charger,kWh,Cost,Currency,Charge level at start (%),Charge level at end (%),Of which from the sun (kWh),Measured by",
+      "2026-11-09 02:00,2026-11-09 03:50,Renault Zoe,Garage,19.80,22.40,DKK,44,80,0.00,Charge level",
+      "2026-11-08 01:00,2026-11-08 04:05,Tesla Model Y,Garage,34.10,41.27,DKK,38,80,0.00,Power reading",
+      "2026-11-07 19:20,2026-11-07 22:10,Guest: Kia e-Niro CX48213,Garage,31.20,61.40,DKK,35,,,",
+      "2026-11-05 23:30,2026-11-06 03:30,Tesla Model Y,Garage,43.60,58.90,DKK,26,80,0.00,Power reading",
+      "2026-11-04 13:10,2026-11-04 15:15,Renault Zoe,Garage,21.10,24.75,DKK,39,78,6.30,Time and charging power",
+      "2026-11-02 02:15,2026-11-02 04:00,Tesla Model Y,Garage,18.60,21.67,DKK,57,80,0.00,Power reading",
+      "",
+    ]);
+    // The rows are the charges in the list on the page.
+    assert.equal(await tools.page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".hist-body .sessions > li").length), 6);
+
+    // Another scope and period: one car, last month.
+    await tools.tap('[data-act="hist-scope"][data-value="car:renault_zoe"]');
+    await tools.tap('[data-act="hist-move"][data-step="-1"]');
+    const october = await exported(tools);
+    assert.equal(october.name, "ev-planner-2026-10-01-2026-10-31.csv");
+    assert.deepEqual(october.text.slice(1).split("\r\n").slice(1), [
+      "2026-10-30 01:00,2026-10-30 03:10,Renault Zoe,Garage,23.40,39.10,DKK,36,80,0.00,Power reading",
+      "2026-10-22 02:30,2026-10-22 04:05,Renault Zoe,Garage,17.20,28.80,DKK,48,80,0.00,Power reading",
+      "2026-10-15 00:30,2026-10-15 02:50,Renault Zoe,Garage,25.30,43.90,DKK,33,80,0.00,Power reading",
+      "",
+    ]);
+
+    // A period without charges has nothing to export.
+    await tools.tap('[data-act="hist-period"][data-value="day"]');
+    assert.equal(await tools.read('[data-act="hist-export"]'), null);
+  });
+});
+
+test("the history as CSV in Danish: semicolons and decimal commas", async () => {
+  await withPanel("two-cars", { lang: "da" }, async (tools) => {
+    await tools.tap('.tabs button[data-tab="history"]');
+    assert.equal(await tools.read('[data-act="hist-export"]'), "Eksportér CSV");
+    const lines = (await exported(tools)).text.slice(1).split("\r\n");
+    assert.equal(lines[0], "Start;Slut;Bil eller gæst;Lader;kWh;Pris;Valuta;Ladeniveau ved start (%);Ladeniveau ved slut (%);Heraf fra solen (kWh);Målt med");
+    assert.equal(lines[1], "2026-11-09 02:00;2026-11-09 03:50;Renault Zoe;Garage;19,80;22,40;DKK;44;80;0,00;Ladeniveau");
+    assert.equal(lines[3], "2026-11-07 19:20;2026-11-07 22:10;Gæst: Kia e-Niro CX48213;Garage;31,20;61,40;DKK;35;;;");
+    assert.equal(lines.length, 8);
+  });
+});
+
+test("the CSV keeps names with commas, quotes and formulas in one harmless cell", async () => {
+  const state = fixture("two-cars");
+  state.vehicles[0].name = '=2+3, "Zoe"';
+  state.vehicles[0].history[0].cost = -1.5;
+  await withPanel(state, {}, async (tools) => {
+    await tools.tap('.tabs button[data-tab="history"]');
+    const lines = (await exported(tools)).text.slice(1).split("\r\n");
+    // A name is text, also when it looks like a formula; a negative cost stays a number.
+    assert.equal(lines[1], '2026-11-09 02:00,2026-11-09 03:50,"\'=2+3, ""Zoe""",Garage,19.80,-1.50,DKK,44,80,0.00,Charge level');
+  });
+});
+
+test("tonight's plans on a phone: a name that is too long ends in an ellipsis", async () => {
+  await withPanel("shared-supply", { size: PHONE }, async ({ page, tap }) => {
+    await tap('.tabs button[data-tab="home"]');
+    const names = await page.evaluate(() =>
+      [...window.harness.panel.shadowRoot.querySelectorAll(".tn-name span")].map((el) => ({
+        name: el.textContent,
+        cut: el.scrollWidth > el.clientWidth,
+        ellipsis: getComputedStyle(el).textOverflow === "ellipsis" && getComputedStyle(el).overflowX === "hidden",
+        inside: el.getBoundingClientRect().right <= el.parentElement.getBoundingClientRect().right + 0.5,
+      })),
+    );
+    assert.deepEqual(names.map((n) => n.name), ["Renault Zoe", "Tesla Model Y"]);
+    assert.ok(names.some((n) => n.cut), "a name does not fit on a phone");
+    for (const n of names) assert.ok(n.ellipsis && n.inside, `${n.name} is shortened with "…"`);
+  });
+});
+
+test("the Home tab's numbers fit in their chips", async () => {
+  await withPanel("shared-supply", { size: DESKTOP, known: true }, async ({ page, tap }) => {
+    await tap('.tabs button[data-tab="home"]');
+    const spills = await page.evaluate(() =>
+      [...window.harness.panel.shadowRoot.querySelectorAll(".now-chip")]
+        .filter((el) => el.scrollWidth > el.clientWidth + 1)
+        .map((el) => `${el.textContent.trim()}: ${el.scrollWidth}px of text in ${el.clientWidth}px`),
+    );
+    assert.deepEqual(spills, []);
+  });
+});

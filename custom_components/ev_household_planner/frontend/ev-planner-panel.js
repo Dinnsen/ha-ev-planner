@@ -152,18 +152,6 @@ const TEXT = {
     more_in_panel: "Regler, ugeplan og påmindelser finder du i EV Planner.",
     guest_add: "Tilføj gæst",
     guest_plan_line: "{time} · {cost}",
-    card_household: "EV Planner – husstand",
-    card_household_desc: "Alle biler, gæsten og laderne på én linje.",
-    card_car: "EV Planner – bil",
-    card_car_desc: "En bil: batteri, mål, start og pris.",
-    card_car_large: "EV Planner – bil, stor",
-    card_car_large_desc: "Som bilkortet i EV Planner: prisur, batteri og tilstand.",
-    card_guest: "EV Planner – gæst",
-    card_guest_desc: "Gæstebilen: tilføj gæst, plan og opladning.",
-    card_charger: "EV Planner – lader",
-    card_charger_desc: "En lader: hvem der lader, og hvem der er næste.",
-    card_bubble: "EV Planner – Bubble",
-    card_bubble_desc: "En bil, gæsten eller en lader som en Bubble Card-knap.",
     ed_show: "Vis",
     bubble_starts: "starter {time}",
     bubble_until: "lader til {time}",
@@ -628,18 +616,6 @@ const TEXT = {
     more_in_panel: "Rules, the weekly plan and reminders are in EV Planner.",
     guest_add: "Add guest",
     guest_plan_line: "{time} · {cost}",
-    card_household: "EV Planner – household",
-    card_household_desc: "All cars, the guest and the chargers on one line.",
-    card_car: "EV Planner – car",
-    card_car_desc: "One car: battery, target, start and cost.",
-    card_car_large: "EV Planner – car, large",
-    card_car_large_desc: "Like the car card in EV Planner: price clock, battery and mode.",
-    card_guest: "EV Planner – guest",
-    card_guest_desc: "The guest car: add a guest, the plan and charging.",
-    card_charger: "EV Planner – charger",
-    card_charger_desc: "One charger: who charges and who is next.",
-    card_bubble: "EV Planner – Bubble",
-    card_bubble_desc: "A car, the guest or a charger as a Bubble Card button.",
     ed_show: "Show",
     bubble_starts: "starts {time}",
     bubble_until: "charging until {time}",
@@ -1014,6 +990,21 @@ Object.assign(TEXT.da, {
   hist_sessions: "Opladninger",
   hist_sun: "Fra solen",
   hist_none: "Ingen opladninger i perioden.",
+  hist_export: "Eksportér CSV",
+  csv_start: "Start",
+  csv_end: "Slut",
+  csv_car: "Bil eller gæst",
+  csv_charger: "Lader",
+  csv_energy: "kWh",
+  csv_cost: "Pris",
+  csv_currency: "Valuta",
+  csv_start_soc: "Ladeniveau ved start (%)",
+  csv_end_soc: "Ladeniveau ved slut (%)",
+  csv_solar: "Heraf fra solen (kWh)",
+  csv_source: "Målt med",
+  csv_source_power: "Effektmåling",
+  csv_source_soc: "Ladeniveau",
+  csv_source_time: "Tid og ladeeffekt",
   hist_house_none: "Hele huset kræver en elmåler i Energi-dashboardet.",
   hist_cars_share: "Biler {pct} af huset",
   hist_prev: "Forrige",
@@ -1110,6 +1101,21 @@ Object.assign(TEXT.en, {
   hist_sessions: "Charges",
   hist_sun: "From the sun",
   hist_none: "No charging in this period.",
+  hist_export: "Export CSV",
+  csv_start: "Start",
+  csv_end: "End",
+  csv_car: "Car or guest",
+  csv_charger: "Charger",
+  csv_energy: "kWh",
+  csv_cost: "Cost",
+  csv_currency: "Currency",
+  csv_start_soc: "Charge level at start (%)",
+  csv_end_soc: "Charge level at end (%)",
+  csv_solar: "Of which from the sun (kWh)",
+  csv_source: "Measured by",
+  csv_source_power: "Power reading",
+  csv_source_soc: "Charge level",
+  csv_source_time: "Time and charging power",
   hist_house_none: "The whole house needs an electricity meter in the Energy dashboard.",
   hist_cars_share: "Cars {pct} of the house",
   hist_prev: "Previous",
@@ -1193,6 +1199,7 @@ const ICONS = {
   receipt: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/></svg>',
   copy: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="12" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h9"/></svg>',
   share: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M8 8l4-4 4 4M5 13v6h14v-6"/></svg>',
+  download: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M8 11l4 4 4-4M5 13v6h14v-6"/></svg>',
   close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>',
   grid: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 8 21M12 3l4 18M7 8h10M6 13h12M9.5 21h5"/></svg>',
   home: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11 12 4.5 20 11"/><path d="M6.5 9.5V19h11V9.5"/><path d="M12.6 11.5 10.5 15h3l-2.1 3.5"/></svg>',
@@ -2480,7 +2487,7 @@ const ClayScene = (() => {
       const x0 = Math.min(...xy.map((p) => p[0]));
       const x1 = Math.max(...xy.map((p) => p[0]));
       const y0 = Math.min(...xy.map((p) => p[1])) - (narrow ? 34 : 44);
-      const y1 = Math.max(...xy.map((p) => p[1])) + 10;
+      const y1 = Math.max(...xy.map((p) => p[1])) + (narrow ? 22 : 10);
       const ratio = narrow ? 1.32 : W / H;
       let w = x1 - x0 + (narrow ? 20 : 80);
       let h = y1 - y0;
@@ -2563,14 +2570,32 @@ const ClayScene = (() => {
         const lift = label.key === "grid" ? 26 : label.key.startsWith("car") ? -14 : 34;
         // Kept inside the picture: half the label's width, roughly, in the picture's units.
         const half = ((String(label.short ?? label.value).length * 6.6 + 40) / 2) * (vw / (this.el.clientWidth || W));
-        items.push({ label, ax, ay, x: Math.min(vx + vw - half, Math.max(vx + half, ax)), y: Math.max(vy + 14, ay - lift) });
+        items.push({ label, ax, ay, half, x: Math.min(vx + vw - half, Math.max(vx + half, ax)), y: Math.max(vy + 14, ay - lift) });
       }
-      items.sort((a, b) => a.x - b.x);
-      for (let i = 0; i < items.length; i += 1) {
-        for (let j = 0; j < i; j += 1) {
-          const a = items[j];
-          const b = items[i];
-          if (Math.abs(a.x - b.x) < 78 && Math.abs(a.y - b.y) < 24) b.y = Math.max(vy + 14, a.y - 26 < vy + 14 ? a.y + 26 : a.y - 26);
+      // Labels that would meet: the lowest stays, the next one moves up over it. Measured in the
+      // labels' real size, so it also holds on a phone, where a label is large against the picture.
+      const unit = vw / (this.el.clientWidth || W);
+      const tall = 27 * unit;
+      const top = vy + tall / 2 + 2 * unit;
+      const bottom = vy + vh - tall / 2 - 2 * unit;
+      for (const item of items) item.y = Math.min(bottom, Math.max(top, item.y));
+      items.sort((a, b) => b.y - a.y);
+      const meets = (a, b) => Math.abs(a.x - b.x) < a.half + b.half + 3 * unit && Math.abs(a.y - b.y) < tall;
+      for (let i = 1; i < items.length; i += 1) {
+        const b = items[i];
+        for (let turn = 0; turn < items.length; turn += 1) {
+          const a = items.slice(0, i).find((other) => meets(other, b));
+          if (!a) break;
+          b.y = a.y - tall;
+        }
+        if (b.y < top) {
+          // No room above: below the lowest one it meets instead.
+          b.y = top;
+          for (let turn = 0; turn < items.length; turn += 1) {
+            const a = items.slice(0, i).find((other) => meets(other, b));
+            if (!a) break;
+            b.y = a.y + tall;
+          }
         }
       }
       let lines = "";
@@ -2771,7 +2796,7 @@ class EvPlannerPanel extends HTMLElement {
   connectedCallback() {
     clearInterval(this._tick);
     this._tick = setInterval(() => this._state && this._onTick(), 30000);
-    if (this._hass && !this._unsub) this._subscribe();
+    if (this._hass && !this._unsub && !this._subscribing) this._subscribe();
   }
 
   disconnectedCallback() {
@@ -2811,14 +2836,24 @@ class EvPlannerPanel extends HTMLElement {
     this._unsubscribe();
     const connection = this._hass?.connection;
     if (!connection) return;
+    // One subscription at a time: Home Assistant gives the panel `hass` and then puts it on the
+    // page, and both ask for one. An answer that comes after the panel has left is given back.
+    const ask = (this._subAsk = (this._subAsk || 0) + 1);
+    this._subscribing = true;
     try {
-      this._unsub = await connection.subscribeMessage((event) => this._onState(event), { type: "ev_household_planner/subscribe" });
+      const unsub = await connection.subscribeMessage((event) => ask === this._subAsk && this._onState(event), { type: "ev_household_planner/subscribe" });
+      if (ask === this._subAsk) this._unsub = unsub;
+      else Promise.resolve(unsub()).catch(() => {});
     } catch (err) {
-      this._showError(err);
+      if (ask === this._subAsk) this._showError(err);
     }
+    if (ask === this._subAsk) this._subscribing = false;
   }
 
   _unsubscribe() {
+    // A subscription still on its way is no longer wanted.
+    this._subAsk = (this._subAsk || 0) + 1;
+    this._subscribing = false;
     if (this._unsub) {
       const unsub = this._unsub;
       this._unsub = null;
@@ -5431,7 +5466,7 @@ class EvPlannerPanel extends HTMLElement {
             return `<i style="left:${a.toFixed(2)}%;width:${Math.max(0.6, b - a).toFixed(2)}%;background:${this._carColor(i)};--d:${200 + k * 80}ms"></i>`;
           })
           .join("");
-        return `<div class="tn-row"><span class="tn-name"><em style="background:${this._carColor(i)}"></em>${esc(v.name)}</span><div class="tn-track">${segs}</div><span class="tn-cost">${this._money(v.plan.cost)}</span></div>`;
+        return `<div class="tn-row"><span class="tn-name"><em style="background:${this._carColor(i)}"></em><span>${esc(v.name)}</span></span><div class="tn-track">${segs}</div><span class="tn-cost">${this._money(v.plan.cost)}</span></div>`;
       })
       .join("");
     const ticks = [];
@@ -5782,7 +5817,68 @@ class EvPlannerPanel extends HTMLElement {
       ? `<ul class="sessions">${sessions.slice(0, 40).map((e) => (e.series.car ? this._carSessionHtml(e.series.car, e, { name: scope === "all" || scope.startsWith("charger:") }) : this._guestSessionHtml(e))).join("")}</ul>`
       : scope === "house" ? "" : `<p class="hint">${esc(this._t("hist_none"))}</p>`;
     const empty = scope === "house" && !house.rows.length ? `<p class="hint">${esc(this._t("hist_house_none"))}</p>` : "";
-    return `<section class="panel hist-hero"><dl class="hist-nums">${nums.join("")}</dl>${empty}${chart}${calendar}</section>${list}`;
+    const exportButton = sessions.length
+      ? `<div class="row-buttons"><button class="btn ghost" data-act="hist-export" data-f="hist-export">${ICONS.download}<span>${esc(this._t("hist_export"))}</span></button></div>`
+      : "";
+    return `<section class="panel hist-hero"><dl class="hist-nums">${nums.join("")}</dl>${empty}${chart}${calendar}</section>${list}${exportButton}`;
+  }
+
+  /* The charges of the period and scope shown, as a CSV file: {name, text}. Danish spreadsheets
+     read ";" between the columns and a decimal comma; the others "," and a decimal point. */
+  _historyCsv() {
+    const scope = this.shadowRoot.querySelector(".hist-body")?.dataset.scope || "all";
+    const period = HIST_PERIODS.includes(this._histPeriod) ? this._histPeriod : "month";
+    const [start, end] = this._histRange(period, Math.min(0, this._histOffset || 0));
+    const danish = this._lang === "da";
+    const sep = danish ? ";" : ",";
+    const pad = (n) => String(n).padStart(2, "0");
+    const day = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const when = (iso) => {
+      const d = new Date(iso);
+      return !iso || Number.isNaN(d.getTime()) ? "" : `${day(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+    const num = (value, digits = 2) => (isNum(value) ? Number(value).toFixed(digits).replace(".", danish ? "," : ".") : "");
+    const quoted = (value) => (value.includes(sep) || /["\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
+    // A name that begins like a formula gets an apostrophe, so the spreadsheet shows it as text.
+    const word = (value) => {
+      const t = String(value ?? "");
+      return quoted(/^[=+\-@\t\r]/.test(t) ? `'${t}` : t);
+    };
+    const head = ["start", "end", "car", "charger", "energy", "cost", "currency", "start_soc", "end_soc", "solar", "source"].map((k) => word(this._t(`csv_${k}`)));
+    const rows = this._sessionsIn(start, end, scope).map((e) => {
+      const v = e.series.car;
+      const name = v ? v.name : `${this._t("guest_card")}: ${[e.car, e.plate].filter(Boolean).join(" ") || this._t("unknown_car")}`;
+      const source = e.source ? TEXT.en[`csv_source_${e.source}`] ? this._t(`csv_source_${e.source}`) : e.source : "";
+      return [
+        when(e.start),
+        when(e.end),
+        word(name),
+        word(v ? v.charger?.name : e.charger),
+        quoted(num(e.energy)),
+        quoted(num(e.cost)),
+        word((v ? null : e.currency) || this._currency),
+        // A guest's entry has the level the guest typed in at the start, and no level at the end.
+        quoted(num(v ? e.start_soc : e.soc, 0)),
+        quoted(num(v ? e.end_soc : null, 0)),
+        quoted(v ? num(e.solar) : ""),
+        word(source),
+      ].join(sep);
+    });
+    return { name: `ev-planner-${day(start)}-${day(new Date(end.getTime() - 1))}.csv`, text: [head.join(sep), ...rows].join("\r\n") + "\r\n" };
+  }
+
+  /* Download the CSV: a link to the file in memory, clicked once. The mark first tells Excel it is UTF-8. */
+  _exportHistory() {
+    const csv = this._historyCsv();
+    const url = URL.createObjectURL(new Blob(["\ufeff", csv.text], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = csv.name;
+    link.hidden = true;
+    this.shadowRoot.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   _guestSessionHtml(e) {
@@ -6307,6 +6403,9 @@ class EvPlannerPanel extends HTMLElement {
         this._histView = button.dataset.value === "learned" ? "learned" : "history";
         this._render();
         break;
+      case "hist-export":
+        this._exportHistory();
+        break;
       case "scene-label": {
         button.classList.toggle("open");
         const open = (this._scene.open = this._scene.open || new Set());
@@ -6349,11 +6448,13 @@ class EvPlannerPanel extends HTMLElement {
         }
         break;
       case "house-look":
-        button.blur();
+        // Nothing keeps the focus, so the page is drawn again with the new choice (see _updateMode).
+        // Not only the button: on an iPhone a tap leaves the focus where it was.
+        this.shadowRoot.activeElement?.blur();
         this._saveSettings({ house: button.dataset.house });
         break;
       case "notify-lang":
-        button.blur();
+        this.shadowRoot.activeElement?.blur();
         this._saveSettings({ language: button.dataset.lang });
         break;
       case "notify-to":
@@ -7175,7 +7276,7 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
   .home-page > .home-flow { grid-row: span 4; }
 }
 .home-flow { padding: 12px; }
-.now-chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; margin-top: 12px; }
+.now-chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 12px; }
 .now-chip { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 14px; background: color-mix(in srgb, var(--evp-ink) 5%, transparent); animation: tile-in .5s both; }
 .now-chip .nc-icon svg { width: 18px; height: 18px; fill: none; stroke: var(--evp-soft); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .now-chip .nc-text { display: grid; line-height: 1.15; min-width: 0; }
@@ -7187,7 +7288,9 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 .tn-prices { position: absolute; left: 112px; right: 82px; top: 0; height: 30px; }
 .tn-prices i { position: absolute; bottom: 0; border-radius: 3px 3px 0 0; opacity: .75; transform-origin: bottom; animation: grow .6s cubic-bezier(.2,.8,.2,1) both; animation-delay: var(--d); }
 .tn-row { display: grid; grid-template-columns: 104px 1fr 74px; align-items: center; gap: 8px; }
-.tn-name { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tn-name { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; min-width: 0; white-space: nowrap; overflow: hidden; }
+/* The name in a box of its own: a long name ends in "…" (a flex box cannot do that to its own text). */
+.tn-name span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .tn-name em { width: 9px; height: 9px; border-radius: 3px; flex: none; }
 .tn-track { position: relative; height: 14px; border-radius: 7px; background: color-mix(in srgb, var(--evp-ink) 6%, transparent); overflow: hidden; }
 .tn-track i { position: absolute; top: 0; bottom: 0; border-radius: 7px; transform-origin: left; animation: sweep .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: var(--d); }
@@ -7323,3 +7426,5 @@ if (!customElements.get("ev-planner-panel")) customElements.define("ev-planner-p
 
 // Shared with the dashboard cards (ev-planner-cards.js), so they look and read exactly like the panel.
 export { EvPlannerPanel, TEXT, STYLE, ICONS, MARK, MODES, MODE_ICONS, chargerArt, esc, clamp, isNum, hasSegments, cssId };
+// For the tests of the house's picture; nothing else uses it.
+export { ClayScene as _ClayScene };

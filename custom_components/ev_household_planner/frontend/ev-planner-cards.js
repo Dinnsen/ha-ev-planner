@@ -3,7 +3,7 @@
    Loaded by the integration on every dashboard, so there is no resource to add and nothing
    else to install. The cards share the panel's code, texts and style (ev-planner-panel.js),
    so the large car card is the very card on EV Planner's overview, and all cards on a page
-   share one connection to EV Planner.
+   share one connection to EV Planner. The panel's code is fetched when the first card is shown.
 
      type: custom:ev-planner-household-card   all cars, the guest and the chargers on one line
      type: custom:ev-planner-car-card          vehicle: <id>   one car, small
@@ -19,7 +19,60 @@
 const VERSION = new URL(import.meta.url).searchParams.get("v") || "";
 // The same address as the panel's, so cards and panel share one copy of its code.
 const PANEL_URL = new URL(`./ev-planner-panel.js${VERSION ? `?v=${encodeURIComponent(VERSION)}` : ""}`, import.meta.url).href;
-const { EvPlannerPanel, TEXT, STYLE, ICONS, MODES, MODE_ICONS, chargerArt, esc, clamp, isNum, hasSegments, cssId } = await import(PANEL_URL);
+
+/* This file is loaded on every page of Home Assistant, and the panel's code is large. So the
+   panel is fetched the first time a card, the card editor or the pop-up is shown, and not
+   before: a page without EV Planner's cards pays only for this file. Until the panel is here
+   a card is registered and takes its configuration, but it is empty. */
+let EvPlannerPanel, TEXT, STYLE, ICONS, MODES, MODE_ICONS, chargerArt, esc, clamp, isNum, hasSegments, cssId;
+let panelLoading = null;
+
+function loadPanel() {
+  panelLoading ||= import(PANEL_URL).then(
+    (panel) => {
+      ({ EvPlannerPanel, TEXT, STYLE, ICONS, MODES, MODE_ICONS, chargerArt, esc, clamp, isNum, hasSegments, cssId } = panel);
+    },
+    (err) => {
+      // Not fetched (offline, or an update on its way): the next card tries again.
+      panelLoading = null;
+      throw err;
+    },
+  );
+  return panelLoading;
+}
+
+/* The cards' names in the card picker, which asks for them before any card is shown.
+   All other texts are the panel's. */
+const CARD_TEXT = {
+  da: {
+    card_household: "EV Planner – husstand",
+    card_household_desc: "Alle biler, gæsten og laderne på én linje.",
+    card_car: "EV Planner – bil",
+    card_car_desc: "En bil: batteri, mål, start og pris.",
+    card_car_large: "EV Planner – bil, stor",
+    card_car_large_desc: "Som bilkortet i EV Planner: prisur, batteri og tilstand.",
+    card_guest: "EV Planner – gæst",
+    card_guest_desc: "Gæstebilen: tilføj gæst, plan og opladning.",
+    card_charger: "EV Planner – lader",
+    card_charger_desc: "En lader: hvem der lader, og hvem der er næste.",
+    card_bubble: "EV Planner – Bubble",
+    card_bubble_desc: "En bil, gæsten eller en lader som en Bubble Card-knap.",
+  },
+  en: {
+    card_household: "EV Planner – household",
+    card_household_desc: "All cars, the guest and the chargers on one line.",
+    card_car: "EV Planner – car",
+    card_car_desc: "One car: battery, target, start and cost.",
+    card_car_large: "EV Planner – car, large",
+    card_car_large_desc: "Like the car card in EV Planner: price clock, battery and mode.",
+    card_guest: "EV Planner – guest",
+    card_guest_desc: "The guest car: add a guest, the plan and charging.",
+    card_charger: "EV Planner – charger",
+    card_charger_desc: "One charger: who charges and who is next.",
+    card_bubble: "EV Planner – Bubble",
+    card_bubble_desc: "A car, the guest or a charger as a Bubble Card button.",
+  },
+};
 
 const PANEL_PATH = "/ev-planner";
 const TAP_ACTIONS = ["popup", "panel", "none"];
@@ -117,11 +170,12 @@ function makeRenderer() {
 
 function pageLang() {
   const lang = (document.documentElement.lang || navigator.language || "en").slice(0, 2);
-  return TEXT[lang] ? lang : "en";
+  return CARD_TEXT[lang] ? lang : "en";
 }
 
 function text(key) {
-  return TEXT[pageLang()][key] ?? TEXT.en[key] ?? key;
+  const lang = pageLang();
+  return CARD_TEXT[lang][key] ?? TEXT?.[lang]?.[key] ?? TEXT?.en?.[key] ?? key;
 }
 
 function navigate(path) {
@@ -138,7 +192,7 @@ function openPopup(source, view, title) {
       new CustomEvent("show-dialog", {
         bubbles: true,
         composed: true,
-        detail: { dialogTag: "ev-planner-dialog", dialogImport: () => Promise.resolve(), dialogParams: params },
+        detail: { dialogTag: "ev-planner-dialog", dialogImport: () => loadPanel(), dialogParams: params },
       }),
     );
     return;
@@ -168,9 +222,9 @@ class EvPlannerCard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
-    this.shadowRoot.adoptedStyleSheets = [cardSheet()];
     this.shadowRoot.innerHTML = `<ha-card></ha-card>`;
-    this._r = makeRenderer();
+    // The panel's drawing code and style, once the panel is fetched (see loadPanel).
+    this._r = null;
     this._config = {};
     this._html = null;
     this.shadowRoot.addEventListener("click", (ev) => this._onClick(ev));
@@ -188,7 +242,7 @@ class EvPlannerCard extends HTMLElement {
   set hass(hass) {
     const first = !this._hass;
     this._hass = hass;
-    this._r._hass = hass;
+    if (this._r) this._r._hass = hass;
     if (first && this.isConnected) this._follow();
     this._render();
   }
@@ -198,6 +252,8 @@ class EvPlannerCard extends HTMLElement {
   }
 
   connectedCallback() {
+    if (EvPlannerPanel) this._ready();
+    else loadPanel().then(() => this._ready(), () => {});
     this._follow();
     clearInterval(this._tick);
     // The clock's hand, "starts in" and the like move with time.
@@ -208,6 +264,15 @@ class EvPlannerCard extends HTMLElement {
     clearInterval(this._tick);
     this._unwatch?.();
     this._unwatch = null;
+  }
+
+  /* The panel is here: take its style and its drawing code, and draw. */
+  _ready() {
+    if (this._r) return;
+    this.shadowRoot.adoptedStyleSheets = [cardSheet()];
+    this._r = makeRenderer();
+    this._r._hass = this._hass;
+    this._render();
   }
 
   _follow() {
@@ -228,6 +293,7 @@ class EvPlannerCard extends HTMLElement {
   }
 
   _render() {
+    if (!this._r) return;
     const card = this.shadowRoot.querySelector("ha-card");
     let html;
     if (!this._hass) html = "";
@@ -748,6 +814,13 @@ class EvPlannerDialog extends HTMLElement {
 
   /* Called by Home Assistant's dialog manager (or by the card outside Home Assistant). */
   showDialog(params) {
+    if (!EvPlannerPanel) {
+      // Opened before any card was shown: fetch the panel first.
+      this._waiting = params || {};
+      loadPanel().then(() => this._waiting && this.showDialog(this._waiting), () => {});
+      return;
+    }
+    this._waiting = null;
     this._hass = params?.hass || this._hass;
     this._view = params?.view || "cars";
     this._open = true;
@@ -798,6 +871,7 @@ class EvPlannerDialog extends HTMLElement {
   }
 
   _teardown() {
+    this._waiting = null;
     this._open = false;
     document.removeEventListener("keydown", this._onKey);
     this._panelEl?.remove();
@@ -857,7 +931,7 @@ class EvPlannerCardEditor extends HTMLElement {
   }
 
   _schema() {
-    const t = (key) => TEXT[pageLang()][key] ?? TEXT.en[key];
+    const t = (key) => text(key);
     const options = (items) => (items || []).map((item) => ({ value: item.id, label: item.name }));
     const tap = {
       name: "tap_action",
@@ -892,6 +966,11 @@ class EvPlannerCardEditor extends HTMLElement {
 
   _render() {
     if (!this._hass || !this._config) return;
+    if (!TEXT) {
+      // The labels are the panel's texts.
+      loadPanel().then(() => this._render(), () => {});
+      return;
+    }
     if (!this._form) {
       this._form = document.createElement("ha-form");
       this._form.addEventListener("value-changed", (ev) => {
@@ -1135,4 +1214,4 @@ for (const [tag, , key] of CARDS) {
   window.customCards.push({ type: tag, name: text(key), description: text(`${key}_desc`), preview: true, documentationURL: DOCS });
 }
 
-export { HouseholdCard, CarCard, CarLargeCard, GuestCard, ChargerCard, BubbleCard, EvPlannerDialog, EvPlannerCardEditor, watch };
+export { HouseholdCard, CarCard, CarLargeCard, GuestCard, ChargerCard, BubbleCard, EvPlannerDialog, EvPlannerCardEditor, CARD_TEXT, watch };

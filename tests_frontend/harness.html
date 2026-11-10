@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>EV Planner – test harness</title>
+    <style>
+      html, body { margin: 0; height: 100%; }
+      body { background: var(--primary-background-color, #fafafa); color: var(--primary-text-color, #1c1c1c); font-family: Roboto, "Segoe UI", system-ui, sans-serif; }
+      #cards { display: grid; gap: 12px; padding: 12px; max-width: 520px; }
+    </style>
+  </head>
+  <body>
+    <!-- The page the tests open: harness.js gives it a Home Assistant that is not there. -->
+    <script type="module" src="./harness.js"></script>
+  </body>
+</html>

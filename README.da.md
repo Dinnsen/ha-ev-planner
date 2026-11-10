@@ -128,6 +128,8 @@ Kortene følger jeres tema uden card-mod: Home Assistants egne variabler for kor
 
 Under *Indstillinger → Hus* vælger I billedet i Hjem-fanen: det *klassiske* hus eller *vinkelhuset* (et vinkelhus set med garagen nærmest).
 
+<img src="docs/images/panel-home-da.png" alt="Hjem-fanen" width="48%"> <img src="docs/images/panel-home-angle-en.png" alt="Hjem-fanen med vinkelhuset om natten" width="48%">
+
 ## Priser
 
 EV Planner læser priserne fra én prissensor. Viser den spotprisen uden tariffer og afgifter, så sæt *Lægges til hver pris* i indstillingerne: et beløb pr. kWh, der lægges til hver time. Med solceller kan I angive, hvad I får for en solgt kWh, som tal eller sensor (*Solen og husbatteriet*): opladningens kWh fra solen regnes så til den pris i stedet for som gratis.

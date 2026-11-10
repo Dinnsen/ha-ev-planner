@@ -115,6 +115,8 @@ The Home tab and the whole house's history read the Energy dashboard by themselv
 
 Each page has its own address, so you can link straight to it: `/ev-planner/car/<id>`, `/ev-planner/charger/<id>`, `/ev-planner/guest`, `/ev-planner/history` and `/ev-planner/settings`. A charger's page (tap its name on the overview) shows what it is doing, who is next and the cars that use it. In the home-screen app the same pages open with `app.html#car/<id>` and so on.
 
+<img src="docs/images/panel-home-en.png" alt="The Home tab" width="48%"> <img src="docs/images/panel-home-angle-en.png" alt="The Home tab with the angle house at night" width="48%">
+
 ## Dashboard cards
 
 <img src="docs/images/cards-en.png" alt="EV Planner's cards on a phone dashboard, and the pop-up for a car" width="100%">

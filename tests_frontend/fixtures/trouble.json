@@ -1,0 +1,524 @@
+{
+  "entry_id": "01JEVPLANNERTESTENTRY00000",
+  "title": "EV Planner",
+  "now": "2026-11-10T21:40:00+01:00",
+  "currency": "DKK",
+  "prices": [],
+  "price_issue": "stale",
+  "supply": null,
+  "solar": null,
+  "heat_pump": null,
+  "home": null,
+  "vehicles": [
+    {
+      "id": "ioniq_5",
+      "name": "Ioniq 5",
+      "image": null,
+      "image_original": null,
+      "status": "no_soc",
+      "reason": "waiting",
+      "supply_amps": null,
+      "has_current": false,
+      "control": "released",
+      "control_source": "none",
+      "control_error": "no_control_entity",
+      "problem": false,
+      "mode": "smart",
+      "soc": null,
+      "soc_source": "sensor",
+      "target": 80,
+      "target_editable": true,
+      "car_limit": null,
+      "day_target": null,
+      "capacity": 75,
+      "power": 11,
+      "charge_speed": 13.2,
+      "charge_speed_source": "estimated",
+      "charge_speed_learned_from": 0,
+      "charge_power": 11,
+      "charge_power_source": "configured",
+      "measured_rise": 0,
+      "resumes": null,
+      "curve": {},
+      "margin": 0,
+      "receipt": null,
+      "session": null,
+      "connected": null,
+      "home": true,
+      "charging": false,
+      "charger": {
+        "id": "garage",
+        "name": "Garage"
+      },
+      "deadline": null,
+      "calendar": null,
+      "plan": null,
+      "plan_error": null,
+      "month": {
+        "energy": 0,
+        "cost": 0,
+        "sessions": 0
+      },
+      "months": {},
+      "history": [],
+      "settings": {
+        "mode": "smart",
+        "target_soc": 80,
+        "manual_soc": 50,
+        "min_soc": 0,
+        "ready_by": "07:00",
+        "use_ready_by": false,
+        "schedule": {},
+        "earliest_start": "18:00",
+        "use_earliest_start": false,
+        "continuous": false,
+        "join_enabled": false,
+        "join_within": 0.05,
+        "price_ceiling_enabled": false,
+        "price_ceiling": 2,
+        "price_ceiling_relative": false,
+        "price_ceiling_above": 10,
+        "low_price_charging": false,
+        "low_price_level": 0.3,
+        "low_soc_charging": false,
+        "low_soc_level": 20,
+        "opportunistic": "off",
+        "opportunistic_level": 50,
+        "follow_level": 90,
+        "keep_on": false,
+        "reminder": false,
+        "reminder_time": "16:00",
+        "reminder_soc": 60,
+        "reminder_price_enabled": false,
+        "reminder_price": 2.2,
+        "reminder_days": [
+          "mon",
+          "tue",
+          "wed",
+          "thu",
+          "fri",
+          "sat",
+          "sun"
+        ],
+        "reminder_repeat": 0,
+        "reminder_horizon": 24,
+        "notify_targets": [],
+        "live": false,
+        "notify_done": false,
+        "notify_receipt": true,
+        "early_enabled": false,
+        "early_within": 0.02,
+        "topup_enabled": false,
+        "topup_level": 80,
+        "must_soc": 0,
+        "priority": "normal",
+        "solar": "off",
+        "body": "estate",
+        "paint": "white",
+        "day_targets": {}
+      }
+    },
+    {
+      "id": "tesla_model_y",
+      "name": "Tesla Model Y",
+      "image": null,
+      "image_original": null,
+      "status": "no_price_data",
+      "reason": "waiting",
+      "supply_amps": null,
+      "has_current": false,
+      "control": "released",
+      "control_source": "car",
+      "control_error": "Service switch.turn_off not found",
+      "problem": true,
+      "mode": "smart",
+      "soc": 27,
+      "soc_source": "sensor",
+      "target": 90,
+      "target_editable": true,
+      "car_limit": null,
+      "day_target": null,
+      "capacity": 75,
+      "power": 11,
+      "charge_speed": 13.4,
+      "charge_speed_source": "learned",
+      "charge_speed_learned_from": 6,
+      "charge_power": 10.8,
+      "charge_power_source": "learned",
+      "measured_rise": 8.9,
+      "resumes": false,
+      "curve": {
+        "80-90": 9.8,
+        "90-100": 5.1
+      },
+      "margin": 15,
+      "receipt": {
+        "at": "2026-11-10T07:00:00+01:00",
+        "soc": 79.5,
+        "planned_soc": 80,
+        "target": 80,
+        "energy": 31.4,
+        "cost": 24.9,
+        "late": false,
+        "margin": 15
+      },
+      "session": {
+        "start": "2026-11-10T19:05:00+01:00",
+        "start_soc": 18,
+        "energy": 9.9,
+        "cost": 0,
+        "charging": true,
+        "periods": [
+          {
+            "start": "2026-11-10T19:05:00+01:00",
+            "end": null
+          }
+        ],
+        "charging_minutes": 155
+      },
+      "connected": true,
+      "home": true,
+      "charging": true,
+      "charger": {
+        "id": "garage",
+        "name": "Garage"
+      },
+      "deadline": "2026-11-11T07:00:00+01:00",
+      "calendar": null,
+      "plan": null,
+      "plan_error": "no_price_data",
+      "month": {
+        "energy": 96.3,
+        "cost": 121.84,
+        "sessions": 3
+      },
+      "months": {
+        "2026-07": {
+          "energy": 212.4,
+          "cost": 301.2,
+          "sessions": 9
+        },
+        "2026-08": {
+          "energy": 188.1,
+          "cost": 254.7,
+          "sessions": 8
+        },
+        "2026-09": {
+          "energy": 241.6,
+          "cost": 398.3,
+          "sessions": 10
+        },
+        "2026-10": {
+          "energy": 263.9,
+          "cost": 441.5,
+          "sessions": 11
+        },
+        "2026-11": {
+          "energy": 96.3,
+          "cost": 121.84,
+          "sessions": 3
+        }
+      },
+      "history": [
+        {
+          "id": "t-1108",
+          "start": "2026-11-08T01:00:00+01:00",
+          "end": "2026-11-08T04:05:00+01:00",
+          "energy": 34.1,
+          "cost": 41.27,
+          "start_soc": 38,
+          "end_soc": 80,
+          "reason": "planned",
+          "periods": [
+            {
+              "start": "2026-11-08T01:00:00+01:00",
+              "end": "2026-11-08T04:05:00+01:00"
+            }
+          ],
+          "charging_minutes": 185,
+          "plugged": true,
+          "source": "power",
+          "solar": 0
+        },
+        {
+          "id": "t-1105",
+          "start": "2026-11-05T23:30:00+01:00",
+          "end": "2026-11-06T03:30:00+01:00",
+          "energy": 43.6,
+          "cost": 58.9,
+          "start_soc": 26,
+          "end_soc": 80,
+          "reason": "planned",
+          "periods": [
+            {
+              "start": "2026-11-05T23:30:00+01:00",
+              "end": "2026-11-06T01:30:00+01:00"
+            },
+            {
+              "start": "2026-11-06T03:00:00+01:00",
+              "end": "2026-11-06T05:00:00+01:00"
+            }
+          ],
+          "charging_minutes": 210,
+          "plugged": true,
+          "source": "power",
+          "solar": 0
+        },
+        {
+          "id": "t-1102",
+          "start": "2026-11-02T02:15:00+01:00",
+          "end": "2026-11-02T04:00:00+01:00",
+          "energy": 18.6,
+          "cost": 21.67,
+          "start_soc": 57,
+          "end_soc": 80,
+          "reason": "planned",
+          "periods": [
+            {
+              "start": "2026-11-02T02:15:00+01:00",
+              "end": "2026-11-02T04:00:00+01:00"
+            }
+          ],
+          "charging_minutes": 105,
+          "plugged": true,
+          "source": "power",
+          "solar": 0
+        },
+        {
+          "id": "t-1029",
+          "start": "2026-10-29T00:45:00+01:00",
+          "end": "2026-10-29T04:05:00+01:00",
+          "energy": 36.2,
+          "cost": 62.4,
+          "start_soc": 35,
+          "end_soc": 80,
+          "reason": "planned",
+          "periods": [
+            {
+              "start": "2026-10-29T00:45:00+01:00",
+              "end": "2026-10-29T04:05:00+01:00"
+            }
+          ],
+          "charging_minutes": 200,
+          "plugged": true,
+          "source": "power",
+          "solar": 0
+        },
+        {
+          "id": "t-1024",
+          "start": "2026-10-24T01:30:00+02:00",
+          "end": "2026-10-24T04:20:00+02:00",
+          "energy": 31,
+          "cost": 49.8,
+          "start_soc": 41,
+          "end_soc": 80,
+          "reason": "planned",
+          "periods": [
+            {
+              "start": "2026-10-24T01:30:00+02:00",
+              "end": "2026-10-24T04:20:00+02:00"
+            }
+          ],
+          "charging_minutes": 170,
+          "plugged": true,
+          "source": "power",
+          "solar": 0
+        },
+        {
+          "id": "t-1019",
+          "start": "2026-10-19T23:15:00+02:00",
+          "end": "2026-10-20T03:35:00+02:00",
+          "energy": 47.3,
+          "cost": 80.1,
+          "start_soc": 21,
+          "end_soc": 80,
+          "reason": "planned",
+          "periods": [
+            {
+              "start": "2026-10-19T23:15:00+02:00",
+              "end": "2026-10-20T03:35:00+02:00"
+            }
+          ],
+          "charging_minutes": 260,
+          "plugged": true,
+          "source": "power",
+          "solar": 0
+        },
+        {
+          "id": "t-1013",
+          "start": "2026-10-13T02:00:00+02:00",
+          "end": "2026-10-13T04:30:00+02:00",
+          "energy": 27.4,
+          "cost": 45.3,
+          "start_soc": 46,
+          "end_soc": 80,
+          "reason": "planned",
+          "periods": [
+            {
+              "start": "2026-10-13T02:00:00+02:00",
+              "end": "2026-10-13T04:30:00+02:00"
+            }
+          ],
+          "charging_minutes": 150,
+          "plugged": true,
+          "source": "power",
+          "solar": 0
+        },
+        {
+          "id": "t-1007",
+          "start": "2026-10-07T01:15:00+02:00",
+          "end": "2026-10-07T04:25:00+02:00",
+          "energy": 34.9,
+          "cost": 58.6,
+          "start_soc": 37,
+          "end_soc": 80,
+          "reason": "planned",
+          "periods": [
+            {
+              "start": "2026-10-07T01:15:00+02:00",
+              "end": "2026-10-07T04:25:00+02:00"
+            }
+          ],
+          "charging_minutes": 190,
+          "plugged": true,
+          "source": "power",
+          "solar": 0
+        }
+      ],
+      "settings": {
+        "mode": "smart",
+        "target_soc": 90,
+        "manual_soc": 50,
+        "min_soc": 0,
+        "ready_by": "07:00",
+        "use_ready_by": true,
+        "schedule": {},
+        "earliest_start": "18:00",
+        "use_earliest_start": false,
+        "continuous": true,
+        "join_enabled": false,
+        "join_within": 0.05,
+        "price_ceiling_enabled": false,
+        "price_ceiling": 2,
+        "price_ceiling_relative": false,
+        "price_ceiling_above": 10,
+        "low_price_charging": false,
+        "low_price_level": 0.3,
+        "low_soc_charging": false,
+        "low_soc_level": 20,
+        "opportunistic": "off",
+        "opportunistic_level": 50,
+        "follow_level": 90,
+        "keep_on": false,
+        "reminder": false,
+        "reminder_time": "16:00",
+        "reminder_soc": 60,
+        "reminder_price_enabled": false,
+        "reminder_price": 2.2,
+        "reminder_days": [
+          "mon",
+          "tue",
+          "wed",
+          "thu",
+          "fri",
+          "sat",
+          "sun"
+        ],
+        "reminder_repeat": 0,
+        "reminder_horizon": 24,
+        "notify_targets": [],
+        "live": false,
+        "notify_done": false,
+        "notify_receipt": true,
+        "early_enabled": false,
+        "early_within": 0.02,
+        "topup_enabled": false,
+        "topup_level": 80,
+        "must_soc": 0,
+        "priority": "normal",
+        "solar": "off",
+        "body": "suv",
+        "paint": "white",
+        "day_targets": {}
+      }
+    }
+  ],
+  "chargers": [
+    {
+      "id": "garage",
+      "name": "Garage",
+      "power": 11,
+      "control": "released",
+      "holder": null,
+      "connected": true,
+      "has_switch": false,
+      "has_meter": false,
+      "image": null,
+      "image_original": null,
+      "model": "zaptec_go",
+      "model_title": "Go",
+      "style": "slim"
+    }
+  ],
+  "guest": {
+    "status": "ready",
+    "error": null,
+    "error_detail": null,
+    "charge_now": false,
+    "control": "released",
+    "release": null,
+    "plan_locked": false,
+    "inputs": {
+      "license_plate": "",
+      "soc": 20,
+      "battery_capacity": 77,
+      "charger_power": 11,
+      "charge_limit": 80,
+      "charge_completion_time": "07:00",
+      "use_completion_time": true,
+      "continuous_charging_preferred": true,
+      "charger": null
+    },
+    "charger": null,
+    "car": {
+      "brand": null,
+      "model": null,
+      "variant": null,
+      "battery": null,
+      "model_year": null,
+      "match_score": null,
+      "looked_up": null
+    },
+    "plan": {
+      "segments": [],
+      "mode": "continuous",
+      "speed": null,
+      "minutes": null,
+      "cost": null,
+      "energy": null,
+      "savings": null,
+      "charge_now_cost": null,
+      "average_price": null,
+      "calculated": null,
+      "info": null,
+      "measured_energy": null,
+      "measured_cost": null,
+      "progress": null
+    },
+    "lookup": true,
+    "energy_entity": null,
+    "service_health": {},
+    "history": []
+  },
+  "settings": {},
+  "config": {
+    "price_entity": "sensor.energi_data_service",
+    "notify": [
+      "notify.mobile_app_pixel_9"
+    ],
+    "notify_names": {
+      "notify.mobile_app_pixel_9": "Pixel 9"
+    },
+    "update_widgets": false
+  }
+}

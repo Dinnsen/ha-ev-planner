@@ -10,7 +10,7 @@ Beta: only those who show beta versions in the Marketplace get it.
 - **Two houses to choose between.** *Settings → House* has the classic house and a new *angle house*: an L-shaped house seen with the garage nearest, with the same clay look, day and night, wires, cables and labels.
 - **A price for what you sell** (options, *The sun and the home battery*), as a number or a sensor: a charge's kWh from the sun cost that in the history, instead of nothing.
 - **An amount added to every price** (options), for a price sensor with only the spot price.
-- **Export CSV** in the History tab: the period you are looking at, one line per charge.
+- **Export CSV** in the History tab: the period you are looking at, one line per charge, with the part from the sun. In Danish with ";" and decimal commas, so Excel opens it directly.
 - **A repair when a car cannot be controlled:** after three failed commands in a row. It goes away by itself when a command works.
 - **The simulator** has cars whose cloud is down, cars that answer slowly and show an old charge level, and a supply meter that freezes. The panel and the cards have their own tests, run in a browser before every release.
 
@@ -30,6 +30,10 @@ Beta: only those who show beta versions in the Marketplace get it.
 - Two evaluations could run at the same time and send the same command twice.
 - The guard could count a car as stopped when its stop had failed.
 - Times across the change to and from summer time are counted in real time everywhere.
+- The panel listened to EV Planner twice each time it was opened, and drew everything twice.
+- A choice in *Settings* (the house, the language of notifications) shows at once on an iPhone.
+- The labels in the house picture no longer cover each other on a phone, and *Price now* fits in its field.
+- Long car names in *Tonight* end in "…" instead of being cut.
 
 ## [2.3.0b2] - 2026-11-10
 
