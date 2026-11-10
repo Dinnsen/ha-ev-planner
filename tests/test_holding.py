@@ -158,7 +158,7 @@ async def test_a_command_that_failed_is_forgotten_when_the_car_is_as_decided(
     assert vehicle.fail_count == 1
     # The car stopped all the same: there is nothing to send, and nothing to report.
     hass.states.async_set(CHARGE_SWITCH, "off")
-    assert await household._async_apply(vehicle, force=True)
+    assert await household._async_apply(vehicle, force=False)
     assert vehicle.control_error is None and vehicle.fail_count == 0 and vehicle.retry_after is None
 
 
