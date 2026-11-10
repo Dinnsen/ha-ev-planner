@@ -135,8 +135,8 @@ test("the house's look is stored, and the house is drawn again when it changes",
     assert.ok(angle.includes("cs-wire"), "the angle house is drawn");
     assert.notEqual(angle, classic, "the picture changed");
 
-    // And back, while the Home tab is open.
-    await push({ ...state, settings: { ...state.settings, house: "classic" } });
+    // And back, while the Home tab is open: Home Assistant sends only what changed.
+    await page.evaluate((settings) => window.harness.patch({ patch: { now: window.harness.state.now, settings } }), { ...state.settings, house: "classic" });
     await page.waitForFunction((was) => window.harness.panel.shadowRoot.querySelector(".cscene svg.cs-main")?.innerHTML !== was, angle, { timeout: 5000 });
     assert.equal(await scene(), classic, "the classic house is back");
   });
@@ -237,5 +237,21 @@ test("the Home tab's numbers fit in their chips", async () => {
         .map((el) => `${el.textContent.trim()}: ${el.scrollWidth}px of text in ${el.clientWidth}px`),
     );
     assert.deepEqual(spills, []);
+  });
+});
+
+test("a change to one car leaves the rest of the state as it was", async () => {
+  await withPanel("shared-supply", { known: true }, async ({ page, state }) => {
+    const car = state.vehicles[0];
+    await page.evaluate((changed) => window.harness.patch({ patch: {}, items: { vehicles: { [changed.id]: changed } } }), { ...car, name: "Changed" });
+    const seen = await page.evaluate(() => {
+      const s = window.harness.panel._state;
+      return { names: s.vehicles.map((v) => v.name), chargers: s.chargers.length, prices: s.prices.length };
+    });
+    assert.equal(seen.names[0], "Changed");
+    assert.deepEqual(seen.names.slice(1), state.vehicles.slice(1).map((v) => v.name));
+    assert.equal(seen.chargers, state.chargers.length);
+    assert.equal(seen.prices, state.prices.length);
+    assert.deepEqual((await page.evaluate(() => window.harness.calls)).filter((c) => c.type.endsWith("/subscribe")).at(-1).changes, true);
   });
 });

@@ -145,6 +145,14 @@ const harness = {
     for (const listener of [...this.listeners]) listener(state);
   },
 
+  /* Only what changed, as websocket.py sends it to a subscription with "changes". */
+  patch(message) {
+    const next = { ...this.state, ...(message.patch || {}) };
+    for (const [key, changed] of Object.entries(message.items || {})) next[key] = this.state[key].map((item) => changed[item.id] || item);
+    this.state = next;
+    for (const listener of [...this.listeners]) listener(message);
+  },
+
   loadPanel() {
     return import(PANEL_URL);
   },

@@ -82,6 +82,18 @@ const DOCS = "https://github.com/Dinnsen/ha-ev-planner#dashboard-cards";
 
 const stores = new WeakMap();
 
+/* A state from EV Planner, or what changed since the last one (websocket.py, state_patch):
+   the parts that are the same are kept as they are. */
+function mergeState(last, message) {
+  if (!message.patch || !last) return message.patch ? null : message;
+  const next = { ...last, ...message.patch };
+  for (const key of message.gone || []) delete next[key];
+  for (const [key, changed] of Object.entries(message.items || {})) {
+    next[key] = (last[key] || []).map((item) => changed[item.id] || item);
+  }
+  return next;
+}
+
 function storeOf(hass) {
   let store = stores.get(hass.connection);
   if (!store) {
@@ -102,11 +114,17 @@ function startStore(store, hass) {
           setTimeout(() => store.listeners.size && startStore(store, hass), 1000);
           return;
         }
-        store.state = message;
+        const state = mergeState(store.state, message);
+        if (!state) {
+          stopStore(store);
+          startStore(store, hass);
+          return;
+        }
+        store.state = state;
         store.error = null;
         store.listeners.forEach((listener) => listener());
       },
-      { type: "ev_household_planner/subscribe" },
+      { type: "ev_household_planner/subscribe", changes: true },
     )
     .then((unsub) => {
       store.unsub = unsub;

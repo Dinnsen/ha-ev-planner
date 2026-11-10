@@ -431,16 +431,62 @@ def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
     }
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/subscribe", ENTRY: str})
+LISTS = ("vehicles", "chargers")
+
+
+def state_patch(old: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]:
+    """What changed from one panel state to the next: {"patch": {key: value}, "items": {list: {id: item}}}.
+
+    The parts that are the same are left out. In the lists of cars and chargers
+    only the ones that changed are sent, as long as the list has the same ones
+    in the same order.
+    """
+    patch: dict[str, Any] = {}
+    items: dict[str, dict[str, Any]] = {}
+    for key, value in new.items():
+        before = old.get(key)
+        if before == value:
+            continue
+        if key in LISTS and before is not None and [item["id"] for item in before] == [item["id"] for item in value]:
+            items[key] = {item["id"]: item for item, was in zip(value, before, strict=True) if item != was}
+        else:
+            patch[key] = value
+    gone = [key for key in old if key not in new]
+    out: dict[str, Any] = {"patch": patch}
+    if items:
+        out["items"] = items
+    if gone:
+        out["gone"] = gone
+    return out
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/subscribe", ENTRY: str, vol.Optional("changes", default=False): bool}
+)
 @websocket_api.async_response
 @_errors
 async def ws_subscribe(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
-    """Send the panel state now and whenever it changes."""
+    """Send the panel state now and whenever it changes.
+
+    With ``changes``, the whole state comes first and after that only what
+    changed (see ``state_patch``); nothing is sent when nothing but the time did.
+    """
     household = _household(hass, msg)
+    last: dict[str, Any] | None = None
 
     @callback
     def send() -> None:
-        connection.send_message(websocket_api.event_message(msg["id"], panel_state(hass, household)))
+        nonlocal last
+        state = panel_state(hass, household)
+        if not msg["changes"] or last is None:
+            last = state
+            connection.send_message(websocket_api.event_message(msg["id"], state))
+            return
+        changed = state_patch(last, state)
+        last = state
+        if set(changed["patch"]) <= {"now"} and len(changed) == 1:
+            return
+        connection.send_message(websocket_api.event_message(msg["id"], changed))
 
     @callback
     def reloaded() -> None:

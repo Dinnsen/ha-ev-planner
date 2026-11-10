@@ -2674,6 +2674,18 @@ const CLAY_CSS = `
 @media (prefers-reduced-motion: reduce) { .cscene * { animation: none !important; } }
 `;
 
+/* A state from EV Planner, or what changed since the last one (websocket.py, state_patch):
+   the parts that are the same are kept as they are. */
+function mergeState(last, message) {
+  if (!message.patch || !last) return message.patch ? null : message;
+  const next = { ...last, ...message.patch };
+  for (const key of message.gone || []) delete next[key];
+  for (const [key, changed] of Object.entries(message.items || {})) {
+    next[key] = (last[key] || []).map((item) => changed[item.id] || item);
+  }
+  return next;
+}
+
 class EvPlannerPanel extends HTMLElement {
   constructor() {
     super();
@@ -2841,7 +2853,7 @@ class EvPlannerPanel extends HTMLElement {
     const ask = (this._subAsk = (this._subAsk || 0) + 1);
     this._subscribing = true;
     try {
-      const unsub = await connection.subscribeMessage((event) => ask === this._subAsk && this._onState(event), { type: "ev_household_planner/subscribe" });
+      const unsub = await connection.subscribeMessage((event) => ask === this._subAsk && this._onState(event), { type: "ev_household_planner/subscribe", changes: true });
       if (ask === this._subAsk) this._unsub = unsub;
       else Promise.resolve(unsub()).catch(() => {});
     } catch (err) {
@@ -2870,6 +2882,12 @@ class EvPlannerPanel extends HTMLElement {
       return;
     }
     const first = !this._state;
+    state = mergeState(this._state, state);
+    if (!state) {
+      // A change without the state it changes: ask again from the start.
+      this._subscribe();
+      return;
+    }
     this._state = state;
     if (this._carId && !this._car(this._carId)) this._openCar(null, { render: false });
     if (this._chargerId && !this._charger(this._chargerId)) this._chargerId = null;

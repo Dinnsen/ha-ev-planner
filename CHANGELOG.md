@@ -2,6 +2,13 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.3.0b4] - 2026-11-10
+
+Beta: only those who show beta versions in the Marketplace get it.
+
+### Changed
+- **The panel and the cards get only what changed.** The whole state is sent once when they open; after that only the parts that changed, and of the cars and chargers only the ones that did. Nothing is sent when nothing changed. Less to send and to read on a phone, most of all with two days of quarter-hour prices.
+
 ## [2.3.0b3] - 2026-11-10
 
 Beta: only those who show beta versions in the Marketplace get it.

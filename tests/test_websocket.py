@@ -14,7 +14,7 @@ from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
 from custom_components.ev_household_planner.const import DOMAIN
 from custom_components.ev_household_planner.diagnostics import async_get_config_entry_diagnostics
-from custom_components.ev_household_planner.websocket import _notify_name
+from custom_components.ev_household_planner.websocket import _notify_name, state_patch
 
 from .conftest import CARPORT, MERCEDES, TESLA, settle
 
@@ -294,3 +294,43 @@ async def test_phone_names(hass: HomeAssistant) -> None:
     assert _notify_name(hass, "notify.mobile_app_dinner_iphone_17") == "Dinners iPhone"
     assert _notify_name(hass, "notify.mobile_app_old_phone") == "Old phone"
     assert _notify_name(hass, "notify.family_email") == "Family email"
+
+
+async def test_a_subscription_with_changes_sends_only_what_changed(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    household = init_integration.runtime_data
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "ev_household_planner/subscribe", "changes": True})
+    assert (await client.receive_json())["success"]
+    first = (await client.receive_json())["event"]
+    assert "patch" not in first
+    assert len(first["vehicles"]) == 2
+
+    # Nothing changed: nothing is sent. Then one car changes: only that car comes.
+    household.async_update_listeners()
+    household.vehicles[MERCEDES].settings["manual_soc"] = 33
+    household.async_update_listeners()
+    event = (await client.receive_json())["event"]
+    assert set(event["patch"]) <= {"now"}
+    assert list(event["items"]) == ["vehicles"]
+    assert list(event["items"]["vehicles"]) == [MERCEDES]
+    assert "gone" not in event
+
+    # A setting of the household: that part whole, no cars.
+    household.settings["house"] = "angle"
+    household.async_update_listeners()
+    event = (await client.receive_json())["event"]
+    assert event["patch"]["settings"]["house"] == "angle"
+    assert "items" not in event
+
+
+def test_a_patch_of_a_list_that_changed_its_cars_is_the_whole_list() -> None:
+    old = {"now": "a", "vehicles": [{"id": "1", "soc": 1}, {"id": "2", "soc": 2}], "guest": None, "old": 1}
+    new = {"now": "b", "vehicles": [{"id": "2", "soc": 2}], "guest": None}
+    assert state_patch(old, new) == {"patch": {"now": "b", "vehicles": [{"id": "2", "soc": 2}]}, "gone": ["old"]}
+    same = {"now": "b", "vehicles": [{"id": "1", "soc": 5}, {"id": "2", "soc": 2}], "guest": None, "old": 1}
+    assert state_patch(old, same) == {"patch": {"now": "b"}, "items": {"vehicles": {"1": {"id": "1", "soc": 5}}}}
