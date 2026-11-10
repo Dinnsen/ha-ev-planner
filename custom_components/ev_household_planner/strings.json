@@ -70,12 +70,14 @@
         "data": {
           "currency": "Currency",
           "notify_services": "Phones and other notify actions",
-          "update_widgets": "Refresh iOS widgets"
+          "update_widgets": "Refresh iOS widgets",
+          "price_add": "Added to every price"
         },
         "data_description": {
           "currency": "Currency of the electricity prices.",
           "notify_services": "Where reminders, live notifications and messages go, e.g. notify.mobile_app_my_iphone. Live notifications need the companion app.",
-          "update_widgets": "Ask the iOS companion app to refresh its widgets when a car's status changes (at most every 15 minutes)."
+          "update_widgets": "Ask the iOS companion app to refresh its widgets when a car's status changes (at most every 15 minutes).",
+          "price_add": "An amount per kWh added to the price sensor's prices, e.g. tariffs and taxes when the sensor only has the spot price. 0 when the sensor has the full price."
         },
         "sections": {
           "supply": {
@@ -114,7 +116,9 @@
               "battery_power_inverted": "The battery sensor is negative when it charges",
               "battery_first_until": "The home battery first, up to",
               "battery_hold": "Hold the home battery",
-              "solar_forecast": "Use the solar forecast"
+              "solar_forecast": "Use the solar forecast",
+              "export_price": "Price for electricity you sell",
+              "export_price_entity": "Sensor with the price you sell at"
             },
             "data_description": {
               "grid_power": "W or kW, positive when the house buys from the grid and negative when it sends to it (a HAN/P1 reader or the inverter).",
@@ -125,7 +129,9 @@
               "battery_power_inverted": "Turn on if your sensor shows it the other way round.",
               "battery_first_until": "Below this level the home battery keeps the sun it takes; above it the cars may have it. 100 %: the battery always first.",
               "battery_hold": "Optional: a switch that stops the home battery from discharging. EV Planner turns it on while a car charges from the grid, so the battery does not empty itself into the car.",
-              "solar_forecast": "With a solar forecast in the Energy dashboard (Forecast.Solar, Solcast), a car set to Sun and plan buys less at night when the next day looks sunny enough before its ready-by time."
+              "solar_forecast": "With a solar forecast in the Energy dashboard (Forecast.Solar, Solcast), a car set to Sun and plan buys less at night when the next day looks sunny enough before its ready-by time.",
+              "export_price": "What a kWh sent to the grid pays. A kWh of the sun in a car then costs that much in the history, as it was not sold. 0: the sun is counted as free.",
+              "export_price_entity": "A sensor with the price per kWh right now. Used before the fixed price."
             }
           }
         }
@@ -873,6 +879,9 @@
     },
     "target_not_set": {
       "message": "Could not set the car's charge limit {entity_id}: {error}"
+    },
+    "bad_period": {
+      "message": "The period is not valid."
     }
   },
   "issues": {
@@ -883,6 +892,10 @@
     "old_version_files": {
       "title": "Delete the files of EV Planner 1.x",
       "description": "EV Planner now has the domain `ev_household_planner`. The files of EV Planner 1.x are still in `{path}`. Delete that folder and restart Home Assistant, so the old version can never run next to the new one. If the household has not been moved yet: add EV Planner under **Settings → Devices & services** first, and it is moved with everything in it."
+    },
+    "control_failed": {
+      "title": "EV Planner cannot control {name}",
+      "description": "The last commands to `{entity_id}` failed ({error}). EV Planner keeps trying, with longer and longer between the tries. Check that the car's or charger's integration works and is logged in. This goes away by itself when a command gets through."
     }
   }
 }

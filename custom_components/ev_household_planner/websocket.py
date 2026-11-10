@@ -625,7 +625,7 @@ async def ws_history(hass: HomeAssistant, connection: websocket_api.ActiveConnec
     start = dt_util.parse_datetime(msg["start"])
     end = dt_util.parse_datetime(msg["end"])
     if start is None or end is None or end <= start:
-        raise HomeAssistantError("bad_period")
+        raise ServiceValidationError(translation_domain=DOMAIN, translation_key="bad_period")
     result = await _household(hass, msg).home.async_history(msg["period"], start, end)
     connection.send_result(msg["id"], result)
 

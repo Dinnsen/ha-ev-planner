@@ -8,9 +8,10 @@ price rule follows the current price).
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Mapping
-from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from dataclasses import dataclass, replace
+from datetime import UTC, date, datetime, timedelta
 from functools import partial
 import logging
 import re
@@ -36,20 +37,26 @@ from .const import (
     CALENDAR_LOOKAHEAD,
     CALENDAR_REFRESH,
     COMMAND_REPEAT,
+    COMMAND_TIMEOUT,
     CONF_CONNECTED_ENTITY,
     CONF_COUNTRY,
     CONF_CURRENCY,
     CONF_ENERGY_ENTITY,
+    CONF_EXPORT_PRICE,
+    CONF_EXPORT_PRICE_ENTITY,
     CONF_MOTORAPI_KEY,
     CONF_NOTIFY,
     CONF_PLATE_PROVIDER,
     CONF_POWER,
+    CONF_PRICE_ADD,
     CONF_PRICE_ENTITY,
     CONF_SWITCH_ENTITY,
     CONF_UNPLUGGED_STATES,
+    CONTROL_BACKOFF,
     CONTROL_CAR,
     CONTROL_CHARGE,
     CONTROL_CHARGER,
+    CONTROL_FAILS_ISSUE,
     CONTROL_NONE,
     CONTROL_PAUSE,
     CONTROL_RELEASED,
@@ -62,8 +69,10 @@ from .const import (
     DOMAIN,
     EVENT_NOTIFICATION_ACTION,
     FORGET_RESUME,
+    ISSUE_CONTROL_FAILED,
     ISSUE_PRICE_ENTITY_MISSING,
     LIVE_MIN_INTERVAL,
+    MIN_REST,
     MODE_CHARGE_NOW,
     MODE_OFF,
     MODE_PAUSE,
@@ -74,7 +83,9 @@ from .const import (
     REASON_SOLAR,
     REASON_WAITING,
     RECALCULATE_DELAY,
+    RECALCULATE_MAX_WAIT,
     REMINDER_MAX_REPEATS,
+    SAVE_COUNTERS,
     SET_DAY_TARGETS,
     SET_LIVE,
     SET_MANUAL_SOC,
@@ -98,6 +109,7 @@ from .const import (
     UNPLUG_CONFIRM,
     VERIFY_BACKOFF,
     VERIFY_DELAY,
+    VERIFY_UNKNOWN_TRIES,
     WEEKDAYS,
     WIDGET_MIN_INTERVAL,
 )
@@ -232,6 +244,13 @@ class Household(DataUpdateCoordinator[None]):
         self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY.format(entry_id=entry.entry_id))
         self._unsub: list[CALLBACK_TYPE] = []
         self._recalc_timer: CALLBACK_TYPE | None = None
+        self._recalc_since: float | None = None
+        self._recalc_force = False
+        # One evaluation at a time: two at once would send the same command twice.
+        self._control_lock = asyncio.Lock()
+        self._save_due: float | None = None
+        self._slots_cache: tuple[State | None, date, float, list[PriceSlot]] | None = None
+        self._verify_unknown: dict[str, int] = {}
         self._verify_timers: dict[str, CALLBACK_TYPE] = {}
         self._unplug_timers: dict[str, CALLBACK_TYPE] = {}
         self.supply = SupplyControl(self)
@@ -405,6 +424,7 @@ class Household(DataUpdateCoordinator[None]):
             charger.guest_last_sent = last if last in (CONTROL_CHARGE, CONTROL_PAUSE) else None
         self.guest.load(stored.get("guest"))
         self.supply.load(stored.get("supply_forecast"))
+        self.supply.load_actuators(stored.get("actuators"))
         self.solar.load(stored.get("solar"))
         self.settings = {**SETTINGS_DEFAULTS, **(stored.get("settings") or {})}
         self.images = self._known_images(stored.get("images"))
@@ -422,12 +442,19 @@ class Household(DataUpdateCoordinator[None]):
         }
 
     @callback
-    def async_save(self) -> None:
-        self._store.async_delay_save(self._data_to_store, 1)
+    def async_save(self, delay: float = 1.0) -> None:
+        """Write to disk soon. A save that is due sooner already is not put off by a slower one."""
+        due = self.hass.loop.time() + delay
+        if self._save_due is not None and self._save_due <= due:
+            return
+        self._save_due = due
+        self._store.async_delay_save(self._data_to_store, delay)
 
     @callback
     def _data_to_store(self) -> dict[str, Any]:
+        self._save_due = None
         return {
+            "actuators": self.supply.actuators_to_store(),
             "vehicles": {vehicle_id: vehicle.to_store() for vehicle_id, vehicle in self.vehicles.items()},
             "chargers": {cid: {"guest_last_sent": charger.guest_last_sent} for cid, charger in self.chargers.items()},
             "guest": self.guest.to_store(),
@@ -442,7 +469,25 @@ class Household(DataUpdateCoordinator[None]):
     # Prices
 
     def price_slots(self, now: datetime | None = None) -> list[PriceSlot]:
-        return extract_price_slots(self.hass.states.get(self.price_entity), now or dt_util.now())
+        """The prices, read from the sensor once for each time it changes (and each day)."""
+        state = self.hass.states.get(self.price_entity)
+        day = dt_util.as_local(now or dt_util.now()).date()
+        add = to_float(self.config.get(CONF_PRICE_ADD)) or 0.0
+        cache = self._slots_cache
+        if cache is None or cache[0] is not state or cache[1] != day or cache[2] != add:
+            slots = extract_price_slots(state, now or dt_util.now())
+            if add:
+                slots = [replace(slot, price=slot.price + add) for slot in slots]
+            cache = self._slots_cache = (state, day, add, slots)
+        return list(cache[3])
+
+    def export_price(self) -> float:
+        """What a kWh sent to the grid pays now: the sensor, else the fixed price, else nothing."""
+        if (entity := self.config.get(CONF_EXPORT_PRICE_ENTITY)) and (
+            value := to_float(self._state(str(entity)))
+        ) is not None:
+            return max(0.0, value)
+        return max(0.0, to_float(self.config.get(CONF_EXPORT_PRICE)) or 0.0)
 
     def visible_slots(self, slots: list[PriceSlot]) -> list[PriceSlot]:
         """Today's and tomorrow's prices, for graphs."""
@@ -639,6 +684,9 @@ class Household(DataUpdateCoordinator[None]):
             if self.guest.charger_id == charger_id:
                 self.guest.meter_step(reading)
             charger.meter_last = reading
+            if self.guest.charger_id != charger_id:
+                # A meter counts every few seconds: no plan depends on it, so nothing is planned again.
+                return
         self.schedule_recalculate()
 
     # ------------------------------------------------------------------
@@ -654,13 +702,25 @@ class Household(DataUpdateCoordinator[None]):
     @callback
     def schedule_recalculate(self, force: bool = False) -> None:
         """Recalculate shortly; many entity updates arrive together."""
+        clock = self.hass.loop.time()
         if self._recalc_timer is not None:
+            waited = self._recalc_since is not None and clock - self._recalc_since >= RECALCULATE_MAX_WAIT
+            if waited and (self._recalc_force or not force):
+                # Updates that keep coming do not postpone it for ever.
+                return
             self._recalc_timer()
+        else:
+            self._recalc_since = clock
+        self._recalc_force = self._recalc_force or force
 
         @callback
         def run(_now: datetime) -> None:
+            forced, self._recalc_force = self._recalc_force, False
             self._recalc_timer = None
-            self.config_entry.async_create_task(self.hass, self.async_recalculate(force=force), f"{DOMAIN} recalculate")
+            self._recalc_since = None
+            self.config_entry.async_create_task(
+                self.hass, self.async_recalculate(force=forced), f"{DOMAIN} recalculate"
+            )
 
         self._recalc_timer = async_call_later(self.hass, RECALCULATE_DELAY, run)
 
@@ -1016,19 +1076,25 @@ class Household(DataUpdateCoordinator[None]):
             vehicle.power_counted_at = now
             kwh, source = reading * hours, "power"
         elif vehicle.has_soc_sensor:
-            self.async_save()
+            self.async_save(SAVE_COUNTERS)
             return
         else:
             kwh, source = self.vehicle_power(vehicle) * hours, "time"
         vehicle.start_session(now, vehicle.decision.reason)
         vehicle.add_energy(
-            now, kwh, current_price(self.price_slots(now), now), source, solar=kwh * self.solar.share_now(vehicle)
+            now,
+            kwh,
+            current_price(self.price_slots(now), now),
+            source,
+            solar=kwh * self.solar.share_now(vehicle),
+            solar_price=self.export_price(),
         )
         if not vehicle.has_soc_sensor:
             speed, _source = vehicle.charge_speed(self.vehicle_power(vehicle))
             soc = to_float(vehicle.settings.get(SET_MANUAL_SOC)) or 0.0
             vehicle.settings[SET_MANUAL_SOC] = round(min(100.0, soc + speed * hours), 2)
-        self.async_save()
+        # A minute's energy: written with the next save, or after a while.
+        self.async_save(SAVE_COUNTERS)
 
     def _count_tail(self, vehicle: Vehicle, now: datetime) -> None:
         """Charging stopped: count the part since the last minute, up to when it stopped."""
@@ -1062,7 +1128,11 @@ class Household(DataUpdateCoordinator[None]):
         return vehicle.control != CONTROL_NONE and vehicle.decision.control == CONTROL_CHARGE
 
     async def async_evaluate(self, now: datetime | None = None, *, apply: bool = True) -> None:
-        """Decide what each charger should do now, and do it."""
+        """Decide what each charger should do now, and do it. One at a time."""
+        async with self._control_lock:
+            await self._async_evaluate(now, apply=apply)
+
+    async def _async_evaluate(self, now: datetime | None = None, *, apply: bool = True) -> None:
         now = now or dt_util.now()
         prices = self.price_slots(now)
         price_now = current_price(prices, now)
@@ -1108,11 +1178,12 @@ class Household(DataUpdateCoordinator[None]):
             self._maybe_refresh_widgets(now)
         self.async_update_listeners()
 
-    async def async_pause_for_house(self, vehicle: Vehicle) -> None:
-        """The guard: stop this car now, as the house needs the current."""
+    async def async_pause_for_house(self, vehicle: Vehicle) -> bool:
+        """The guard: stop this car now, as the house needs the current. True when it was stopped."""
         vehicle.decision = Decision(CONTROL_PAUSE, REASON_WAITING)
-        await self._async_apply(vehicle, force=False)
+        stopped = await self._async_apply(vehicle, force=True)
         self.async_update_listeners()
+        return stopped
 
     def control_entity(self, vehicle: Vehicle) -> str | None:
         if vehicle.control == CONTROL_CAR:
@@ -1127,48 +1198,89 @@ class Household(DataUpdateCoordinator[None]):
         domain = entity_id.split(".", 1)[0]
         service_domain = domain if domain in TOGGLE_DOMAINS else "homeassistant"
         try:
-            await self.hass.services.async_call(
-                service_domain, "turn_on" if on else "turn_off", {"entity_id": entity_id}, blocking=True
-            )
+            async with asyncio.timeout(COMMAND_TIMEOUT):
+                await self.hass.services.async_call(
+                    service_domain, "turn_on" if on else "turn_off", {"entity_id": entity_id}, blocking=True
+                )
+        except TimeoutError:
+            _LOGGER.warning("No answer when turning %s %s", "on" if on else "off", entity_id)
+            return "timeout"
         except (HomeAssistantError, ServiceNotFound) as err:
             _LOGGER.warning("Could not turn %s %s: %s", "on" if on else "off", entity_id, err)
             return str(err) or type(err).__name__
         return None
 
-    async def _async_apply(self, vehicle: Vehicle, *, force: bool) -> None:
-        """Send the decision to the car or the charger, when it changed."""
+    async def _async_apply(self, vehicle: Vehicle, *, force: bool) -> bool:
+        """Send the decision to the car or the charger, when it changed. True when it is as decided."""
         desired = vehicle.decision.control
         if vehicle.control == CONTROL_NONE or desired == CONTROL_RELEASED:
-            return
+            return False
         if vehicle.control == CONTROL_CHARGER and self.guest_holds(vehicle.charger_id, dt_util.now()):
-            return
+            return False
         now = dt_util.now()
         enforcing = vehicle.enforce_until is not None and now < vehicle.enforce_until
         if not force and desired == vehicle.last_sent:
             recent = vehicle.last_sent_at is not None and elapsed(now, vehicle.last_sent_at) < COMMAND_REPEAT
             if not enforcing or recent:
-                return
+                return True
         entity_id = self.control_entity(vehicle)
         if not entity_id:
             vehicle.control_error = "no_control_entity"
-            return
+            return False
         want_on = desired == CONTROL_CHARGE
         current = self._state(entity_id)
         if not force and current in ("on", "off") and (current == "on") == want_on:
             # Already there; do not wake the car for nothing.
             vehicle.last_sent = desired
             vehicle.control_error = None
-            return
-        if not vehicle.count_command(now):
+            return True
+        if not force and vehicle.retry_after is not None and now < vehicle.retry_after:
+            # The last command failed: wait a little longer each time before the next.
+            return False
+        if want_on and not force and vehicle.paused_at is not None and elapsed(now, vehicle.paused_at) < MIN_REST:
+            # Just paused: a start right after it is what a flickering sensor asks for. Wait a moment.
+            return False
+        allowed = vehicle.count_command(now)
+        if want_on and not allowed:
             # A car or charger that does not listen is not flooded; the check tries again later.
+            # A stop always goes out: it is never the one too many.
             vehicle.control_error = "rate_limited"
-            return
+            return False
         error = await self._async_switch(entity_id, want_on)
         vehicle.control_error = error
-        if error is None:
-            vehicle.last_sent = desired
-            vehicle.last_sent_at = now
-            self.async_save()
+        if error is not None:
+            self._control_failed(vehicle, entity_id, error, now)
+            return False
+        vehicle.last_sent = desired
+        vehicle.last_sent_at = now
+        vehicle.paused_at = None if want_on else now
+        self._control_worked(vehicle)
+        self.async_save()
+        return True
+
+    def _control_issue(self, vehicle: Vehicle) -> str:
+        return f"{ISSUE_CONTROL_FAILED}_{vehicle.vehicle_id}"
+
+    def _control_failed(self, vehicle: Vehicle, entity_id: str, error: str, now: datetime) -> None:
+        """A command did not get through: the next waits longer, and after a few it is reported as a repair."""
+        vehicle.fail_count += 1
+        vehicle.retry_after = now + CONTROL_BACKOFF[min(vehicle.fail_count, len(CONTROL_BACKOFF)) - 1]
+        if vehicle.fail_count == CONTROL_FAILS_ISSUE:
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                self._control_issue(vehicle),
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key=ISSUE_CONTROL_FAILED,
+                translation_placeholders={"name": vehicle.name, "entity_id": entity_id, "error": error},
+            )
+
+    def _control_worked(self, vehicle: Vehicle) -> None:
+        if vehicle.fail_count >= CONTROL_FAILS_ISSUE:
+            ir.async_delete_issue(self.hass, DOMAIN, self._control_issue(vehicle))
+        vehicle.fail_count = 0
+        vehicle.retry_after = None
 
     async def _async_apply_guest(self, now: datetime) -> None:
         """Start, pause and hand back the guest's charger when it has a switch."""
@@ -1198,6 +1310,7 @@ class Household(DataUpdateCoordinator[None]):
         if (cancel := self._verify_timers.pop(vid, None)) is not None:
             cancel()
         vehicle.verify_attempts = 0
+        self._verify_unknown.pop(vid, None)
         if vehicle.decision.control not in (CONTROL_CHARGE, CONTROL_PAUSE) or vehicle.control == CONTROL_NONE:
             if vehicle.problem:
                 vehicle.problem = False
@@ -1220,9 +1333,19 @@ class Household(DataUpdateCoordinator[None]):
             return
         desired = vehicle.decision.control
         charging = vehicle.charging
-        if desired not in (CONTROL_CHARGE, CONTROL_PAUSE) or charging is None:
-            # No charging sensor: nothing to check against.
+        if desired not in (CONTROL_CHARGE, CONTROL_PAUSE):
             return
+        if charging is None:
+            # No charging sensor: nothing to check against. One that does not answer right now is
+            # asked again a few times, so a car that did not start is still found when it is back.
+            tries = self._verify_unknown.get(vehicle_id, 0)
+            if vehicle.charging_entity and tries < VERIFY_UNKNOWN_TRIES:
+                self._verify_unknown[vehicle_id] = tries + 1
+                self._verify_timers[vehicle_id] = async_call_later(
+                    self.hass, VERIFY_DELAY, partial(self._verify_soon, vehicle_id)
+                )
+            return
+        self._verify_unknown.pop(vehicle_id, None)
         want = desired == CONTROL_CHARGE
         soc = vehicle.current_soc
         if want and (vehicle.decision.reason == "keep_on" or (soc is not None and soc >= vehicle.target - 1)):
@@ -1389,7 +1512,7 @@ class Household(DataUpdateCoordinator[None]):
         if not first and vehicle.live_sent_at is not None:
             soc_moved = soc is not None and (vehicle.live_sent_soc is None or abs(soc - vehicle.live_sent_soc) >= 1)
             reason_moved = vehicle.live_sent_reason != vehicle.decision.reason
-            if not reason_moved and (not soc_moved or now - vehicle.live_sent_at < LIVE_MIN_INTERVAL):
+            if not reason_moved and (not soc_moved or elapsed(now, vehicle.live_sent_at) < LIVE_MIN_INTERVAL):
                 return
         plan = vehicle.plan
         until = None
@@ -1430,7 +1553,7 @@ class Household(DataUpdateCoordinator[None]):
         self._last_status = statuses
         if first_run or not self.config.get("update_widgets") or not self.notifier.enabled:
             return
-        if self._widgets_sent is not None and now - self._widgets_sent < WIDGET_MIN_INTERVAL:
+        if self._widgets_sent is not None and elapsed(now, self._widgets_sent) < WIDGET_MIN_INTERVAL:
             if self._widgets_timer is None:
                 delay = WIDGET_MIN_INTERVAL - (now - self._widgets_sent)
 
@@ -1469,7 +1592,7 @@ class Household(DataUpdateCoordinator[None]):
             repeat = to_float(s.get(SET_REMINDER_REPEAT)) or 0.0
             if repeat <= 0 or not 0 < vehicle.reminders_sent <= REMINDER_MAX_REPEATS or vehicle.reminded_at is None:
                 return False
-            if now - vehicle.reminded_at < timedelta(minutes=repeat):
+            if elapsed(now, vehicle.reminded_at) < timedelta(minutes=repeat):
                 return False
         soc = vehicle.current_soc
         threshold = to_float(s.get(SET_REMINDER_SOC)) or 0.0
@@ -1640,6 +1763,9 @@ class Household(DataUpdateCoordinator[None]):
             vehicle.settings[key] = value
         if mode_changed:
             vehicle.last_sent = None
+            # Asked for by hand: at once, whatever went before.
+            vehicle.paused_at = None
+            vehicle.retry_after = None
             if vehicle.mode in (MODE_OFF, MODE_PAUSE, MODE_CHARGE_NOW):
                 vehicle.problem = False
         self.async_save()

@@ -48,7 +48,7 @@ from .solar import (
     solar_share,
     surplus_kw,
 )
-from .vehicle import to_float
+from .vehicle import elapsed, to_float
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -230,12 +230,16 @@ class SolarControl:
                 if decision.phases and phase_entity and self._phases_sent.get(vehicle.vehicle_id) != decision.phases:
                     await self._async_phases(vehicle, phase_entity, decision.phases)
                 if entity and decision.amps is not None:
-                    await supply.async_set_current(vehicle, entity, decision.amps, now)
-                    self._restore.add(vehicle.vehicle_id)
+                    # Only when it changed: a car in the cloud is not told the same every minute.
+                    await supply.async_keep_current(vehicle, entity, decision.amps, now)
+                    if vehicle.vehicle_id not in self._restore:
+                        self._restore.add(vehicle.vehicle_id)
+                        self.household.async_save()
             else:
                 if vehicle.vehicle_id in self._restore:
                     # Done on the sun: the full current again.
                     self._restore.discard(vehicle.vehicle_id)
+                    self.household.async_save()
                     if entity and supply.plan_amps(vehicle, now) is None:
                         await supply.async_set_current(vehicle, entity, supply.bounds(entity)[1], now)
                 # Three phases again only when it charges from the grid; between suns it stays as it is,
@@ -258,6 +262,7 @@ class SolarControl:
             _LOGGER.warning("Could not set %s to %s phases: %s", entity, phases, err)
             return
         self._phases_sent[vehicle.vehicle_id] = phases
+        self.household.async_save()
 
     async def _async_hold(self) -> None:
         """While a car charges from the grid, hold the home battery, so it does not empty itself into the car."""
@@ -302,7 +307,7 @@ class SolarControl:
             changed = bool(self.forecast)
             self.forecast = {}
             return changed
-        if not force and self._forecast_at is not None and now - self._forecast_at < FORECAST_EVERY:
+        if not force and self._forecast_at is not None and elapsed(now, self._forecast_at) < FORECAST_EVERY:
             return False
         self._forecast_at = now
         hours = await self._async_fetch_forecast()
@@ -393,8 +398,22 @@ class SolarControl:
         }
 
     def to_store(self) -> dict[str, Any]:
-        return {vid: state.to_dict() for vid, state in self.controller.states.items()}
+        """Each car's state on the sun, and what is to be put back after it: the full current, three phases."""
+        return {
+            "states": {vid: state.to_dict() for vid, state in self.controller.states.items()},
+            "restore": sorted(self._restore),
+            "phases": dict(self._phases_sent),
+        }
 
     def load(self, data: Any) -> None:
-        if isinstance(data, dict):
-            self.controller.states = {str(vid): SolarState.from_dict(value) for vid, value in data.items()}
+        if not isinstance(data, dict):
+            return
+        # Before 2.3.0b3 only the states were stored, each under its car.
+        states = data.get("states") if isinstance(data.get("states"), dict) else data
+        self.controller.states = {
+            str(vid): SolarState.from_dict(value) for vid, value in states.items() if isinstance(value, dict)
+        }
+        if isinstance(data.get("restore"), list):
+            self._restore = {str(vid) for vid in data["restore"]}
+        if isinstance(data.get("phases"), dict):
+            self._phases_sent = {str(vid): int(value) for vid, value in data["phases"].items() if value in (1, 3)}

@@ -16,6 +16,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
+from .vehicle import elapsed
+
 VOLTS = 230.0
 MIN_AMPS = 6.0
 # Enough sun for this long before a car starts, too little for this long before it stops.
@@ -160,7 +162,7 @@ class SurplusController:
         # Only when that has been so for a while (a cloud is not a reason), and a while after the last change.
         want_phases = phases
         if car.can_switch and car.adjustable:
-            lowest = low_end([kw for at, kw in state.seen if now - at < RAISE_WINDOW] + [available])
+            lowest = low_end([kw for at, kw in state.seen if elapsed(now, at) < RAISE_WINDOW] + [available])
             if phases == 3 and available < min_kw(3) and available >= min_kw(1):
                 want_phases = 1
             elif phases == 1 and lowest >= min_kw(3) + 1.0:
@@ -169,9 +171,9 @@ class SurplusController:
                 state.other_since = None
             elif state.other_since is None:
                 state.other_since = now
-            settled = state.phases_at is None or now - state.phases_at >= PHASE_EVERY
+            settled = state.phases_at is None or elapsed(now, state.phases_at) >= PHASE_EVERY
             lasted = state.phases is None or (
-                state.other_since is not None and now - state.other_since >= DISABLE_DELAY
+                state.other_since is not None and elapsed(now, state.other_since) >= DISABLE_DELAY
             )
             if want_phases != phases and settled and lasted:
                 state.phases, state.phases_at = want_phases, now
@@ -183,20 +185,20 @@ class SurplusController:
             state.short_since = None
             if state.enough_since is None:
                 state.enough_since = now
-            if not state.on and now - state.enough_since >= ENABLE_DELAY:
+            if not state.on and elapsed(now, state.enough_since) >= ENABLE_DELAY:
                 state.on = True
         else:
             state.enough_since = None
             if state.short_since is None:
                 state.short_since = now
-            if state.on and now - state.short_since >= DISABLE_DELAY:
+            if state.on and elapsed(now, state.short_since) >= DISABLE_DELAY:
                 state.on = False
         if not state.on:
             state.amps = None
             return SolarDecision(False, phases=phases if car.can_switch else None)
         if not car.adjustable:
             return SolarDecision(True)
-        state.seen = [(at, kw) for at, kw in state.seen if now - at < RAISE_WINDOW] + [(now, available)]
+        state.seen = [(at, kw) for at, kw in state.seen if elapsed(now, at) < RAISE_WINDOW] + [(now, available)]
 
         def fit(kw: float) -> float:
             return max(MIN_AMPS, min(car.max_amps, float(int(amps_for(max(0.0, kw), phases)))))
@@ -209,8 +211,8 @@ class SurplusController:
         elif state.amps is not None and steady >= state.amps + 1:
             if state.raise_since is None:
                 state.raise_since = now
-            waited = now - state.raise_since >= RAISE_DELAY
-            rested = state.changed_at is None or now - state.changed_at >= RAISE_EVERY
+            waited = elapsed(now, state.raise_since) >= RAISE_DELAY
+            rested = state.changed_at is None or elapsed(now, state.changed_at) >= RAISE_EVERY
             if waited and rested:
                 amps, state.raise_since = steady, None
         else:

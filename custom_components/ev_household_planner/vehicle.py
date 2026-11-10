@@ -322,6 +322,11 @@ class Vehicle:
     sent_log: list[datetime] = field(default_factory=list)
     enforce_until: datetime | None = None
     control_error: str | None = None
+    # Commands that failed in a row, and when the next may be tried.
+    fail_count: int = 0
+    retry_after: datetime | None = None
+    # When EV Planner last paused the car: it rests a little before it is started again.
+    paused_at: datetime | None = None
     problem: bool = False
     verify_attempts: int = 0
 
@@ -678,13 +683,23 @@ class Vehicle:
     # Statistics
 
     def add_energy(
-        self, now: datetime, kwh: float, price: float | None, source: str = "power", solar: float = 0.0
+        self,
+        now: datetime,
+        kwh: float,
+        price: float | None,
+        source: str = "power",
+        solar: float = 0.0,
+        solar_price: float = 0.0,
     ) -> None:
-        """Count charged energy for the running session and the month; ``solar`` of it came from the sun (free)."""
+        """Count charged energy for the running session and the month.
+
+        ``solar`` of it came from the sun: it costs ``solar_price`` per kWh
+        (what it would have been sold for), nothing without one.
+        """
         if kwh <= 0:
             return
         solar = max(0.0, min(kwh, solar))
-        cost = (kwh - solar) * price if price is not None else 0.0
+        cost = ((kwh - solar) * price if price is not None else 0.0) + solar * max(0.0, solar_price)
         month = self.months.setdefault(month_key(now), {"energy": 0.0, "cost": 0.0, "sessions": 0.0})
         month["energy"] = round(month["energy"] + kwh, 4)
         month["cost"] = round(month["cost"] + cost, 4)

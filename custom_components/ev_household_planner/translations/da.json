@@ -70,12 +70,14 @@
         "data": {
           "currency": "Valuta",
           "notify_services": "Mobiler og andre notify-handlinger",
-          "update_widgets": "Opdater iOS-widgets"
+          "update_widgets": "Opdater iOS-widgets",
+          "price_add": "Lægges til hver pris"
         },
         "data_description": {
           "currency": "Elprisernes valuta.",
           "notify_services": "Hvor påmindelser, live-notifikationer og beskeder sendes hen, fx notify.mobile_app_min_iphone. Live-notifikationer kræver companion-appen.",
-          "update_widgets": "Bed iOS companion-appen om at opdatere sine widgets, når en bils status ændres (højst hvert 15. minut)."
+          "update_widgets": "Bed iOS companion-appen om at opdatere sine widgets, når en bils status ændres (højst hvert 15. minut).",
+          "price_add": "Et beløb pr. kWh, der lægges til prissensorens priser, fx tariffer og afgifter når sensoren kun har spotprisen. 0 når sensoren har den fulde pris."
         },
         "sections": {
           "supply": {
@@ -114,7 +116,9 @@
               "battery_power_inverted": "Batterisensoren er negativ, når det lader",
               "battery_first_until": "Husbatteriet først, op til",
               "battery_hold": "Hold husbatteriet",
-              "solar_forecast": "Brug solprognosen"
+              "solar_forecast": "Brug solprognosen",
+              "export_price": "Pris for strøm du sælger",
+              "export_price_entity": "Sensor med din salgspris"
             },
             "data_description": {
               "grid_power": "W eller kW, positiv når huset køber fra nettet og negativ når det sender ud (en HAN/P1-læser eller inverteren).",
@@ -125,7 +129,9 @@
               "battery_power_inverted": "Slå til, hvis din sensor viser det omvendt.",
               "battery_first_until": "Under dette niveau beholder husbatteriet den sol, det tager; over det må bilerne få den. 100 %: batteriet altid først.",
               "battery_hold": "Valgfri: en kontakt, der stopper husbatteriet i at aflade. EV Planner slår den til, mens en bil lader fra nettet, så batteriet ikke tømmer sig over i bilen.",
-              "solar_forecast": "Med en solprognose i Energi-dashboardet (Forecast.Solar, Solcast) køber en bil med Sol og plan mindre om natten, når næste dag ser sol nok ud før klar-tiden."
+              "solar_forecast": "Med en solprognose i Energi-dashboardet (Forecast.Solar, Solcast) køber en bil med Sol og plan mindre om natten, når næste dag ser sol nok ud før klar-tiden.",
+              "export_price": "Hvad en kWh sendt til nettet giver. En kWh fra solen i en bil koster så det i historikken, fordi den ikke blev solgt. 0: solen regnes som gratis.",
+              "export_price_entity": "En sensor med prisen pr. kWh lige nu. Bruges før den faste pris."
             }
           }
         }
@@ -873,6 +879,9 @@
     },
     "target_not_set": {
       "message": "Kunne ikke sætte bilens ladegrænse {entity_id}: {error}"
+    },
+    "bad_period": {
+      "message": "Perioden er ikke gyldig."
     }
   },
   "issues": {
@@ -883,6 +892,10 @@
     "old_version_files": {
       "title": "Slet filerne fra EV Planner 1.x",
       "description": "EV Planner har nu domænet `ev_household_planner`. Filerne fra EV Planner 1.x ligger stadig i `{path}`. Slet mappen, og genstart Home Assistant, så den gamle version aldrig kan køre ved siden af den nye. Er husstanden ikke flyttet endnu: tilføj EV Planner under **Indstillinger → Enheder og tjenester** først, så flyttes den med det hele."
+    },
+    "control_failed": {
+      "title": "EV Planner kan ikke styre {name}",
+      "description": "De seneste kommandoer til `{entity_id}` fejlede ({error}). EV Planner prøver igen, med længere og længere imellem. Tjek at bilens eller laderens integration virker og er logget ind. Beskeden forsvinder af sig selv, når en kommando går igennem."
     }
   }
 }

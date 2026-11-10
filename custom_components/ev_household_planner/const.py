@@ -21,7 +21,7 @@ PLATFORMS: list[Platform] = [
     Platform.TEXT,
     Platform.TIME,
 ]
-USER_AGENT: Final = "EVPlannerHomeAssistant/0.4.0 (+https://github.com/Dinnsen/ha-ev-planner)"
+USER_AGENT: Final = "EVPlannerHomeAssistant (+https://github.com/Dinnsen/ha-ev-planner)"
 
 # ----------------------------------------------------------------------
 # Config entry: the household
@@ -97,6 +97,12 @@ CONF_CURRENT_ENTITY: Final = "current_entity"
 # without a meter, what the house is expected to draw.
 CONF_SUPPLY_LIMIT: Final = "supply_limit"
 CONF_SUPPLY_PHASES: Final = "supply_phases"
+# Added to every price (per kWh), for a price sensor without tariffs and taxes.
+CONF_PRICE_ADD: Final = "price_add"
+# What a kWh sent to the grid pays: a fixed price, or a sensor with the price now. A kWh of the
+# sun in a car costs that much, as it was not sold.
+CONF_EXPORT_PRICE: Final = "export_price"
+CONF_EXPORT_PRICE_ENTITY: Final = "export_price_entity"
 CONF_SUPPLY_METER: Final = "supply_meter"
 CONF_SUPPLY_RESERVE: Final = "supply_reserve"
 # Shared supply: lower the cars at once when the house draws more than planned (needs a meter and a current setting).
@@ -385,6 +391,26 @@ VERIFY_BACKOFF: Final = (timedelta(minutes=6), timedelta(minutes=12))
 PROBLEM_RECHECK: Final = timedelta(minutes=30)
 # At most this many commands per car per hour, so a car that does not listen is not flooded.
 COMMANDS_PER_HOUR: Final = 12
+# A command to a car or charger is given up after this long (seconds): a cloud that hangs holds nothing else up.
+COMMAND_TIMEOUT: Final = 30.0
+# After a command that failed, the next try waits this long: longer each time in a row.
+CONTROL_BACKOFF: Final = (
+    timedelta(minutes=1),
+    timedelta(minutes=2),
+    timedelta(minutes=5),
+    timedelta(minutes=10),
+    timedelta(minutes=15),
+)
+# This many failed commands in a row are reported as a repair, until one gets through.
+CONTROL_FAILS_ISSUE: Final = 3
+# A car EV Planner has paused is not started again within this time (a changed mode starts it at once).
+MIN_REST: Final = timedelta(minutes=2)
+# Counters (energy, time) are written to disk at most this often (seconds); the rest within a second.
+SAVE_COUNTERS: Final = 120.0
+# Many updates in a row postpone the recalculation, but never longer than this (seconds).
+RECALCULATE_MAX_WAIT: Final = 5.0
+# A charging sensor that does not answer is asked again this many times before the check gives up.
+VERIFY_UNKNOWN_TRIES: Final = 5
 # The same command is not sent again within this time, except to check it.
 COMMAND_REPEAT: Final = timedelta(seconds=60)
 # A car with a plug sensor must stay unplugged this long before its charge goes to the history.
@@ -427,6 +453,7 @@ ACTION_FOLLOW_PLAN: Final = "EV_PLANNER_FOLLOW_PLAN"
 
 ISSUE_PRICE_ENTITY_MISSING: Final = "price_entity_missing"
 ISSUE_ENTITY_MISSING: Final = "entity_missing"
+ISSUE_CONTROL_FAILED: Final = "control_failed"
 
 DATASET_CACHE_KEY: Final = f"{DOMAIN}_open_ev_data_cache"
 DATASET_CACHE_TTL: Final = timedelta(hours=24)

@@ -52,6 +52,8 @@ from .const import (
     CONF_CURRENT_ENTITY,
     CONF_DEVICE,
     CONF_ENERGY_ENTITY,
+    CONF_EXPORT_PRICE,
+    CONF_EXPORT_PRICE_ENTITY,
     CONF_GRID_INVERTED,
     CONF_GRID_POWER,
     CONF_HEAT_PUMP_BLOCK,
@@ -66,6 +68,7 @@ from .const import (
     CONF_PLATE_PROVIDER,
     CONF_POWER,
     CONF_POWER_ENTITY,
+    CONF_PRICE_ADD,
     CONF_PRICE_ENTITY,
     CONF_SOC_ENTITY,
     CONF_SOLAR_FORECAST,
@@ -173,7 +176,15 @@ CURRENT_SELECTOR = selector.EntitySelector(
         ]
     )
 )
-METER_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", multiple=True))
+METER_SELECTOR = selector.EntitySelector(
+    selector.EntitySelectorConfig(domain="sensor", device_class="current", multiple=True)
+)
+PRICE_SELECTOR = selector.NumberSelector(
+    selector.NumberSelectorConfig(min=-100, max=100, step=0.01, mode=selector.NumberSelectorMode.BOX)
+)
+PRICE_SENSOR_SELECTOR = selector.EntitySelector(
+    selector.EntitySelectorConfig(domain=["sensor", "input_number", "number"])
+)
 BATTERY_LEVEL_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", device_class="battery"))
 PERCENT_SELECTOR = selector.NumberSelector(
     selector.NumberSelectorConfig(
@@ -393,6 +404,7 @@ class EVPlannerOptionsFlow(OptionsFlow):
                 ),
                 vol.Optional(CONF_NOTIFY, default=list(options.get(CONF_NOTIFY) or [])): _notify_selector(self.hass),
                 vol.Optional("update_widgets", default=bool(options.get("update_widgets", False))): bool,
+                vol.Optional(CONF_PRICE_ADD, default=options.get(CONF_PRICE_ADD) or 0): PRICE_SELECTOR,
                 vol.Optional(SECTION_SUPPLY): section(
                     vol.Schema(
                         {
@@ -434,6 +446,10 @@ class EVPlannerOptionsFlow(OptionsFlow):
                                 CONF_BATTERY_FIRST, default=options.get(CONF_BATTERY_FIRST, DEFAULT_BATTERY_FIRST)
                             ): PERCENT_SELECTOR,
                             sug(CONF_BATTERY_HOLD): SWITCH_SELECTOR,
+                            vol.Optional(
+                                CONF_EXPORT_PRICE, default=options.get(CONF_EXPORT_PRICE) or 0
+                            ): PRICE_SELECTOR,
+                            sug(CONF_EXPORT_PRICE_ENTITY): PRICE_SENSOR_SELECTOR,
                             vol.Optional(
                                 CONF_SOLAR_FORECAST, default=bool(options.get(CONF_SOLAR_FORECAST, True))
                             ): bool,

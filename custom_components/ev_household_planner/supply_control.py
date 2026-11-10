@@ -13,6 +13,7 @@ car down, the car's measured speed falls and the next plan follows.
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 from datetime import datetime, timedelta
 import logging
@@ -25,6 +26,7 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    COMMAND_TIMEOUT,
     CONF_CURRENT_ENTITY,
     CONF_HEAT_PUMP_BLOCK,
     CONF_HEAT_PUMP_POWER,
@@ -58,6 +60,8 @@ EASEE_TTL_MINUTES = 30
 EASEE_RENEW = timedelta(minutes=15)
 # The guard: after it has lowered a car, the plan may raise it again after this long.
 GUARD_HOLD = timedelta(minutes=2)
+# A meter that has not reported for this long has stopped: its last value is no reading.
+METER_STALE = timedelta(minutes=5)
 # A cut the guard has sent counts as done for this long, while the charger and the meter catch up.
 GUARD_SETTLE = timedelta(seconds=60)
 # A car the guard had to stop waits at least this long, then until the meter shows room for it.
@@ -96,6 +100,11 @@ class SupplyControl:
         self._held_until: datetime | None = None
         self._held_amps = 0.0
         self._holds: list[datetime] = []
+        # One run of the guard at a time; a reading that comes meanwhile gives one more run.
+        self._guard_running = False
+        self._guard_again = False
+        # The heat pump was held back when Home Assistant stopped: it is let go at the start.
+        self._release_at_start = False
 
     @property
     def hass(self) -> HomeAssistant:
@@ -155,13 +164,22 @@ class SupplyControl:
             total += amps_for(reading, self.phases)
         return total
 
+    def _amps(self, entity: str) -> float | None:
+        """A meter's reading in amps: None when it has none, or has not reported for a while."""
+        state = self.hass.states.get(entity)
+        value = to_float(state.state) if state is not None else None
+        if state is None or value is None:
+            return None
+        if elapsed(dt_util.utcnow(), state.last_reported) > METER_STALE:
+            return None
+        return value / 1000 if state.attributes.get("unit_of_measurement") == "mA" else value
+
     def house_now(self) -> float | None:
         """The house's current on its busiest phase, without the cars (None without a meter)."""
-        values = [to_float(self.household.state_of(entity)) for entity in self.meters]
-        readings = [value for value in values if value is not None]
-        if not readings:
+        reading = self._meter_reading()
+        if reading is None:
             return None
-        return max(0.0, max(readings) - self.cars_amps())
+        return max(0.0, reading - self.cars_amps())
 
     def sample(self, now: datetime) -> bool:
         """A minute of the house; at the end of each hour, the hour goes into the forecast. True when saved."""
@@ -317,10 +335,14 @@ class SupplyControl:
                 continue
             shares = self.plan.amps.get(car.vehicle_id, [])
             energy = sum(
-                kw(amps, car.phases) * (end - max(start, now)).total_seconds() / 3600 for start, end, amps in shares
+                kw(amps, car.phases) * elapsed(end, max(start, now)).total_seconds() / 3600
+                for start, end, amps in shares
             )
             cost = sum(
-                kw(amps, car.phases) * (end - max(start, now)).total_seconds() / 3600 * (price_at(slots, start) or 0.0)
+                kw(amps, car.phases)
+                * elapsed(end, max(start, now)).total_seconds()
+                / 3600
+                * (price_at(slots, start) or 0.0)
                 for start, end, amps in shares
             )
             vehicle.plan = replace(
@@ -328,7 +350,7 @@ class SupplyControl:
                 segments=self.plan.segments(car.vehicle_id),
                 energy=round(energy, 3),
                 cost=round(cost, 2),
-                minutes=round(sum((end - max(start, now)).total_seconds() for start, end, _amps in shares) / 60),
+                minutes=round(sum(elapsed(end, max(start, now)).total_seconds() for start, end, _amps in shares) / 60),
                 short=self.plan.short_kwh.get(car.vehicle_id, 0.0) > 0.1,
             )
 
@@ -337,8 +359,7 @@ class SupplyControl:
 
     def _meter_reading(self) -> float | None:
         """The busiest phase as the meter shows it, the cars included (None without a reading)."""
-        values = [to_float(self.household.state_of(entity)) for entity in self.meters]
-        readings = [value for value in values if value is not None]
+        readings = [value for entity in self.meters if (value := self._amps(entity)) is not None]
         return max(readings) if readings else None
 
     def _room_reading(self) -> float | None:
@@ -389,6 +410,7 @@ class SupplyControl:
         self._held_amps = amps
         self._holds.append(now)
         self.guard_events += 1
+        self.household.async_save()
         return amps
 
     async def async_release_heat_pump(self, now: datetime, force: bool = False) -> None:
@@ -397,6 +419,7 @@ class SupplyControl:
             return
         self._held_until = None
         self._held_amps = 0.0
+        self.household.async_save()
         if self.heat_pump_block:
             await self.household._async_switch(self.heat_pump_block, False)
 
@@ -445,12 +468,27 @@ class SupplyControl:
             service = (entity.split(".", 1)[0], "set_value")
             data = {"entity_id": entity, "value": value}
         try:
-            await self.hass.services.async_call(*service, data, blocking=True)
+            async with asyncio.timeout(COMMAND_TIMEOUT):
+                await self.hass.services.async_call(*service, data, blocking=True)
+        except TimeoutError:
+            _LOGGER.warning("No answer when setting %s to %s A", entity, value)
+            return False
         except HomeAssistantError as err:
             _LOGGER.warning("Could not set %s to %s A: %s", entity, value, err)
             return False
         self._sent[vehicle.vehicle_id] = (value, now)
         return True
+
+    async def async_keep_current(self, vehicle: Vehicle, entity: str, value: float, now: datetime) -> bool:
+        """Set the car's current only when it is not there already (an Easee limit is renewed before it runs out)."""
+        last = self._sent.get(vehicle.vehicle_id)
+        if self._easee_device(entity) is not None:
+            if last is not None and abs(last[0] - value) < 0.5 and elapsed(now, last[1]) < EASEE_RENEW:
+                return True
+        elif (shown := to_float(self.household.state_of(entity))) is not None and abs(shown - value) < 0.5:
+            self._sent[vehicle.vehicle_id] = (value, last[1] if last is not None and last[0] == value else now)
+            return True
+        return await self.async_set_current(vehicle, entity, value, now)
 
     def plan_amps(self, vehicle: Vehicle, now: datetime) -> float | None:
         """The car's share in the joint plan now (None without a plan or a share)."""
@@ -500,7 +538,11 @@ class SupplyControl:
 
     @callback
     def async_start(self) -> None:
-        """Watch the meter, for the guard."""
+        """Watch the meter, for the guard. A heat pump left held back by a restart is let go."""
+        if self._release_at_start:
+            self._release_at_start = False
+            if self.heat_pump_block:
+                self.hass.async_create_task(self.household._async_switch(self.heat_pump_block, False))
         if self.guard and self._unsub is None:
             self._unsub = async_track_state_change_event(self.hass, self.meters, self._handle_meter)
 
@@ -516,7 +558,22 @@ class SupplyControl:
 
     @callback
     def _handle_meter(self, _event: Event[EventStateChangedData]) -> None:
-        self.household.config_entry.async_create_task(self.hass, self.async_guard(dt_util.now()), "ev planner guard")
+        if self._guard_running:
+            # One run at a time: two at once would both cut for the same amps.
+            self._guard_again = True
+            return
+        self._guard_running = True
+        self.household.config_entry.async_create_task(self.hass, self._async_guard_runs(), "ev planner guard")
+
+    async def _async_guard_runs(self) -> None:
+        try:
+            while True:
+                self._guard_again = False
+                await self.async_guard(dt_util.now())
+                if not self._guard_again:
+                    return
+        finally:
+            self._guard_running = False
 
     def _current_now(self, vehicle: Vehicle, entity: str, high: float) -> float:
         """The car's current: as last sent, else as its setting shows, else as it charges, else its most."""
@@ -590,10 +647,12 @@ class SupplyControl:
                 amps = self._current_now(vehicle, entity, MAX_AMPS)
             else:
                 amps = amps_for(power, self.phases) if power else MIN_AMPS
+            if not await self.household.async_pause_for_house(vehicle):
+                # It did not stop: not counted as done, and the next reading tries again.
+                continue
             self._paused[vehicle.vehicle_id] = now + GUARD_PAUSE
             self._cuts.append((now, amps))
             self.guard_events += 1
-            await self.household.async_pause_for_house(vehicle)
             over -= amps
             if over <= 0:
                 return
@@ -657,6 +716,13 @@ class SupplyControl:
 
     def to_store(self) -> dict[str, Any]:
         return self.forecast.to_dict()
+
+    def actuators_to_store(self) -> dict[str, Any]:
+        """What EV Planner holds back right now, so a restart can let it go."""
+        return {"heat_pump_held": self._held_until is not None}
+
+    def load_actuators(self, data: Any) -> None:
+        self._release_at_start = isinstance(data, dict) and bool(data.get("heat_pump_held"))
 
     def load(self, data: Any) -> None:
         self.forecast = HouseForecast.from_dict(data)
