@@ -127,6 +127,39 @@ test("solar panels are put up and taken down by tapping the roof; labels are mov
   });
 });
 
+test("on a phone the labels stay where they are in the picture while it is edited, and can be dragged by touch", async () => {
+  await withHome("shared-supply", { size: PHONE, house: "angle" }, async ({ page, inside, layouts }) => {
+    const labels = () => page.evaluate(() => [...window.harness.panel.shadowRoot.querySelectorAll(".cs-label")].map((l) => {
+      const r = l.getBoundingClientRect();
+      return [l.dataset.key, Math.round(r.x), Math.round(r.y), Math.round(r.bottom)];
+    }));
+    const before = await labels();
+    await inside(".cs-editbtn").click();
+    const editing = await labels();
+    assert.deepEqual(editing.map(([k, x, y]) => [k, x, y]), before.map(([k, x, y]) => [k, x, y]), "the labels do not move when the editor opens");
+    const bar = await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".cs-bar").getBoundingClientRect().top);
+    for (const [key, , , bottom] of editing) assert.ok(bottom <= bar + 1, `${key} lies in the picture, not on the editor's bar`);
+    await inside('[data-ed="tab"][data-tab="labels"]').click();
+    // A finger on the label of the grid, moved down and to the left.
+    const box = await inside('.cs-label[data-key="grid"]').boundingBox();
+    const cdp = await page.context().newCDPSession(page);
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+    for (let i = 1; i <= 8; i += 1) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: x - 4 * i, y: y + 3 * i }] });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    const moved = await labels();
+    const at = (list) => list.find(([k]) => k === "grid");
+    assert.ok(Math.abs(at(moved)[1] - (at(editing)[1] - 32)) <= 3, "the label follows the finger");
+    await inside('[data-ed="save"]').click();
+    await page.waitForFunction(() => !window.harness.panel.shadowRoot.querySelector(".cs-bar"));
+    const [saved] = await layouts();
+    assert.ok(Array.isArray(saved.angle.labels.grid), "the label's place is saved");
+    const after = await labels();
+    assert.deepEqual(at(after).slice(0, 3), at(moved).slice(0, 3), "and it stays there after saving");
+  });
+});
+
 test("undo and cancel leave the house as it was", async () => {
   await withHome("shared-supply", { house: "angle" }, async ({ page, inside, drag, layouts }) => {
     const drawn = () => page.evaluate(() => JSON.stringify([window.harness.panel._scene.routes, window.harness.panel._scene.pos.gateway]));

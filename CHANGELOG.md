@@ -2,6 +2,14 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.3.0b7] - 2026-11-10
+
+Beta: only those who show beta versions in the Marketplace get it.
+
+### Fixed
+- **The editor of the house picture on a phone.** While editing, the labels lay down over the editor's bar instead of in the picture, so most of them could not be seen, the one that could was in the wrong place, and where it was dragged to was not where it ended up. The labels now stay where they are in the picture while it is edited, and stay where they were put after saving.
+- **Easier to grab with a finger:** the chargers, the box, the battery and the heat pump, and the stretches of wire, can be grabbed in an area of at least 40 pixels, and the labels do not get in the way while things or wires are moved.
+
 ## [2.3.0b6] - 2026-11-10
 
 Beta: only those who show beta versions in the Marketplace get it.
