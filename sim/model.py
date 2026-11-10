@@ -37,6 +37,8 @@ class CarSpec:
     outages: list[tuple[datetime, datetime]] = field(default_factory=list)  # sensors unavailable
     flickers: list[datetime] = field(default_factory=list)  # the cable reads unplugged for a moment
     cloud_down: list[tuple[datetime, datetime]] = field(default_factory=list)  # commands to the car fail
+    command_delay: int = 0  # minutes before a command reaches the car (a car asleep, a slow cloud)
+    soc_every: int = 1  # the car reports its charge level only every so many minutes
 
     def __post_init__(self) -> None:
         # Everything in UTC: a minute added to a local time is a wall-clock minute in Python,

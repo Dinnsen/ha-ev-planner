@@ -471,9 +471,12 @@ def test_a_blip_is_not_a_charge_of_its_own() -> None:
 
 def test_commands_per_hour_are_limited() -> None:
     vehicle = make()
-    for minute in range(12):
+    for minute in range(11):
         assert vehicle.count_command(NOW + timedelta(minutes=minute)) is True
+    # The last one of the hour is kept for a stop.
     assert vehicle.count_command(NOW + timedelta(minutes=30)) is False
+    assert vehicle.count_command(NOW + timedelta(minutes=31), stop=True) is True
+    assert vehicle.count_command(NOW + timedelta(minutes=32), stop=True) is True
     # An hour after the first ones, there is room again.
     assert vehicle.count_command(NOW + timedelta(minutes=61)) is True
 

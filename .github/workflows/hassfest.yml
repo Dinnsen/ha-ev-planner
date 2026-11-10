@@ -9,6 +9,8 @@ on:
   schedule:
     - cron: "0 0 * * *"
   workflow_dispatch:
+  # The release runs it first, and waits for it.
+  workflow_call:
 
 jobs:
   validate:

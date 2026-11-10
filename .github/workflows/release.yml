@@ -19,7 +19,21 @@ permissions:
   contents: write
 
 jobs:
+  # Nothing is released that the tests, the typing, the lint, hassfest and the simulator have not passed.
+  tests:
+    uses: ./.github/workflows/tests.yml
+  lint:
+    uses: ./.github/workflows/lint.yml
+  hassfest:
+    uses: ./.github/workflows/hassfest.yml
+  simulator:
+    uses: ./.github/workflows/simulator.yml
+    secrets: inherit
+  frontend:
+    uses: ./.github/workflows/frontend.yml
+
   release:
+    needs: [tests, lint, hassfest, simulator, frontend]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

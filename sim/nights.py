@@ -149,6 +149,19 @@ def made_nights() -> list[Night]:
             settings={"target_soc": 60},
             tags=["cloud"],
         ),
+        # A car asleep behind a slow cloud: a command takes three minutes, the level comes every ten.
+        _night(
+            "slow-car-stale-level",
+            monday,
+            CarSpec(capacity=60, power=11, soc=35, limit=80, command_delay=3, soc_every=10),
+            tags=["slow-car"],
+        ),
+        _night(
+            "slow-car-taper-to-full",
+            monday,
+            CarSpec(capacity=75, power=11, soc=45, limit=100, curve=taper, command_delay=2, soc_every=5),
+            tags=["slow-car", "taper"],
+        ),
         _night(
             "tight",
             monday,

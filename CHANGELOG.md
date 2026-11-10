@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
+All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
 ## [2.3.0b2] - 2026-11-10
 

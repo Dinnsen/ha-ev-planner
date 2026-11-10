@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timedelta
 from typing import Any
+from unittest.mock import PropertyMock, patch
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
@@ -128,7 +129,7 @@ async def test_a_car_that_was_paused_rests_before_it_starts_again(
     assert vehicle.paused_at is None
     # Asked for by hand, it starts at once.
     vehicle.paused_at = dt_util.now()
-    await household.async_set_vehicle(TESLA, {"mode": "pause"})
+    await household.async_set_vehicle(TESLA, {"mode": "charge_now"})
     assert vehicle.paused_at is None
 
 
@@ -199,10 +200,11 @@ async def test_the_prices_are_read_once_and_an_amount_is_added(
     # A kWh of the sun costs what it would have been sold for.
     assert household.export_price() == 0.4
     hass.states.async_set("sensor.sell", "0.6")
-    household.config = {**household.config, "export_price_entity": "sensor.sell"}
-    assert household.export_price() == 0.6
-    hass.states.async_set("sensor.sell", "unknown")
-    assert household.export_price() == 0.4
+    config = {**household.config, "export_price_entity": "sensor.sell"}
+    with patch.object(type(household), "config", new_callable=PropertyMock, return_value=config):
+        assert household.export_price() == 0.6
+        hass.states.async_set("sensor.sell", "unknown")
+        assert household.export_price() == 0.4
     vehicle = household.vehicles[TESLA]
     vehicle.months.clear()
     vehicle.add_energy(dt_util.now(), 10, 2.0, solar=4, solar_price=0.5)

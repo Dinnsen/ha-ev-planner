@@ -93,6 +93,8 @@ class Run:
         self.first_charge: datetime | None = None
         self.failed: list[datetime] = []
         self.deaf: list[datetime] = []
+        self.pending: list[tuple[datetime, bool]] = []
+        self.soc_shown: float | None = None
 
     # EV Planner's commands -------------------------------------------------
     async def switch(self, _household: Any, entity_id: str, on: bool) -> str | None:
@@ -103,11 +105,24 @@ class Run:
             # The car's cloud is down: the command is lost, and EV Planner is told so.
             self.failed.append(self.now)
             return "cloud down"
+        # The switch shows the command at once; the car follows when it has reached it.
+        self.hass.states.async_set(SWITCH, "on" if on else "off")
+        if self.night.car.command_delay:
+            self.pending.append((self.now + timedelta(minutes=self.night.car.command_delay), on))
+            return None
+        self.obey(on)
+        return None
+
+    def obey(self, on: bool) -> None:
         if not on and self.was_charging and self.night.car.no_resume:
             self.resume_blocked = True
         self.switch_on = on
-        self.hass.states.async_set(SWITCH, "on" if on else "off")
-        return None
+
+    def arrive(self, moment: datetime) -> None:
+        """Commands on their way that have reached the car by ``moment``."""
+        for item in [p for p in self.pending if p[0] <= moment]:
+            self.pending.remove(item)
+            self.obey(item[1])
 
     # The car -----------------------------------------------------------------
     def plugged(self, moment: datetime) -> bool:
@@ -135,7 +150,10 @@ class Run:
             return
         charging = self.charging(moment)
         self.was_charging = charging
-        soc = round(self.soc, car.soc_decimals) if car.soc_decimals else int(self.soc)
+        if self.soc_shown is None or car.soc_every <= 1 or int(moment.timestamp() // 60) % car.soc_every == 0:
+            self.soc_shown = self.soc
+        level = self.soc_shown
+        soc = round(level, car.soc_decimals) if car.soc_decimals else int(level)
         self.hass.states.async_set(SOC, str(soc), {"unit_of_measurement": "%", "device_class": "battery"})
         self.hass.states.async_set(LIMIT, str(int(car.limit)))
         self.hass.states.async_set(CABLE, "on" if self.plugged(moment) else "off")
@@ -159,6 +177,8 @@ class Run:
         self.commands = []
         self.failed = []
         self.deaf = []
+        self.pending = []
+        self.soc_shown = None
         self.first_charge = None
         self.price_shown = None
 
@@ -265,6 +285,7 @@ async def _run_one(
     moment = night.start
     while moment < night.end:
         run.now = moment
+        run.arrive(moment)
         wall = run.advance(moment)
         if wall > 0 and cheapest_slot is not None and cheapest_slot[0] <= moment < cheapest_slot[0] + night.step:
             result.cheapest_slot_minutes += 1
