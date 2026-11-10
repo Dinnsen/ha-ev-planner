@@ -132,7 +132,8 @@ ENFORCE_AFTER_PLUG_IN = timedelta(minutes=3)
 # A session without a charging sensor ends when the charge level has not risen for this long.
 IDLE_END = timedelta(minutes=30)
 # language: the language of notifications; "auto" follows Home Assistant's language.
-SETTINGS_DEFAULTS: dict[str, Any] = {"bill_price": None, "payment_text": "", "language": "auto"}
+# house: which picture of a house the Home tab shows.
+SETTINGS_DEFAULTS: dict[str, Any] = {"bill_price": None, "payment_text": "", "language": "auto", "house": "classic"}
 TRIP_TARGET = re.compile(r"(\d{2,3})\s*%")
 TOGGLE_DOMAINS = ("switch", "input_boolean", "light", "fan")
 

@@ -161,6 +161,7 @@ async def test_guest_commands(
         "bill_price": 2.5,
         "payment_text": "MobilePay",
         "language": "auto",
+        "house": "classic",
     }
     msg = await _ws(client, 90, type="ev_household_planner/settings", settings={"language": "da"})
     assert msg["success"] and init_integration.runtime_data.settings["language"] == "da"
