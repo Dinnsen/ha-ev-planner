@@ -425,6 +425,7 @@ def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
         "chargers": chargers,
         "guest": guest_state(household, household.guest),
         "settings": dict(household.settings),
+        "layout": household.layout,
         "config": {
             "price_entity": household.price_entity,
             "notify": household.notify_services,
@@ -713,6 +714,17 @@ async def ws_restore_image(
     connection.send_result(msg["id"], {"unused": unused})
 
 
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/layout", ENTRY: str, vol.Required("layout"): dict})
+@websocket_api.require_admin
+@websocket_api.async_response
+@_errors
+async def ws_layout(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Where an administrator placed things in the house picture: the things, the wires, the panels, the labels."""
+    household = _household(hass, msg)
+    household.set_layout(msg["layout"])
+    connection.send_result(msg["id"], {"layout": household.layout})
+
+
 @callback
 def async_register_websocket(hass: HomeAssistant) -> None:
     for command in (
@@ -732,5 +744,6 @@ def async_register_websocket(hass: HomeAssistant) -> None:
         ws_delete_history,
         ws_settings,
         ws_history,
+        ws_layout,
     ):
         websocket_api.async_register_command(hass, command)

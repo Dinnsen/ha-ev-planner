@@ -48,7 +48,7 @@ const harness = {
     document.documentElement.style.colorScheme = dark ? "dark" : "light";
   },
 
-  makeHass(state, { lang = "en", dark = false } = {}) {
+  makeHass(state, { lang = "en", dark = false, admin = true } = {}) {
     this.state = state;
     this.calls = [];
     this.unknown = [];
@@ -79,6 +79,8 @@ const harness = {
         sendMessagePromise: callWS,
       },
       callWS,
+      // An administrator, unless a test says otherwise: only they may place things in the house picture.
+      user: { id: "test-user", name: "Test", is_admin: admin },
       fetchWithAuth: async () => new Response("{}", { status: 404 }),
     };
     return this.hass;
@@ -117,6 +119,8 @@ const harness = {
       case "set_image":
       case "restore_image":
         return { unused: [] };
+      case "layout":
+        return { layout: message.layout };
       default:
         this.unknown.push(message.type);
         throw { code: "unknown_command", message: `Unknown command: ${message.type}` };
@@ -162,7 +166,7 @@ const harness = {
   },
 
   /* The panel on the page, as Home Assistant shows it at /ev-planner. */
-  async mountPanel(state, { lang = "en", dark = false, path = "" } = {}) {
+  async mountPanel(state, { lang = "en", dark = false, path = "", admin = true } = {}) {
     await this.loadPanel();
     this.panel?.remove();
     try {
@@ -170,7 +174,7 @@ const harness = {
     } catch {
       /* no storage */
     }
-    const hass = this.makeHass(state, { lang, dark });
+    const hass = this.makeHass(state, { lang, dark, admin });
     const panel = document.createElement("ev-planner-panel");
     panel.panel = { config: { static_url: "/frontend", app_url: "/ev_planner_app", version: "test" } };
     panel.narrow = innerWidth < 870;
