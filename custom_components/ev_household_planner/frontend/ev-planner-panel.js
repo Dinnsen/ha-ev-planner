@@ -22,6 +22,8 @@ const TEXT = {
     home_why_none: "Ingen biler skal lade lige nu.",
     home_no_meter: "Uden måler regner EV Planner med, at huset trækker {amps}. Tilføj en måler i indstillingerne, så lærer den husets forbrug.",
     home_idle: "venter",
+    home_planned_at: "planlagt {time}",
+    home_done: "færdig",
     home_unplugged: "ikke sat til",
     home_solar: "Solceller",
     home_battery: "Husbatteri",
@@ -493,6 +495,8 @@ const TEXT = {
     home_why_none: "No car needs to charge now.",
     home_no_meter: "Without a meter EV Planner expects the house to draw {amps}. Add a meter in the settings and it learns what the house uses.",
     home_idle: "waiting",
+    home_planned_at: "planned {time}",
+    home_done: "done",
     home_unplugged: "not plugged in",
     home_solar: "Solar panels",
     home_battery: "Home battery",
@@ -1574,11 +1578,10 @@ const ClayScene = (() => {
     glass: "#C9D1DB", glassHi: "#EEF2F6", ground: "#E1E5EB", shadow: "#46506A", line: "#C3C9D3",
     tree: ["#F3F4F6", "#DADDE3"], panel: "#2B3038", panelLine: "#4A5160",
   };
-  const FLOW = { sun: "#F5B92E", grid: "#8C98AC", battery: "#22C981", home: "#22C981", car: "#22C981", heat: "#22C981" };
   const PAINT = { white: "#F7F8FA", black: "#2A2D33" };
 
   // The house, the garage, where the cars stand and where the chargers hang.
-  const HOUSE = { x0: 6, x1: 14, y0: 2, y1: 8.6, h: 3.2, ridge: 5.75, over: 0.4, gable: 0.3 };
+  const HOUSE = { x0: 6, x1: 14, y0: 2, y1: 8.6, h: 3.2, ridge: 5.75, over: 0.45, gable: 0.35 };
   const GARAGE = { x0: -1.4, x1: 6, y0: 4.4, y1: 9.8, h: 2.65 };
   const SLOTS = [{ x: -0.9, y: 10.3 }, { x: 3.05, y: 10.3 }];
   const BOX = [{ x: 1.45 }, { x: 5.4 }];
@@ -1724,245 +1727,409 @@ const ClayScene = (() => {
     </g>`;
     return s;
   }
-  // Where a car's charging port is, in the world, for its cable.
-  const portOf = (x0, y0, kind) => {
-    const body = BODIES[kind] || BODIES.sedan;
-    const c = body.pts[body.ce];
-    return [x0 + body.Wd - c[2] + 0.01, y0 + 0.78 + c[2], c[1] - 0.2 + c[2]];
+  // Where each car's charging port is in its picture (pixels of the 570 × 480 render): on its right side, at the back.
+  const PORTS = { mini: [462, 205], sedan: [470, 215], suv: [478, 195], estate: [470, 200], van: [478, 175] };
+  // The port on the screen, for the cable.
+  const portAt = (x0, y0, kind, image) => {
+    const picture = CAR_PICTURES[kind];
+    if (image || !picture) {
+      const body = BODIES[kind] || BODIES.sedan;
+      const c = body.pts[body.ce];
+      return P(x0 + body.Wd - c[2] + 0.01, y0 + 0.78 + c[2], c[1] - 0.2 + c[2]);
+    }
+    const [ox, oy] = P(x0, y0, 0);
+    const [px, py] = PORTS[kind] || PORTS.sedan;
+    return [ox + picture.x + (px / 570) * picture.w, oy + picture.y + (py / 480) * picture.h];
   };
+
+  /* ------------------------------------------------------------ the light */
+
+  // Every surface has its colour by day, at dusk and at night; the scene slides between them with the sun.
+  // The shadows never move: a soft one under the eaves on every wall, and one under the house.
+  const MODES = [
+    { // day
+      bg: "#F2F3F6", ground: "#ECEEF2", drive: "#F7F8FA", wallS: "#D3D7DE", wallE: "#BDC3CC", door: "#E4E7EC", roof: "#FBFBFC", roofEdge: "#E3E6EB", roofBack: "#EEF0F3", flat: "#F7F8F9",
+      win: "#FFFFFF", frame: "#B9C0CA", eave: "#2F3746", eaveOp: 0.5, shadow: "#46506A", shadowOp: 0.3, device: "#3A3F47", deviceSide: "#2C3036", deviceTop: "#4C525B",
+      flow: "#14B47C", tree: "#FAFAFB", treeShade: "#D3D8DF", panel: "#262C38", panelLine: "#4B5567", car: 1, lights: 0, stars: 0,
+    },
+    { // dusk
+      bg: "#C9C2CC", ground: "#C3BCC6", drive: "#D2CCD3", wallS: "#ABA5B2", wallE: "#958FA0", door: "#BDB7C3", roof: "#E6DFE2", roofEdge: "#C4BCC4", roofBack: "#CFC8CF", flat: "#DED7DB",
+      win: "#FFE1A8", frame: "#8E8796", eave: "#251F30", eaveOp: 0.45, shadow: "#2E2740", shadowOp: 0.26, device: "#2F333B", deviceSide: "#24282E", deviceTop: "#3B4048",
+      flow: "#22C48A", tree: "#DCD5DB", treeShade: "#9E97A6", panel: "#252833", panelLine: "#454A5A", car: 0.78, lights: 0.55, stars: 0,
+    },
+    { // night
+      bg: "#151A22", ground: "#181D26", drive: "#232A34", wallS: "#394150", wallE: "#2D3440", door: "#4A5262", roof: "#5D6675", roofEdge: "#454D5A", roofBack: "#4C5462", flat: "#535C6A",
+      win: "#FFD48A", frame: "#2A2F38", eave: "#000000", eaveOp: 0.5, shadow: "#000000", shadowOp: 0.38, device: "#23272D", deviceSide: "#1B1E23", deviceTop: "#2C3036",
+      flow: "#34D893", tree: "#3E4654", treeShade: "#2B313C", panel: "#171B23", panelLine: "#363E4C", car: 0.5, lights: 1, stars: 1,
+    },
+  ];
+  function modeAt(k) {
+    const [a, b, t] = k <= 0.5 ? [MODES[0], MODES[1], k / 0.5] : [MODES[1], MODES[2], (k - 0.5) / 0.5];
+    const out = {};
+    for (const key of Object.keys(a)) out[key] = typeof a[key] === "number" ? a[key] + (b[key] - a[key]) * t : mix(a[key], b[key], t);
+    return out;
+  }
+  // Colour each part by its role.
+  function paint(nodes, m) {
+    for (const node of nodes) {
+      const r = node.dataset.r;
+      const k = Number(node.dataset.k || 1);
+      if (r === "eave") {
+        node.setAttribute("fill", m.eave);
+        node.setAttribute("opacity", (m.eaveOp * k).toFixed(3));
+      } else if (r === "shadow") {
+        node.setAttribute("fill", m.shadow);
+        node.setAttribute("opacity", (m.shadowOp * k).toFixed(3));
+      } else if (r === "shadowLine") {
+        node.setAttribute("stroke", m.shadow);
+        node.setAttribute("opacity", (m.shadowOp * 1.8).toFixed(3));
+      } else if (r === "groundStop") node.setAttribute("stop-color", m.ground);
+      else if (r === "line") node.setAttribute("stroke", m.frame);
+      else if (r === "flow") node.setAttribute("stroke", m.flow);
+      else if (r === "flowGlow") {
+        node.setAttribute("stroke", m.flow);
+        node.setAttribute("opacity", (0.15 + 0.6 * m.lights).toFixed(2));
+      } else if (r === "panel") {
+        node.setAttribute("fill", m.panel);
+        node.setAttribute("stroke", m.panelLine);
+      } else if (m[r]) node.setAttribute("fill", m[r]);
+    }
+  }
+  const R = (role, extra = "") => `data-r="${role}" ${extra}`;
+  const rpoly = (list, role, extra = "") => `<polygon points="${pts(list)}" ${R(role, extra)}/>`;
+
+  // Where the current comes from, in the colours of Home Assistant's Energy dashboard.
+  const SOURCE = { sun: "#FFB224", grid: "#3B8BFF", sold: "#9A6BFF", battery: "#2FC7B5" };
+  // What a charging cable shows, in the colours chargers and cars use.
+  const STATUS = { unplugged: "#9AA6B4", connected: "#3B8BFF", planned: "#F5A524", charging: "#22C981", done: "#22C981" };
 
   /* ------------------------------------------------------------ cables */
 
-  // A charging cable: down from the charger, across the ground, and up into the car's port, smooth like a real cable.
-  function cable(a, b) {
-    const ground = 0.04;
-    const list = [
-      a,
-      [a[0] + 0.05, a[1] + 0.12, a[2] * 0.45],
-      [a[0] + 0.12, a[1] + 0.4, ground],
-      [(a[0] + b[0]) / 2 + 0.35, (a[1] + b[1]) / 2 + 0.15, ground],
-      [b[0] + 0.45, b[1] + 0.1, ground],
-      [b[0] + 0.32, b[1] + 0.02, b[2] * 0.45],
-      [b[0] + 0.06, b[1], b[2] - 0.02],
-      b,
-    ];
-    return smooth(list.map((p) => P(...p)));
+  // A real cable: black rubber with a little light along its top.
+  const rubber = (d, w = 4.4) => `<path d="${d}" fill="none" stroke="#14171C" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="#59616D" stroke-width="1.1" stroke-linecap="round" opacity=".75" transform="translate(-.7 -.9)"/>`;
+
+  // Plugged in: from the charger down onto the ground and up into the car's port, the plug coming in from the charger's side.
+  function plugCable(a, q) {
+    const dir = q[0] >= a[0] ? 1 : -1;
+    const h = [q[0] - dir * 9.5, q[1] + (dir > 0 ? 1.2 : 0.5)];
+    const gy = Math.max(a[1] + 30, h[1] - 8);
+    const gx = a[0] + (h[0] - a[0]) * 0.4;
+    const d = `M${f1(a[0])} ${f1(a[1])} C${f1(a[0])} ${f1(a[1] + (gy - a[1]) * 0.6)} ${f1(gx - (h[0] - a[0]) * 0.25)} ${f1(gy)} ${f1(gx)} ${f1(gy)} S${f1(h[0] - dir * 8)} ${f1(h[1] + 5)} ${f1(h[0])} ${f1(h[1])}`;
+    const lift = dir > 0 ? -2.3 : -2.2;
+    return {
+      d,
+      svg: `<path d="${d}" class="cs-cable-glow" fill="none" stroke-width="11" stroke-linecap="round" filter="url(#cs-pkglow)"/>${rubber(d)}<g class="cs-pk"></g>
+        <path d="M${f1(h[0])} ${f1(h[1])} L${f1(q[0])} ${f1(q[1])}" stroke="#14171C" stroke-width="7.5" stroke-linecap="round"/>
+        <path d="M${f1(h[0] + dir)} ${f1(h[1] + lift)} L${f1(q[0] - dir)} ${f1(q[1] + lift)}" stroke="#6B737F" stroke-width="1.2" stroke-linecap="round" opacity=".8"/>
+        <circle cx="${f1(h[0])}" cy="${f1(h[1])}" r="3.6" fill="none" stroke-width="1.8" class="cs-ring-led"/>`,
+    };
   }
 
-  function smooth(p) {
-    let d = `M${f1(p[0][0])} ${f1(p[0][1])}`;
-    for (let i = 0; i < p.length - 1; i += 1) {
-      const p0 = p[Math.max(0, i - 1)];
-      const p1 = p[i];
-      const p2 = p[i + 1];
-      const p3 = p[Math.min(p.length - 1, i + 2)];
-      const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
-      const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
-      d += ` C${f1(c1[0])} ${f1(c1[1])} ${f1(c2[0])} ${f1(c2[1])} ${f1(p2[0])} ${f1(p2[1])}`;
-    }
-    return d;
+  // Not plugged in: rolled up on a hook beside the charger, the plug hanging down.
+  function coiled(boxX, cx) {
+    const y = GARAGE.y1 + 0.14;
+    const coil = [0, 1, 2].map((j) => {
+      const c = [cx + 0.045 * j, y, 1.3 - 0.02 * j];
+      const r = 0.3 - 0.02 * j;
+      return "M" + Array.from({ length: 33 }, (_, k) => { const t = (k / 32) * Math.PI * 2; return P(c[0] + r * Math.cos(t), y, c[2] + r * 1.05 * Math.sin(t)).map(f1).join(" "); }).join(" L") + "Z";
+    }).join(" ");
+    const side = cx > boxX ? -0.28 : 0.28;
+    const [ax, ay] = P(boxX + 0.18, GARAGE.y1 + 0.15, 0.92);
+    const [qx, qy] = P(cx + side, y, 1.16);
+    const [dx, dy] = P(cx + 0.18, y, 1.02);
+    const [ex, ey] = P(cx + 0.22, y, 0.66);
+    const [fx, fy] = P(cx + 0.23, y, 0.42);
+    const [kx, ky] = P(cx, y, 1.62);
+    return `<path d="M${f1(kx - 3)} ${f1(ky - 2)} h6 v6 h-6z" fill="#2A2F37"/>
+      ${rubber(`M${f1(ax)} ${f1(ay)} C${f1(ax)} ${f1(ay + 16)} ${f1(qx + (side < 0 ? -8 : 8))} ${f1(qy + 14)} ${f1(qx)} ${f1(qy)}`)}
+      ${rubber(coil, 3.8)}
+      ${rubber(`M${f1(dx)} ${f1(dy)} C${f1(dx + 2)} ${f1(dy + 4)} ${f1(ex - 1)} ${f1(ey - 4)} ${f1(ex)} ${f1(ey)}`)}
+      <path d="M${f1(ex)} ${f1(ey)} L${f1(fx)} ${f1(fy)}" stroke="#14171C" stroke-width="7" stroke-linecap="round"/>
+      <circle cx="${f1(ex)}" cy="${f1(ey + 1)}" r="3.2" fill="none" stroke-width="1.6" class="cs-ring-led"/>`;
   }
 
-  // A cable rolled up on the wall beside the charger, its plug in the holder.
-  function coil(x, y, z) {
-    let s = `<g transform="${onY(x, y + 0.02, z)}">`;
-    for (let k = 0; k < 4; k += 1) s += `<ellipse cx=".3" cy="${(0.36 + k * 0.025).toFixed(3)}" rx="${(0.25 + k * 0.016).toFixed(3)}" ry="${(0.34 + k * 0.016).toFixed(3)}" fill="none" stroke="#2D3137" stroke-width=".05"/>`;
-    s += `<rect x=".22" y="-.04" width=".16" height=".09" rx=".02" fill="#9AA2AD"/>`;
-    s += `<path d="M.3 .76 C .32 .86 .4 .92 .5 .92" stroke="#2D3137" stroke-width=".05" fill="none"/>`;
-    s += `<rect x=".48" y=".84" width=".12" height=".17" rx=".03" fill="#3A3F46"/>`;
-    return s + `</g>`;
-  }
-
-  // The equipment is dark grey, with lights that show what it does.
-  const DEV = { south: "#3A3F47", east: "#2E3238", top: "#4C525B" };
-
-  function wallbox(x, y, on) {
-    let s = box(x, y, 0.95, x + 0.36, y + 0.14, 1.6, DEV);
-    s += `<g transform="${onY(x, y + 0.141, 1.6)}">
-      <rect x=".05" y=".05" width=".26" height=".55" rx=".05" fill="#262A30"/>
-      <rect class="cs-boxglow${on ? " on" : ""}" x=".155" y=".12" width=".05" height=".34" rx=".025"/>
-      <rect class="cs-boxled${on ? " on" : ""}" x=".165" y=".13" width=".03" height=".32" rx=".015"/>
-    </g>`;
-    return s;
+  // A charger on the garage wall, its light showing what the cable does.
+  function wallbox(x) {
+    const y = GARAGE.y1;
+    return rpoly([[x, y + 0.14, 0.95], [x + 0.36, y + 0.14, 0.95], [x + 0.36, y + 0.14, 1.6], [x, y + 0.14, 1.6]], "device") +
+      rpoly([[x + 0.36, y + 0.14, 0.95], [x + 0.36, y, 0.95], [x + 0.36, y, 1.6], [x + 0.36, y + 0.14, 1.6]], "deviceSide") +
+      rpoly([[x, y, 1.6], [x + 0.36, y, 1.6], [x + 0.36, y + 0.14, 1.6], [x, y + 0.14, 1.6]], "deviceTop") +
+      `<path d="${path3([[x + 0.18, y + 0.15, 1.12], [x + 0.18, y + 0.15, 1.45]])}" class="cs-led" stroke-width="2.4" stroke-linecap="round"/>`;
   }
 
   /* ------------------------------------------------------------ the house */
 
-  function box(x0, y0, z0, x1, y1, z1, opt = {}) {
-    let s = poly([[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]], `fill="${opt.south || T.south}"`);
-    s += poly([[x1, y1, z0], [x1, y0, z0], [x1, y0, z1], [x1, y1, z1]], `fill="${opt.east || T.east}"`);
-    if (!opt.noTop) s += poly([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], `fill="${opt.top || T.top}"`);
-    s += `<path d="${path3([[x0, y1, z1], [x1, y1, z1], [x1, y0, z1]])}" stroke="#fff" stroke-opacity=".7" stroke-width=".8" fill="none"/>`;
-    return s;
-  }
-  const foot = (a, b) => `<path d="${path3([a, b])}" stroke="${T.shadow}" stroke-opacity=".18" stroke-width="9" filter="url(#cs-blur)" stroke-linecap="round"/>`;
-
-  // The lit windows at night: drawn over the darkened scene.
-  let LIGHTS = [];
-  function windowY(x0, x1, y, z0, z1, mullions = []) {
-    let s = poly([[x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1]], `fill="${T.east}"`);
-    s += poly([[x0 + 0.06, y, z0 + 0.06], [x1 - 0.06, y, z0 + 0.06], [x1 - 0.06, y, z1 - 0.06], [x0 + 0.06, y, z1 - 0.06]], `fill="url(#cs-glass)"`);
-    LIGHTS.push(poly([[x0 + 0.06, y + 0.01, z0 + 0.06], [x1 - 0.06, y + 0.01, z0 + 0.06], [x1 - 0.06, y + 0.01, z1 - 0.06], [x0 + 0.06, y + 0.01, z1 - 0.06]], `class="cs-light"`));
-    for (const m of mullions) s += `<path d="${path3([[m, y + 0.005, z0 + 0.06], [m, y + 0.005, z1 - 0.06]])}" stroke="#fff" stroke-width="1.6"/>`;
+  // A box with grey walls (the side towards the light a shade lighter).
+  function box(x0, y0, z0, x1, y1, z1, roles = ["device", "deviceSide", "deviceTop"]) {
+    let s = rpoly([[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]], roles[0]);
+    s += rpoly([[x1, y1, z0], [x1, y0, z0], [x1, y0, z1], [x1, y1, z1]], roles[1]);
+    if (roles[2]) s += rpoly([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], roles[2]);
     return s;
   }
 
-  function windowX(x, y0, y1, z0, z1, mullions = [], bars = []) {
-    let s = poly([[x, y1, z0], [x, y0, z0], [x, y0, z1], [x, y1, z1]], `fill="${T.south}"`);
-    s += poly([[x, y1 - 0.06, z0 + 0.06], [x, y0 + 0.06, z0 + 0.06], [x, y0 + 0.06, z1 - 0.06], [x, y1 - 0.06, z1 - 0.06]], `fill="url(#cs-glass)"`);
-    LIGHTS.push(poly([[x + 0.01, y1 - 0.06, z0 + 0.06], [x + 0.01, y0 + 0.06, z0 + 0.06], [x + 0.01, y0 + 0.06, z1 - 0.06], [x + 0.01, y1 - 0.06, z1 - 0.06]], `class="cs-light"`));
-    for (const m of mullions) s += `<path d="${path3([[x + 0.005, m, z0 + 0.06], [x + 0.005, m, z1 - 0.06]])}" stroke="#fff" stroke-width="1.6"/>`;
-    for (const z of bars) s += `<path d="${path3([[x + 0.005, y1 - 0.06, z], [x + 0.005, y0 + 0.06, z]])}" stroke="#fff" stroke-width="1.6"/>`;
-    return s;
-  }
-
-  function tree(x, y, k = 1) {
-    const [bx, by] = P(x, y, 0);
-    let s = shadow([[x - 0.8 * k, y - 0.8 * k, 0], [x + 1.4 * k, y - 0.8 * k, 0], [x + 1.4 * k, y + 0.8 * k, 0], [x - 0.8 * k, y + 0.8 * k, 0]], 0.18);
-    s += `<path d="M${f1(bx - 2)} ${f1(by)} L${f1(bx - 1)} ${f1(by - 50 * k)} L${f1(bx + 1)} ${f1(by - 50 * k)} L${f1(bx + 2)} ${f1(by)} Z" fill="${T.tree[1]}"/>`;
-    for (const [dx, dz, r] of [[0, 2.7, 1.25], [-0.85, 2.3, 0.95], [0.9, 2.35, 1.0], [-0.3, 3.4, 0.9], [0.55, 3.25, 0.85], [0.1, 1.85, 0.8]]) {
-      s += `<circle cx="${f1(bx + dx * S * k)}" cy="${f1(by - dz * S * k)}" r="${f1(r * S * k)}" fill="url(#cs-ball)"/>`;
+  // A soft shadow on a wall just under the roof's edge: strips from the edge down, fading.
+  function eaveShadow(a, b, depth) {
+    let s = "";
+    const n = 6;
+    for (let i = 0; i < n; i += 1) {
+      const z0 = (depth * i) / n;
+      const z1 = (depth * (i + 1)) / n;
+      s += `<polygon points="${pts([[a[0], a[1], a[2] - z0], [b[0], b[1], b[2] - z0], [b[0], b[1], b[2] - z1], [a[0], a[1], a[2] - z1]])}" ${R("eave", `data-k="${((1 - i / n) ** 1.6).toFixed(3)}"`)}/>`;
     }
     return s;
   }
+
+  // The lit windows at night: drawn over the scene.
+  let LIGHTS = [];
+  function windowY(x0, x1, y, z0, z1, cols = 1) {
+    let s = rpoly([[x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1]], "frame");
+    const g = [[x0 + 0.07, y, z0 + 0.07], [x1 - 0.07, y, z0 + 0.07], [x1 - 0.07, y, z1 - 0.07], [x0 + 0.07, y, z1 - 0.07]];
+    s += rpoly(g, "win");
+    LIGHTS.push(`<polygon points="${pts(g)}" fill="#FFD48A" filter="url(#cs-glowf)" opacity=".8"/>`);
+    for (let c = 1; c < cols; c += 1) {
+      const x = x0 + ((x1 - x0) / cols) * c;
+      s += `<path d="${path3([[x, y + 0.01, z0 + 0.07], [x, y + 0.01, z1 - 0.07]])}" ${R("line", 'stroke-width="2.2"')}/>`;
+    }
+    return s;
+  }
+
+  function windowX(x, y0, y1, z0, z1, cols = 1, rows = 1) {
+    let s = rpoly([[x, y1, z0], [x, y0, z0], [x, y0, z1], [x, y1, z1]], "frame");
+    const g = [[x, y1 - 0.07, z0 + 0.07], [x, y0 + 0.07, z0 + 0.07], [x, y0 + 0.07, z1 - 0.07], [x, y1 - 0.07, z1 - 0.07]];
+    s += rpoly(g, "win");
+    LIGHTS.push(`<polygon points="${pts(g)}" fill="#FFD48A" filter="url(#cs-glowf)" opacity=".8"/>`);
+    for (let c = 1; c < cols; c += 1) {
+      const y = y1 - ((y1 - y0) / cols) * c;
+      s += `<path d="${path3([[x + 0.01, y, z0 + 0.07], [x + 0.01, y, z1 - 0.07]])}" ${R("line", 'stroke-width="2.2"')}/>`;
+    }
+    for (let r = 1; r < rows; r += 1) {
+      const z = z0 + ((z1 - z0) / rows) * r;
+      s += `<path d="${path3([[x + 0.01, y1 - 0.07, z], [x + 0.01, y0 + 0.07, z]])}" ${R("line", 'stroke-width="2.2"')}/>`;
+    }
+    return s;
+  }
+
+  // A round clay tree.
+  function tree(x, y, k = 1) {
+    const [bx, by] = P(x, y, 0);
+    const cy = by - 2.6 * S * k;
+    const r = 1.25 * S * k;
+    return `<ellipse cx="${f1(bx + 8)}" cy="${f1(by + 2)}" rx="${f1(26 * k)}" ry="${f1(10 * k)}" ${R("shadow", 'filter="url(#cs-blur)"')}/>
+      <path d="M${f1(bx - 2)} ${f1(by)} L${f1(bx - 1)} ${f1(by - 50 * k)} L${f1(bx + 1)} ${f1(by - 50 * k)} L${f1(bx + 2)} ${f1(by)} Z" ${R("treeShade")}/>
+      <circle cx="${f1(bx)}" cy="${f1(cy)}" r="${f1(r)}" ${R("treeShade")}/>
+      <circle cx="${f1(bx - r * 0.12)}" cy="${f1(cy - r * 0.12)}" r="${f1(r * 0.86)}" ${R("tree")}/>`;
+  }
+
+  const ROOF = (() => {
+    const Hh = HOUSE;
+    const ym = (Hh.y0 + Hh.y1) / 2;
+    const pitch = (Hh.ridge - Hh.h) / (ym - Hh.y0);
+    const eave = Hh.h - Hh.over * pitch;
+    // A point on the south roof: x along it, k from the eave (0) to the ridge (1).
+    const at = (x, k, lift = 0.03) => [x, Hh.y1 + Hh.over + (ym - Hh.y1 - Hh.over) * k, eave + (Hh.ridge - eave) * k + lift];
+    return { ym, eave, at, edge: 0.18 };
+  })();
 
   function scene(m) {
     const Hh = HOUSE;
     const G = GARAGE;
-    const ym = (Hh.y0 + Hh.y1) / 2;
-    const pitch = (Hh.ridge - Hh.h) / (ym - Hh.y0);
-    const eave = Hh.h - Hh.over * pitch;
-    const at = (x, k, lift = 0.04) => [x, Hh.y1 + Hh.over + (ym - Hh.y1 - Hh.over) * k, eave + (Hh.ridge - eave) * k + lift];
-    let s = driveway();
-    s += shadow([[G.x0, G.y0, 0], [Hh.x1 + 3.4, Hh.y0 - 0.4, 0], [Hh.x1 + 3.8, Hh.y1 - 0.6, 0], [Hh.x1 + 0.6, Hh.y1 + 0.6, 0], [G.x1, G.y1 + 0.3, 0], [G.x0, G.y1, 0]], 0.32, "cs-shadow");
-    s += tree(3.0, 1.2, 1.05) + tree(15.6, 0.4, 0.85);
-    // The garage first: the house stands behind it.
-    s += box(G.x0, G.y0, 0, G.x1, G.y1, G.h, { noTop: true });
-    s += poly([[G.x0, G.y0, G.h], [G.x1, G.y0, G.h], [G.x1, G.y1, G.h], [G.x0, G.y1, G.h]], `fill="${T.top}"`);
-    s += box(G.x0 - 0.05, G.y0 - 0.05, G.h, G.x1 + 0.05, G.y1 + 0.05, G.h + 0.14);
-    s += poly([[G.x0 + 0.15, G.y0 + 0.15, G.h + 0.14], [G.x1 - 0.1, G.y0 + 0.15, G.h + 0.14], [G.x1 - 0.1, G.y1 - 0.1, G.h + 0.14], [G.x0 + 0.15, G.y1 - 0.1, G.h + 0.14]], `fill="${mix(T.top, "#000000", 0.04)}"`);
-    s += foot([G.x0, G.y1, 0.02], [G.x1, G.y1, 0.02]);
-    const door = [[-0.9, G.y1 + 0.004, 0], [5.1, G.y1 + 0.004, 0], [5.1, G.y1 + 0.004, 2.2], [-0.9, G.y1 + 0.004, 2.2]];
-    s += poly(door, `fill="${mix(T.south, "#000000", 0.035)}"`);
-    for (let k = 1; k < 5; k += 1) s += `<path d="${path3([[-0.9, G.y1 + 0.006, k * 0.44], [5.1, G.y1 + 0.006, k * 0.44]])}" stroke="${mix(T.south, "#000000", 0.08)}" stroke-width=".8"/>`;
-    // The house.
-    s += poly([[Hh.x0 - Hh.gable, Hh.y0 - Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y0 - Hh.over, eave], [Hh.x1 + Hh.gable, ym, Hh.ridge], [Hh.x0 - Hh.gable, ym, Hh.ridge]], `fill="${T.roofBack}"`);
-    s += box(Hh.x0, Hh.y0, 0, Hh.x1, Hh.y1, Hh.h, { noTop: true });
-    s += poly([[Hh.x1, Hh.y1, Hh.h], [Hh.x1, Hh.y0, Hh.h], [Hh.x1, ym, Hh.ridge]], `fill="${T.east}"`);
-    s += foot([Hh.x0, Hh.y1, 0.02], [Hh.x1, Hh.y1, 0.02]) + foot([Hh.x1, Hh.y1, 0.02], [Hh.x1, Hh.y0, 0.02]);
-    s += windowX(Hh.x1 + 0.005, 3.0, 7.6, 0.7, 4.3, [5.3], [2.5]);
-    s += windowY(11.0, 13.4, Hh.y1 + 0.005, 0.7, 2.75, [12.2]);
-    s += windowY(6.6, 7.4, Hh.y1 + 0.005, 0.0, 2.3);
-    s += poly([[Hh.x0, Hh.y1 + 0.006, Hh.h - 0.35], [Hh.x1, Hh.y1 + 0.006, Hh.h - 0.35], [Hh.x1, Hh.y1 + 0.006, Hh.h], [Hh.x0, Hh.y1 + 0.006, Hh.h]], `fill="${T.shadow}" fill-opacity=".08"`);
+    const { ym, eave, at, edge } = ROOF;
+    let s = "";
+    // The drive and the path.
+    s += rpoly([[G.x0, G.y1, 0], [G.x1, G.y1, 0], [G.x1, 15.6, 0], [G.x0, 15.6, 0]], "drive");
+    s += rpoly([[9.0, Hh.y1, 0], [10.4, Hh.y1, 0], [10.4, 15.2, 0], [9.0, 15.2, 0]], "drive");
+    // One big soft shadow under the house and the garage, darker where the walls meet the ground.
+    s += `<polygon points="${pts([[G.x0 - 0.3, G.y0 - 0.6, 0], [Hh.x1 + 1.6, Hh.y0 - 0.8, 0], [Hh.x1 + 1.9, Hh.y1 + 0.6, 0], [G.x1, G.y1 + 0.5, 0], [G.x0 - 0.3, G.y1 + 0.4, 0]])}" ${R("shadow", 'filter="url(#cs-shadow)"')}/>`;
+    for (const [a, b] of [[[G.x0, G.y1, 0], [G.x1, G.y1, 0]], [[G.x1, G.y1, 0], [G.x1, G.y0, 0]], [[Hh.x0, Hh.y1, 0], [Hh.x1, Hh.y1, 0]], [[Hh.x1, Hh.y1, 0], [Hh.x1, Hh.y0, 0]]]) {
+      s += `<path d="${path3([a, b])}" ${R("shadowLine", 'stroke-width="7" stroke-linecap="round" filter="url(#cs-blur)" fill="none"')}/>`;
+    }
+    s += tree(-3.4, 2.4, 1) + tree(-2.2, 1.2, 0.75) + tree(19.2, 7.6, 0.85);
+    // The garage: grey walls, a white flat roof with a rim, the roof's shadow under it.
+    s += rpoly([[G.x0, G.y1, 0], [G.x1, G.y1, 0], [G.x1, G.y1, G.h], [G.x0, G.y1, G.h]], "wallS");
+    s += rpoly([[G.x1, G.y1, 0], [G.x1, G.y0, 0], [G.x1, G.y0, G.h], [G.x1, G.y1, G.h]], "wallE");
+    s += rpoly([[-0.9, G.y1 + 0.01, 0], [5.1, G.y1 + 0.01, 0], [5.1, G.y1 + 0.01, 2.15], [-0.9, G.y1 + 0.01, 2.15]], "door");
+    for (let k = 1; k < 5; k += 1) s += `<path d="${path3([[-0.9, G.y1 + 0.02, k * 0.43], [5.1, G.y1 + 0.02, k * 0.43]])}" ${R("line", 'stroke-width=".8" stroke-opacity=".5"')}/>`;
+    s += eaveShadow([G.x0, G.y1 + 0.003, G.h - 0.24], [G.x1, G.y1 + 0.003, G.h - 0.24], 0.7);
+    s += eaveShadow([G.x1 + 0.003, G.y1, G.h - 0.24], [G.x1 + 0.003, G.y0, G.h - 0.24], 0.7);
+    s += rpoly([[G.x0 - 0.12, G.y0 - 0.12, G.h + 0.16], [G.x1 + 0.12, G.y0 - 0.12, G.h + 0.16], [G.x1 + 0.12, G.y1 + 0.12, G.h + 0.16], [G.x0 - 0.12, G.y1 + 0.12, G.h + 0.16]], "flat");
+    s += rpoly([[G.x0 + 0.15, G.y0 + 0.15, G.h + 0.161], [G.x1 - 0.12, G.y0 + 0.15, G.h + 0.161], [G.x1 - 0.12, G.y1 - 0.12, G.h + 0.161], [G.x0 + 0.15, G.y1 - 0.12, G.h + 0.161]], "roofEdge", 'opacity=".55"');
+    s += rpoly([[G.x0 - 0.12, G.y1 + 0.12, G.h], [G.x1 + 0.12, G.y1 + 0.12, G.h], [G.x1 + 0.12, G.y1 + 0.12, G.h + 0.16], [G.x0 - 0.12, G.y1 + 0.12, G.h + 0.16]], "roofEdge");
+    s += rpoly([[G.x1 + 0.12, G.y1 + 0.12, G.h], [G.x1 + 0.12, G.y0 - 0.12, G.h], [G.x1 + 0.12, G.y0 - 0.12, G.h + 0.16], [G.x1 + 0.12, G.y1 + 0.12, G.h + 0.16]], "roofEdge", 'style="filter:brightness(.92)"');
+    // The house: the back of the roof, the walls, the windows, the roof's shadow, the roof.
+    s += rpoly([[Hh.x0 - Hh.gable, Hh.y0 - Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y0 - Hh.over, eave], [Hh.x1 + Hh.gable, ym, Hh.ridge], [Hh.x0 - Hh.gable, ym, Hh.ridge]], "roofBack");
+    s += rpoly([[Hh.x0, Hh.y1, 0], [Hh.x1, Hh.y1, 0], [Hh.x1, Hh.y1, Hh.h], [Hh.x0, Hh.y1, Hh.h]], "wallS");
+    s += rpoly([[Hh.x1, Hh.y1, 0], [Hh.x1, Hh.y0, 0], [Hh.x1, Hh.y0, Hh.h], [Hh.x1, ym, Hh.ridge], [Hh.x1, Hh.y1, Hh.h]], "wallE");
+    s += windowX(Hh.x1 + 0.01, 3.2, 7.4, 0.7, 4.0, 2, 3);
+    s += windowY(11.0, 13.4, Hh.y1 + 0.01, 0.75, 2.6, 2);
+    s += windowY(6.55, 7.45, Hh.y1 + 0.01, 0.02, 2.25);
+    s += eaveShadow([Hh.x0, Hh.y1 + 0.02, eave - edge - Hh.over / 2 - 0.02], [Hh.x1, Hh.y1 + 0.02, eave - edge - Hh.over / 2 - 0.02], 0.9);
+    s += eaveShadow([Hh.x1 + 0.02, Hh.y1, Hh.h - 0.4], [Hh.x1 + 0.02, ym, Hh.ridge - 0.4], 0.8) + eaveShadow([Hh.x1 + 0.02, ym, Hh.ridge - 0.4], [Hh.x1 + 0.02, Hh.y0, Hh.h - 0.4], 0.8);
+    // A home battery on the wall.
     if (m.battery) {
       const level = Math.max(0.03, 0.9 * ((m.battery.soc ?? 50) / 100));
-      s += box(8.15, Hh.y1, 0, 8.95, Hh.y1 + 0.32, 1.65, DEV);
+      s += box(8.15, Hh.y1, 0, 8.95, Hh.y1 + 0.32, 1.65);
       s += `<g transform="${onY(8.15, Hh.y1 + 0.321, 1.65)}">
         <rect x=".33" y=".2" width=".14" height=".96" rx=".06" fill="#23272D"/>
-        <rect class="cs-glowbar" x=".33" y="${f1(1.14 - level)}" width=".14" height="${f1(level)}" rx=".06" fill="${FLOW.battery}"/>
-        <rect x=".36" y="${f1(1.15 - level)}" width=".08" height="${f1(level - 0.02)}" rx=".04" fill="#7DF0BE"/>
+        <rect class="cs-glowbar" x=".33" y="${f1(1.14 - level)}" width=".14" height="${f1(level)}" rx=".06" fill="${SOURCE.battery}"/>
+        <rect x=".36" y="${f1(1.15 - level)}" width=".08" height="${f1(level - 0.02)}" rx=".04" fill="#9AF0E4"/>
       </g>`;
-    }
-    s += box(9.4, Hh.y1, 1.05, 9.9, Hh.y1 + 0.14, 1.65, DEV);
-    s += `<g transform="${onY(9.4, Hh.y1 + 0.141, 1.65)}"><path class="cs-bolt" d="M.27 .14 L.2 .3 H.27 L.23 .45 L.33 .26 H.26 L.31 .14 Z"/></g>`;
-    s += poly([[Hh.x0 - Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, ym, Hh.ridge], [Hh.x0 - Hh.gable, ym, Hh.ridge]], `fill="${T.roofSouth}"`);
-    s += poly([[Hh.x0 - Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave - 0.14], [Hh.x0 - Hh.gable, Hh.y1 + Hh.over, eave - 0.14]], `fill="${mix(T.roofSouth, "#000000", 0.1)}"`);
-    s += poly([[Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, ym, Hh.ridge], [Hh.x1 + Hh.gable, ym, Hh.ridge - 0.16], [Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave - 0.16]], `fill="${mix(T.roofSouth, "#000000", 0.16)}"`);
-    s += poly([[Hh.x1 + Hh.gable, ym, Hh.ridge], [Hh.x1 + Hh.gable, Hh.y0 - Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y0 - Hh.over, eave - 0.16], [Hh.x1 + Hh.gable, ym, Hh.ridge - 0.16]], `fill="${mix(T.roofBack, "#000000", 0.18)}"`);
-    s += `<path d="${path3([[Hh.x0 - Hh.gable, ym, Hh.ridge + 0.02], [Hh.x1 + Hh.gable, ym, Hh.ridge + 0.02]])}" stroke="#fff" stroke-opacity=".6" stroke-width="1"/>`;
-    if (m.solar) {
-      const cols = 6;
-      const rows = 3;
-      const xa = Hh.x0 + 0.6;
-      const xb = Hh.x1 - 0.5;
-      for (let r = 0; r < rows; r += 1) {
-        for (let c = 0; c < cols; c += 1) {
-          const a = xa + ((xb - xa) / cols) * c + 0.02;
-          const b = xa + ((xb - xa) / cols) * (c + 1) - 0.02;
-          const t0 = 0.14 + (0.76 / rows) * r + 0.01;
-          const t1 = 0.14 + (0.76 / rows) * (r + 1) - 0.01;
-          s += poly([at(a, t0), at(b, t0), at(b, t1), at(a, t1)], `fill="${T.panel}" stroke="${T.panelLine}" stroke-width=".7"`);
-        }
-      }
-      s += `<polygon class="cs-sheen" points="${pts([at(xa, 0.14), at(xb, 0.14), at(xb, 0.9), at(xa, 0.9)])}" fill="url(#cs-sheen)"/>`;
-      s += `<polygon class="cs-panelglow" points="${pts([at(xa - 0.04, 0.13), at(xb + 0.04, 0.13), at(xb + 0.04, 0.91), at(xa - 0.04, 0.91)])}"/>`;
     }
     // The heat pump by the gable.
     if (m.heat) {
-      s += shadow([[14.5, 7.4, 0], [16.4, 7.4, 0], [16.4, 8.4, 0], [14.5, 8.4, 0]], 0.25);
-      s += box(14.55, 7.55, 0.08, 15.95, 8.1, 1.05, DEV);
+      s += `<polygon points="${pts([[14.4, 7.4, 0], [16.4, 7.4, 0], [16.4, 8.5, 0], [14.4, 8.5, 0]])}" ${R("shadow", 'filter="url(#cs-blur)"')}/>`;
+      s += box(14.55, 7.55, 0.08, 15.95, 8.1, 1.05);
       s += `<g transform="${onY(14.55, 8.101, 1.05)}">
-        <circle cx=".55" cy=".48" r=".36" fill="#23272D"/>
-        <g class="cs-fan"><path d="M.55 .48 C .6 .3 .72 .22 .8 .3 C .74 .4 .64 .46 .55 .48 Z M.55 .48 C .74 .55 .76 .7 .68 .76 C .6 .7 .56 .58 .55 .48 Z M.55 .48 C .42 .62 .3 .64 .28 .54 C .36 .48 .46 .47 .55 .48 Z" fill="#5A616B"/></g>
-        <circle cx=".55" cy=".48" r=".36" fill="none" stroke="#4C525B" stroke-width=".04"/>
+        <circle cx=".55" cy=".48" r=".36" fill="#15181D"/>
+        <g class="cs-fan"><path d="M.55 .48 C .6 .3 .72 .22 .8 .3 C .74 .4 .64 .46 .55 .48 Z M.55 .48 C .74 .55 .76 .7 .68 .76 C .6 .7 .56 .58 .55 .48 Z M.55 .48 C .42 .62 .3 .64 .28 .54 C .36 .48 .46 .47 .55 .48 Z" fill="#4A5059"/></g>
         <rect class="cs-heatled" x="1.08" y=".14" width=".22" height=".04" rx=".02"/>
       </g>`;
     }
-    // A light over the garage door, lit at night.
-    LIGHTS.push(`<ellipse class="cs-lamp-glow" cx="${f1(P(2.05, G.y1, 2.45)[0])}" cy="${f1(P(2.05, G.y1, 2.45)[1])}" rx="34" ry="14"/>`);
-    LIGHTS.push(`<ellipse class="cs-lamp-glow" cx="${f1(P(6.95, Hh.y1, 2.5)[0])}" cy="${f1(P(6.95, Hh.y1, 2.5)[1])}" rx="16" ry="10"/>`);
+    // The roof: the lightest surface, with a thick white edge.
+    s += rpoly([[Hh.x0 - Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, ym, Hh.ridge], [Hh.x0 - Hh.gable, ym, Hh.ridge]], "roof");
+    if (m.solar) {
+      const xa = Hh.x0 + 0.6;
+      const xb = Hh.x1 - 0.5;
+      for (let r = 0; r < 3; r += 1) {
+        for (let c = 0; c < 6; c += 1) {
+          const a = xa + ((xb - xa) / 6) * c + 0.04;
+          const b = xa + ((xb - xa) / 6) * (c + 1) - 0.04;
+          const t0 = 0.16 + (0.72 / 3) * r + 0.02;
+          const t1 = 0.16 + (0.72 / 3) * (r + 1) - 0.02;
+          s += rpoly([at(a, t0), at(b, t0), at(b, t1), at(a, t1)], "panel", 'stroke-width=".8"');
+        }
+      }
+      s += `<polygon class="cs-sheen" points="${pts([at(xa, 0.16), at(xb, 0.16), at(xb, 0.88), at(xa, 0.88)])}" fill="url(#cs-sheen)"/>`;
+    }
+    s += rpoly([[Hh.x0 - Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave - edge], [Hh.x0 - Hh.gable, Hh.y1 + Hh.over, eave - edge]], "roofEdge");
+    s += rpoly([[Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, ym, Hh.ridge], [Hh.x1 + Hh.gable, ym, Hh.ridge - 0.2], [Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave - 0.2]], "roofEdge", 'style="filter:brightness(.95)"');
+    s += rpoly([[Hh.x1 + Hh.gable, ym, Hh.ridge], [Hh.x1 + Hh.gable, Hh.y0 - Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y0 - Hh.over, eave - 0.2], [Hh.x1 + Hh.gable, ym, Hh.ridge - 0.2]], "roofEdge", 'style="filter:brightness(.9)"');
+    s += `<path d="${path3([[Hh.x0 - Hh.gable, ym, Hh.ridge + 0.02], [Hh.x1 + Hh.gable, ym, Hh.ridge + 0.02]])}" stroke="#fff" stroke-opacity=".55" stroke-width="1.2"/>`;
+    // Light from the windows on the ground, and the lamps by the doors.
+    LIGHTS.push(`<polygon points="${pts([[Hh.x1, 3.2, 0], [Hh.x1, 7.4, 0], [Hh.x1 + 2.6, 7.9, 0], [Hh.x1 + 2.6, 2.7, 0]])}" fill="#FFC86B" opacity=".28" filter="url(#cs-shadow)"/>`);
+    LIGHTS.push(`<polygon points="${pts([[11.0, Hh.y1, 0], [13.4, Hh.y1, 0], [13.9, Hh.y1 + 2.3, 0], [10.5, Hh.y1 + 2.3, 0]])}" fill="#FFC86B" opacity=".28" filter="url(#cs-shadow)"/>`);
+    for (const [x, y, z, rx] of [[5.5, G.y1, 2.3, 22], [7.85, Hh.y1, 2.4, 20]]) {
+      const [lx, ly] = P(x, y, z);
+      LIGHTS.push(`<ellipse cx="${f1(lx)}" cy="${f1(ly + 28)}" rx="${rx}" ry="${f1(rx * 0.55)}" fill="#FFC86B" opacity=".35" filter="url(#cs-glowf)"/><circle cx="${f1(lx)}" cy="${f1(ly)}" r="2.6" fill="#FFE2A8"/>`);
+    }
     return s;
   }
 
-  function driveway() {
-    const G = GARAGE;
-    let s = poly([[G.x0, G.y1, 0.005], [G.x1, G.y1, 0.005], [G.x1, 15.6, 0.005], [G.x0, 15.6, 0.005]], `fill="${T.top}" fill-opacity=".8"`);
-    for (let y = G.y1 + 1.0; y < 15.6; y += 1.0) s += `<path d="${path3([[G.x0, y, 0.006], [G.x1, y, 0.006]])}" stroke="${T.line}" stroke-opacity=".45" stroke-width=".6"/>`;
-    for (let k = 0; k < 4; k += 1) s += poly([[10.6, 9.4 + k * 0.85, 0.01], [11.5, 9.4 + k * 0.85, 0.01], [11.5, 9.9 + k * 0.85, 0.01], [10.6, 9.9 + k * 0.85, 0.01]], `fill="${T.top}" fill-opacity=".8"`);
-    return s;
+  // The box where the current comes in, with its bolt.
+  function gateway() {
+    const y = HOUSE.y1;
+    return rpoly([[9.4, y + 0.14, 1.05], [9.9, y + 0.14, 1.05], [9.9, y + 0.14, 1.65], [9.4, y + 0.14, 1.65]], "device") +
+      rpoly([[9.9, y + 0.14, 1.05], [9.9, y, 1.05], [9.9, y, 1.65], [9.9, y + 0.14, 1.65]], "deviceSide") +
+      `<path d="M${P(9.67, y + 0.15, 1.55).map(f1).join(" ")} l-3 6 h3 l-2 6 l5 -8 h-3 l2 -4z" class="cs-bolt"/>`;
   }
 
-  // Where the current runs. A route per thing that is there.
-  function routes(m) {
-    const y1 = HOUSE.y1;
-    const ym = (HOUSE.y0 + HOUSE.y1) / 2;
-    const pitch = (HOUSE.ridge - HOUSE.h) / (ym - HOUSE.y0);
-    const eave = HOUSE.h - HOUSE.over * pitch;
-    const at = (x, k, lift = 0.05) => [x, y1 + HOUSE.over + (ym - y1 - HOUSE.over) * k, eave + (HOUSE.ridge - eave) * k + lift];
-    const r = {
-      home: [[9.9, y1 + 0.02, 1.5], [11.0, y1 + 0.02, 1.5]],
-      grid: [[9.65, y1 + 0.02, 1.05], [9.65, y1 + 0.02, 0.02], [9.65, 11.6, 0.02], [19.5, 11.6, 0.02]],
-    };
-    if (m.solar) r.sun = [at(HOUSE.x1 - 0.55, 0.12), [13.9, y1 + HOUSE.over, eave - 0.1], [13.9, y1 + 0.02, eave - 0.3], [13.9, y1 + 0.02, 1.35], [9.9, y1 + 0.02, 1.35]];
-    if (m.battery) r.battery = [[9.4, y1 + 0.02, 1.35], [8.95, y1 + 0.02, 1.35], [8.55, y1 + 0.33, 1.35]];
-    if (m.heat) r.heat = [[13.9, y1 + 0.02, 0.3], [13.9, y1 + 0.02, 0.05], [14.6, 8.6, 0.02], [14.9, 8.12, 0.3]];
-    m.chargers.slice(0, 2).forEach((_, i) => {
-      const bx = BOX[i].x + 0.18;
-      r[`car${i}`] = [[9.55, y1 + 0.02, 1.05], [9.55, y1 + 0.02, 0.3], [9.35, y1 + 0.02, 0.02], [9.35, 9.92, 0.02], [bx, 9.92, 0.02], [bx, GARAGE.y1 + 0.02, 0.4], [bx, GARAGE.y1 + 0.02, 0.95]];
+  // Where the current runs, each wire drawn the way the current usually goes: from the sun and the grid into
+  // the box, and out to the chargers, the heat pump and the battery.
+  function routes(m, boxes) {
+    const W = HOUSE.y1 + 0.02;
+    const { at, eave, edge } = ROOF;
+    const r = { grid: [[16.5, 11.6, 0.02], [9.65, 11.6, 0.02], [9.65, W, 0.02], [9.65, W, 1.05]] };
+    // Straight up the wall from the box and over the roof's edge to the panels.
+    const up = 9.65 + HOUSE.over;
+    if (m.solar) r.sun = [at(up, 0.16), at(up, 0), [up, HOUSE.y1 + HOUSE.over + 0.01, eave - edge], [9.65, W, eave - edge - HOUSE.over / 2 - 0.05], [9.65, W, 1.65]];
+    // Out of the box to the right, down, out from the wall and along to the heat pump.
+    if (m.heat) r.heat = [[9.9, W, 1.35], [10.6, W, 1.35], [10.6, W, 0.02], [10.6, 9.25, 0.02], [15.25, 9.25, 0.02], [15.25, 8.12, 0.02], [15.25, 8.12, 0.3]];
+    if (m.battery) r.battery = [[9.4, W, 1.5], [8.96, W, 1.5]];
+    // Out of the box to the left, down to the ground and along the garage to each charger (beside a battery, straight down).
+    const [left, z] = m.battery ? [9.12, 1.2] : [8.3, 1.35];
+    boxes.forEach((_, i) => {
+      const x = BOX[i].x + 0.18;
+      r[`car${i}`] = [[9.4, W, z], [left, W, z], [left, W, 0.02], [left, 9.95, 0.02], [x, 9.95, 0.02], [x, GARAGE.y1 + 0.15, 0.02], [x, GARAGE.y1 + 0.15, 0.95]];
     });
     return r;
   }
 
-  const ANCHORS = (m) => {
-    const a = { home: [12.2, HOUSE.y1 + 0.01, 2.2], grid: [17.6, 11.6, 0.2] };
+  // Where each car stands: in front of its charger. With two chargers, the middle one's car to the left and the
+  // corner one's to the right; with one, its car to the right and another car to the left.
+  function placeCars(m) {
+    const n = Math.min(2, m.chargers.length);
+    const taken = [false, false];
+    const out = m.cars.slice(0, 2).map((c) => ({ car: c, box: c.charger != null && c.charger < n ? c.charger : null, slot: null }));
+    for (const o of out) {
+      if (o.box === null) continue;
+      const slot = n === 2 ? o.box : 1;
+      if (taken[slot]) o.box = null;
+      else {
+        o.slot = slot;
+        taken[slot] = true;
+      }
+    }
+    for (const o of out) {
+      if (o.slot !== null) continue;
+      o.slot = taken[1] ? 0 : 1;
+      taken[o.slot] = true;
+    }
+    return out;
+  }
+
+  // Pulses of light along a wire: more and faster the more power, in the colours of where it comes from.
+  const REDUCED = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function packets(g, d, kw, colours) {
+    if (!g) return;
+    const q = Math.round(Math.min(22, kw) * 2) / 2;
+    const sig = q > 0.05 && d ? `${d.length}|${q}|${colours.join()}` : "";
+    if (g.dataset.sig === sig) return;
+    g.dataset.sig = sig;
+    if (!sig) {
+      g.innerHTML = "";
+      return;
+    }
+    const speed = 16 + 7 * q;
+    const step = Math.max(26, 54 - 2.4 * q);
+    const period = step * colours.length;
+    const dur = (period / speed).toFixed(2);
+    const layer = (len, width, colour, phase, extra) => {
+      const from = len + phase;
+      const anim = REDUCED ? "" : `<animate attributeName="stroke-dashoffset" from="${from}" to="${from - period}" dur="${dur}s" repeatCount="indefinite"/>`;
+      return `<path d="${d}" fill="none" stroke="${colour}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="${len} ${period - len}" stroke-dashoffset="${from}" ${extra}>${anim}</path>`;
+    };
+    g.innerHTML = colours.map((c, i) => {
+      const phase = i * step;
+      return layer(18, 9, c, phase, 'opacity=".55" filter="url(#cs-pkglow)"') + layer(16, 3.2, c, phase, 'opacity=".55"') + layer(8, 3.4, c, phase, "") + layer(0.5, 3.8, "#FFFFFF", phase, 'opacity=".95"');
+    }).join("");
+  }
+
+  const ANCHORS = (m, placed) => {
+    const a = { home: [12.2, HOUSE.y1 + 0.01, 2.2], grid: [16.5, 11.6, 0.1] };
     if (m.solar) a.sun = [10.4, 7.0, 4.2];
     if (m.battery) a.battery = [8.55, HOUSE.y1 + 0.3, 1.9];
     if (m.heat) a.heat = [15.25, 7.8, 1.1];
-    m.cars.slice(0, 2).forEach((c, i) => {
-      const b = BODIES[c.body] || BODIES.sedan;
-      a[`car${i}`] = [SLOTS[i].x + b.Wd / 2, SLOTS[i].y + b.L * 0.45, b.pts.reduce((h, p) => Math.max(h, p[1]), 0)];
+    (placed || []).forEach((p, i) => {
+      const b = BODIES[p.car.body] || BODIES.sedan;
+      a[`car${i}`] = [SLOTS[p.slot].x + b.Wd * 0.3, SLOTS[p.slot].y + b.L * 0.95, 0]; // in the drive, in front of the car
     });
     return a;
   };
-  // Where the labels sit (% of the picture), out of the way of the house.
 
   /* ------------------------------------------------------------ the scene */
 
   function defs() {
     return `<defs>
       <linearGradient id="cs-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ECEFF3"/><stop offset="1" stop-color="#DCE1E8"/></linearGradient>
-      <radialGradient id="cs-ground" cx=".5" cy=".55" r=".6"><stop offset="0" stop-color="${T.ground}"/><stop offset="1" stop-color="${T.ground}" stop-opacity="0"/></radialGradient>
-      <linearGradient id="cs-glass" x1="0" y1="0" x2=".7" y2="1"><stop offset="0" stop-color="${T.glassHi}"/><stop offset=".5" stop-color="${T.glass}"/><stop offset="1" stop-color="${mix(T.glass, "#000000", 0.08)}"/></linearGradient>
-      <linearGradient id="cs-sheen" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
-      <radialGradient id="cs-ball" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="${T.tree[0]}"/><stop offset="1" stop-color="${T.tree[1]}"/></radialGradient>
+      <radialGradient id="cs-ground" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="${MODES[0].ground}" ${R("groundStop")}/><stop offset=".7" stop-color="${MODES[0].ground}" stop-opacity=".6" ${R("groundStop")}/><stop offset="1" stop-color="${MODES[0].ground}" stop-opacity="0" ${R("groundStop")}/></radialGradient>
+      <linearGradient id="cs-sheen" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
       <linearGradient id="cs-side" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".16"/></linearGradient>
-      <radialGradient id="cs-glowg"><stop offset="0" stop-color="${FLOW.car}" stop-opacity=".5"/><stop offset="1" stop-color="${FLOW.car}" stop-opacity="0"/></radialGradient>
-      <filter id="cs-shadow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="9"/></filter>
-      <filter id="cs-blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3.5"/></filter>
+      <radialGradient id="cs-glowg"><stop offset="0" stop-color="${STATUS.charging}" stop-opacity=".5"/><stop offset="1" stop-color="${STATUS.charging}" stop-opacity="0"/></radialGradient>
+      <filter id="cs-shadow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="14"/></filter>
+      <filter id="cs-blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter>
       <filter id="cs-blur-s" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.6"/></filter>
+      <filter id="cs-glowf" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="6"/></filter>
+      <filter id="cs-pkglow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3"/></filter>
       <linearGradient id="cs-pane" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".35" stop-color="#fff" stop-opacity=".04"/><stop offset=".55" stop-color="#fff" stop-opacity=".14"/><stop offset=".7" stop-color="#fff" stop-opacity="0"/></linearGradient>
-      <filter id="cs-line" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.4"/></filter>
     </defs>`;
+  }
+
+  // What each car on a charger shows, and the power of each wire, from the model.
+  function statusOf(c) {
+    if (!c.plugged) return "unplugged";
+    if (c.charging) return "charging";
+    if (c.status === "planned") return "planned";
+    if (c.status === "completed") return "done";
+    return "connected";
   }
 
   class Scene {
@@ -1970,10 +2137,11 @@ const ClayScene = (() => {
       this.el = document.createElement("div");
       this.el.className = "cscene";
       this.key = "";
+      this.light = null;
     }
 
     _key(m) {
-      return JSON.stringify([!!m.solar, !!m.battery, !!m.heat, m.chargers.length, m.cars.map((c) => [c.body, c.paint, c.image || "", !!c.plugged, !!c.charging, c.charger])]);
+      return JSON.stringify([!!m.solar, !!m.battery, !!m.heat, m.chargers.length, m.cars.map((c) => [c.body, c.paint, c.image || "", !!c.plugged, c.charger])]);
     }
 
     update(m) {
@@ -1988,39 +2156,51 @@ const ClayScene = (() => {
     }
 
     _build(m) {
-      const cars = m.cars.slice(0, 2);
       const boxes = m.chargers.slice(0, 2);
-      this.routes = routes(m);
+      this.placed = placeCars(m);
+      this.routes = routes(m, boxes);
       LIGHTS = [];
-      let s = `<rect x="-400" y="-300" width="${W + 800}" height="${H + 600}" fill="url(#cs-bg)"/><ellipse cx="${W / 2}" cy="${H * 0.62}" rx="${W * 0.62}" ry="${H * 0.42}" fill="url(#cs-ground)"/>`;
-      s += `<g class="cs-stars">${[[90, 40], [180, 22], [260, 58], [520, 30], [640, 18], [720, 52], [380, 12], [600, 70]].map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i % 3 ? 1 : 1.5}" style="--d:${i * 0.7}s"/>`).join("")}</g>`;
+      const [gx, gy] = P(7, 9, 0);
+      let s = `<rect x="-400" y="-300" width="${W + 800}" height="${H + 600}" ${R("bg")}/><ellipse cx="${f1(gx)}" cy="${f1(gy)}" rx="430" ry="200" fill="url(#cs-ground)"/>`;
+      s += `<g class="cs-stars">${[[30, 30], [90, 75], [150, 15], [210, 50], [400, 4], [470, 40], [540, 14], [600, 70], [660, 25], [690, 110], [640, 150]].map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i % 3 ? 1.1 : 1.7}" style="--d:${i * 0.7}s"/>`).join("")}</g>`;
       s += `<g class="cs-world">${scene(m)}`;
-      // Chargers on the garage wall; a cable rolled up beside one whose car is not plugged in.
-      const plugged = new Set(cars.filter((c) => c.plugged).map((c, i) => c.charger ?? i));
+      // The chargers on the garage wall: one in the middle, a second by the right-hand corner.
       boxes.forEach((_, i) => {
-        s += wallbox(BOX[i].x, GARAGE.y1, cars.some((c, j) => (c.charger ?? j) === i && c.charging));
-        if (!plugged.has(i)) s += coil(BOX[i].x + 0.42, GARAGE.y1, 1.55);
+        s += `<g class="cs-charger" data-i="${i}">${wallbox(BOX[i].x)}</g>`;
       });
-      // Lines where the current runs: faint, glowing when it flows.
+      // The wires: always green; the pulses in them show where the current goes.
+      this.paths = {};
       for (const [k, r] of Object.entries(this.routes)) {
-        const color = FLOW[k.startsWith("car") ? "car" : k];
-        s += `<g class="cs-route" data-route="${k}" style="--c:${color}"><path class="cs-track" d="${path3(r)}"/><path class="cs-glow" d="${path3(r)}"/><path class="cs-core" d="${path3(r)}"/><path class="cs-pulse" d="${path3(r)}"/></g>`;
+        const d = path3(r);
+        this.paths[k] = d;
+        this.paths[`${k}Back`] = path3([...r].reverse());
+        s += `<g class="cs-wire" data-route="${k}"><path d="${d}" ${R("flowGlow", 'fill="none" stroke-width="7" stroke-linejoin="round" filter="url(#cs-glowf)"')}/><path d="${d}" ${R("flow", 'fill="none" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"')}/><g class="cs-pk"></g></g>`;
       }
-      // The cars, the far one first, each with its cable when it is plugged in.
-      cars.forEach((c, i) => {
-        const slot = SLOTS[i];
-        s += `<g class="cs-car">${car(slot.x, slot.y, c.body, c.paint, { charging: c.charging, image: c.image })}</g>`;
-        const box = c.charger ?? i;
-        if (c.plugged && box < boxes.length) {
-          const from = [BOX[box].x + 0.18, GARAGE.y1 + 0.15, 0.95];
-          const to = portOf(slot.x, slot.y, c.body);
-          const d = cable(from, to);
-          s += `<path class="cs-cable" d="${d}"/><path class="cs-cable-hi" d="${d}"/>${c.charging ? `<path class="cs-cable-live" d="${d}"/>` : ""}`;
-        }
+      s += gateway();
+      // A cable rolled up on the wall where no car is plugged in, behind the cars.
+      const plugged = new Set(this.placed.filter((p) => p.box !== null && p.car.plugged).map((p) => p.box));
+      boxes.forEach((_, i) => {
+        if (!plugged.has(i)) s += `<g class="cs-coil" data-i="${i}">${coiled(BOX[i].x, i === 0 ? BOX[i].x + 1.03 : BOX[i].x - 0.68)}</g>`;
       });
-      s += `</g><rect class="cs-dark" x="-400" y="-300" width="${W + 800}" height="${H + 600}"/><g class="cs-lights">${LIGHTS.join("")}</g>`;
+      // The cars, the far one first, then the cables of those plugged in.
+      let cables = "";
+      for (const p of [...this.placed].sort((a, b) => a.slot - b.slot)) {
+        const slot = SLOTS[p.slot];
+        const c = p.car;
+        s += `<g class="cs-car">${car(slot.x, slot.y, c.body, c.paint, { charging: c.charging, image: c.image })}</g>`;
+        if (c.plugged && p.box !== null) {
+          const a = P(BOX[p.box].x + 0.18, GARAGE.y1 + 0.15, 0.92);
+          const cable = plugCable(a, portAt(slot.x, slot.y, c.body, c.image));
+          this.paths[`cable${p.box}`] = cable.d;
+          cables += `<g class="cs-cable" data-i="${p.box}">${cable.svg}</g>`;
+        }
+      }
+      s += cables;
+      s += `</g><g class="cs-lights">${LIGHTS.join("")}</g>`;
       this.el.innerHTML = `<svg class="cs-main" viewBox="0 0 ${W} ${H}" aria-hidden="true">${defs()}${s}</svg><svg class="cs-leaders" viewBox="0 0 ${W} ${H}" aria-hidden="true"></svg><div class="cs-labels"></div>`;
       this.svg = this.el.querySelector("svg");
+      this.roles = [...this.svg.querySelectorAll("[data-r]")];
+      this.light = null;
       this.view = null;
       this._fit();
       if (!this.resize && window.ResizeObserver) {
@@ -2034,7 +2214,7 @@ const ClayScene = (() => {
     _fit() {
       const narrow = (this.el.clientWidth || W) < 560;
       const m = this.model || { cars: [], heat: null };
-      const corners = [[-1.4, 4.4, 0], [-1.4, 15.4, 0], [5.4, 15.4, 0], [14.2, 2, 0], [14.6, 8.9, 0], [6, 2, 5.9], [14.3, 5.3, 5.9], [-1.4, 4.4, 3]];
+      const corners = [[-1.4, 4.4, 0], [-1.4, 15.4, 0], [5.4, 15.4, 0], [14.2, 2, 0], [14.6, 8.9, 0], [6, 2, 5.9], [14.3, 5.3, 5.9], [-1.4, 4.4, 3], [16.5, 11.6, 0]];
       if (m.heat) corners.push([16.4, 8.4, 0]);
       const xy = corners.map((c) => P(...c));
       const x0 = Math.min(...xy.map((p) => p[0]));
@@ -2057,21 +2237,60 @@ const ClayScene = (() => {
 
     _live(m) {
       const flows = m.flows || {};
-      this.el.classList.toggle("is-dusk", m.daylight === "dusk");
-      this.el.classList.toggle("is-night", m.daylight === "night");
-      this.el.classList.toggle("sun-on", (Number(flows.sun) || 0) > 0.05);
+      // The light: from day (0) to night (1), with the sun.
+      const k = Math.max(0, Math.min(1, Number(m.light) || 0));
+      const look = modeAt(k);
+      if (this.light === null || Math.abs(k - this.light) > 0.004) {
+        const first = this.light === null;
+        if (first) this.el.classList.add("cs-instant");
+        this.light = k;
+        paint(this.roles, look);
+        this.el.style.background = look.bg;
+        this.svg.querySelector(".cs-stars").setAttribute("opacity", look.stars.toFixed(2));
+        this.svg.querySelector(".cs-lights").setAttribute("opacity", look.lights.toFixed(2));
+        for (const c of this.svg.querySelectorAll(".cs-car")) c.style.filter = look.car < 0.99 ? `brightness(${look.car.toFixed(2)})` : "";
+        this.el.classList.toggle("is-dark", k > 0.5);
+        if (first) requestAnimationFrame(() => requestAnimationFrame(() => this.el.classList.remove("cs-instant")));
+      }
+      const sun = Math.max(0, Number(flows.sun) || 0);
+      const bought = Math.max(0, -(Number(flows.grid) || 0));
+      const battery = Number(flows.battery) || 0;
+      this.el.classList.toggle("sun-on", sun > 0.05);
       this.el.classList.toggle("heat-on", (Number(flows.heat) || 0) > 0.05);
-      for (const g of this.el.querySelectorAll(".cs-route")) {
-        const k = g.dataset.route;
-        const v = Number(flows[k]) || 0;
-        g.classList.toggle("live", Math.abs(v) > 0.05);
-        g.classList.toggle("back", v < -0.05);
-        g.style.setProperty("--speed", `${Math.max(0.8, 3.2 - Math.sqrt(Math.abs(v)) * 0.7).toFixed(2)}s`);
+      // Where what the house uses comes from: the sun, the grid, the battery; a colour for each that counts.
+      const from = [[SOURCE.sun, sun], [SOURCE.grid, bought], [SOURCE.battery, Math.max(0, -battery)]];
+      const total = from.reduce((t, [, v]) => t + v, 0);
+      let used = from.filter(([, v]) => total > 0 && v / total >= 0.2).map(([c]) => c);
+      if (!used.length) used = [SOURCE.grid];
+      const wire = (k2) => this.svg.querySelector(`.cs-wire[data-route="${k2}"] .cs-pk`);
+      packets(wire("sun"), this.paths.sun, sun, [SOURCE.sun]);
+      const grid = Number(flows.grid) || 0; // negative when the house buys
+      packets(wire("grid"), grid > 0 ? this.paths.gridBack : this.paths.grid, Math.abs(grid), [grid > 0 ? SOURCE.sold : SOURCE.grid]);
+      packets(wire("heat"), this.paths.heat, Number(flows.heat) || 0, used);
+      packets(wire("battery"), battery < 0 ? this.paths.batteryBack : this.paths.battery, Math.abs(battery), battery < 0 ? [SOURCE.battery] : used);
+      // Each charger: its car's state on the light, the ring by the plug and the glow round the cable.
+      for (let i = 0; i < 2; i += 1) {
+        const p = this.placed.find((q) => q.box === i);
+        const kw = p ? Number(flows[`car${this.placed.indexOf(p)}`]) || 0 : 0;
+        packets(wire(`car${i}`), this.paths[`car${i}`], kw, used);
+        const state = p ? statusOf(p.car) : "unplugged";
+        const colour = STATUS[state];
+        for (const led of this.svg.querySelectorAll(`.cs-charger[data-i="${i}"] .cs-led, .cs-cable[data-i="${i}"] .cs-ring-led, .cs-coil[data-i="${i}"] .cs-ring-led`)) {
+          led.setAttribute("stroke", colour);
+          led.classList.toggle("pulse", state === "planned");
+        }
+        const cable = this.svg.querySelector(`.cs-cable[data-i="${i}"]`);
+        if (!cable) continue;
+        const glow = cable.querySelector(".cs-cable-glow");
+        glow.setAttribute("stroke", colour);
+        glow.setAttribute("opacity", ((state === "charging" ? 0.4 : 0.18) + 0.3 * look.lights).toFixed(2));
+        cable.classList.toggle("pulse", state === "planned");
+        packets(cable.querySelector(".cs-pk"), this.paths[`cable${i}`], kw, used);
       }
     }
 
     _labels(m) {
-      const anchors = ANCHORS(m);
+      const anchors = ANCHORS(m, this.placed);
       const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
       const [vx, vy, vw, vh] = this.view || [0, 0, W, H];
       // Each label straight above its point; labels that would meet move up a step.
@@ -2080,8 +2299,11 @@ const ClayScene = (() => {
         const anchor = anchors[label.key];
         if (!anchor) continue;
         const [ax, ay] = P(...anchor);
-        const lift = label.key === "grid" ? 26 : label.key.startsWith("car") ? 40 : 34;
-        items.push({ label, ax, ay, x: Math.min(vx + vw - 40, Math.max(vx + 40, ax)), y: Math.max(vy + 14, ay - lift) });
+        // The cars' labels sit in the drive in front of them, out of the way of the chargers and cables.
+        const lift = label.key === "grid" ? 26 : label.key.startsWith("car") ? -14 : 34;
+        // Kept inside the picture: half the label's width, roughly, in the picture's units.
+        const half = ((String(label.short ?? label.value).length * 6.6 + 40) / 2) * (vw / (this.el.clientWidth || W));
+        items.push({ label, ax, ay, x: Math.min(vx + vw - half, Math.max(vx + half, ax)), y: Math.max(vy + 14, ay - lift) });
       }
       items.sort((a, b) => a.x - b.x);
       for (let i = 0; i < items.length; i += 1) {
@@ -2094,11 +2316,12 @@ const ClayScene = (() => {
       let lines = "";
       let html = "";
       for (const { label, ax, ay, x, y } of items) {
-        const color = label.on ? (label.key === "sun" ? FLOW.sun : FLOW.home) : "#9AA3B2";
+        const color = label.colour || (label.on ? (label.key === "sun" ? SOURCE.sun : STATUS.charging) : "#9AA3B2");
         lines += `<path d="M${f1(x)} ${f1(y + 9)} L${f1(ax)} ${f1(ay)}" class="cs-leader"/><circle cx="${f1(ax)}" cy="${f1(ay)}" r="2.6" fill="${color}" stroke="#fff" stroke-width="1.1"/>`;
         const left = (((x - vx) / vw) * 100).toFixed(2);
         const top = (((y - vy) / vh) * 100).toFixed(2);
-        const ring = Number.isFinite(label.bar) ? `<svg class="cs-ring" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5" class="r0"/><circle cx="10" cy="10" r="7.5" class="r1" pathLength="100" style="stroke-dasharray:${Math.max(0, Math.min(100, label.bar)).toFixed(0)} 100"/></svg>` : `<span class="cs-dot"></span>`;
+        const pylon = `<svg class="cs-icon" viewBox="0 0 20 20" aria-hidden="true" style="stroke:${color}"><path d="M6 17 L9 3 L11 3 L14 17 M5 6.5 L15 6.5 M7.4 11 L12.6 11 M6 17 L12.4 9 M14 17 L7.6 9"/></svg>`;
+        const ring = label.icon === "grid" ? pylon : Number.isFinite(label.bar) ? `<svg class="cs-ring" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5" class="r0"/><circle cx="10" cy="10" r="7.5" class="r1" pathLength="100" style="stroke-dasharray:${Math.max(0, Math.min(100, label.bar)).toFixed(0)} 100${label.colour ? `;stroke:${label.colour}` : ""}"/></svg>` : `<span class="cs-dot"${label.colour ? ` style="background:${label.colour};box-shadow:0 0 6px ${label.colour}"` : ""}></span>`;
         html += `<button class="cs-label ${label.on ? "on" : ""} ${label.key === "sun" ? "sun" : ""} ${this.open?.has(label.key) ? "open" : ""}" data-act="scene-label" data-key="${label.key}" style="left:${left}%;top:${top}%" title="${esc(label.title)}" aria-label="${esc(`${label.title}: ${label.value}`)}">${ring}<span class="cs-t">${esc(label.title)}</span><span class="cs-v">${esc(label.short ?? label.value)}</span></button>`;
       }
       this.el.querySelector(".cs-leaders").innerHTML = lines;
@@ -2116,70 +2339,50 @@ const ClayScene = (() => {
 })();
 
 const CLAY_CSS = `
-.cscene { position: relative; border-radius: 18px; overflow: hidden; container-type: inline-size; background: #E4E8EE; transition: background 2s; }
-.cscene.is-night { background: #2A3346; }
-.cscene .cs-dark { fill: #0E1A33; opacity: 0; mix-blend-mode: multiply; transition: opacity 2s, fill 2s; pointer-events: none; }
-.cscene.is-dusk .cs-dark { fill: #6B4E6E; opacity: .32; }
-.cscene.is-night .cs-dark { opacity: .62; }
-.cscene .cs-light { fill: #FFD27A; opacity: 0; transition: opacity 2s; }
-.cscene.is-dusk .cs-light { opacity: .45; }
-.cscene.is-night .cs-light { opacity: .78; filter: drop-shadow(0 0 4px #FFB547); }
-.cscene .cs-lamp-glow { fill: #FFD27A; opacity: 0; filter: url(#cs-shadow); transition: opacity 2s; }
-.cscene.is-night .cs-lamp-glow { opacity: .55; }
-.cscene .cs-stars circle { fill: #fff; opacity: 0; transition: opacity 2s; }
-.cscene.is-night .cs-stars circle { opacity: .7; animation: cs-twinkle 4s ease-in-out infinite; animation-delay: var(--d); }
-@keyframes cs-twinkle { 50% { opacity: .2; } }
+.cscene { position: relative; border-radius: 18px; overflow: hidden; container-type: inline-size; background: #F2F3F6; transition: background 1.5s; }
+.cscene .cs-main [data-r] { transition: fill 1.5s, stroke 1.5s, opacity 1.5s, stop-color 1.5s; }
+.cscene .cs-main .cs-stars, .cscene .cs-main .cs-lights, .cscene .cs-main .cs-car { transition: opacity 1.5s, filter 1.5s; }
+.cscene.cs-instant, .cscene.cs-instant * { transition: none !important; }
+.cscene .cs-stars circle { fill: #fff; }
+.cscene.is-dark .cs-stars circle { animation: cs-twinkle 4s ease-in-out infinite; animation-delay: var(--d); }
+@keyframes cs-twinkle { 50% { opacity: .25; } }
 .cscene svg { display: block; width: 100%; height: auto; }
 .cscene .cs-leaders { position: absolute; inset: 0; height: 100%; pointer-events: none; }
 .cscene .cs-leader { stroke: #9AA3B2; stroke-width: 1.1; fill: none; }
-.cscene .cs-track { fill: none; stroke: #CBD1DA; stroke-width: 1.4; stroke-linejoin: round; }
-.cscene .cs-glow, .cscene .cs-core, .cscene .cs-pulse { fill: none; stroke-linejoin: round; stroke-linecap: round; opacity: 0; transition: opacity .6s; }
-.cscene .cs-glow { stroke: var(--c); stroke-width: 5; stroke-opacity: .45; filter: url(#cs-line); }
-.cscene .cs-core { stroke: var(--c); stroke-width: 1.8; }
-.cscene .cs-pulse { stroke: #fff; stroke-width: 2; stroke-dasharray: 6 46; animation: cs-run var(--speed, 2s) linear infinite; }
-.cscene .cs-route.back .cs-pulse { animation-direction: reverse; }
-.cscene .cs-route.live .cs-glow, .cscene .cs-route.live .cs-core, .cscene .cs-route.live .cs-pulse { opacity: 1; }
-.cscene .cs-route.live .cs-track { opacity: 0; }
-.cscene .cs-cable { fill: none; stroke: #2D3137; stroke-width: 3; stroke-linecap: round; }
-.cscene .cs-cable-hi { fill: none; stroke: #fff; stroke-opacity: .22; stroke-width: 1; stroke-linecap: round; transform: translate(-.6px, -.6px); }
-.cscene .cs-cable-live { fill: none; stroke: #22C981; stroke-width: 1.2; stroke-linecap: round; stroke-dasharray: 5 30; animation: cs-run 1.6s linear infinite; }
-.cscene .cs-port { fill: #9AA3AD; }
-.cscene .cs-port.on { fill: #22C981; }
-.cscene .cs-boxled { fill: #8FA0B8; }
-.cscene .cs-boxled.on { fill: #B9FBDD; }
-.cscene .cs-boxglow { fill: #7FA6FF; opacity: .45; filter: url(#cs-line); }
-.cscene .cs-boxglow.on { fill: #22C981; opacity: .9; animation: cs-breathe 1.8s ease-in-out infinite; }
-.cscene .cs-glowbar { filter: url(#cs-line); opacity: .9; }
+.cscene .cs-led { stroke: #9AA6B4; }
+.cscene .pulse { animation: cs-pulse 2.4s ease-in-out infinite; }
+@keyframes cs-pulse { 50% { opacity: .35; } }
+.cscene .cs-glowbar { filter: url(#cs-pkglow); opacity: .9; }
 .cscene .cs-bolt { fill: #F5B92E; filter: drop-shadow(0 0 2px #F5B92E); }
 .cscene .cs-heatled { fill: #5A616B; }
 .cscene.heat-on .cs-heatled { fill: #22C981; filter: drop-shadow(0 0 2px #22C981); }
-.cscene .cs-panelglow { fill: none; stroke: #F5B92E; stroke-width: 1.4; opacity: 0; filter: drop-shadow(0 0 3px #F5B92E); transition: opacity .8s; }
-.cscene.sun-on .cs-panelglow { opacity: .85; }
-.cscene .cs-fan { animation-play-state: paused; }
-.cscene.heat-on .cs-fan { animation-play-state: running; }
-.cscene .cs-carglow { animation: cs-breathe 2.4s ease-in-out infinite; }
 .cscene .cs-sheen { opacity: 0; }
 .cscene.sun-on .cs-sheen { animation: cs-sheen 6s ease-in-out infinite; }
-.cscene .cs-fan { transform-box: fill-box; transform-origin: center; animation: cs-spin 1.6s linear infinite; }
+.cscene .cs-fan { transform-box: fill-box; transform-origin: center; animation: cs-spin 1.6s linear infinite; animation-play-state: paused; }
+.cscene.heat-on .cs-fan { animation-play-state: running; }
+.cscene .cs-carglow { animation: cs-breathe 2.4s ease-in-out infinite; }
 .cscene .cs-labels { position: absolute; inset: 0; pointer-events: none; }
 .cs-label { position: absolute; transform: translate(-50%, -50%); width: max-content; pointer-events: auto; cursor: pointer; border: 0; font: inherit;
-  background: rgba(17,20,24,.88); color: #fff; border-radius: 999px; padding: 3px 9px 3px 4px; font-size: 12px; font-weight: 600;
-  display: flex; align-items: center; gap: 5px; box-shadow: 0 4px 12px rgba(0,0,0,.18); backdrop-filter: blur(4px); animation: cs-pop .5s cubic-bezier(.2,.8,.2,1) both; }
-.cs-label .cs-dot { width: 7px; height: 7px; border-radius: 50%; background: #6B7280; flex: none; margin-left: 4px; }
+  background: rgba(255,255,255,.94); color: #141A22; border-radius: 999px; padding: 3px 9px 3px 4px; font-size: 12px; font-weight: 600;
+  display: flex; align-items: center; gap: 5px; box-shadow: 0 4px 12px rgba(20,26,34,.14), 0 0 0 1px rgba(20,26,34,.06); backdrop-filter: blur(4px); animation: cs-pop .5s cubic-bezier(.2,.8,.2,1) both; transition: background 1.5s, color 1.5s; }
+.is-dark .cs-label { background: rgba(23,28,36,.9); color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,.3), 0 0 0 1px rgba(255,255,255,.06); }
+.cs-label .cs-dot { width: 7px; height: 7px; border-radius: 50%; background: #9AA3B2; flex: none; margin-left: 4px; }
 .cs-label.on .cs-dot { background: #22C981; box-shadow: 0 0 6px #22C981; }
-.cs-label.on.sun .cs-dot { background: #F5B92E; box-shadow: 0 0 6px #F5B92E; }
-.cs-label .cs-t { display: none; color: #fff; }
+.cs-label.on.sun .cs-dot { background: #FFB224; box-shadow: 0 0 6px #FFB224; }
+.cs-label .cs-t { display: none; }
 .cs-label.open .cs-t { display: inline; }
-.cs-label .cs-v { color: #E3E7EC; font-variant-numeric: tabular-nums; }
+.cs-label .cs-v { color: #3A4250; font-variant-numeric: tabular-nums; }
+.is-dark .cs-label .cs-v { color: #E3E7EC; }
+.cs-label .cs-icon { width: 16px; height: 16px; flex: none; margin-left: 2px; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .cs-label .cs-ring { width: 18px; height: 18px; flex: none; transform: rotate(-90deg); }
-.cs-label .cs-ring .r0 { fill: none; stroke: #3A3F47; stroke-width: 3; }
+.cs-label .cs-ring .r0 { fill: none; stroke: #DCE1E8; stroke-width: 3; }
+.is-dark .cs-label .cs-ring .r0 { stroke: #3A3F47; }
 .cs-label .cs-ring .r1 { fill: none; stroke: #22C981; stroke-width: 3; stroke-linecap: round; }
 @keyframes cs-pop { from { opacity: 0; transform: translate(-50%, -30%) scale(.9); } }
 @container (max-width: 560px) {
   .cs-label { font-size: 10.5px; padding: 2px 7px 2px 3px; gap: 4px; }
   .cs-label .cs-ring { width: 15px; height: 15px; }
 }
-@keyframes cs-run { to { stroke-dashoffset: -52; } }
 @keyframes cs-breathe { 50% { opacity: .45; } }
 @keyframes cs-sheen { 0%, 60% { opacity: 0; } 80% { opacity: .5; } 100% { opacity: 0; } }
 @keyframes cs-spin { to { transform: rotate(360deg); } }
@@ -4854,13 +5057,16 @@ class EvPlannerPanel extends HTMLElement {
     }
     if (gridKw !== null) {
       const text = Math.abs(gridKw) < 0.05 ? "0 W" : this._t(gridKw > 0 ? "home_buys" : "home_sells", { kw: power(gridKw) });
-      labels.push({ key: "grid", title: this._t("home_grid"), value: text, short: Math.abs(gridKw) < 0.05 ? "0 W" : power(gridKw), on: Math.abs(gridKw) > 0.05 });
+      // Blue when the house buys, purple when it sells: the colours of the Energy dashboard.
+      const colour = gridKw > 0.05 ? "#3B8BFF" : gridKw < -0.05 ? "#9A6BFF" : "#9AA6B4";
+      labels.push({ key: "grid", title: this._t("home_grid"), value: text, short: text, on: Math.abs(gridKw) > 0.05, colour, icon: "grid" });
     }
     const sun = this._hass?.states?.["sun.sun"];
     const elevation = Number(sun?.attributes?.elevation);
-    const daylight = !Number.isFinite(elevation) ? (sun?.state === "below_horizon" ? "night" : "day") : elevation > 4 ? "day" : elevation > -6 ? "dusk" : "night";
+    // From day (0) to night (1): day above 6°, night below −6°, gliding between them.
+    const light = !Number.isFinite(elevation) ? (sun?.state === "below_horizon" ? 1 : 0) : clamp((6 - elevation) / 12, 0, 1);
     const model = {
-      daylight,
+      light,
       solar: solar || isNum(home.solar_kw) ? { kw: sunKw } : null,
       battery,
       heat: this._state.heat_pump || (heatKw !== null ? { kw: heatKw } : null),
@@ -4883,11 +5089,15 @@ class EvPlannerPanel extends HTMLElement {
         paint: settings.paint === "black" ? "black" : "white",
         plugged,
         charging: kw > 0.05,
+        status: v.status,
         charger: charger >= 0 ? charger : i,
       });
       flows[`car${i}`] = kw;
-      const doing = kw > 0.05 ? power(kw) : plugged ? this._t("home_idle") : this._t("home_unplugged");
-      labels.push({ key: `car${i}`, title: v.name, value: [soc, doing].filter(Boolean).join(" · "), short: kw > 0.05 ? `${soc} · ${power(kw)}` : soc || doing, on: kw > 0.05, bar: isNum(v.soc) ? Number(v.soc) : undefined });
+      // The car's label in the colour of its cable: grey, blue when plugged in, yellow when planned, green when charging or done.
+      const start = v.status === "planned" && hasSegments(v.plan) ? v.plan.segments[0].start : null;
+      const doing = kw > 0.05 ? power(kw) : !plugged ? this._t("home_unplugged") : start ? this._t("home_planned_at", { time: this._time(start) }) : v.status === "completed" ? this._t("home_done") : this._t("home_idle");
+      const colour = !plugged ? "#9AA6B4" : kw > 0.05 || v.status === "completed" ? "#22C981" : start ? "#F5A524" : "#3B8BFF";
+      labels.push({ key: `car${i}`, title: v.name, value: [soc, doing].filter(Boolean).join(" · "), short: kw > 0.05 || start || v.status === "completed" ? [soc, doing].filter(Boolean).join(" · ") : soc || doing, on: kw > 0.05, colour, bar: isNum(v.soc) ? Number(v.soc) : undefined });
     });
     return model;
   }

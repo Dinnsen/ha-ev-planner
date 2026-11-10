@@ -2,6 +2,17 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_planner/manifest.json`.
 
+## [2.3.0b2] - 2026-11-10
+
+Beta: only those who show beta versions in the Marketplace get it.
+
+### Changed
+- **A new house picture.** Grey walls, a white roof, dark solar panels and soft shadows under the eaves that stay put all day. The picture slides from day over dusk to night with the sun (day above 6°, night below −6°): warm windows, lamps by the doors and stars at night.
+- **The wires are green and show where the current goes.** Pulses of light run along them in the colours of the Energy dashboard: yellow from the sun, blue bought from the grid, purple sold, turquoise from the home battery. The more power, the more and faster pulses; when the house uses both sun and grid, they take turns. The wire to the grid ends in its label with a pylon and *buying* or *selling*.
+- **The wires run like real ones:** from the panels straight down the wall into the box, out of the box to the left and along the garage to the chargers, out to the right and along to the heat pump.
+- **Real charging cables.** A black cable with a plug into the car's port, or rolled up on a hook beside the charger when no car is plugged in. The charger's light, a ring by the plug and the car's label show the state: grey not plugged in, blue plugged in, yellow (slowly pulsing) planned with its start time, green charging or done.
+- **Two chargers:** one in the middle of the garage and one by its right-hand corner, each car in front of its own charger. The cars' labels sit in the drive in front of them.
+
 ## [2.3.0b1] - 2026-11-09
 
 Beta: only those who show beta versions in the Marketplace get it.
