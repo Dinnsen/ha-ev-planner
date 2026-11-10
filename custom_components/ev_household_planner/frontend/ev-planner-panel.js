@@ -33,6 +33,11 @@ const TEXT = {
     home_charges: "lader {kw}",
     home_gives: "afgiver {kw}",
     rule_look: "Bilen i fanen Hjem",
+    rule_spot: "Bilens plads i indkørslen",
+    rule_spot_hint: "Hvor bilen holder i husets billede. Automatisk: foran sin lader.",
+    spot_auto: "Automatisk",
+    spot_left: "Venstre",
+    spot_right: "Højre",
     rule_look_hint: "Sådan ser bilen ud i tegningen af huset.",
     body_mini: "Mini",
     body_sedan: "Sedan",
@@ -498,6 +503,11 @@ const TEXT = {
     home_charges: "charging {kw}",
     home_gives: "giving {kw}",
     rule_look: "The car in the Home tab",
+    rule_spot: "The car's place in the drive",
+    rule_spot_hint: "Where the car stands in the picture of the house. Automatic: in front of its charger.",
+    spot_auto: "Automatic",
+    spot_left: "Left",
+    spot_right: "Right",
     rule_look_hint: "How the car looks in the drawing of the house.",
     body_mini: "Small",
     body_sedan: "Saloon",
@@ -2066,12 +2076,27 @@ const ClayScene = (() => {
     function placeCars(m) {
       const n = Math.min(2, m.chargers.length);
       const taken = [false, false];
+      const boxes = [false, false];
       const out = m.cars.slice(0, 2).map((c) => ({ car: c, box: c.charger != null && c.charger < n ? c.charger : null, slot: null }));
+      // Two cars cannot share a charger: the first one has it.
       for (const o of out) {
         if (o.box === null) continue;
+        if (boxes[o.box]) o.box = null;
+        else boxes[o.box] = true;
+      }
+      // A car with a place of its own (left or right, chosen on its page) stands there.
+      for (const o of out) {
+        const spot = o.car.spot;
+        if ((spot === 0 || spot === 1) && !taken[spot]) {
+          o.slot = spot;
+          taken[spot] = true;
+        }
+      }
+      // The others in front of their charger, or where there is room.
+      for (const o of out) {
+        if (o.slot !== null || o.box === null) continue;
         const slot = n === 2 ? o.box : 1;
-        if (taken[slot]) o.box = null;
-        else {
+        if (!taken[slot]) {
           o.slot = slot;
           taken[slot] = true;
         }
@@ -2306,13 +2331,29 @@ const ClayScene = (() => {
     function placeCars(m) {
       const n = Math.min(2, m.chargers.length);
       const taken = [false, false];
+      const boxes = [false, false];
       const out = m.cars.slice(0, 2).map((c) => ({ car: c, box: c.charger != null && c.charger < n ? c.charger : null, slot: null }));
+      // Two cars cannot share a charger: the first one has it.
       for (const o of out) {
         if (o.box === null) continue;
-        if (taken[o.box]) o.box = null;
-        else {
-          o.slot = o.box;
-          taken[o.box] = true;
+        if (boxes[o.box]) o.box = null;
+        else boxes[o.box] = true;
+      }
+      // A car with a place of its own (left or right, chosen on its page) stands there.
+      for (const o of out) {
+        const spot = o.car.spot;
+        if ((spot === 0 || spot === 1) && !taken[spot]) {
+          o.slot = spot;
+          taken[spot] = true;
+        }
+      }
+      // The others in front of their charger, or where there is room.
+      for (const o of out) {
+        if (o.slot !== null || o.box === null) continue;
+        const slot = o.box;
+        if (!taken[slot]) {
+          o.slot = slot;
+          taken[slot] = true;
         }
       }
       for (const o of out) {
@@ -2728,6 +2769,8 @@ class EvPlannerPanel extends HTMLElement {
   set hass(hass) {
     const first = !this._hass;
     this._hass = hass;
+    this.toggleAttribute("dark", !!hass?.themes?.darkMode);
+    this.toggleAttribute("light", hass?.themes?.darkMode === false);
     if (this._menu) this._menu.hass = hass;
     if (first) {
       this._renderShell();
@@ -4642,7 +4685,7 @@ class EvPlannerPanel extends HTMLElement {
       "min_soc", "must_soc", "priority", "price_ceiling_enabled", "price_ceiling", "price_ceiling_relative", "price_ceiling_above", "low_price_charging", "low_price_level", "low_soc_charging", "low_soc_level",
       "opportunistic", "opportunistic_level", "follow_level", "keep_charger_on", "use_earliest_start", "earliest_start",
       "join_period", "join_within", "continuous", "prefer_early", "early_within", "topup", "topup_level",
-      "solar", "body", "paint",
+      "solar", "body", "paint", "spot",
     ].map((key) => s[key]);
   }
 
@@ -4744,6 +4787,13 @@ class EvPlannerPanel extends HTMLElement {
           hint: this._t("rule_look_hint"),
           control: "",
           extra: `<div class="rule-under carlook">${seg("body", bodies, body, this._t("rule_look"))}</div>`,
+        }),
+        this._ruleRow({
+          icon: "home",
+          title: this._t("rule_spot"),
+          hint: this._t("rule_spot_hint"),
+          control: "",
+          extra: `<div class="rule-under carlook">${seg("spot", ["auto", "left", "right"], ["left", "right"].includes(s.spot) ? s.spot : "auto", this._t("rule_spot"))}</div>`,
         }),
       );
     }
@@ -5401,6 +5451,7 @@ class EvPlannerPanel extends HTMLElement {
         image: photo,
         body: photo || !ClayScene.BODIES.includes(settings.body) ? "sedan" : settings.body,
         paint: settings.paint === "black" ? "black" : "white",
+        spot: settings.spot === "left" ? 0 : settings.spot === "right" ? 1 : null,
         plugged,
         charging: kw > 0.05,
         status: v.status,
@@ -6497,6 +6548,9 @@ class EvPlannerPanel extends HTMLElement {
       case "body":
         this._vchange({ body: button.dataset.value });
         break;
+      case "spot":
+        this._vchange({ spot: button.dataset.value });
+        break;
       case "paint":
         this._vchange({ paint: button.dataset.value });
         break;
@@ -6684,6 +6738,10 @@ const STYLE = `
   --evp-soft: var(--secondary-text-color, #5e5e5e);
   --evp-card: var(--card-background-color, #fff);
   --evp-bg: var(--primary-background-color, #fafafa);
+  /* A surface nothing shows through, for what lies over the page (sheets, the tab bar): the card's
+     colour over the page's colour over a solid one, because a theme with glass cards has a see-through card colour. */
+  --evp-base: #fff;
+  --evp-solid: linear-gradient(var(--evp-card), var(--evp-card)), linear-gradient(var(--evp-bg), var(--evp-bg)), linear-gradient(var(--evp-base), var(--evp-base));
   --evp-line: var(--divider-color, rgba(0,0,0,.12));
   /* A soft "studio floor" behind photos, in light and dark themes. */
   --evp-photo-bg: radial-gradient(120% 90% at 50% 100%, color-mix(in srgb, var(--evp-ink) 11%, transparent), color-mix(in srgb, var(--evp-ink) 3%, transparent) 72%);
@@ -6743,6 +6801,8 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
    safe areas Home Assistant pads that box with. */
 :host(ev-planner-panel:not([app]):not([embed])) { height: calc(100dvh - var(--safe-area-inset-top, 0px) - var(--safe-area-inset-bottom, 0px)); }
 /* The home-screen app: the page never bounces or moves, only the content scrolls. */
+:host([dark]) { --evp-base: #1c1c1e; }
+@media (prefers-color-scheme: dark) { :host(:not([light])) { --evp-base: #1c1c1e; } }
 :host([app]) .content { overscroll-behavior: none; }
 /* In a pop-up from a dashboard card: one view, without the header and the tabs. */
 :host([embed]) { background: none; }
@@ -7238,7 +7298,7 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 .toast button { border: 0; background: transparent; color: inherit; width: 32px; height: 32px; display: grid; place-content: center; cursor: pointer; }
 .toast svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
 .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 20; animation: fade .2s; }
-.sheet { position: fixed; z-index: 21; left: 50%; bottom: 0; transform: translateX(-50%); width: min(520px, 100%); background: var(--evp-card); border-radius: 22px 22px 0 0;
+.sheet { position: fixed; z-index: 21; left: 50%; bottom: 0; transform: translateX(-50%); width: min(520px, 100%); background: var(--evp-solid); border-radius: 22px 22px 0 0;
   padding: 18px 20px calc(22px + var(--evp-safe-bottom)); animation: up .3s cubic-bezier(.2,.8,.2,1); max-height: 90vh; overflow: auto; }
 .sheet header { display: flex; justify-content: space-between; align-items: center; }
 .sheet h2 { margin: 0; font-size: 18px; }
@@ -7275,7 +7335,7 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 .tile-text small { color: var(--evp-soft); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tile-go svg { width: 16px; height: 16px; transform: rotate(180deg); fill: none; stroke: var(--evp-soft); stroke-width: 2; }
 .sheet.in-page { display: grid; gap: 12px; }
-.sheet.in-page header { position: sticky; top: -18px; background: var(--evp-card); padding: 4px 0 8px; z-index: 1; }
+.sheet.in-page header { position: sticky; top: -18px; background: var(--evp-solid); padding: 4px 0 8px; z-index: 1; }
 .sheet.in-page h2 { display: flex; align-items: center; gap: 8px; }
 .sheet.in-page h2 svg { width: 20px; height: 20px; fill: none; stroke: var(--evp-a); stroke-width: 1.8; }
 .sheet-body { display: grid; gap: 4px; }
@@ -7395,7 +7455,9 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
   .page { grid-template-columns: minmax(0, 1fr); gap: 14px; }
   .col { gap: 14px; }
   .cars-grid, .side-grid { gap: 14px; }
-  .tabs { position: fixed; left: 0; right: 0; bottom: 0; justify-self: stretch; justify-content: space-around; background: var(--evp-card); background-color: var(--card-background-color, var(--evp-bg)); border-top: 1px solid var(--evp-line); padding: 6px 8px calc(6px + var(--evp-safe-bottom)); z-index: 5; isolation: isolate; }
+  .tabs { position: fixed; left: 0; right: 0; bottom: 0; justify-self: stretch; justify-content: space-around; background: var(--evp-solid); border-top: 1px solid var(--evp-line); padding: 6px 8px calc(6px + var(--evp-safe-bottom)); z-index: 5; isolation: isolate; }
+  /* A sheet that opens in the page lies over the tab bar, not under it. */
+  .content:has(.sheet.in-page) { position: relative; z-index: 13; }
   /* The tabs sit in the header: above everything on the page, below the sheets. */
   .bar { z-index: 12; }
   .toast { z-index: 14; }

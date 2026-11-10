@@ -199,6 +199,8 @@ SOLAR_OPTIONS: Final = [SOLAR_OFF, SOLAR_SURPLUS, SOLAR_ONLY]
 SET_BODY: Final = "body"
 BODY_OPTIONS: Final = ["mini", "sedan", "suv", "estate", "van", "photo"]
 SET_PAINT: Final = "paint"
+SET_SPOT: Final = "spot"
+SPOT_OPTIONS: Final = ["auto", "left", "right"]
 PAINT_OPTIONS: Final = ["white", "black"]
 # A target per weekday of the ready-by time: {"fri": 100}.
 SET_DAY_TARGETS: Final = "day_targets"
@@ -267,6 +269,7 @@ DEFAULT_VEHICLE_SETTINGS: Final[dict[str, object]] = {
     SET_SOLAR: SOLAR_OFF,
     SET_BODY: "sedan",
     SET_PAINT: "white",
+    SET_SPOT: "auto",
     SET_DAY_TARGETS: {},
 }
 

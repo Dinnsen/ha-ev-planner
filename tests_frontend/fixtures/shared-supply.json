@@ -621,6 +621,7 @@
         "solar": "surplus",
         "body": "mini",
         "paint": "black",
+        "spot": "auto",
         "day_targets": {}
       }
     },
@@ -975,6 +976,7 @@
         "solar": "off",
         "body": "suv",
         "paint": "white",
+        "spot": "auto",
         "day_targets": {}
       }
     }

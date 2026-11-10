@@ -334,3 +334,20 @@ def test_a_patch_of_a_list_that_changed_its_cars_is_the_whole_list() -> None:
     assert state_patch(old, new) == {"patch": {"now": "b", "vehicles": [{"id": "2", "soc": 2}]}, "gone": ["old"]}
     same = {"now": "b", "vehicles": [{"id": "1", "soc": 5}, {"id": "2", "soc": 2}], "guest": None, "old": 1}
     assert state_patch(old, same) == {"patch": {"now": "b"}, "items": {"vehicles": {"1": {"id": "1", "soc": 5}}}}
+
+
+async def test_a_car_gets_a_place_in_the_drive(
+    hass: HomeAssistant, init_integration: MockConfigEntry, hass_ws_client: WebSocketGenerator
+) -> None:
+    client = await hass_ws_client(hass)
+    tesla = init_integration.runtime_data.vehicles[TESLA]
+    assert tesla.settings["spot"] == "auto"
+    await client.send_json(
+        {"id": 1, "type": "ev_household_planner/vehicle_set", "vehicle_id": TESLA, "settings": {"spot": "left"}}
+    )
+    assert (await client.receive_json())["success"]
+    assert tesla.settings["spot"] == "left"
+    await client.send_json(
+        {"id": 2, "type": "ev_household_planner/vehicle_set", "vehicle_id": TESLA, "settings": {"spot": "roof"}}
+    )
+    assert not (await client.receive_json())["success"]

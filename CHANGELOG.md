@@ -6,6 +6,13 @@ All notable changes to EV Planner. The version is the one in `custom_components/
 
 Beta: only those who show beta versions in the Marketplace get it.
 
+### Added
+- **A car's place in the drive.** On the car's page, under *Rules*: *Automatic* (in front of its charger), *Left* or *Right*. The house picture shows the car there.
+
+### Fixed
+- **Sheets and the tab bar could be seen through** with a theme with glass cards: the text behind showed through them. They are solid now, in light and dark.
+- **A sheet in Settings lay under the tab bar on a phone**, so its last lines could not be read. It lies over the tab bar now.
+
 ### Changed
 - **The panel and the cards get only what changed.** The whole state is sent once when they open; after that only the parts that changed, and of the cars and chargers only the ones that did. Nothing is sent when nothing changed. Less to send and to read on a phone, most of all with two days of quarter-hour prices.
 

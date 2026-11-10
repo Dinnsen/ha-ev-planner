@@ -52,7 +52,7 @@ const SETTINGS = {
   reminder_days: ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], reminder_repeat: 0, reminder_horizon: 24,
   notify_targets: [], live: false, notify_done: false, notify_receipt: true,
   early_enabled: false, early_within: 0.02, topup_enabled: false, topup_level: 80, must_soc: 0,
-  priority: "normal", solar: "off", body: "sedan", paint: "white", day_targets: {},
+  priority: "normal", solar: "off", body: "sedan", paint: "white", spot: "auto", day_targets: {},
 };
 
 function plan(segments, extra = {}) {

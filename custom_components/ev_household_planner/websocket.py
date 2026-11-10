@@ -74,12 +74,14 @@ from .const import (
     SET_REMINDER_TIME,
     SET_SCHEDULE,
     SET_SOLAR,
+    SET_SPOT,
     SET_TARGET_SOC,
     SET_TOPUP_ENABLED,
     SET_TOPUP_LEVEL,
     SET_USE_EARLIEST_START,
     SET_USE_READY_BY,
     SOLAR_OPTIONS,
+    SPOT_OPTIONS,
     WEEKDAYS,
 )
 from .guest import GuestSession, serialize_segments
@@ -155,6 +157,7 @@ VEHICLE_SCHEMA = vol.Schema(
         vol.Optional(SET_SOLAR): vol.In(SOLAR_OPTIONS),
         vol.Optional(SET_BODY): vol.In(BODY_OPTIONS),
         vol.Optional(SET_PAINT): vol.In(PAINT_OPTIONS),
+        vol.Optional(SET_SPOT): vol.In(SPOT_OPTIONS),
         vol.Optional(SET_DAY_TARGETS): {vol.In(WEEKDAYS): vol.All(vol.Coerce(float), vol.Range(min=10, max=100))},
         vol.Optional(FORGET_RESUME): cv.boolean,
     }

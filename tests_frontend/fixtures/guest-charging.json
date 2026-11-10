@@ -529,6 +529,7 @@
         "solar": "off",
         "body": "suv",
         "paint": "white",
+        "spot": "auto",
         "day_targets": {}
       }
     }
