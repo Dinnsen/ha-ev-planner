@@ -126,7 +126,7 @@ Kortene følger jeres tema uden card-mod: Home Assistants egne variabler for kor
 
 **EV Planner** i sidemenuen har fem faner: **Biler** (et kort pr. bil; tryk for bilens side med *Nu*, *Regler* og *Historik*), **Hjem** (huset som lermodel med biler, ladere, sol, batteri og varmepumpe, dag og nat), **Gæst**, **Historik** (dag, uge, måned og år, og *Eksportér CSV* med én linje pr. opladning) og **Indstillinger**.
 
-Under *Indstillinger → Hus* vælger I billedet i Hjem-fanen: det *klassiske* hus eller *vinkelhuset* (et vinkelhus set med garagen nærmest).
+Under *Indstillinger → Hus* vælger I billedet i Hjem-fanen: det *klassiske* hus eller *vinkelhuset* (et vinkelhus set med garagen nærmest). En administrator kan trykke *Tilpas* på billedet og flytte laderne, elboksen, husbatteriet og varmepumpen, tegne ledningernes vej, sætte solceller op eller tage dem ned på tagene og flytte mærkaterne, så de ikke er i vejen. Det gemmes for hvert hus og ser ens ud på alle enheder.
 
 <img src="docs/images/panel-home-da.png" alt="Hjem-fanen" width="48%"> <img src="docs/images/panel-home-angle-en.png" alt="Hjem-fanen med vinkelhuset om natten" width="48%">
 

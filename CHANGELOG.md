@@ -2,6 +2,21 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.3.0b6] - 2026-11-10
+
+Beta: only those who show beta versions in the Marketplace get it.
+
+### Added
+- **Place things in the house picture yourself.** An administrator taps *Edit* on the picture in the Home tab:
+  - *Things:* drag a charger, the box where the current comes in, the home battery or the heat pump. Things on a wall stay on a wall and can move to another wall; the heat pump stands on the ground, outside the house. The wires to a thing that was moved are drawn anew, straight and round the house.
+  - *Wires:* drag a stretch of wire to move it; the wire stays straight and its ends stay on their things. *Draw this one again* gives back the picture's own way.
+  - *Solar panels:* tap the roof, or draw across it, to put panels up or take them down; on the classic house also on the garage's flat roof.
+  - *Labels:* drag a label to where it is not in the way; the others make room for it.
+  - Undo, put back, cancel and save. It is saved in EV Planner for each house, so it looks the same on every device and for everyone.
+
+### Fixed
+- The icons in the house picture's labels could be drawn too small after the picture changed size.
+
 ## [2.3.0b5] - 2026-11-10
 
 Beta: only those who show beta versions in the Marketplace get it.

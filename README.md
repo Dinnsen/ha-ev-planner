@@ -109,7 +109,7 @@ Run both for a while with **who starts and stops charging** set to *neither* in 
 - **Home:** the house as a clay model with the cars, chargers, sun, battery and heat pump it has, by day and by night; what the home draws right now, tonight's plans over the prices, today's use of the whole house, and the chargers.
 - **Guest:** the guest car, as in EV Guest.
 - **History:** by day, week, month or year, for all, one car, one charger, the guests or the whole house; and *Learned*: what EV Planner has learned. *Export CSV* saves the period you are looking at, one line per charge, for a spreadsheet or your employer.
-- **Settings:** billing guests, notifications, house and supply, data sources, and the home-screen app (`/ev_planner_app/app.html`). Under *House* you choose the picture in the Home tab: the *classic* house, or the *angle house* (an L-shaped house with the garage nearest).
+- **Settings:** billing guests, notifications, house and supply, data sources, and the home-screen app (`/ev_planner_app/app.html`). Under *House* you choose the picture in the Home tab: the *classic* house, or the *angle house* (an L-shaped house with the garage nearest). An administrator can tap *Edit* on the picture to move the chargers, the box where the current comes in, the home battery and the heat pump, draw the wires' way, put up or take down solar panels on the roofs and move the labels out of the way. It is saved for each house and seen the same on every device.
 
 The Home tab and the whole house's history read the Energy dashboard by themselves: the grid's power and energy, the sun, the home battery and the devices with their power.
 

@@ -115,6 +115,7 @@ from .const import (
 )
 from .guest import GuestSession
 from .home import HomeInfo
+from .layout import clean_layouts
 from .learning import MIN_POWER_KW
 from .notifications import COLOR_CHARGE, COLOR_ERROR, COLOR_WARN, Notifier, tag_for
 from .planner import PlanError, PriceSlot, Segment, segments_to_schedule
@@ -238,6 +239,8 @@ class Household(DataUpdateCoordinator[None]):
         self.settings: dict[str, Any] = dict(SETTINGS_DEFAULTS)
         # Photos of the cars and chargers: {car or charger id: image_upload id}.
         self.images: dict[str, str] = {}
+        # Where the household has placed things in the house picture (see layout.py).
+        self.layout: dict[str, Any] = {}
         # The photo as it was before its background was cut away, so the cut can be undone.
         self.originals: dict[str, str] = {}
         self.notifier = Notifier(hass, self.notify_services)
@@ -428,6 +431,7 @@ class Household(DataUpdateCoordinator[None]):
         self.solar.load(stored.get("solar"))
         self.settings = {**SETTINGS_DEFAULTS, **(stored.get("settings") or {})}
         self.images = self._known_images(stored.get("images"))
+        self.layout = clean_layouts(stored.get("layout"))
         self.originals = {
             key: value for key, value in self._known_images(stored.get("image_originals")).items() if key in self.images
         }
@@ -463,6 +467,7 @@ class Household(DataUpdateCoordinator[None]):
             "settings": self.settings,
             "images": self.images,
             "image_originals": self.originals,
+            "layout": self.layout,
         }
 
     # ------------------------------------------------------------------
@@ -1791,6 +1796,12 @@ class Household(DataUpdateCoordinator[None]):
                 translation_placeholders={"entity_id": entity_id, "error": str(err)},
             ) from err
         vehicle.target_from_car = value
+
+    def set_layout(self, layout: Any) -> None:
+        """Keep where the household placed things in the house picture, for each house."""
+        self.layout = clean_layouts(layout)
+        self.async_save()
+        self.async_update_listeners()
 
     async def async_update_settings(self, changes: Mapping[str, Any]) -> None:
         self.settings.update({key: value for key, value in changes.items() if key in SETTINGS_DEFAULTS})

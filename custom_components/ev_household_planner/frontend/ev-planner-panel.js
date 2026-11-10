@@ -23,6 +23,25 @@ const TEXT = {
     home_no_meter: "Uden måler regner EV Planner med, at huset trækker {amps}. Tilføj en måler i indstillingerne, så lærer den husets forbrug.",
     home_idle: "venter",
     home_planned_at: "planlagt {time}",
+    edit_open: "Tilpas",
+    edit_things: "Ting",
+    edit_wires: "Ledninger",
+    edit_panels: "Solceller",
+    edit_labels: "Mærkater",
+    edit_hint_things: "Træk i en lader, elboksen, batteriet eller varmepumpen. Ting på en væg bliver på en væg.",
+    edit_hint_wires: "Træk i et stykke ledning for at flytte det. Ledningen går altid lige.",
+    edit_hint_panels: "Tryk på taget, eller mal hen over det, for at sætte paneler op eller tage dem ned.",
+    edit_hint_labels: "Træk en mærkat derhen, hvor den ikke er i vejen.",
+    edit_undo: "Fortryd",
+    edit_reset_things: "Sæt tingene tilbage",
+    edit_reset_wires: "Tegn alle selv igen",
+    edit_reset_wire: "Tegn denne selv igen",
+    edit_reset_panels: "Sæt panelerne tilbage",
+    edit_reset_labels: "Placér dem selv igen",
+    edit_cancel: "Annullér",
+    edit_save: "Gem",
+    edit_saved: "Huset er gemt",
+    edit_count: "{n} paneler",
     home_done: "færdig",
     home_unplugged: "ikke sat til",
     home_solar: "Solceller",
@@ -493,6 +512,25 @@ const TEXT = {
     home_no_meter: "Without a meter EV Planner expects the house to draw {amps}. Add a meter in the settings and it learns what the house uses.",
     home_idle: "waiting",
     home_planned_at: "planned {time}",
+    edit_open: "Edit",
+    edit_things: "Things",
+    edit_wires: "Wires",
+    edit_panels: "Solar panels",
+    edit_labels: "Labels",
+    edit_hint_things: "Drag a charger, the box, the battery or the heat pump. Things on a wall stay on a wall.",
+    edit_hint_wires: "Drag a stretch of wire to move it. A wire always runs straight.",
+    edit_hint_panels: "Tap the roof, or draw across it, to put up or take down panels.",
+    edit_hint_labels: "Drag a label to where it is not in the way.",
+    edit_undo: "Undo",
+    edit_reset_things: "Put things back",
+    edit_reset_wires: "Draw them all again",
+    edit_reset_wire: "Draw this one again",
+    edit_reset_panels: "Put the panels back",
+    edit_reset_labels: "Place them again",
+    edit_cancel: "Cancel",
+    edit_save: "Save",
+    edit_saved: "The house is saved",
+    edit_count: "{n} panels",
     home_done: "done",
     home_unplugged: "not plugged in",
     home_solar: "Solar panels",
@@ -1907,6 +1945,200 @@ const ClayScene = (() => {
       <circle cx="${f1(bx - r * 0.12)}" cy="${f1(cy - r * 0.12)}" r="${f1(r * 0.86)}" ${R("tree")}/>`;
   }
 
+  /* ------------------------------------------------------------ things a household can place */
+
+  // A thing on a wall: u is its left edge as seen in the picture, z its bottom. A wall towards the road (S)
+  // runs along x; a gable (E) runs along y, the other way, so "to the right" is -y there.
+  const along = (wall, u, a) => (wall.kind === "S" ? u + a : u - a);
+  const onWall = (wall, u, z, out = 0.02) => (wall.kind === "S" ? [u, wall.c + out, z] : [wall.c + out, u, z]);
+  const outward = (wall) => (wall.kind === "S" ? [0, 1] : [1, 0]);
+  // To the right in the picture, in the world.
+  const rightward = (wall) => (wall.kind === "S" ? [1, 0] : [0, -1]);
+  // The sizes of things on a wall (wide, tall, deep) and the heat pump's (wide, tall, deep).
+  const SIZE = { gateway: [0.5, 0.6, 0.14], charger: [0.36, 0.65, 0.14], heat: [1.4, 0.97, 0.55] };
+
+  function wallBox(wall, u, z0, w, h, d) {
+    if (wall.kind === "S") return box(u, wall.c, z0, u + w, wall.c + d, z0 + h);
+    return box(wall.c, u - w, z0, wall.c + d, u, z0 + h, ["deviceSide", "device", "deviceTop"]);
+  }
+  // Lays a drawing in metres on the front of a thing: x to the right, y down from its top.
+  const onFront = (wall, u, ztop, d) => (wall.kind === "S" ? plane([u, wall.c + d + 0.001, ztop], [1, 0, 0], [0, 0, -1]) : plane([wall.c + d + 0.001, u, ztop], [0, -1, 0], [0, 0, -1]));
+
+  function drawGateway(wall, t) {
+    const [w, h, d] = SIZE.gateway;
+    const [bx, by] = P(...onWall(wall, along(wall, t.u, 0.27), t.z + 0.5, d + 0.01));
+    return wallBox(wall, t.u, t.z, w, h, d) + `<path d="M${f1(bx)} ${f1(by)} l-3 6 h3 l-2 6 l5 -8 h-3 l2 -4z" class="cs-bolt"/>`;
+  }
+
+  function drawCharger(wall, t) {
+    const [w, h, d] = SIZE.charger;
+    const a = along(wall, t.u, w / 2);
+    return wallBox(wall, t.u, t.z, w, h, d) + `<path d="${path3([onWall(wall, a, t.z + 0.17, d + 0.01), onWall(wall, a, t.z + 0.5, d + 0.01)])}" class="cs-led" stroke-width="2.4" stroke-linecap="round"/>`;
+  }
+
+  function drawBattery(wall, t, size, soc) {
+    const [w, h, d] = size;
+    const level = Math.max(0.03, 0.9 * ((soc ?? 50) / 100));
+    const x = w / 2 - 0.07;
+    const n = (v) => v.toFixed(3);
+    return wallBox(wall, t.u, t.z, w, h, d) + `<g transform="${onFront(wall, t.u, t.z + h, d)}">
+      <rect x="${n(x)}" y=".2" width=".14" height=".96" rx=".06" fill="#23272D"/>
+      <rect class="cs-glowbar" x="${n(x)}" y="${n(1.14 - level)}" width=".14" height="${n(level)}" rx=".06" fill="${SOURCE.battery}"/>
+      <rect x="${n(x + 0.03)}" y="${n(1.15 - level)}" width=".08" height="${n(level - 0.02)}" rx=".04" fill="#9AF0E4"/>
+    </g>`;
+  }
+
+  // The heat pump stands on the ground with its fan towards the road (S) or towards the gable's side (E).
+  function drawHeat(t, face) {
+    const [w, , d] = SIZE.heat;
+    const { x, y } = t;
+    const fan = `<circle cx=".55" cy=".48" r=".36" fill="#15181D"/>
+      <g class="cs-fan"><path d="M.55 .48 C .6 .3 .72 .22 .8 .3 C .74 .4 .64 .46 .55 .48 Z M.55 .48 C .74 .55 .76 .7 .68 .76 C .6 .7 .56 .58 .55 .48 Z M.55 .48 C .42 .62 .3 .64 .28 .54 C .36 .48 .46 .47 .55 .48 Z" fill="#4A5059"/></g>
+      <rect class="cs-heatled" x="1.08" y=".14" width=".22" height=".04" rx=".02"/>`;
+    if (face === "E") {
+      return `<polygon points="${pts([[x - 0.15, y - 0.2, 0], [x + d + 0.4, y - 0.2, 0], [x + d + 0.4, y + w + 0.4, 0], [x - 0.15, y + w + 0.4, 0]])}" ${R("shadow", 'filter="url(#cs-blur)"')}/>` +
+        box(x, y, 0.08, x + d, y + w, 1.05) + `<g transform="${plane([x + d + 0.001, y + w, 1.05], [0, -1, 0], [0, 0, -1])}">${fan}</g>`;
+    }
+    return `<polygon points="${pts([[x - 0.15, y - 0.15, 0], [x + w + 0.45, y - 0.15, 0], [x + w + 0.45, y + d + 0.4, 0], [x - 0.15, y + d + 0.4, 0]])}" ${R("shadow", 'filter="url(#cs-blur)"')}/>` +
+      box(x, y, 0.08, x + w, y + d, 1.05) + `<g transform="${plane([x, y + d + 0.001, 1.05], [1, 0, 0], [0, 0, -1])}">${fan}</g>`;
+  }
+  // Where the heat pump's wire comes in: low on its front, and the way out from it.
+  const heatEnd = (t, face) => (face === "E" ? { p: [t.x + SIZE.heat[2] + 0.02, t.y + 0.7, 0.3], n: [1, 0] } : { p: [t.x + 0.7, t.y + SIZE.heat[2] + 0.02, 0.3], n: [0, 1] });
+
+  // A cable rolled up where no car is plugged in: on a hook beside the charger ("side"), or under it ("under").
+  function coilAt(wall, t, style) {
+    const out = 0.14;
+    const z0 = t.z;
+    const at = (a, z) => P(...onWall(wall, along(wall, t.u, a), z, out));
+    const ring = (a, z, r) => "M" + Array.from({ length: 33 }, (_, k) => {
+      const q = (k / 32) * Math.PI * 2;
+      return P(...onWall(wall, along(wall, t.u, a + r * Math.cos(q)), z + r * 1.05 * Math.sin(q), out)).map(f1).join(" ");
+    }).join(" L") + "Z";
+    const line = (p, q, c) => `M${f1(p[0])} ${f1(p[1])} C${f1(c[0])} ${f1(c[1])} ${f1(c[2])} ${f1(c[3])} ${f1(q[0])} ${f1(q[1])}`;
+    if (style === "under") {
+      const coil = [0, 1, 2].map((j) => ring(0.18, z0 - 0.29 - 0.02 * j, 0.25 - 0.02 * j)).join(" ");
+      const D = at(0.34, z0 - 0.11);
+      const E = at(0.38, z0 - 0.45);
+      const F = at(0.39, z0 - 0.69);
+      return `${rubber(coil, 3.8)}
+        ${rubber(line(D, E, [D[0] + 2, D[1] + 4, E[0] - 1, E[1] - 4]))}
+        <path d="M${f1(E[0])} ${f1(E[1])} L${f1(F[0])} ${f1(F[1])}" stroke="#14171C" stroke-width="7" stroke-linecap="round"/>
+        <circle cx="${f1(E[0])}" cy="${f1(E[1] + 1)}" r="3.2" fill="none" stroke-width="1.6" class="cs-ring-led"/>`;
+    }
+    // Beside it: to the right when there is room on the wall, else to the left.
+    const end = wall.kind === "S" ? wall.u1 : wall.u0;
+    const roomRight = wall.kind === "S" ? end - along(wall, t.u, 1.38) : along(wall, t.u, 1.38) - end;
+    const cx = roomRight >= 0 ? 1.03 : -0.68;
+    const side = cx > 0 ? -0.28 : 0.28;
+    const coil = [0, 1, 2].map((j) => ring(cx + 0.045 * j, z0 + 0.35 - 0.02 * j, 0.3 - 0.02 * j)).join(" ");
+    const A = P(...onWall(wall, along(wall, t.u, 0.18), z0 - 0.03, 0.15));
+    const Q = at(cx + side, z0 + 0.21);
+    const D = at(cx + 0.18, z0 + 0.07);
+    const E = at(cx + 0.22, z0 - 0.29);
+    const F = at(cx + 0.23, z0 - 0.53);
+    const K = at(cx, z0 + 0.67);
+    return `<path d="M${f1(K[0] - 3)} ${f1(K[1] - 2)} h6 v6 h-6z" fill="#2A2F37"/>
+      ${rubber(line(A, Q, [A[0], A[1] + 16, Q[0] + (side < 0 ? -8 : 8), Q[1] + 14]))}
+      ${rubber(coil, 3.8)}
+      ${rubber(line(D, E, [D[0] + 2, D[1] + 4, E[0] - 1, E[1] - 4]))}
+      <path d="M${f1(E[0])} ${f1(E[1])} L${f1(F[0])} ${f1(F[1])}" stroke="#14171C" stroke-width="7" stroke-linecap="round"/>
+      <circle cx="${f1(E[0])}" cy="${f1(E[1] + 1)}" r="3.2" fill="none" stroke-width="1.6" class="cs-ring-led"/>`;
+  }
+  // Where a charger's cable leaves it, on the screen.
+  const plugFrom = (wall, t) => P(...onWall(wall, along(wall, t.u, 0.18), t.z - 0.03, 0.15));
+
+  // Solar panels in a grid on a roof: each cell that is on is a panel.
+  function drawCells(roof, cells) {
+    let s = "";
+    for (const [c, r] of cells || []) {
+      if (c >= roof.cols || r >= roof.rows) continue;
+      s += rpoly(roof.quad(c, r), "panel", 'stroke-width=".8"');
+    }
+    if ((cells || []).length && roof.sheen) s += `<polygon class="cs-sheen" points="${pts(roof.sheen)}" fill="url(#cs-sheen)"/>`;
+    return s;
+  }
+
+  /* ------------------------------------------------------------ wires the picture draws itself */
+
+  const near = (a, b) => Math.abs(a - b) < 0.005;
+  const same = (p, q) => near(p[0], q[0]) && near(p[1], q[1]) && near(p[2], q[2]);
+  // How many coordinates two points differ in.
+  const axes = (p, q) => [0, 1, 2].filter((k) => !near(p[k], q[k]));
+  // No point twice in a row, and none in the middle of a straight stretch.
+  function simplify(points) {
+    const out = [];
+    for (const p of points) if (!out.length || !same(out[out.length - 1], p)) out.push(p);
+    for (let i = out.length - 2; i >= 1; i -= 1) {
+      const a = out[i - 1];
+      const b = out[i];
+      const c = out[i + 1];
+      const ab = axes(a, b);
+      const bc = axes(b, c);
+      if (ab.length === 1 && bc.length === 1 && ab[0] === bc[0] && Math.sign(b[ab[0]] - a[ab[0]]) === Math.sign(c[ab[0]] - b[ab[0]])) out.splice(i, 1);
+    }
+    return out;
+  }
+  // From p to q one coordinate at a time: down first when leaving something high, up last when arriving.
+  function elbow(p, q) {
+    const out = [];
+    let c = [...p];
+    for (const k of p[2] > q[2] + 0.01 ? [2, 1, 0] : [1, 0, 2]) {
+      if (near(c[k], q[k])) continue;
+      c = [...c];
+      c[k] = q[k];
+      out.push(c);
+    }
+    out.pop();
+    return out;
+  }
+  // A wire someone drew, fixed to where its ends are now.
+  function attach(points, start, end) {
+    const mid = points.slice(1, -1).map((p) => [...p]);
+    const out = [start];
+    for (const p of mid) {
+      if (axes(out[out.length - 1], p).length > 1) out.push(...elbow(out[out.length - 1], p));
+      out.push(p);
+    }
+    if (axes(out[out.length - 1], end).length > 1) out.push(...elbow(out[out.length - 1], end));
+    out.push(end);
+    return simplify(out);
+  }
+
+  // Does a straight stretch on the ground run through a house?
+  function crosses(p, q, rects) {
+    for (const [x0, y0, x1, y1] of rects) {
+      const ax = Math.min(p[0], q[0]);
+      const bx = Math.max(p[0], q[0]);
+      const ay = Math.min(p[1], q[1]);
+      const by = Math.max(p[1], q[1]);
+      if (Math.min(bx, x1 - 0.01) > Math.max(ax, x0 + 0.01) - 1e-9 && Math.min(by, y1 - 0.01) > Math.max(ay, y0 + 0.01) - 1e-9) return true;
+    }
+    return false;
+  }
+  // Along the ground from a to b (each a point at the foot of a wall, with the way out from it), round the houses.
+  function groundPath(rects, a, na, b, nb, lane) {
+    const A = na ? [a[0] + na[0] * lane, a[1] + na[1] * lane] : [a[0], a[1]];
+    const B = nb ? [b[0] + nb[0] * lane, b[1] + nb[1] * lane] : [b[0], b[1]];
+    const fy = Math.max(A[1], B[1]);
+    const fx = Math.max(A[0], B[0]);
+    const my = Math.max(...rects.map((r) => r[3])) + 0.6;
+    const mx = Math.max(...rects.map((r) => r[2])) + 0.6;
+    const ways = [
+      [A, [B[0], A[1]], B],
+      [A, [A[0], B[1]], B],
+      [A, [A[0], fy], [B[0], fy], B],
+      [A, [fx, A[1]], [fx, B[1]], B],
+      [A, [A[0], my], [B[0], my], B],
+      [A, [mx, A[1]], [mx, B[1]], B],
+      [A, [A[0], my], [mx, my], [mx, B[1]], B],
+      [A, [mx, A[1]], [mx, my], [B[0], my], B],
+    ];
+    const length = (w) => w.slice(1).reduce((t, p, i) => t + Math.abs(p[0] - w[i][0]) + Math.abs(p[1] - w[i][1]), 0);
+    const clear = ways.filter((w) => w.slice(1).every((p, i) => !crosses(w[i], p, rects)));
+    const way = (clear.length ? clear : ways).sort((x, y) => length(x) - length(y))[0];
+    return way.map(([x, y]) => [x, y, 0.02]);
+  }
+
   /* ------------------------------------------------------------ the classic house: a house with a flat-roofed garage */
 
   const CLASSIC = (() => {
@@ -1916,37 +2148,20 @@ const ClayScene = (() => {
     const SLOTS = [{ x: -0.9, y: 10.3 }, { x: 3.05, y: 10.3 }];
     const BOX = [{ x: 1.45 }, { x: 5.4 }];
 
-    // Not plugged in: rolled up on a hook beside the charger, the plug hanging down.
-    function coiled(boxX, cx) {
-      const y = GARAGE.y1 + 0.14;
-      const coil = [0, 1, 2].map((j) => {
-        const c = [cx + 0.045 * j, y, 1.3 - 0.02 * j];
-        const r = 0.3 - 0.02 * j;
-        return "M" + Array.from({ length: 33 }, (_, k) => { const t = (k / 32) * Math.PI * 2; return P(c[0] + r * Math.cos(t), y, c[2] + r * 1.05 * Math.sin(t)).map(f1).join(" "); }).join(" L") + "Z";
-      }).join(" ");
-      const side = cx > boxX ? -0.28 : 0.28;
-      const [ax, ay] = P(boxX + 0.18, GARAGE.y1 + 0.15, 0.92);
-      const [qx, qy] = P(cx + side, y, 1.16);
-      const [dx, dy] = P(cx + 0.18, y, 1.02);
-      const [ex, ey] = P(cx + 0.22, y, 0.66);
-      const [fx, fy] = P(cx + 0.23, y, 0.42);
-      const [kx, ky] = P(cx, y, 1.62);
-      return `<path d="M${f1(kx - 3)} ${f1(ky - 2)} h6 v6 h-6z" fill="#2A2F37"/>
-        ${rubber(`M${f1(ax)} ${f1(ay)} C${f1(ax)} ${f1(ay + 16)} ${f1(qx + (side < 0 ? -8 : 8))} ${f1(qy + 14)} ${f1(qx)} ${f1(qy)}`)}
-        ${rubber(coil, 3.8)}
-        ${rubber(`M${f1(dx)} ${f1(dy)} C${f1(dx + 2)} ${f1(dy + 4)} ${f1(ex - 1)} ${f1(ey - 4)} ${f1(ex)} ${f1(ey)}`)}
-        <path d="M${f1(ex)} ${f1(ey)} L${f1(fx)} ${f1(fy)}" stroke="#14171C" stroke-width="7" stroke-linecap="round"/>
-        <circle cx="${f1(ex)}" cy="${f1(ey + 1)}" r="3.2" fill="none" stroke-width="1.6" class="cs-ring-led"/>`;
-    }
-
-    // A charger on the garage wall, its light showing what the cable does.
-    function wallbox(x) {
-      const y = GARAGE.y1;
-      return rpoly([[x, y + 0.14, 0.95], [x + 0.36, y + 0.14, 0.95], [x + 0.36, y + 0.14, 1.6], [x, y + 0.14, 1.6]], "device") +
-        rpoly([[x + 0.36, y + 0.14, 0.95], [x + 0.36, y, 0.95], [x + 0.36, y, 1.6], [x + 0.36, y + 0.14, 1.6]], "deviceSide") +
-        rpoly([[x, y, 1.6], [x + 0.36, y, 1.6], [x + 0.36, y + 0.14, 1.6], [x, y + 0.14, 1.6]], "deviceTop") +
-        `<path d="${path3([[x + 0.18, y + 0.15, 1.12], [x + 0.18, y + 0.15, 1.45]])}" class="cs-led" stroke-width="2.4" stroke-linecap="round"/>`;
-    }
+    // The walls things can hang on: the garage's front, the house's front, the house's gable.
+    const WALLS = {
+      s1: { kind: "S", c: GARAGE.y1, u0: GARAGE.x0 + 0.05, u1: GARAGE.x1 - 0.05, top: GARAGE.h - 0.3 },
+      s2: { kind: "S", c: HOUSE.y1, u0: HOUSE.x0 + 0.05, u1: HOUSE.x1 - 0.05, top: 2.4 },
+      e1: { kind: "E", c: HOUSE.x1, u0: HOUSE.y0 + 0.05, u1: HOUSE.y1 - 0.05, top: HOUSE.h - 0.4 },
+    };
+    const BATTERY = [0.8, 1.65, 0.32];
+    const DEFAULTS = {
+      gateway: { w: "s2", u: 9.4, z: 1.05 },
+      battery: { w: "s2", u: 8.15, z: 0 },
+      charger0: { w: "s1", u: BOX[0].x, z: 0.95 },
+      charger1: { w: "s1", u: BOX[1].x, z: 0.95 },
+      heat: { x: 14.55, y: 7.55 },
+    };
 
     const ROOF = (() => {
       const Hh = HOUSE;
@@ -1958,7 +2173,53 @@ const ClayScene = (() => {
       return { ym, eave, at, edge: 0.18 };
     })();
 
-    function scene(m) {
+    // Where solar panels can lie: a grid on the house's roof and one on the garage's flat roof.
+    const ROOFS = {
+      roof: {
+        cols: 7,
+        rows: 4,
+        def: [1, 2, 3].flatMap((r) => [0, 1, 2, 3, 4, 5, 6].map((c) => [c, r])),
+        colX: (c) => 5.8 + 1.2 * (c + 0.5),
+        quad: (c, r) => {
+          const a = 5.8 + 1.2 * c + 0.04;
+          const b = 5.8 + 1.2 * (c + 1) - 0.04;
+          const t0 = 0.08 + 0.21 * r + 0.015;
+          const t1 = 0.08 + 0.21 * (r + 1) - 0.015;
+          return [ROOF.at(a, t0), ROOF.at(b, t0), ROOF.at(b, t1), ROOF.at(a, t1)];
+        },
+        // The lowest row is nearest the edge; the wire goes from there down over the edge to the house's front.
+        prefer: "low",
+        down: (c, r) => {
+          const x = 5.8 + 1.2 * (c + 0.5);
+          const { at, eave, edge } = ROOF;
+          const z = eave - edge - HOUSE.over / 2 - 0.05;
+          return { wall: "s2", u: x - HOUSE.over, z, points: [at(x, 0.08 + 0.21 * r + 0.015), at(x, 0), [x, HOUSE.y1 + HOUSE.over + 0.01, eave - edge], [x - HOUSE.over, HOUSE.y1 + 0.02, z]] };
+        },
+      },
+      garage: {
+        cols: 6,
+        rows: 4,
+        def: [],
+        colX: (c) => GARAGE.x0 + 0.2 + (7 / 6) * (c + 0.5),
+        quad: (c, r) => {
+          const z = GARAGE.h + 0.22;
+          const a = GARAGE.x0 + 0.2 + (7 / 6) * c + 0.05;
+          const b = GARAGE.x0 + 0.2 + (7 / 6) * (c + 1) - 0.05;
+          const y0 = GARAGE.y0 + 0.25 + 1.2 * r + 0.05;
+          const y1 = GARAGE.y0 + 0.25 + 1.2 * (r + 1) - 0.05;
+          return [[a, y0, z], [b, y0, z], [b, y1, z], [a, y1, z]];
+        },
+        // The front row is nearest the edge; the wire goes over the rim and down the garage's front.
+        prefer: "high",
+        down: (c, r) => {
+          const x = GARAGE.x0 + 0.2 + (7 / 6) * (c + 0.5);
+          const h = GARAGE.h;
+          return { wall: "s1", u: x - 0.11, z: h - 0.13, points: [[x, GARAGE.y0 + 0.25 + 1.2 * (r + 1) - 0.05, h + 0.22], [x, GARAGE.y1 + 0.13, h + 0.22], [x, GARAGE.y1 + 0.13, h - 0.02], [x - 0.11, GARAGE.y1 + 0.02, h - 0.13]] };
+        },
+      },
+    };
+
+    function scene(m, pos) {
       const Hh = HOUSE;
       const G = GARAGE;
       const { ym, eave, at, edge } = ROOF;
@@ -1983,6 +2244,7 @@ const ClayScene = (() => {
       s += rpoly([[G.x0 + 0.15, G.y0 + 0.15, G.h + 0.161], [G.x1 - 0.12, G.y0 + 0.15, G.h + 0.161], [G.x1 - 0.12, G.y1 - 0.12, G.h + 0.161], [G.x0 + 0.15, G.y1 - 0.12, G.h + 0.161]], "roofEdge", 'opacity=".55"');
       s += rpoly([[G.x0 - 0.12, G.y1 + 0.12, G.h], [G.x1 + 0.12, G.y1 + 0.12, G.h], [G.x1 + 0.12, G.y1 + 0.12, G.h + 0.16], [G.x0 - 0.12, G.y1 + 0.12, G.h + 0.16]], "roofEdge");
       s += rpoly([[G.x1 + 0.12, G.y1 + 0.12, G.h], [G.x1 + 0.12, G.y0 - 0.12, G.h], [G.x1 + 0.12, G.y0 - 0.12, G.h + 0.16], [G.x1 + 0.12, G.y1 + 0.12, G.h + 0.16]], "roofEdge", 'style="filter:brightness(.92)"');
+      if (m.solar) s += drawCells(ROOFS.garage, pos.cells.garage);
       // The house: the back of the roof, the walls, the windows, the roof's shadow, the roof.
       s += rpoly([[Hh.x0 - Hh.gable, Hh.y0 - Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y0 - Hh.over, eave], [Hh.x1 + Hh.gable, ym, Hh.ridge], [Hh.x0 - Hh.gable, ym, Hh.ridge]], "roofBack");
       s += rpoly([[Hh.x0, Hh.y1, 0], [Hh.x1, Hh.y1, 0], [Hh.x1, Hh.y1, Hh.h], [Hh.x0, Hh.y1, Hh.h]], "wallS");
@@ -1992,42 +2254,12 @@ const ClayScene = (() => {
       s += windowY(6.55, 7.45, Hh.y1 + 0.01, 0.02, 2.25);
       s += eaveShadow([Hh.x0, Hh.y1 + 0.02, eave - edge - Hh.over / 2 - 0.02], [Hh.x1, Hh.y1 + 0.02, eave - edge - Hh.over / 2 - 0.02], 0.9);
       s += eaveShadow([Hh.x1 + 0.02, Hh.y1, Hh.h - 0.4], [Hh.x1 + 0.02, ym, Hh.ridge - 0.4], 0.8) + eaveShadow([Hh.x1 + 0.02, ym, Hh.ridge - 0.4], [Hh.x1 + 0.02, Hh.y0, Hh.h - 0.4], 0.8);
-      // A home battery on the wall.
-      if (m.battery) {
-        const level = Math.max(0.03, 0.9 * ((m.battery.soc ?? 50) / 100));
-        s += box(8.15, Hh.y1, 0, 8.95, Hh.y1 + 0.32, 1.65);
-        s += `<g transform="${onY(8.15, Hh.y1 + 0.321, 1.65)}">
-          <rect x=".33" y=".2" width=".14" height=".96" rx=".06" fill="#23272D"/>
-          <rect class="cs-glowbar" x=".33" y="${f1(1.14 - level)}" width=".14" height="${f1(level)}" rx=".06" fill="${SOURCE.battery}"/>
-          <rect x=".36" y="${f1(1.15 - level)}" width=".08" height="${f1(level - 0.02)}" rx=".04" fill="#9AF0E4"/>
-        </g>`;
-      }
-      // The heat pump by the gable.
-      if (m.heat) {
-        s += `<polygon points="${pts([[14.4, 7.4, 0], [16.4, 7.4, 0], [16.4, 8.5, 0], [14.4, 8.5, 0]])}" ${R("shadow", 'filter="url(#cs-blur)"')}/>`;
-        s += box(14.55, 7.55, 0.08, 15.95, 8.1, 1.05);
-        s += `<g transform="${onY(14.55, 8.101, 1.05)}">
-          <circle cx=".55" cy=".48" r=".36" fill="#15181D"/>
-          <g class="cs-fan"><path d="M.55 .48 C .6 .3 .72 .22 .8 .3 C .74 .4 .64 .46 .55 .48 Z M.55 .48 C .74 .55 .76 .7 .68 .76 C .6 .7 .56 .58 .55 .48 Z M.55 .48 C .42 .62 .3 .64 .28 .54 C .36 .48 .46 .47 .55 .48 Z" fill="#4A5059"/></g>
-          <rect class="cs-heatled" x="1.08" y=".14" width=".22" height=".04" rx=".02"/>
-        </g>`;
-      }
+      // A home battery on a wall, and the heat pump.
+      if (m.battery) s += `<g class="cs-thing" data-thing="battery">${drawBattery(WALLS[pos.battery.w], pos.battery, BATTERY, m.battery.soc)}</g>`;
+      if (m.heat) s += `<g class="cs-thing" data-thing="heat">${drawHeat(pos.heat, "S")}</g>`;
       // The roof: the lightest surface, with a thick white edge.
       s += rpoly([[Hh.x0 - Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, ym, Hh.ridge], [Hh.x0 - Hh.gable, ym, Hh.ridge]], "roof");
-      if (m.solar) {
-        const xa = Hh.x0 + 0.6;
-        const xb = Hh.x1 - 0.5;
-        for (let r = 0; r < 3; r += 1) {
-          for (let c = 0; c < 6; c += 1) {
-            const a = xa + ((xb - xa) / 6) * c + 0.04;
-            const b = xa + ((xb - xa) / 6) * (c + 1) - 0.04;
-            const t0 = 0.16 + (0.72 / 3) * r + 0.02;
-            const t1 = 0.16 + (0.72 / 3) * (r + 1) - 0.02;
-            s += rpoly([at(a, t0), at(b, t0), at(b, t1), at(a, t1)], "panel", 'stroke-width=".8"');
-          }
-        }
-        s += `<polygon class="cs-sheen" points="${pts([at(xa, 0.16), at(xb, 0.16), at(xb, 0.88), at(xa, 0.88)])}" fill="url(#cs-sheen)"/>`;
-      }
+      if (m.solar) s += drawCells(ROOFS.roof, pos.cells.roof);
       s += rpoly([[Hh.x0 - Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave - edge], [Hh.x0 - Hh.gable, Hh.y1 + Hh.over, eave - edge]], "roofEdge");
       s += rpoly([[Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave], [Hh.x1 + Hh.gable, ym, Hh.ridge], [Hh.x1 + Hh.gable, ym, Hh.ridge - 0.2], [Hh.x1 + Hh.gable, Hh.y1 + Hh.over, eave - 0.2]], "roofEdge", 'style="filter:brightness(.95)"');
       s += rpoly([[Hh.x1 + Hh.gable, ym, Hh.ridge], [Hh.x1 + Hh.gable, Hh.y0 - Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y0 - Hh.over, eave - 0.2], [Hh.x1 + Hh.gable, ym, Hh.ridge - 0.2]], "roofEdge", 'style="filter:brightness(.9)"');
@@ -2040,14 +2272,6 @@ const ClayScene = (() => {
         LIGHTS.push(`<ellipse cx="${f1(lx)}" cy="${f1(ly + 28)}" rx="${rx}" ry="${f1(rx * 0.55)}" fill="#FFC86B" opacity=".35" filter="url(#cs-glowf)"/><circle cx="${f1(lx)}" cy="${f1(ly)}" r="2.6" fill="#FFE2A8"/>`);
       }
       return s;
-    }
-
-    // The box where the current comes in, with its bolt.
-    function gateway() {
-      const y = HOUSE.y1;
-      return rpoly([[9.4, y + 0.14, 1.05], [9.9, y + 0.14, 1.05], [9.9, y + 0.14, 1.65], [9.4, y + 0.14, 1.65]], "device") +
-        rpoly([[9.9, y + 0.14, 1.05], [9.9, y, 1.05], [9.9, y, 1.65], [9.9, y + 0.14, 1.65]], "deviceSide") +
-        `<path d="M${P(9.67, y + 0.15, 1.55).map(f1).join(" ")} l-3 6 h3 l-2 6 l5 -8 h-3 l2 -4z" class="cs-bolt"/>`;
     }
 
     // Where the current runs, each wire drawn the way the current usually goes: from the sun and the grid into
@@ -2127,8 +2351,10 @@ const ClayScene = (() => {
       return list;
     };
     return {
-      SLOTS, BOX, wallY: GARAGE.y1, scene, wallbox, gateway, routes, placeCars, anchors, corners,
-      coil: (i) => coiled(BOX[i].x, i === 0 ? BOX[i].x + 1.03 : BOX[i].x - 0.68),
+      SLOTS, BOX, scene, routes, placeCars, anchors, corners,
+      walls: WALLS, defaults: DEFAULTS, roofs: ROOFS, battery: BATTERY, heatFace: "S", coil: "side", street: [16.5, 11.6],
+      footprints: [[HOUSE.x0, HOUSE.y0, HOUSE.x1, HOUSE.y1], [GARAGE.x0, GARAGE.y0, GARAGE.x1, GARAGE.y1]],
+      area: [-3, -1, 19, 15],
       ground: [7, 9, 430, 200],
       stars: [[30, 30], [90, 75], [150, 15], [210, 50], [400, 4], [470, 40], [540, 14], [600, 70], [660, 25], [690, 110], [640, 150]],
     };
@@ -2152,31 +2378,20 @@ const ClayScene = (() => {
     const BOX = [{ x: 17.66 }, { x: 20.82 }];
     const GATE = 14.35;
 
-    // Not plugged in: the cable rolled up on a hook under the charger, the plug hanging down.
-    function coiled(boxX) {
-      const y = WALL + 0.14;
-      const cx = boxX + 0.18;
-      const coil = [0, 1, 2].map((j) => {
-        const r = 0.25 - 0.02 * j;
-        return "M" + Array.from({ length: 33 }, (_, k) => { const t = (k / 32) * Math.PI * 2; return P(cx + r * Math.cos(t), y, 0.66 - 0.02 * j + r * 1.05 * Math.sin(t)).map(f1).join(" "); }).join(" L") + "Z";
-      }).join(" ");
-      const [ex, ey] = P(cx + 0.2, y, 0.5);
-      const [fx, fy] = P(cx + 0.21, y, 0.26);
-      const [dx, dy] = P(cx + 0.16, y, 0.84);
-      return `${rubber(coil, 3.8)}
-        ${rubber(`M${f1(dx)} ${f1(dy)} C${f1(dx + 2)} ${f1(dy + 4)} ${f1(ex - 1)} ${f1(ey - 4)} ${f1(ex)} ${f1(ey)}`)}
-        <path d="M${f1(ex)} ${f1(ey)} L${f1(fx)} ${f1(fy)}" stroke="#14171C" stroke-width="7" stroke-linecap="round"/>
-        <circle cx="${f1(ex)}" cy="${f1(ey + 1)}" r="3.2" fill="none" stroke-width="1.6" class="cs-ring-led"/>`;
-    }
-
-    // A charger on the garage wall, its light showing what the cable does.
-    function wallbox(x) {
-      const y = WALL;
-      return rpoly([[x, y + 0.14, 0.95], [x + 0.36, y + 0.14, 0.95], [x + 0.36, y + 0.14, 1.6], [x, y + 0.14, 1.6]], "device") +
-        rpoly([[x + 0.36, y + 0.14, 0.95], [x + 0.36, y, 0.95], [x + 0.36, y, 1.6], [x + 0.36, y + 0.14, 1.6]], "deviceSide") +
-        rpoly([[x, y, 1.6], [x + 0.36, y, 1.6], [x + 0.36, y + 0.14, 1.6], [x, y + 0.14, 1.6]], "deviceTop") +
-        `<path d="${path3([[x + 0.18, y + 0.15, 1.12], [x + 0.18, y + 0.15, 1.45]])}" class="cs-led" stroke-width="2.4" stroke-linecap="round"/>`;
-    }
+    // The walls things can hang on: the long wall towards the road, the garage's gable, the wall to the yard.
+    const WALLS = {
+      s1: { kind: "S", c: WALL, u0: NW.x0 + 0.05, u1: NW.x1 - 0.05, top: RF.e - RF.edge - 0.3 },
+      e1: { kind: "E", c: NW.x1, u0: NW.y0 + 0.05, u1: WALL - 0.05, top: RF.wall - 0.35 },
+      e2: { kind: "E", c: EW.x1, u0: 4.07, u1: NW.y0 - 0.05, top: RF.wall - 0.35 },
+    };
+    const BATTERY = [0.6, 1.5, 0.3];
+    const DEFAULTS = {
+      gateway: { w: "s1", u: GATE - 0.25, z: 1.05 },
+      battery: { w: "s1", u: 10.98, z: 0 },
+      charger0: { w: "s1", u: BOX[0].x, z: 0.95 },
+      charger1: { w: "s1", u: BOX[1].x, z: 0.95 },
+      heat: { x: 21.55, y: 13.1 },
+    };
 
     // The four slopes. J is where the two ridges meet; the hip runs from there to the north-east corner,
     // the valley to the inner corner.
@@ -2198,7 +2413,32 @@ const ClayScene = (() => {
       };
     })();
 
-    function scene(m) {
+    // Where solar panels can lie: a grid on the slope towards the south. The wire goes over the ridge and down to the road.
+    const STEP = 10.2 / 9;
+    const ROOFS = {
+      roof: {
+        cols: 10,
+        rows: 2,
+        def: [0, 1].flatMap((r) => [1, 2, 3, 4, 5, 6, 7, 8, 9].map((c) => [c, r])),
+        colX: (c) => 10.4 + STEP * (c - 1 + 0.5),
+        quad: (c, r) => {
+          const a = 10.4 + STEP * (c - 1) + 0.04;
+          const b = 10.4 + STEP * c - 0.04;
+          const t0 = 0.14 + 0.37 * r + 0.015;
+          const t1 = 0.14 + 0.37 * (r + 1) - 0.015;
+          return [ROOF.at(a, t0), ROOF.at(b, t0), ROOF.at(b, t1), ROOF.at(a, t1)];
+        },
+        prefer: "high",
+        down: (c, r) => {
+          const x = 10.4 + STEP * (c - 1 + 0.5);
+          const { e, o, edge } = RF;
+          const z = e - edge - 0.3;
+          return { wall: "s1", u: x, z, points: [ROOF.at(x, 0.14 + 0.37 * (r + 1) - 0.015), [x, YM, RF.r + 0.03], [x, WALL + o, e + 0.03], [x, WALL + o + 0.01, e - edge], [x, WALL + 0.02, z]] };
+        },
+      },
+    };
+
+    function scene(m, pos) {
       const { e, r, o, edge, wall } = RF;
       const Rf = ROOF;
       let s = "";
@@ -2231,20 +2471,7 @@ const ClayScene = (() => {
       s += rpoly([Rf.valley, [EW.x1 + o, Rf.south, e], [EW.x1 + o, Rf.south, e - edge], [Rf.valley[0], Rf.valley[1], e - edge]], "roofEdge", 'style="filter:brightness(.92)"');
       // The wing along the road: its slope towards the south, with the panels.
       s += rpoly(Rf.back, "roofBack");
-      if (m.solar) {
-        const xa = 10.4;
-        const xb = 20.6;
-        for (let row = 0; row < 2; row += 1) {
-          for (let c = 0; c < 9; c += 1) {
-            const a = xa + ((xb - xa) / 9) * c + 0.04;
-            const b = xa + ((xb - xa) / 9) * (c + 1) - 0.04;
-            const t0 = 0.14 + 0.37 * row + 0.015;
-            const t1 = 0.14 + 0.37 * (row + 1) - 0.015;
-            s += rpoly([Rf.at(a, t0), Rf.at(b, t0), Rf.at(b, t1), Rf.at(a, t1)], "panel", 'stroke-width=".8"');
-          }
-        }
-        s += `<polygon class="cs-sheen" points="${pts([Rf.at(xa, 0.14), Rf.at(xb, 0.14), Rf.at(xb, 0.88), Rf.at(xa, 0.88)])}" fill="url(#cs-sheen)"/>`;
-      }
+      if (m.solar) s += drawCells(ROOFS.roof, pos.cells.roof);
       s += `<path d="${path3([Rf.J, Rf.valley])}" ${R("shadowLine", 'stroke-width="3" stroke-linecap="round" filter="url(#cs-blur-s)" fill="none"')}/>`;
       // Its walls: the long one towards the road and the garage's gable.
       s += rpoly([[NW.x0, WALL, 0], [NW.x1, WALL, 0], [NW.x1, WALL, wall], [NW.x0, WALL, wall]], "wallS");
@@ -2263,26 +2490,9 @@ const ClayScene = (() => {
       s += rpoly([[NW.x1 + 0.01, 12.84, 0.02], [NW.x1 + 0.01, 11.81, 0.02], [NW.x1 + 0.01, 11.81, 2.19], [NW.x1 + 0.01, 12.84, 2.19]], "door", 'style="filter:brightness(.92)"');
       s += eaveShadow([NW.x0, WALL + 0.02, e - edge - 0.02], [NW.x1, WALL + 0.02, e - edge - 0.02], 0.9);
       s += eaveShadow([NW.x1 + 0.02, WALL, wall - 0.3], [NW.x1 + 0.02, YM, r - 0.42], 0.7) + eaveShadow([NW.x1 + 0.02, YM, r - 0.42], [NW.x1 + 0.02, NW.y0, wall - 0.3], 0.7);
-      // A home battery on the wall, between the utility room's window and the front door.
-      if (m.battery) {
-        const level = Math.max(0.03, 0.9 * ((m.battery.soc ?? 50) / 100));
-        s += box(10.98, WALL, 0, 11.58, WALL + 0.3, 1.5);
-        s += `<g transform="${onY(10.98, WALL + 0.301, 1.5)}">
-          <rect x=".23" y=".18" width=".14" height=".96" rx=".06" fill="#23272D"/>
-          <rect class="cs-glowbar" x=".23" y="${f1(1.12 - level)}" width=".14" height="${f1(level)}" rx=".06" fill="${SOURCE.battery}"/>
-          <rect x=".26" y="${f1(1.13 - level)}" width=".08" height="${f1(level - 0.02)}" rx=".04" fill="#9AF0E4"/>
-        </g>`;
-      }
-      // A heat pump by the garage's gable.
-      if (m.heat) {
-        s += `<polygon points="${pts([[21.4, 12.9, 0], [22.5, 12.9, 0], [22.5, 14.9, 0], [21.4, 14.9, 0]])}" ${R("shadow", 'filter="url(#cs-blur)"')}/>`;
-        s += box(21.55, 13.1, 0.08, 22.1, 14.5, 1.05);
-        s += `<g transform="${plane([22.101, 14.5, 1.05], [0, -1, 0], [0, 0, -1])}">
-          <circle cx=".55" cy=".48" r=".36" fill="#15181D"/>
-          <g class="cs-fan"><path d="M.55 .48 C .6 .3 .72 .22 .8 .3 C .74 .4 .64 .46 .55 .48 Z M.55 .48 C .74 .55 .76 .7 .68 .76 C .6 .7 .56 .58 .55 .48 Z M.55 .48 C .42 .62 .3 .64 .28 .54 C .36 .48 .46 .47 .55 .48 Z" fill="#4A5059"/></g>
-          <rect class="cs-heatled" x="1.08" y=".14" width=".22" height=".04" rx=".02"/>
-        </g>`;
-      }
+      // A home battery on a wall (by default between the utility room's window and the front door), and the heat pump.
+      if (m.battery) s += `<g class="cs-thing" data-thing="battery">${drawBattery(WALLS[pos.battery.w], pos.battery, BATTERY, m.battery.soc)}</g>`;
+      if (m.heat) s += `<g class="cs-thing" data-thing="heat">${drawHeat(pos.heat, "E")}</g>`;
       // The slope towards the road: the lightest surface, with a thick white edge.
       s += rpoly(Rf.north, "roof");
       s += rpoly([[Rf.west, WALL + o, e], Rf.hip, [Rf.hip[0], Rf.hip[1], e - edge], [Rf.west, WALL + o, e - edge]], "roofEdge");
@@ -2299,16 +2509,6 @@ const ClayScene = (() => {
         LIGHTS.push(`<ellipse cx="${f1(lx)}" cy="${f1(ly + 30)}" rx="${rx}" ry="${f1(rx * 0.55)}" fill="#FFC86B" opacity=".35" filter="url(#cs-glowf)"/><circle cx="${f1(lx)}" cy="${f1(ly)}" r="2.6" fill="#FFE2A8"/>`);
       }
       return s;
-    }
-
-    // The box where the current comes in, with its bolt.
-    function gateway() {
-      const y = WALL;
-      const a = GATE - 0.25;
-      const b = GATE + 0.25;
-      return rpoly([[a, y + 0.14, 1.05], [b, y + 0.14, 1.05], [b, y + 0.14, 1.65], [a, y + 0.14, 1.65]], "device") +
-        rpoly([[b, y + 0.14, 1.05], [b, y, 1.05], [b, y, 1.65], [b, y + 0.14, 1.65]], "deviceSide") +
-        `<path d="M${P(GATE + 0.02, y + 0.15, 1.55).map(f1).join(" ")} l-3 6 h3 l-2 6 l5 -8 h-3 l2 -4z" class="cs-bolt"/>`;
     }
 
     // Where the current runs: from the road and the panels into the box, and out to the chargers, the heat pump and the battery.
@@ -2377,8 +2577,10 @@ const ClayScene = (() => {
     };
     const corners = () => [[-0.6, 19.9, 0], [-0.6, -0.4, 2.6], [4.3, -0.4, 5.0], [11.3, 0, 0], [22.6, 10, 0], [21.4, 26.3, 0], [14.3, 26.3, 0], [4.3, 15, 5.0], [21.7, 15, 5.0]];
     return {
-      SLOTS, BOX, wallY: WALL, scene, wallbox, gateway, routes, placeCars, anchors, corners,
-      coil: (i) => coiled(BOX[i].x),
+      SLOTS, BOX, scene, routes, placeCars, anchors, corners,
+      walls: WALLS, defaults: DEFAULTS, roofs: ROOFS, battery: BATTERY, heatFace: "E", coil: "under", street: [GATE, 26.2],
+      footprints: [[NW.x0, NW.y0, NW.x1, NW.y1], [EW.x0, EW.y0, EW.x1, EW.y1]],
+      area: [-2, -2, 25, 26],
       ground: [10, 13, 760, 400],
       stars: [[-60, 60], [20, 5], [110, 70], [190, -20], [300, 30], [420, -30], [520, 40], [640, -10], [760, 50], [860, 10], [930, 90], [-120, 150]],
     };
@@ -2413,6 +2615,139 @@ const ClayScene = (() => {
     }).join("");
   }
 
+  /* ------------------------------------------------------------ where things are, and their wires */
+
+  // Where each thing is: where the household placed it, or where the house puts it.
+  function resolve(L, lay) {
+    const things = lay.things || {};
+    const pos = { moved: new Set() };
+    for (const key of ["gateway", "battery", "charger0", "charger1"]) {
+      const t = things[key];
+      if (t && L.walls[t.w] && Number.isFinite(t.u) && Number.isFinite(t.z)) {
+        pos[key] = { w: t.w, u: t.u, z: t.z };
+        pos.moved.add(key);
+      } else pos[key] = { ...L.defaults[key] };
+    }
+    const heat = things.heat;
+    if (heat && Number.isFinite(heat.x) && Number.isFinite(heat.y)) {
+      pos.heat = { x: heat.x, y: heat.y };
+      pos.moved.add("heat");
+    } else pos.heat = { ...L.defaults.heat };
+    const panels = lay.panels || {};
+    pos.cells = {};
+    for (const [key, roof] of Object.entries(L.roofs)) {
+      const cells = Array.isArray(panels[key]) ? panels[key] : roof.def;
+      pos.cells[key] = cells.filter(([c, r]) => c < roof.cols && r < roof.rows);
+    }
+    pos.panelsChanged = !!lay.panels;
+    return pos;
+  }
+
+  // Every wire: as the house draws it; drawn anew when a thing it goes to was moved; as someone drew it, with its
+  // ends where the things are now.
+  function wiresFor(L, m, boxes, pos, lay) {
+    const out = L.routes(m, boxes);
+    const gate = pos.gateway;
+    const gw = L.walls[gate.w];
+    const [gW, gH] = SIZE.gateway;
+    const rects = L.footprints;
+    const gateAt = onWall(gw, along(gw, gate.u, gW / 2), gate.z);
+    // Out of the box's side towards a point, a little along the wall and down to the ground.
+    const exit = (toward, lift) => {
+      const r = rightward(gw);
+      const dir = (toward[0] - gateAt[0]) * r[0] + (toward[1] - gateAt[1]) * r[1] >= 0 ? 1 : -1;
+      const a = dir > 0 ? gW : 0;
+      const leg = [onWall(gw, along(gw, gate.u, a), gate.z + lift), onWall(gw, along(gw, gate.u, a + dir * 0.35), gate.z + lift), onWall(gw, along(gw, gate.u, a + dir * 0.35), 0.02)];
+      return { leg, foot: leg[2], n: outward(gw), dir };
+    };
+    const moved = pos.moved;
+    const anew = (key) => moved.has("gateway") || (key === "sun" ? pos.panelsChanged : moved.has(key === "heat" ? "heat" : key === "battery" ? "battery" : key.replace("car", "charger")));
+    for (const key of Object.keys(out)) {
+      if (!anew(key)) continue;
+      if (key.startsWith("car")) {
+        const t = pos[key.replace("car", "charger")];
+        const w = L.walls[t.w];
+        const a = along(w, t.u, 0.18);
+        const top = onWall(w, a, t.z, 0.15);
+        const foot = onWall(w, a, 0.02, 0.15);
+        const e = exit(foot, 0.3);
+        out[key] = simplify([...e.leg, ...groundPath(rects, e.foot, e.n, foot, outward(w), 0.15), foot, top]);
+      } else if (key === "heat") {
+        const end = heatEnd(pos.heat, L.heatFace);
+        const foot = [end.p[0], end.p[1], 0.02];
+        const e = exit(foot, 0.3);
+        out.heat = simplify([...e.leg, ...groundPath(rects, e.foot, e.n, foot, end.n, 0.65), foot, end.p]);
+      } else if (key === "battery") {
+        const t = pos.battery;
+        const bw = L.walls[t.w];
+        const [bW, bH, bD] = L.battery;
+        const centre = onWall(bw, along(bw, t.u, bW / 2), t.z);
+        const gap = Math.hypot(centre[0] - gateAt[0], centre[1] - gateAt[1]);
+        if (t.w === gate.w && gap < 1.8) {
+          // Beside the box on the same wall: straight across.
+          const z = Math.min(gate.z + 0.45, t.z + bH - 0.15);
+          const e = exit(centre, 0.45);
+          out.battery = [onWall(gw, along(gw, gate.u, e.dir > 0 ? gW : 0), z), onWall(bw, along(bw, t.u, e.dir > 0 ? 0 : bW), z)];
+        } else {
+          const front = onWall(bw, along(bw, t.u, bW / 2), 0.3, bD + 0.02);
+          const foot = [front[0], front[1], 0.02];
+          const e = exit(foot, 0.45);
+          out.battery = simplify([...e.leg, ...groundPath(rects, e.foot, e.n, foot, outward(bw), 0.4), foot, front]);
+        }
+      } else if (key === "grid") {
+        const bottom = onWall(gw, along(gw, gate.u, gW / 2), gate.z);
+        const foot = onWall(gw, along(gw, gate.u, gW / 2), 0.02);
+        const street = [L.street[0], L.street[1], 0.02];
+        out.grid = simplify([...groundPath(rects, street, null, foot, outward(gw), 0), foot, bottom]);
+      } else if (key === "sun") {
+        // From the panel nearest the edge (and the box), over the edge and down the wall.
+        const pick = Object.entries(L.roofs).find(([k]) => pos.cells[k].length);
+        if (!pick) {
+          delete out.sun;
+          continue;
+        }
+        const [rk, roof] = pick;
+        const cells = pos.cells[rk];
+        const row = roof.prefer === "low" ? Math.min(...cells.map((c) => c[1])) : Math.max(...cells.map((c) => c[1]));
+        const [c] = cells.filter((q) => q[1] === row).sort((p, q) => Math.abs(roof.colX(p[0]) - gateAt[0]) - Math.abs(roof.colX(q[0]) - gateAt[0]))[0];
+        const down = roof.down(c, row);
+        const dw = L.walls[down.wall];
+        const top = onWall(gw, along(gw, gate.u, gW / 2), gate.z + gH);
+        if (down.wall === gate.w) {
+          out.sun = simplify([...down.points, onWall(gw, along(gw, gate.u, gW / 2), down.z), top]);
+        } else {
+          const foot = onWall(dw, down.u, 0.02);
+          const in2 = onWall(gw, along(gw, gate.u, gW / 2 + 0.12), 0.02);
+          out.sun = simplify([...down.points, foot, ...groundPath(rects, foot, outward(dw), in2, outward(gw), 0.3), in2, onWall(gw, along(gw, gate.u, gW / 2 + 0.12), gate.z)]);
+        }
+      }
+    }
+    // Wires someone drew: their own way, from where the wire starts now to where it ends now.
+    for (const [key, points] of Object.entries(lay.wires || {})) {
+      if (!out[key] || !Array.isArray(points) || points.length < 2) continue;
+      out[key] = attach(points, out[key][0], out[key][out[key].length - 1]);
+    }
+    return out;
+  }
+
+  // From a point in the picture to a place on a wall, on the ground or on a level above it.
+  const unS = (sx, sy, c) => {
+    const x = (sx - OX) / (C * S) + c;
+    return [x, ((x + c) * 0.5 * S + OY - sy) / S];
+  };
+  const unE = (sx, sy, c) => {
+    const y = c - (sx - OX) / (C * S);
+    return [y, ((c + y) * 0.5 * S + OY - sy) / S];
+  };
+  const unGround = (sx, sy, h = 0) => {
+    const d = (sx - OX) / (C * S);
+    const s = (sy - OY + h * S) / (0.5 * S);
+    return [(s + d) / 2, (s - d) / 2];
+  };
+  const snap = (v, step = 0.05) => Math.round(v / step) * step;
+  // Each way a point in the world moves in the picture.
+  const AXIS = [[C * S, 0.5 * S], [-C * S, 0.5 * S], [0, -S]];
+
   /* ------------------------------------------------------------ the scene */
 
   function defs() {
@@ -2440,16 +2775,42 @@ const ClayScene = (() => {
     return "connected";
   }
 
+  // The words of the editor, when the panel gives none.
+  const EDIT_WORDS = {
+    edit_open: "Edit", edit_things: "Things", edit_wires: "Wires", edit_panels: "Solar panels", edit_labels: "Labels",
+    edit_hint_things: "Drag a charger, the box, the battery or the heat pump. Things on a wall stay on a wall.",
+    edit_hint_wires: "Drag a stretch of wire to move it. A wire always runs straight.",
+    edit_hint_panels: "Tap a place on a roof, or draw across it, to put up or take down panels.",
+    edit_hint_labels: "Drag a label to where it is not in the way.",
+    edit_undo: "Undo", edit_reset_things: "Put things back", edit_reset_wires: "Draw them all again", edit_reset_wire: "Draw this one again",
+    edit_reset_panels: "Put the panels back", edit_reset_labels: "Place them again", edit_cancel: "Cancel", edit_save: "Save", edit_count: "{n} panels",
+  };
+
   class Scene {
     constructor() {
       this.el = document.createElement("div");
       this.el.className = "cscene";
       this.key = "";
       this.light = null;
+      this.edit = null;
+      // The words, from the panel (set by it); English otherwise.
+      this.t = (key, vars = {}) => String(EDIT_WORDS[key] || key).replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "");
+      this.el.addEventListener("pointerdown", (e) => this._down(e));
+      this.el.addEventListener("pointermove", (e) => this._move(e));
+      this.el.addEventListener("pointerup", (e) => this._up(e));
+      this.el.addEventListener("pointercancel", (e) => this._up(e));
+      this.el.addEventListener("click", (e) => this._click(e));
+    }
+
+    // The layout of the house shown: what is being edited, or what was saved.
+    get lay() {
+      if (this.edit) return this.edit.layout;
+      const m = this.model || {};
+      return (m.layout && m.layout[m.house || "classic"]) || {};
     }
 
     _key(m) {
-      return JSON.stringify([m.house || "classic", !!m.solar, !!m.battery, !!m.heat, m.chargers.length, m.cars.map((c) => [c.body, c.paint, c.image || "", !!c.plugged, c.charger])]);
+      return JSON.stringify([m.house || "classic", !!m.solar, !!m.battery, !!m.heat, m.chargers.length, m.cars.map((c) => [c.body, c.paint, c.image || "", !!c.plugged, c.charger, c.spot]), this.lay, this.edit ? [this.edit.tab, this.edit.sel] : null, !!m.canEdit]);
     }
 
     update(m) {
@@ -2463,19 +2824,34 @@ const ClayScene = (() => {
       this._labels(m);
     }
 
+    // Drawn again at once (while a thing is dragged, at most once a frame).
+    _redraw(now = false) {
+      if (!this.model) return;
+      const go = () => {
+        this._frame = null;
+        this.key = "";
+        this.update(this.model);
+      };
+      if (now) go();
+      else if (!this._frame) this._frame = requestAnimationFrame(go);
+    }
+
     _build(m) {
       const L = (this.layout = LAYOUTS[m.house] || CLASSIC);
+      const lay = this.lay;
       const boxes = m.chargers.slice(0, 2);
+      const pos = (this.pos = resolve(L, lay));
       this.placed = L.placeCars(m);
-      this.routes = L.routes(m, boxes);
+      this.routes = wiresFor(L, m, boxes, pos, lay);
       LIGHTS = [];
       const [gx, gy] = P(L.ground[0], L.ground[1], 0);
       let s = `<rect x="-1500" y="-1500" width="4000" height="4000" ${R("bg")}/><ellipse cx="${f1(gx)}" cy="${f1(gy)}" rx="${L.ground[2]}" ry="${L.ground[3]}" fill="url(#cs-ground)"/>`;
       s += `<g class="cs-stars">${L.stars.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i % 3 ? 1.1 : 1.7}" style="--d:${i * 0.7}s"/>`).join("")}</g>`;
-      s += `<g class="cs-world">${L.scene(m)}`;
-      // The chargers on the garage wall: one in the middle, a second by the right-hand corner.
+      s += `<g class="cs-world">${L.scene(m, pos)}`;
+      // The chargers: by default one in the middle of the garage, a second by its right-hand corner.
       boxes.forEach((_, i) => {
-        s += `<g class="cs-charger" data-i="${i}">${L.wallbox(L.BOX[i].x)}</g>`;
+        const t = pos[`charger${i}`];
+        s += `<g class="cs-charger cs-thing" data-i="${i}" data-thing="charger${i}">${drawCharger(L.walls[t.w], t)}</g>`;
       });
       // The wires: always green; the pulses in them show where the current goes.
       this.paths = {};
@@ -2485,11 +2861,12 @@ const ClayScene = (() => {
         this.paths[`${k}Back`] = path3([...r].reverse());
         s += `<g class="cs-wire" data-route="${k}"><path d="${d}" ${R("flowGlow", 'fill="none" stroke-width="7" stroke-linejoin="round" filter="url(#cs-glowf)"')}/><path d="${d}" ${R("flow", 'fill="none" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"')}/><g class="cs-pk"></g></g>`;
       }
-      s += L.gateway();
+      s += `<g class="cs-thing" data-thing="gateway">${drawGateway(L.walls[pos.gateway.w], pos.gateway)}</g>`;
       // A cable rolled up on the wall where no car is plugged in, behind the cars.
       const plugged = new Set(this.placed.filter((p) => p.box !== null && p.car.plugged).map((p) => p.box));
       boxes.forEach((_, i) => {
-        if (!plugged.has(i)) s += `<g class="cs-coil" data-i="${i}">${L.coil(i)}</g>`;
+        const t = pos[`charger${i}`];
+        if (!plugged.has(i)) s += `<g class="cs-coil" data-i="${i}">${coilAt(L.walls[t.w], t, L.coil)}</g>`;
       });
       // The cars, the far one first, then the cables of those plugged in.
       let cables = "";
@@ -2498,20 +2875,25 @@ const ClayScene = (() => {
         const c = p.car;
         s += `<g class="cs-car">${car(slot.x, slot.y, c.body, c.paint, { charging: c.charging, image: c.image })}</g>`;
         if (c.plugged && p.box !== null) {
-          const a = P(L.BOX[p.box].x + 0.18, L.wallY + 0.15, 0.92);
-          const cable = plugCable(a, portAt(slot.x, slot.y, c.body, c.image));
+          const t = pos[`charger${p.box}`];
+          const cable = plugCable(plugFrom(L.walls[t.w], t), portAt(slot.x, slot.y, c.body, c.image));
           this.paths[`cable${p.box}`] = cable.d;
           cables += `<g class="cs-cable" data-i="${p.box}">${cable.svg}</g>`;
         }
       }
       s += cables;
       s += `</g><g class="cs-lights">${LIGHTS.join("")}</g>`;
-      this.el.innerHTML = `<svg class="cs-main" viewBox="0 0 ${W} ${H}" aria-hidden="true">${defs()}${s}</svg><svg class="cs-leaders" viewBox="0 0 ${W} ${H}" aria-hidden="true"></svg><div class="cs-labels"></div>`;
-      this.svg = this.el.querySelector("svg");
+      if (this.edit) s += `<g class="cs-edit">${this._overlay(m, L, pos)}</g>`;
+      if (!this.svg) {
+        this.el.innerHTML = `<svg class="cs-main" viewBox="0 0 ${W} ${H}" aria-hidden="true"></svg><svg class="cs-leaders" viewBox="0 0 ${W} ${H}" aria-hidden="true"></svg><div class="cs-labels"></div><div class="cs-tools"></div>`;
+        this.svg = this.el.querySelector("svg");
+      }
+      this.svg.innerHTML = defs() + s;
       this.roles = [...this.svg.querySelectorAll("[data-r]")];
+      this.el.classList.toggle("editing", !!this.edit);
+      this._tools(m);
       this.light = null;
-      this.view = null;
-      this._fit();
+      this._fit(true);
       if (!this.resize && window.ResizeObserver) {
         this.resize = new ResizeObserver(() => this._fit());
         this.resize.observe(this.el);
@@ -2519,11 +2901,20 @@ const ClayScene = (() => {
     }
 
     // The house, the garage and the cars in the middle of the picture, with room above for the labels;
-    // on a narrow screen closer in.
-    _fit() {
+    // on a narrow screen closer in. While something is dragged the picture stays where it is.
+    _fit(built = false) {
+      if (this.drag && this.view && built) return;
       const narrow = (this.el.clientWidth || W) < 560;
       const m = this.model || { cars: [], heat: null };
-      const corners = (this.layout || CLASSIC).corners(m);
+      const L = this.layout || CLASSIC;
+      const corners = L.corners(m);
+      if (this.pos) {
+        for (const key of ["gateway", "charger0", "charger1", "battery"]) {
+          const t = this.pos[key];
+          if (t && this.pos.moved.has(key)) corners.push(onWall(L.walls[t.w], t.u, t.z), onWall(L.walls[t.w], t.u, t.z + 1));
+        }
+        if (m.heat && this.pos.moved.has("heat")) corners.push([this.pos.heat.x, this.pos.heat.y, 0], [this.pos.heat.x + 1.4, this.pos.heat.y + 1.4, 1.1]);
+      }
       const xy = corners.map((c) => P(...c));
       const x0 = Math.min(...xy.map((p) => p[0]));
       const x1 = Math.max(...xy.map((p) => p[0]));
@@ -2539,7 +2930,7 @@ const ClayScene = (() => {
       const view = [cx - w / 2, cy - h / 2, w, h].map((v) => Math.round(v));
       if (this.view && this.view.join() === view.join()) return;
       this.view = view;
-      for (const svg of this.el.querySelectorAll("svg")) svg.setAttribute("viewBox", view.join(" "));
+      for (const svg of this.el.querySelectorAll(":scope > svg")) svg.setAttribute("viewBox", view.join(" "));
       if (this.model) this._labels(this.model);
     }
 
@@ -2601,24 +2992,50 @@ const ClayScene = (() => {
       if (this.model) this._labels(this.model);
     }
 
+    // Where each label points: the house's own points, and the things where they are now.
+    _anchors(m) {
+      const L = this.layout || CLASSIC;
+      const a = L.anchors(m, this.placed);
+      const pos = this.pos;
+      if (!pos) return a;
+      if (a.battery) {
+        const [bW, bH, bD] = L.battery;
+        const w = L.walls[pos.battery.w];
+        a.battery = onWall(w, along(w, pos.battery.u, bW / 2), pos.battery.z + bH + 0.25, bD);
+      }
+      if (a.heat) a.heat = L.heatFace === "E" ? [pos.heat.x + 0.55, pos.heat.y + 0.7, 1.1] : [pos.heat.x + 0.7, pos.heat.y + 0.25, 1.1];
+      if (a.sun) {
+        const quads = Object.entries(L.roofs).flatMap(([k, roof]) => pos.cells[k].map(([c, r]) => roof.quad(c, r))).flat();
+        if (quads.length) a.sun = [0, 1, 2].map((i) => quads.reduce((t, q) => t + q[i], 0) / quads.length);
+        else delete a.sun;
+      }
+      return a;
+    }
+
     _labels(m) {
-      const anchors = (this.layout || CLASSIC).anchors(m, this.placed);
+      const anchors = this._anchors(m);
+      const placedLabels = this.lay.labels || {};
       const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
       const [vx, vy, vw, vh] = this.view || [0, 0, W, H];
-      // Each label straight above its point; labels that would meet move up a step.
+      this.anchorAt = {};
+      // Each label straight above its point; labels that would meet move up a step. A label someone placed stays put.
       const items = [];
       for (const label of m.labels || []) {
         const anchor = anchors[label.key];
         if (!anchor) continue;
         const [ax, ay] = P(...anchor);
+        this.anchorAt[label.key] = [ax, ay];
         // The cars' labels sit in the drive in front of them, out of the way of the chargers and cables.
         const lift = label.key === "grid" ? 26 : label.key.startsWith("car") ? -14 : 34;
         // Kept inside the picture: half the label's width, roughly, in the picture's units.
         // A label that is tapped open shows its name and all of its text.
-        const open = !!this.open?.has(label.key);
+        const open = !!this.open?.has(label.key) && !this.edit;
         const text = open ? `${label.title} ${label.value}` : String(label.short ?? label.value);
         const half = ((text.length * 6.6 + (label.dir ? 54 : 40)) / 2) * (vw / (this.el.clientWidth || W));
-        items.push({ label, ax, ay, half, x: Math.min(vx + vw - half, Math.max(vx + half, ax)), y: Math.max(vy + 14, ay - lift) });
+        const own = placedLabels[label.key];
+        const x = own ? ax + own[0] : ax;
+        const y = own ? ay + own[1] : ay - lift;
+        items.push({ label, ax, ay, half, fixed: !!own, x: Math.min(vx + vw - half, Math.max(vx + half, x)), y: own ? y : Math.max(vy + 14, y) });
       }
       // Labels that would meet: the lowest stays, the next one moves up over it. Measured in the
       // labels' real size, so it also holds on a phone, where a label is large against the picture.
@@ -2627,10 +3044,12 @@ const ClayScene = (() => {
       const top = vy + tall / 2 + 2 * unit;
       const bottom = vy + vh - tall / 2 - 2 * unit;
       for (const item of items) item.y = Math.min(bottom, Math.max(top, item.y));
-      items.sort((a, b) => b.y - a.y);
+      // The placed ones first, so the others make room for them.
+      items.sort((a, b) => Number(b.fixed) - Number(a.fixed) || b.y - a.y);
       const meets = (a, b) => Math.abs(a.x - b.x) < a.half + b.half + 3 * unit && Math.abs(a.y - b.y) < tall;
       for (let i = 1; i < items.length; i += 1) {
         const b = items[i];
+        if (b.fixed) continue;
         for (let turn = 0; turn < items.length; turn += 1) {
           const a = items.slice(0, i).find((other) => meets(other, b));
           if (!a) break;
@@ -2648,20 +3067,395 @@ const ClayScene = (() => {
       }
       let lines = "";
       let html = "";
+      const dragging = this.edit?.tab === "labels";
       for (const { label, ax, ay, x, y } of items) {
         const color = label.colour || (label.on ? (label.key === "sun" ? SOURCE.sun : STATUS.charging) : "#9AA3B2");
         lines += `<path d="M${f1(x)} ${f1(y + 9)} L${f1(ax)} ${f1(ay)}" class="cs-leader"/><circle cx="${f1(ax)}" cy="${f1(ay)}" r="2.6" fill="${color}" stroke="#fff" stroke-width="1.1"/>`;
         const left = (((x - vx) / vw) * 100).toFixed(2);
-        const top = (((y - vy) / vh) * 100).toFixed(2);
+        const topPc = (((y - vy) / vh) * 100).toFixed(2);
         const pylon = `<svg class="cs-icon" viewBox="0 0 20 20" aria-hidden="true" style="stroke:${color}"><path d="M6 17 L9 3 L11 3 L14 17 M5 6.5 L15 6.5 M7.4 11 L12.6 11 M6 17 L12.4 9 M14 17 L7.6 9"/></svg>`;
         const ring = label.icon === "grid" ? pylon : Number.isFinite(label.bar) ? `<svg class="cs-ring" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5" class="r0"/><circle cx="10" cy="10" r="7.5" class="r1" pathLength="100" style="stroke-dasharray:${Math.max(0, Math.min(100, label.bar)).toFixed(0)} 100${label.colour ? `;stroke:${label.colour}` : ""}"/></svg>` : `<span class="cs-dot"${label.colour ? ` style="background:${label.colour};box-shadow:0 0 6px ${label.colour}"` : ""}></span>`;
-        const open = !!this.open?.has(label.key);
+        const open = !!this.open?.has(label.key) && !this.edit;
         // In to the house points down, out to the grid points up.
         const arrow = label.dir && !open ? `<svg class="cs-icon cs-dir" viewBox="0 0 20 20" aria-hidden="true" style="stroke:${color}"><path d="${label.dir === "in" ? "M10 4 L10 16 M5 11 L10 16 L15 11" : "M10 16 L10 4 M5 9 L10 4 L15 9"}"/></svg>` : "";
-        html += `<button class="cs-label ${label.on ? "on" : ""} ${label.key === "sun" ? "sun" : ""} ${open ? "open" : ""}" data-act="scene-label" data-key="${label.key}" data-dir="${label.dir || ""}" style="left:${left}%;top:${top}%" title="${esc(label.title)}" aria-expanded="${open}" aria-label="${esc(`${label.title}: ${label.value}`)}">${ring}${arrow}<span class="cs-t">${esc(label.title)}</span><span class="cs-v">${esc(open ? label.value : (label.short ?? label.value))}</span></button>`;
+        html += `<button class="cs-label ${label.on ? "on" : ""} ${label.key === "sun" ? "sun" : ""} ${open ? "open" : ""} ${dragging ? "drag" : ""}" ${this.edit ? "" : 'data-act="scene-label"'} data-key="${label.key}" data-dir="${label.dir || ""}" style="left:${left}%;top:${topPc}%" title="${esc(label.title)}" aria-expanded="${open}" aria-label="${esc(`${label.title}: ${label.value}`)}">${ring}${arrow}<span class="cs-t">${esc(label.title)}</span><span class="cs-v">${esc(open ? label.value : (label.short ?? label.value))}</span></button>`;
       }
       this.el.querySelector(".cs-leaders").innerHTML = lines;
       this.el.querySelector(".cs-labels").innerHTML = html;
+    }
+
+    /* ---------------------------------------------------------------- the editor */
+
+    // What can be grabbed in the tab that is open: the things, the stretches of wire, the places for panels.
+    _overlay(m, L, pos) {
+      const tab = this.edit.tab;
+      let s = "";
+      if (tab === "things") {
+        const keys = ["gateway", ...m.chargers.slice(0, 2).map((_, i) => `charger${i}`)];
+        if (m.battery) keys.push("battery");
+        if (m.heat) keys.push("heat");
+        for (const key of keys) {
+          const corners = this._corners(L, key, pos);
+          const xy = corners.map((c) => P(...c));
+          const x0 = Math.min(...xy.map((p) => p[0])) - 3;
+          const y0 = Math.min(...xy.map((p) => p[1])) - 3;
+          const x1 = Math.max(...xy.map((p) => p[0])) + 3;
+          const y1 = Math.max(...xy.map((p) => p[1])) + 3;
+          s += `<rect class="cs-hit ${this.edit.sel === key ? "sel" : ""}" data-thing="${key}" x="${f1(x0)}" y="${f1(y0)}" width="${f1(x1 - x0)}" height="${f1(y1 - y0)}" rx="4"/>`;
+        }
+      } else if (tab === "wires") {
+        for (const [key, route] of Object.entries(this.routes)) {
+          const sel = this.edit.sel === key;
+          s += `<path class="cs-route ${sel ? "sel" : ""}" d="${path3(route)}"/>`;
+          route.forEach((p, i) => {
+            if (i === route.length - 1) return;
+            const q = route[i + 1];
+            const d = path3([p, q]);
+            const free = this._axisFor(L, p, q) !== null;
+            s += `<path class="cs-seg ${free ? "" : "fixed"}" data-wire="${key}" data-seg="${i}" d="${d}"/>`;
+            if (free) {
+              const [mx, my] = P((p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2);
+              s += `<circle class="cs-grip ${sel ? "sel" : ""}" cx="${f1(mx)}" cy="${f1(my)}" r="3.6" data-wire="${key}" data-seg="${i}"/>`;
+            }
+          });
+        }
+      } else if (tab === "panels" && m.solar) {
+        for (const [key, roof] of Object.entries(L.roofs)) {
+          const on = new Set(pos.cells[key].map((c) => c.join()));
+          for (let r = 0; r < roof.rows; r += 1) {
+            for (let c = 0; c < roof.cols; c += 1) {
+              s += `<polygon class="cs-cell ${on.has(`${c},${r}`) ? "on" : ""}" data-cell="${key}:${c}:${r}" points="${pts(roof.quad(c, r))}"/>`;
+            }
+          }
+        }
+      }
+      return s;
+    }
+
+    // The corners of a thing, in the world.
+    _corners(L, key, pos) {
+      if (key === "heat") {
+        const { x, y } = pos.heat;
+        const [w, , d] = SIZE.heat;
+        const [dx, dy] = L.heatFace === "E" ? [d, w] : [w, d];
+        return [[x, y, 0], [x + dx, y, 0], [x, y + dy, 0], [x + dx, y + dy, 0], [x, y, 1.05], [x + dx, y + dy, 1.05], [x + dx, y, 1.05], [x, y + dy, 1.05]];
+      }
+      const t = pos[key];
+      const wall = L.walls[t.w];
+      const [w, h, d] = key === "battery" ? L.battery : key === "gateway" ? SIZE.gateway : SIZE.charger;
+      const out = [];
+      for (const a of [0, w]) for (const z of [t.z, t.z + h]) for (const o of [0, d]) out.push(onWall(wall, along(wall, t.u, a), z, o));
+      return out;
+    }
+
+    // Which way a stretch of wire can be moved: across it, on the wall or the ground it lies on; null for one on a roof.
+    _axisFor(L, p, q) {
+      const ax = axes(p, q);
+      if (ax.length !== 1) return null;
+      const k = ax[0];
+      const onGround = p[2] <= 0.05 && q[2] <= 0.05;
+      const wall = Object.values(L.walls).find((w) => (w.kind === "S" ? Math.abs(p[1] - w.c) < 0.25 && Math.abs(q[1] - w.c) < 0.25 : Math.abs(p[0] - w.c) < 0.25 && Math.abs(q[0] - w.c) < 0.25));
+      const high = Math.max(p[2], q[2]);
+      if (k === 2) {
+        if (!wall || high > wall.top + 0.6) return null;
+        return wall.kind === "S" ? 0 : 1;
+      }
+      if (onGround) return k === 0 ? 1 : 0;
+      if (wall && high <= wall.top + 0.6 && (wall.kind === "S" ? k === 0 : k === 1)) return 2;
+      return null;
+    }
+
+    _point(e) {
+      const pt = this.svg.createSVGPoint();
+      pt.x = e.clientX;
+      pt.y = e.clientY;
+      const m = this.svg.getScreenCTM();
+      if (!m) return [0, 0];
+      const p = pt.matrixTransform(m.inverse());
+      return [p.x, p.y];
+    }
+
+    _remember() {
+      this.edit.undo.push(JSON.stringify(this.edit.layout));
+      if (this.edit.undo.length > 60) this.edit.undo.shift();
+    }
+
+    _down(e) {
+      if (!this.edit || e.button > 0) return;
+      const target = e.composedPath ? e.composedPath()[0] : e.target;
+      const el = target && target.closest ? target : null;
+      if (!el || el.closest(".cs-tools")) return;
+      const [sx, sy] = this._point(e);
+      const L = this.layout;
+      const lay = this.edit.layout;
+      const tab = this.edit.tab;
+      let drag = null;
+      const thing = el.closest("[data-thing]");
+      const seg = el.closest("[data-seg]");
+      const cell = el.closest("[data-cell]");
+      const label = el.closest(".cs-label");
+      if (tab === "things" && thing) {
+        const key = thing.dataset.thing;
+        this._remember();
+        this.edit.sel = key;
+        if (key === "heat") {
+          const [gx, gy] = unGround(sx, sy);
+          drag = { kind: "thing", key, grab: [gx - this.pos.heat.x, gy - this.pos.heat.y] };
+        } else {
+          const t = this.pos[key];
+          const wall = L.walls[t.w];
+          const [u, z] = wall.kind === "S" ? unS(sx, sy, wall.c) : unE(sx, sy, wall.c);
+          drag = { kind: "thing", key, grab: [u - t.u, z - t.z] };
+        }
+      } else if (tab === "wires" && seg) {
+        const key = seg.dataset.wire;
+        const i = Number(seg.dataset.seg);
+        const route = this.routes[key].map((p) => [...p]);
+        const axis = this._axisFor(L, route[i], route[i + 1]);
+        this.edit.sel = key;
+        if (axis === null) {
+          this._redraw(true);
+          return;
+        }
+        this._remember();
+        // The ends of the wire stay where they are; so does a point it shares with a stretch on the roof.
+        // A point stays and a new short stretch grows from it when it is an end, touches the roof, or its other
+        // stretch does not run the way this one moves.
+        const last = route.length - 1;
+        const along1 = (p, q) => (axes(p, q).length === 1 ? axes(p, q)[0] : -1);
+        const stays = (j, other) => j === 0 || j === last || this._axisFor(L, route[Math.min(j, other)], route[Math.max(j, other)]) === null || along1(route[j], route[other]) !== axis;
+        const keepA = stays(i, i - 1);
+        const keepB = stays(i + 1, i + 2);
+        let a = i;
+        if (keepA) {
+          route.splice(a, 0, [...route[a]]);
+          a += 1;
+        }
+        if (keepB) route.splice(a + 2, 0, [...route[a + 1]]);
+        lay.wires = { ...(lay.wires || {}), [key]: route };
+        drag = { kind: "wire", key, seg: a, axis, start: [sx, sy], base: route.map((p) => [...p]) };
+      } else if (tab === "panels" && cell) {
+        this._remember();
+        const [roof, c, r] = cell.dataset.cell.split(":");
+        const on = !cell.classList.contains("on");
+        drag = { kind: "cells", on, done: new Set() };
+        this._setCell(roof, Number(c), Number(r), on, drag);
+      } else if (tab === "labels" && label) {
+        const key = label.dataset.key;
+        const anchor = this.anchorAt[key];
+        if (!anchor) return;
+        this._remember();
+        const [vx, vy, vw, vh] = this.view;
+        const x = vx + (parseFloat(label.style.left) / 100) * vw;
+        const y = vy + (parseFloat(label.style.top) / 100) * vh;
+        drag = { kind: "label", key, grab: [sx - x, sy - y] };
+      }
+      if (!drag) return;
+      e.preventDefault();
+      this.drag = drag;
+      try {
+        this.el.setPointerCapture(e.pointerId);
+      } catch (err) {
+        // A pointer that is gone already.
+      }
+      this._redraw(true);
+    }
+
+    _move(e) {
+      const drag = this.drag;
+      if (!drag || !this.edit) return;
+      e.preventDefault();
+      const [sx, sy] = this._point(e);
+      const L = this.layout;
+      const lay = this.edit.layout;
+      if (drag.kind === "thing") {
+        lay.things = { ...(lay.things || {}) };
+        if (drag.key === "heat") {
+          const [gx, gy] = unGround(sx, sy);
+          lay.things.heat = this._ground(L, gx - drag.grab[0], gy - drag.grab[1]);
+        } else {
+          const placed = this._onWall(L, drag.key, sx, sy, drag.grab);
+          if (placed) lay.things[drag.key] = placed;
+        }
+        this._redraw();
+      } else if (drag.kind === "wire") {
+        const [ux, uy] = AXIS[drag.axis];
+        const delta = snap(((sx - drag.start[0]) * ux + (sy - drag.start[1]) * uy) / (ux * ux + uy * uy));
+        const route = drag.base.map((p) => [...p]);
+        for (const j of [drag.seg, drag.seg + 1]) route[j][drag.axis] = drag.base[j][drag.axis] + delta;
+        // Not under the ground, and not through a house.
+        if (route.some((p) => p[2] < 0.02)) return;
+        const ground = route.slice(1).some((q, j) => route[j][2] <= 0.05 && q[2] <= 0.05 && crosses(route[j], q, L.footprints));
+        if (ground) return;
+        lay.wires = { ...(lay.wires || {}), [drag.key]: route };
+        this._redraw();
+      } else if (drag.kind === "cells") {
+        const root = this.el.getRootNode();
+        const hit = root.elementFromPoint ? root.elementFromPoint(e.clientX, e.clientY) : null;
+        const cell = hit && hit.closest ? hit.closest("[data-cell]") : null;
+        if (cell) {
+          const [roof, c, r] = cell.dataset.cell.split(":");
+          this._setCell(roof, Number(c), Number(r), drag.on, drag);
+        }
+      } else if (drag.kind === "label") {
+        const anchor = this.anchorAt[drag.key];
+        if (!anchor) return;
+        lay.labels = { ...(lay.labels || {}), [drag.key]: [Math.round(sx - drag.grab[0] - anchor[0]), Math.round(sy - drag.grab[1] - anchor[1])] };
+        this._labels(this.model);
+      }
+    }
+
+    _up(e) {
+      const drag = this.drag;
+      if (!drag) return;
+      this.drag = null;
+      try {
+        this.el.releasePointerCapture(e.pointerId);
+      } catch (err) {
+        // Released already.
+      }
+      if (drag.kind === "wire" && this.edit) {
+        const lay = this.edit.layout;
+        const route = lay.wires?.[drag.key];
+        if (route) lay.wires[drag.key] = simplify(route).map((p) => p.map((v) => Math.round(v * 100) / 100));
+      }
+      this._redraw(true);
+    }
+
+    // A thing on the wall the pointer is over, kept on the wall and off its edges.
+    _onWall(L, key, sx, sy, grab) {
+      const [w, h] = key === "battery" ? L.battery : key === "gateway" ? SIZE.gateway : SIZE.charger;
+      const current = this.pos[key].w;
+      const order = [current, ...Object.keys(L.walls).filter((k) => k !== current)];
+      for (const wk of order) {
+        const wall = L.walls[wk];
+        const [pu, pz] = wall.kind === "S" ? unS(sx, sy, wall.c) : unE(sx, sy, wall.c);
+        const [lo, hi] = wall.kind === "S" ? [wall.u0, wall.u1 - w] : [wall.u0 + w, wall.u1];
+        const inside = pu >= wall.u0 - 0.3 && pu <= wall.u1 + 0.3 && pz >= -0.3 && pz <= wall.top + 0.6;
+        if (!inside && wk !== current) continue;
+        // On another wall it is grabbed by its middle.
+        const [gu, gz] = wk === current ? grab : [wall.kind === "S" ? w / 2 : -w / 2, h / 2];
+        const u = snap(Math.min(hi, Math.max(lo, pu - gu)));
+        const z = snap(Math.min(Math.max(0, wall.top - h), Math.max(key === "battery" ? 0 : 0.3, pz - gz)));
+        if (inside || wk === current) return { w: wk, u: Number(u.toFixed(2)), z: Number(z.toFixed(2)) };
+      }
+      return null;
+    }
+
+    // The heat pump on the ground: inside the picture's yard, and out of the houses.
+    _ground(L, x, y) {
+      const [ax0, ay0, ax1, ay1] = L.area;
+      const [w, , d] = SIZE.heat;
+      const [dx, dy] = L.heatFace === "E" ? [d, w] : [w, d];
+      x = Math.min(ax1 - dx, Math.max(ax0, x));
+      y = Math.min(ay1 - dy, Math.max(ay0, y));
+      for (const [x0, y0, x1, y1] of L.footprints) {
+        if (x + dx > x0 && x < x1 && y + dy > y0 && y < y1) {
+          // Pushed out the shortest way: towards the road or the gable's side, the sides we can see.
+          const toFront = y1 + 0.1 - y;
+          const toSide = x1 + 0.1 - x;
+          if (toFront <= toSide) y = y1 + 0.1;
+          else x = x1 + 0.1;
+        }
+      }
+      return { x: Number(snap(x).toFixed(2)), y: Number(snap(y).toFixed(2)) };
+    }
+
+    _setCell(roof, c, r, on, drag) {
+      const id = `${roof}:${c}:${r}`;
+      if (drag.done.has(id)) return;
+      drag.done.add(id);
+      const lay = this.edit.layout;
+      const L = this.layout;
+      const panels = { ...(lay.panels || {}) };
+      for (const k of Object.keys(L.roofs)) if (!Array.isArray(panels[k])) panels[k] = this.pos.cells[k].map((q) => [...q]);
+      const list = panels[roof].filter(([a, b]) => !(a === c && b === r));
+      if (on) list.push([c, r]);
+      panels[roof] = list;
+      lay.panels = panels;
+      this._redraw(true);
+    }
+
+    _click(e) {
+      const target = e.composedPath ? e.composedPath()[0] : e.target;
+      const button = target && target.closest ? target.closest("[data-ed]") : null;
+      if (!button) return;
+      e.stopPropagation();
+      const what = button.dataset.ed;
+      const m = this.model;
+      if (what === "open") {
+        const saved = (m.layout && m.layout[m.house || "classic"]) || {};
+        this.edit = { tab: "things", sel: null, undo: [], layout: JSON.parse(JSON.stringify(saved)) };
+        this.view = null;
+        this._redraw(true);
+        return;
+      }
+      if (!this.edit) return;
+      const lay = this.edit.layout;
+      if (what === "tab") {
+        this.edit.tab = button.dataset.tab;
+        this.edit.sel = null;
+      } else if (what === "undo") {
+        const last = this.edit.undo.pop();
+        if (last) this.edit.layout = JSON.parse(last);
+      } else if (what === "reset") {
+        this._remember();
+        const tab = this.edit.tab;
+        if (tab === "things") delete lay.things;
+        else if (tab === "wires") delete lay.wires;
+        else if (tab === "panels") delete lay.panels;
+        else if (tab === "labels") delete lay.labels;
+      } else if (what === "reset-wire" && this.edit.sel && lay.wires) {
+        this._remember();
+        delete lay.wires[this.edit.sel];
+      } else if (what === "cancel") {
+        this.edit = null;
+        this.view = null;
+      } else if (what === "save") {
+        const layout = JSON.parse(JSON.stringify(lay));
+        for (const k of Object.keys(layout)) if (!layout[k] || (typeof layout[k] === "object" && !Array.isArray(layout[k]) && !Object.keys(layout[k]).length)) delete layout[k];
+        const house = m.house || "classic";
+        const done = () => {
+          // Shown as saved at once; the state from Home Assistant says the same a moment later.
+          this.model.layout = { ...(this.model.layout || {}), [house]: layout };
+          this.edit = null;
+          this.view = null;
+          this._redraw(true);
+        };
+        if (this.onSave) {
+          button.disabled = true;
+          Promise.resolve(this.onSave(layout, house)).then((ok) => (ok === false ? (button.disabled = false) : done()));
+        } else done();
+        return;
+      }
+      this._redraw(true);
+    }
+
+    // The button that opens the editor, and the editor's bar under the picture.
+    _tools(m) {
+      const tools = this.el.querySelector(".cs-tools");
+      if (!tools) return;
+      if (!this.edit) {
+        tools.innerHTML = m.canEdit ? `<button class="cs-editbtn" data-ed="open" type="button"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>${this.t("edit_open")}</button>` : "";
+        return;
+      }
+      const tab = this.edit.tab;
+      const tabs = ["things", "wires", ...(m.solar ? ["panels"] : []), "labels"];
+      const count = m.solar ? Object.values(this.pos.cells).reduce((t, c) => t + c.length, 0) : 0;
+      const reset = { things: "edit_reset_things", wires: "edit_reset_wires", panels: "edit_reset_panels", labels: "edit_reset_labels" }[tab];
+      const own = tab === "wires" && this.edit.sel && this.edit.layout.wires?.[this.edit.sel];
+      tools.innerHTML = `<div class="cs-bar">
+        <div class="cs-tabs" role="tablist">${tabs.map((k) => `<button type="button" role="tab" data-ed="tab" data-tab="${k}" aria-selected="${k === tab}" class="${k === tab ? "on" : ""}">${this.t(`edit_${k}`)}</button>`).join("")}</div>
+        <p class="cs-hint">${this.t(`edit_hint_${tab}`)}${tab === "panels" ? ` · ${this.t("edit_count", { n: count })}` : ""}</p>
+        <div class="cs-acts">
+          <button type="button" data-ed="undo" ${this.edit.undo.length ? "" : "disabled"}>${this.t("edit_undo")}</button>
+          <button type="button" data-ed="reset">${this.t(reset)}</button>
+          ${own ? `<button type="button" data-ed="reset-wire">${this.t("edit_reset_wire")}</button>` : ""}
+          <span class="cs-gap"></span>
+          <button type="button" data-ed="cancel">${this.t("edit_cancel")}</button>
+          <button type="button" data-ed="save" class="primary">${this.t("edit_save")}</button>
+        </div>
+      </div>`;
     }
   }
 
@@ -2720,6 +3514,34 @@ const CLAY_CSS = `
   .cs-label { font-size: 10.5px; padding: 2px 7px 2px 3px; gap: 4px; }
   .cs-label .cs-ring { width: 15px; height: 15px; }
 }
+/* The editor: a button to open it, what can be grabbed, and its bar under the picture. */
+.cscene .cs-tools { position: relative; }
+.cscene .cs-editbtn { position: absolute; right: 10px; bottom: calc(100% - 0px); transform: translateY(-10px); display: flex; align-items: center; gap: 5px; border: 0; border-radius: 999px; padding: 5px 11px 5px 9px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; background: rgba(255,255,255,.9); color: #141A22; box-shadow: 0 2px 8px rgba(20,26,34,.15); z-index: 2; }
+.is-dark .cs-editbtn { background: rgba(23,28,36,.9); color: #fff; }
+.cscene .cs-editbtn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.cscene.editing { user-select: none; -webkit-user-select: none; }
+.cscene.editing .cs-main, .cscene.editing .cs-label { touch-action: none; }
+.cscene.editing .cs-pk, .cscene.editing .cs-labels .cs-label:not(.drag) { opacity: .55; }
+.cscene.editing .cs-pk { display: none; }
+.cscene .cs-hit { fill: rgba(59,139,255,.06); stroke: #3B8BFF; stroke-width: 1.2; stroke-dasharray: 4 3; cursor: grab; }
+.cscene .cs-hit.sel { fill: rgba(59,139,255,.16); stroke-dasharray: none; }
+.cscene .cs-route { fill: none; stroke: #3B8BFF; stroke-width: 1; stroke-dasharray: 3 3; opacity: .5; pointer-events: none; }
+.cscene .cs-route.sel { opacity: 1; stroke-width: 1.6; }
+.cscene .cs-seg { fill: none; stroke: transparent; stroke-width: 14; cursor: grab; pointer-events: stroke; }
+.cscene .cs-seg.fixed { cursor: default; }
+.cscene .cs-grip { fill: #fff; stroke: #3B8BFF; stroke-width: 1.4; cursor: grab; }
+.cscene .cs-grip.sel { fill: #3B8BFF; }
+.cscene .cs-cell { fill: rgba(255,255,255,.03); stroke: rgba(59,139,255,.75); stroke-width: .8; stroke-dasharray: 3 2; cursor: pointer; }
+.cscene .cs-cell.on { fill: rgba(59,139,255,.18); stroke-dasharray: none; }
+.cs-label.drag { cursor: grab; outline: 1.5px dashed #3B8BFF; outline-offset: 2px; }
+.cscene .cs-bar { display: grid; gap: 8px; padding: 10px 12px 12px; background: var(--card-background-color, #fff); color: var(--primary-text-color, #141A22); border-top: 1px solid var(--divider-color, rgba(0,0,0,.08)); }
+.cscene .cs-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.cscene .cs-bar button { border: 1px solid var(--divider-color, rgba(0,0,0,.12)); background: transparent; color: inherit; border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.cscene .cs-bar button:disabled { opacity: .4; cursor: default; }
+.cscene .cs-tabs button.on, .cscene .cs-bar button.primary { background: var(--primary-color, #00B894); border-color: var(--primary-color, #00B894); color: var(--text-primary-color, #fff); }
+.cscene .cs-hint { margin: 0; font-size: 12.5px; color: var(--secondary-text-color, #5B6676); }
+.cscene .cs-acts { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.cscene .cs-gap { flex: 1; }
 @keyframes cs-breathe { 50% { opacity: .45; } }
 @keyframes cs-sheen { 0%, 60% { opacity: 0; } 80% { opacity: .5; } 100% { opacity: 0; } }
 @keyframes cs-spin { to { transform: rotate(360deg); } }
@@ -5387,7 +6209,20 @@ class EvPlannerPanel extends HTMLElement {
   _mountScene() {
     const slot = this.shadowRoot.querySelector(".scene-slot");
     if (!slot) return;
-    if (!this._scene) this._scene = new ClayScene();
+    if (!this._scene) {
+      this._scene = new ClayScene();
+      this._scene.t = (key, vars) => this._t(key, vars);
+      // Where an administrator placed things, saved for this house; the other house keeps its own.
+      this._scene.onSave = async (layout, house) => {
+        const all = { ...(this._state.layout || {}) };
+        if (Object.keys(layout).length) all[house] = layout;
+        else delete all[house];
+        if (!(await this._run("layout", "ev_household_planner/layout", { layout: all }))) return false;
+        this._state = { ...this._state, layout: all };
+        this._toast(this._t("edit_saved"));
+        return true;
+      };
+    }
     slot.appendChild(this._scene.el);
     this._scene.update(this._sceneModel());
   }
@@ -5443,6 +6278,9 @@ class EvPlannerPanel extends HTMLElement {
     const light = !Number.isFinite(elevation) ? (sun?.state === "below_horizon" ? 1 : 0) : clamp((6 - elevation) / 12, 0, 1);
     const model = {
       house: this._state.settings?.house === "angle" ? "angle" : "classic",
+      // Where things were placed in each house, and whether this user may place them.
+      layout: this._state.layout || {},
+      canEdit: !!this._hass?.user?.is_admin,
       light,
       solar: solar || isNum(home.solar_kw) ? { kw: sunKw } : null,
       battery,
