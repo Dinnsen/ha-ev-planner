@@ -7850,13 +7850,13 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .dial .bar:hover { opacity: 1; }
 @keyframes bar-in { from { opacity: 0; transform: scale(.82); } }
 .dial .window { fill: none; stroke: url(#evp-win); stroke-width: 18; stroke-linecap: round; }
-.dial .window.sweep { stroke-dasharray: 1; stroke-dashoffset: 1; animation: sweep 1.1s cubic-bezier(.6,0,.2,1) forwards; animation-delay: calc(var(--i) * 120ms); }
+.dial .window.sweep { stroke-dasharray: 1; stroke-dashoffset: 1; animation: win-sweep 1.1s cubic-bezier(.6,0,.2,1) forwards; animation-delay: calc(var(--i) * 120ms); }
 .dial .window.preview { stroke-dasharray: .018 .014; opacity: .85; }
 .dial .window.past { opacity: .35; }
 .dial .window-glow { fill: none; stroke: #A3E635; stroke-width: 18; stroke-linecap: round; opacity: .35; }
 .dial .window-glow.preview { opacity: .12; }
 .dial .window-flow { fill: none; stroke: #fff; stroke-width: 4; stroke-linecap: round; stroke-dasharray: 2 16; opacity: .85; animation: flow 1.2s linear infinite; }
-@keyframes sweep { to { stroke-dashoffset: 0; } }
+@keyframes win-sweep { to { stroke-dashoffset: 0; } }
 @keyframes flow { to { stroke-dashoffset: -18; } }
 .dial .needle { stroke: var(--evp-ink); stroke-width: 2.5; stroke-linecap: round; }
 .dial .needle-dot { fill: var(--evp-ink); }

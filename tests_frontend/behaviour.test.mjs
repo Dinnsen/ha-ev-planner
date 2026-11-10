@@ -273,3 +273,30 @@ test("the grid's label shows an arrow and the power, and the words when it is ta
     assert.match(await car.locator(".cs-v").innerText(), /^\d+\s?%$/);
   });
 });
+
+test("the clock's charging window is drawn in full when it sweeps in", async () => {
+  await withPanel("two-cars", { size: PHONE, motion: true }, async ({ page, tap, state }) => {
+    const car = state.vehicles.find((v) => v.plan?.segments?.length);
+    await tap('.tabs button[data-tab="cars"]');
+    await tap(`[data-act="open-car"][data-id="${car.id}"]`);
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector(".dial .window.sweep"));
+    const drawn = await page.evaluate(async () => {
+      const windows = [...window.harness.panel.shadowRoot.querySelectorAll(".dial .window.sweep")];
+      await Promise.all(windows.flatMap((w) => w.getAnimations().map((a) => a.finished)));
+      return windows.map((w) => getComputedStyle(w).strokeDashoffset);
+    });
+    assert.ok(drawn.length > 0, "the window sweeps in");
+    for (const offset of drawn) assert.equal(parseFloat(offset), 0, "and stays drawn when the sweep is over");
+  });
+});
+
+test("each animation has a name of its own", async () => {
+  const source = await readFile(new URL("../custom_components/ev_household_planner/frontend/ev-planner-panel.js", import.meta.url), "utf8");
+  const seen = new Map();
+  for (const [, name, body] of source.matchAll(/@keyframes ([\w-]+) (\{.*\})/g)) {
+    // The same animation written twice does no harm; two different ones with one name do: the last wins.
+    if (seen.has(name)) assert.equal(body, seen.get(name), `two different animations are called ${name}`);
+    seen.set(name, body);
+  }
+  assert.ok(seen.size > 5);
+});
