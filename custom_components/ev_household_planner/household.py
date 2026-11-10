@@ -1181,7 +1181,7 @@ class Household(DataUpdateCoordinator[None]):
     async def async_pause_for_house(self, vehicle: Vehicle) -> bool:
         """The guard: stop this car now, as the house needs the current. True when it was stopped."""
         vehicle.decision = Decision(CONTROL_PAUSE, REASON_WAITING)
-        stopped = await self._async_apply(vehicle, force=True)
+        stopped = await self._async_apply(vehicle, force=True, urgent=True)
         self.async_update_listeners()
         return stopped
 
@@ -1210,8 +1210,12 @@ class Household(DataUpdateCoordinator[None]):
             return str(err) or type(err).__name__
         return None
 
-    async def _async_apply(self, vehicle: Vehicle, *, force: bool) -> bool:
-        """Send the decision to the car or the charger, when it changed. True when it is as decided."""
+    async def _async_apply(self, vehicle: Vehicle, *, force: bool, urgent: bool = False) -> bool:
+        """Send the decision to the car or the charger, when it changed. True when it is as decided.
+
+        ``force`` sends it though it was sent before (the check that it took); ``urgent`` (the guard)
+        also does not wait after a command that failed.
+        """
         desired = vehicle.decision.control
         if vehicle.control == CONTROL_NONE or desired == CONTROL_RELEASED:
             return False
@@ -1234,14 +1238,13 @@ class Household(DataUpdateCoordinator[None]):
             vehicle.last_sent = desired
             vehicle.control_error = None
             return True
-        if not force and vehicle.retry_after is not None and now < vehicle.retry_after:
+        if not urgent and vehicle.retry_after is not None and now < vehicle.retry_after:
             # The last command failed: wait a little longer each time before the next.
             return False
         if want_on and not force and vehicle.paused_at is not None and elapsed(now, vehicle.paused_at) < MIN_REST:
             # Just paused: a start right after it is what a flickering sensor asks for. Wait a moment.
             return False
-        allowed = vehicle.count_command(now)
-        if want_on and not allowed:
+        if not vehicle.count_command(now, stop=not want_on):
             # A car or charger that does not listen is not flooded; the check tries again later.
             # A stop always goes out: it is never the one too many.
             vehicle.control_error = "rate_limited"

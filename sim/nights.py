@@ -81,6 +81,10 @@ def made_nights() -> list[Night]:
             return 0.6
         return SHAPE[local.hour]
 
+    def night_dip(local: datetime) -> float:
+        # 01 and 02 are the cheap hours, so the plan lies there.
+        return 0.5 if local.hour in (1, 2) else SHAPE[local.hour]
+
     def spring(local: datetime) -> float:
         # The cheapest hours are 01 and 03, either side of the hour that does not exist.
         return {1: 0.5, 3: 0.55}.get(local.hour, SHAPE[local.hour])
@@ -114,6 +118,36 @@ def made_nights() -> list[Night]:
             CarSpec(capacity=60, power=11, soc=50, limit=100, curve=taper, plug_in=at(monday, "22:30")),
             tags=["taper", "series"],
             nights=3,
+        ),
+        # The car's cloud is down when the plan starts: fewer and fewer tries, and it charges when it is back.
+        _night(
+            "cloud-down-at-the-start",
+            monday,
+            CarSpec(
+                capacity=60,
+                power=11,
+                soc=50,
+                limit=80,
+                cloud_down=[(at(monday + timedelta(days=1), "00:50"), at(monday + timedelta(days=1), "02:00"))],
+            ),
+            prices=day_prices(monday, 2, price=night_dip),
+            tags=["cloud"],
+        ),
+        # Down when the plan ends: the car goes on charging, and is stopped when the cloud is back.
+        _night(
+            "cloud-down-at-the-end",
+            monday,
+            CarSpec(
+                capacity=60,
+                power=11,
+                soc=30,
+                limit=100,
+                target_entity=False,
+                cloud_down=[(at(monday + timedelta(days=1), "02:30"), at(monday + timedelta(days=1), "04:00"))],
+            ),
+            prices=day_prices(monday, 2, price=night_dip),
+            settings={"target_soc": 60},
+            tags=["cloud"],
         ),
         _night(
             "tight",

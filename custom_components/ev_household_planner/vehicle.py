@@ -780,10 +780,17 @@ class Vehicle:
         rose = soc is not None and session.start_soc is not None and soc - session.start_soc >= 1
         return not rose
 
-    def count_command(self, now: datetime) -> bool:
-        """Note a command to the car or charger; False when the hourly limit is reached."""
+    def count_command(self, now: datetime, stop: bool = False) -> bool:
+        """Note a command to the car or charger; False when the hourly limit is reached.
+
+        A stop is always let through, and the last of the hour's commands is
+        kept for one: a start is refused when only that one is left.
+        """
         self.sent_log = [moment for moment in self.sent_log if elapsed(now, moment) < timedelta(hours=1)]
-        if len(self.sent_log) >= COMMANDS_PER_HOUR:
+        if stop:
+            self.sent_log.append(now)
+            return True
+        if len(self.sent_log) >= COMMANDS_PER_HOUR - 1:
             return False
         self.sent_log.append(now)
         return True

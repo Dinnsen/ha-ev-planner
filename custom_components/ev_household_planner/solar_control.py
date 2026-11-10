@@ -409,7 +409,8 @@ class SolarControl:
         if not isinstance(data, dict):
             return
         # Before 2.3.0b3 only the states were stored, each under its car.
-        states = data.get("states") if isinstance(data.get("states"), dict) else data
+        stored = data.get("states")
+        states: dict[Any, Any] = stored if isinstance(stored, dict) else data
         self.controller.states = {
             str(vid): SolarState.from_dict(value) for vid, value in states.items() if isinstance(value, dict)
         }

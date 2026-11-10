@@ -34,6 +34,8 @@ VEHICLE = "sim_car"
 CHARGER = "sim_charger"
 # EV Planner may send this many commands in an hour (Tesla charges for calls to the car).
 MAX_COMMANDS_PER_HOUR = 12
+# While the car's cloud is down, each try waits longer than the last: at most this many fail in an hour.
+MAX_FAILED_PER_HOUR = 8
 
 
 def version() -> str:
@@ -89,12 +91,18 @@ class Run:
         self.now = night.start
         self.price_shown: tuple[Any, ...] | None = None
         self.first_charge: datetime | None = None
+        self.failed: list[datetime] = []
+        self.deaf: list[datetime] = []
 
     # EV Planner's commands -------------------------------------------------
     async def switch(self, _household: Any, entity_id: str, on: bool) -> str | None:
         if entity_id != SWITCH:
             return None
         self.commands.append((self.now, on))
+        if any(start <= self.now < end for start, end in self.night.car.cloud_down):
+            # The car's cloud is down: the command is lost, and EV Planner is told so.
+            self.failed.append(self.now)
+            return "cloud down"
         if not on and self.was_charging and self.night.car.no_resume:
             self.resume_blocked = True
         self.switch_on = on
@@ -149,6 +157,8 @@ class Run:
         self.night = night
         self.soc = night.car.soc
         self.commands = []
+        self.failed = []
+        self.deaf = []
         self.first_charge = None
         self.price_shown = None
 
@@ -283,6 +293,16 @@ async def _run_one(
         await _tick(hass, freezer, moment)
         await _tick(hass, freezer, moment + timedelta(seconds=3))
 
+        # A cloud that was down is back: a quarter of an hour later the car does what EV Planner has decided.
+        wanted = getattr(getattr(household.vehicles[VEHICLE], "decision", None), "control", None)
+        if (
+            run.plugged(moment)
+            and any(
+                end + timedelta(minutes=16) <= moment < end + timedelta(minutes=60) for _start, end in car.cloud_down
+            )
+            and ((wanted == "pause" and run.switch_on) or (wanted == "charge" and not run.switch_on))
+        ):
+            run.deaf.append(moment)
         windows = _windows(household.vehicles[VEHICLE])
         # Until the ready-by time (or the car leaves): the next night's plan is not a change.
         if run.plugged(moment) and run.soc < night.goal() - 1 and moment < window_end:
@@ -386,6 +406,16 @@ def _check(result: Result, night: Night, run: Run, moved: list[datetime]) -> Non
             )
         if result.energy_error is not None and abs(result.energy_error) > 5:
             result.violations.append(f"summer time: the energy is {result.energy_error:+.0f} % off")
+    # 6. A cloud that is down is not flooded: fewer tries each time, and the car follows again when it is back.
+    for index, when in enumerate(run.failed):
+        within = [other for other in run.failed[index:] if other < when + timedelta(hours=1)]
+        if len(within) > MAX_FAILED_PER_HOUR:
+            result.violations.append(f"{len(within)} failed commands in an hour from {night.local(when):%H:%M}")
+            break
+    if run.deaf:
+        result.violations.append(
+            f"the car did not follow for {len(run.deaf)} min after the cloud came back, from {night.local(run.deaf[0]):%H:%M}"
+        )
     if night.settings.get("use_earliest_start") and run.first_charge is not None:
         earliest = time.fromisoformat(str(night.settings["earliest_start"]))
         started = night.local(run.first_charge)

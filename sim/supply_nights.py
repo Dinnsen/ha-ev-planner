@@ -80,6 +80,7 @@ class SupplyNight:
     guard: bool = False
     latency: int = 0  # minutes before a new current reaches the car (Easee's cloud)
     meter_gaps: list[tuple[str, str]] = field(default_factory=list)  # local times the meter is unavailable
+    meter_frozen: list[tuple[str, str]] = field(default_factory=list)  # ... or stuck on its last value
     temperature: Callable[[datetime], float] | None = None  # outside, in °C, by local time
     weather: bool = False  # EV Planner is given a weather entity with the forecast
     history: dict[str, Any] | None = None  # the house forecast EV Planner has learned before the night
@@ -90,6 +91,10 @@ class SupplyNight:
     def meter_lost(self, local: datetime) -> bool:
         now = local.strftime("%H:%M")
         return any((a <= now < b) if a <= b else (now >= a or now < b) for a, b in self.meter_gaps)
+
+    def frozen(self, local: datetime) -> bool:
+        now = local.strftime("%H:%M")
+        return any((a <= now < b) if a <= b else (now >= a or now < b) for a, b in self.meter_frozen)
 
     def at(self, day: date, hhmm: str) -> datetime:
         return wall_time(day, time.fromisoformat(hhmm), ZONE).astimezone(UTC)
@@ -345,6 +350,8 @@ async def run_supply_night(
             hass.states.async_set(HEAT_PUMP_BLOCK, "on" if blocked["since"] is not None else "off")
         if night.meter_lost(local):
             hass.states.async_set(METER, "unavailable")
+        elif night.frozen(local):
+            pass  # the meter has stopped: its last value stays, and nothing says so
         else:
             hass.states.async_set(METER, str(round(house + sum(got.values()), 1)), {"unit_of_measurement": "A"})
 
@@ -476,6 +483,11 @@ def _heat_pump(base: float, extra: float) -> Callable[[datetime], float]:
     return lambda local: base + (extra if local.hour in (1, 2, 3, 4) else 0.0)
 
 
+def _step(base: float, high: float, start: str, end: str) -> Callable[[datetime], float]:
+    """A house that draws ``high`` between two local times, ``base`` otherwise."""
+    return lambda local: high if start <= local.strftime("%H:%M") < end else base
+
+
 def _spiky(base: float) -> Callable[[datetime], float]:
     """A house with a washing machine, a dryer, a kettle and a water heater during the night."""
     spikes = [
@@ -566,6 +578,20 @@ def supply_nights() -> list[SupplyNight]:
             guard=True,
             meter_gaps=[("01:00", "01:40")],
             tags=["guard", "meter-gap"],
+        ),
+        # The meter stops on its last value just before the house needs more: nothing reports it.
+        SupplyNight(
+            "guard-meter-freezes",
+            monday,
+            [SupplyCar("a", 20, 80, adjustable=True), SupplyCar("b", 25, 80, adjustable=True)],
+            fuse=25,
+            limit=23,
+            house=_step(4, 12, "01:00", "02:30"),
+            plug_in="22:00",
+            equalizer=False,
+            guard=True,
+            meter_frozen=[("00:55", "02:30")],
+            tags=["guard", "meter-frozen"],
         ),
         # The same spiky night without the guard, for comparison: here the fuse is on its own.
         SupplyNight(

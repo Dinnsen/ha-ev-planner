@@ -27,7 +27,11 @@ async def test_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory,
             broken.append(f"car {key}: the current changed {changes} times")
         if run.most_per_hour.get(key, 0) > 12:
             broken.append(f"car {key}: the current changed {run.most_per_hour[key]} times in one hour")
-    if night.guard and run.longest_over > night.latency + 2:
+    if "meter-frozen" in night.tags:
+        # A meter that froze is found after five minutes; until then nobody can see the house.
+        if run.longest_over > 8:
+            broken.append(f"over the fuse for {run.longest_over} minutes in a row with a frozen meter")
+    elif night.guard and run.longest_over > night.latency + 2:
         broken.append(
             f"over the fuse for {run.longest_over} minutes in a row ({run.over_fuse} in all, {run.peak_over} A at worst)"
         )

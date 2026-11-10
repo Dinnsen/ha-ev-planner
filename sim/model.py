@@ -36,6 +36,7 @@ class CarSpec:
     blips: list[datetime] = field(default_factory=list)  # every sensor unavailable for a moment
     outages: list[tuple[datetime, datetime]] = field(default_factory=list)  # sensors unavailable
     flickers: list[datetime] = field(default_factory=list)  # the cable reads unplugged for a moment
+    cloud_down: list[tuple[datetime, datetime]] = field(default_factory=list)  # commands to the car fail
 
     def __post_init__(self) -> None:
         # Everything in UTC: a minute added to a local time is a wall-clock minute in Python,
@@ -45,6 +46,7 @@ class CarSpec:
         self.blips = [_utc(moment) for moment in self.blips]
         self.outages = [(_utc(start), _utc(end)) for start, end in self.outages]
         self.flickers = [_utc(moment) for moment in self.flickers]
+        self.cloud_down = [(_utc(start), _utc(end)) for start, end in self.cloud_down]
 
     def shifted(self, delta: timedelta) -> CarSpec:
         return replace(
@@ -54,6 +56,7 @@ class CarSpec:
             blips=[moment + delta for moment in self.blips],
             outages=[(start + delta, end + delta) for start, end in self.outages],
             flickers=[moment + delta for moment in self.flickers],
+            cloud_down=[(start + delta, end + delta) for start, end in self.cloud_down],
         )
 
     def factor(self, soc: float) -> float:
