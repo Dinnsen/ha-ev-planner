@@ -300,3 +300,31 @@ test("each animation has a name of its own", async () => {
   }
   assert.ok(seen.size > 5);
 });
+
+test("a command that is tried again by itself is shown quietly, and as a problem when it keeps failing", async () => {
+  await withPanel("two-cars", { size: PHONE, known: true }, async ({ page, tap, state }) => {
+    await tap('.tabs button[data-tab="cars"]');
+    const car = state.vehicles[0];
+    const show = (changes) => page.evaluate((changed) => window.harness.patch({ patch: {}, items: { vehicles: { [changed.id]: changed } } }), { ...car, ...changes });
+    const seen = () => page.evaluate((id) => {
+      const root = window.harness.panel.shadowRoot;
+      const card = root.querySelector(`.modes[data-id="${id}"]`).closest("article, section, .vcard");
+      return {
+        badge: root.querySelector('.tabs button[data-tab="cars"] em')?.textContent || null,
+        notes: [...card.querySelectorAll(".note-line")].map((n) => [n.classList.contains("info") ? "info" : "bad", n.textContent.trim()]),
+      };
+    }, car.id);
+    await show({ control_error: "vehicle is offline", control_retry: "2026-01-14T21:24:00+01:00", problem: false });
+    let now = await seen();
+    assert.equal(now.badge, null, "no problem on the tab");
+    assert.deepEqual(now.notes, [["info", "The command did not get through. Trying again at 21:24."]]);
+    await show({ control_error: "vehicle is offline", control_retry: null, problem: false });
+    now = await seen();
+    assert.equal(now.badge, "1", "a problem once it keeps failing");
+    assert.deepEqual(now.notes, [["bad", "Could not control charging: vehicle is offline"]]);
+    await show({ control_error: null, control_retry: null, problem: false });
+    now = await seen();
+    assert.equal(now.badge, null);
+    assert.deepEqual(now.notes, []);
+  });
+});

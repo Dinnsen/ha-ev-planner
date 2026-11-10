@@ -2,6 +2,17 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.3.0b8] - 2026-11-10
+
+Beta: only those who show beta versions in the Marketplace get it.
+
+### Fixed
+- **The charging window on the clock was only a blur.** When the plan changed, the window should sweep in, but two animations had the same name and the wrong one won: the sharp arc never came, and only its glow was left. The window is drawn in full again.
+- **An error that stayed after it no longer mattered.** When a command to the car did not get through, the error stayed on the car's card, with the red line and the number on *Cars*, also after the car was set to *Off*, or when the car was already as EV Planner wanted. The error, and the repair in Settings, now go away when EV Planner lets go of the car or there is nothing more to send.
+
+### Changed
+- **A command that did not get through is first tried again quietly.** A Tesla that is just plugged in is often not awake yet, and the first command does not get through. The card now says when it is tried again, without red. Only when it has failed three times in a row is it shown as a problem, the same moment it becomes a repair in Settings.
+
 ## [2.3.0b7] - 2026-11-10
 
 Beta: only those who show beta versions in the Marketplace get it.

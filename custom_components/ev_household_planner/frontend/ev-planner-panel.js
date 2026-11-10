@@ -92,6 +92,7 @@ const TEXT = {
     mode_off: "Fra",
     problem: "Bilen skulle lade, men gør det ikke. Tjek bilen og laderen.",
     control_error: "Kunne ikke styre opladningen: {error}",
+    control_retry: "Kommandoen gik ikke igennem. Prøver igen kl. {time}.",
     no_control_entity: "Der er ingen kontakt at styre opladningen med. Vælg en under bilens indstillinger.",
     note_limited: "Prisloftet tillader ikke hele ladningen.",
     note_min_only: "Kun minimumsniveauet nås under prisloftet.",
@@ -580,6 +581,7 @@ const TEXT = {
     mode_off: "Off",
     problem: "The car should be charging, but it is not. Check the car and the charger.",
     control_error: "Could not control charging: {error}",
+    control_retry: "The command did not get through. Trying again at {time}.",
     no_control_entity: "There is no switch to control charging with. Choose one in the car's options.",
     note_limited: "The price ceiling does not allow the full charge.",
     note_min_only: "Only the minimum level is reached under the price ceiling.",
@@ -4240,7 +4242,7 @@ class EvPlannerPanel extends HTMLElement {
 
   _renderTabs() {
     const nav = this.shadowRoot.querySelector(".tabs");
-    const problems = this._cars.filter((v) => v.problem || v.control_error).length;
+    const problems = this._cars.filter((v) => this._troubled(v)).length;
     const html = TABS.filter((tab) => tab !== "home" || this._homeShown).map((tab) => {
       const on = this._tab === tab;
       const icon = { cars: "car", home: "home", guest: "guest", history: "history", settings: "settings" }[tab];
@@ -4357,8 +4359,13 @@ class EvPlannerPanel extends HTMLElement {
     return parts.join(" · ");
   }
 
+  /* Something to see to: a command that is tried again by itself is not, until it has failed a few times. */
+  _troubled(v) {
+    return !!(v.problem || (v.control_error && !v.control_retry));
+  }
+
   _statusTone(v) {
-    if (v.problem || v.control_error) return "coral";
+    if (this._troubled(v)) return "coral";
     return STATUS_TONE[v.status] || "grey";
   }
 
@@ -4393,6 +4400,7 @@ class EvPlannerPanel extends HTMLElement {
     const notes = [];
     if (v.problem) notes.push(["bad", this._t("problem")]);
     if (v.control_error === "rate_limited") notes.push(["warn", this._t("rate_limited")]);
+    else if (v.control_retry) notes.push(["info", this._t("control_retry", { time: this._time(v.control_retry) })]);
     else if (v.control_error) {
       const text = v.control_error === "no_control_entity" ? this._t("no_control_entity") : this._t("control_error", { error: v.control_error });
       notes.push(["bad", text]);
@@ -5340,7 +5348,7 @@ class EvPlannerPanel extends HTMLElement {
     this._renderStatusLine(kind, text);
     const extra = shown.plan && isNum(shown.plan.end_soc) ? [[this._t("target"), this._pct(shown.plan.end_soc)]] : [];
     this._renderFacts(shown.plan, extra);
-    this._patch(root.querySelector(".car-notes"), JSON.stringify([v.problem, v.control_error, v.car_limit, v.target, v.resumes, this._state.price_issue, this._state.supply, v.supply_amps, v.connected, shown.plan && [shown.plan.limited, shown.plan.min_only, shown.plan.short, shown.plan.opportunistic, shown.plan.ceiling], shown.deadline, this._lang]), this._notesHtml(v, shown.plan ? { ...shown.plan, deadline: shown.deadline } : null));
+    this._patch(root.querySelector(".car-notes"), JSON.stringify([v.problem, v.control_error, v.control_retry, v.car_limit, v.target, v.resumes, this._state.price_issue, this._state.supply, v.supply_amps, v.connected, shown.plan && [shown.plan.limited, shown.plan.min_only, shown.plan.short, shown.plan.opportunistic, shown.plan.ceiling], shown.deadline, this._lang]), this._notesHtml(v, shown.plan ? { ...shown.plan, deadline: shown.deadline } : null));
     const glance = root.querySelector(".car-page .glance");
     if (glance) glance.textContent = this._glanceText(v, shown);
     const why = root.querySelector(".car-page .why");
