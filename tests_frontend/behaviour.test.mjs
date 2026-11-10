@@ -255,3 +255,21 @@ test("a change to one car leaves the rest of the state as it was", async () => {
     assert.deepEqual((await page.evaluate(() => window.harness.calls)).filter((c) => c.type.endsWith("/subscribe")).at(-1).changes, true);
   });
 });
+
+test("the grid's label shows an arrow and the power, and the words when it is tapped", async () => {
+  await withPanel("shared-supply", { known: true }, async ({ page }) => {
+    await page.locator('ev-planner-panel .tabs button[data-tab="home"]').click();
+    const grid = page.locator('ev-planner-panel .cs-label[data-key="grid"]');
+    await grid.waitFor();
+    assert.equal(await grid.getAttribute("data-dir"), "in");
+    assert.equal(await grid.locator(".cs-dir").count(), 1);
+    assert.doesNotMatch(await grid.locator(".cs-v").innerText(), /buying/);
+    await grid.click();
+    const open = page.locator('ev-planner-panel .cs-label[data-key="grid"]');
+    assert.match(await open.locator(".cs-v").innerText(), /buying/);
+    assert.equal(await open.getAttribute("aria-expanded"), "true");
+    // A car shows its level; the plan comes with a tap.
+    const car = page.locator('ev-planner-panel .cs-label[data-key="car0"]');
+    assert.match(await car.locator(".cs-v").innerText(), /^\d+\s?%$/);
+  });
+});

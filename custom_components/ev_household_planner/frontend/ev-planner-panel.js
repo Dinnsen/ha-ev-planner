@@ -2597,6 +2597,10 @@ const ClayScene = (() => {
       }
     }
 
+    relabel() {
+      if (this.model) this._labels(this.model);
+    }
+
     _labels(m) {
       const anchors = (this.layout || CLASSIC).anchors(m, this.placed);
       const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -2610,7 +2614,10 @@ const ClayScene = (() => {
         // The cars' labels sit in the drive in front of them, out of the way of the chargers and cables.
         const lift = label.key === "grid" ? 26 : label.key.startsWith("car") ? -14 : 34;
         // Kept inside the picture: half the label's width, roughly, in the picture's units.
-        const half = ((String(label.short ?? label.value).length * 6.6 + 40) / 2) * (vw / (this.el.clientWidth || W));
+        // A label that is tapped open shows its name and all of its text.
+        const open = !!this.open?.has(label.key);
+        const text = open ? `${label.title} ${label.value}` : String(label.short ?? label.value);
+        const half = ((text.length * 6.6 + (label.dir ? 54 : 40)) / 2) * (vw / (this.el.clientWidth || W));
         items.push({ label, ax, ay, half, x: Math.min(vx + vw - half, Math.max(vx + half, ax)), y: Math.max(vy + 14, ay - lift) });
       }
       // Labels that would meet: the lowest stays, the next one moves up over it. Measured in the
@@ -2648,7 +2655,10 @@ const ClayScene = (() => {
         const top = (((y - vy) / vh) * 100).toFixed(2);
         const pylon = `<svg class="cs-icon" viewBox="0 0 20 20" aria-hidden="true" style="stroke:${color}"><path d="M6 17 L9 3 L11 3 L14 17 M5 6.5 L15 6.5 M7.4 11 L12.6 11 M6 17 L12.4 9 M14 17 L7.6 9"/></svg>`;
         const ring = label.icon === "grid" ? pylon : Number.isFinite(label.bar) ? `<svg class="cs-ring" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5" class="r0"/><circle cx="10" cy="10" r="7.5" class="r1" pathLength="100" style="stroke-dasharray:${Math.max(0, Math.min(100, label.bar)).toFixed(0)} 100${label.colour ? `;stroke:${label.colour}` : ""}"/></svg>` : `<span class="cs-dot"${label.colour ? ` style="background:${label.colour};box-shadow:0 0 6px ${label.colour}"` : ""}></span>`;
-        html += `<button class="cs-label ${label.on ? "on" : ""} ${label.key === "sun" ? "sun" : ""} ${this.open?.has(label.key) ? "open" : ""}" data-act="scene-label" data-key="${label.key}" style="left:${left}%;top:${top}%" title="${esc(label.title)}" aria-label="${esc(`${label.title}: ${label.value}`)}">${ring}<span class="cs-t">${esc(label.title)}</span><span class="cs-v">${esc(label.short ?? label.value)}</span></button>`;
+        const open = !!this.open?.has(label.key);
+        // In to the house points down, out to the grid points up.
+        const arrow = label.dir && !open ? `<svg class="cs-icon cs-dir" viewBox="0 0 20 20" aria-hidden="true" style="stroke:${color}"><path d="${label.dir === "in" ? "M10 4 L10 16 M5 11 L10 16 L15 11" : "M10 16 L10 4 M5 9 L10 4 L15 9"}"/></svg>` : "";
+        html += `<button class="cs-label ${label.on ? "on" : ""} ${label.key === "sun" ? "sun" : ""} ${open ? "open" : ""}" data-act="scene-label" data-key="${label.key}" data-dir="${label.dir || ""}" style="left:${left}%;top:${top}%" title="${esc(label.title)}" aria-expanded="${open}" aria-label="${esc(`${label.title}: ${label.value}`)}">${ring}${arrow}<span class="cs-t">${esc(label.title)}</span><span class="cs-v">${esc(open ? label.value : (label.short ?? label.value))}</span></button>`;
       }
       this.el.querySelector(".cs-leaders").innerHTML = lines;
       this.el.querySelector(".cs-labels").innerHTML = html;
@@ -2699,6 +2709,7 @@ const CLAY_CSS = `
 .cs-label.open .cs-t { display: inline; }
 .cs-label .cs-v { color: #3A4250; font-variant-numeric: tabular-nums; }
 .is-dark .cs-label .cs-v { color: #E3E7EC; }
+.cs-label .cs-dir { width: 12px; height: 12px; margin-left: -2px; stroke-width: 2.2; }
 .cs-label .cs-icon { width: 16px; height: 16px; flex: none; margin-left: 2px; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .cs-label .cs-ring { width: 18px; height: 18px; flex: none; transform: rotate(-90deg); }
 .cs-label .cs-ring .r0 { fill: none; stroke: #DCE1E8; stroke-width: 3; }
@@ -5422,7 +5433,9 @@ class EvPlannerPanel extends HTMLElement {
       const text = Math.abs(gridKw) < 0.05 ? "0 W" : this._t(gridKw > 0 ? "home_buys" : "home_sells", { kw: power(gridKw) });
       // Blue when the house buys, purple when it sells: the colours of the Energy dashboard.
       const colour = gridKw > 0.05 ? "#3B8BFF" : gridKw < -0.05 ? "#9A6BFF" : "#9AA6B4";
-      labels.push({ key: "grid", title: this._t("home_grid"), value: text, short: text, on: Math.abs(gridKw) > 0.05, colour, icon: "grid" });
+      // Closed: the pylon, an arrow in or out and the power. The words come when it is tapped.
+      const dir = gridKw > 0.05 ? "in" : gridKw < -0.05 ? "out" : null;
+      labels.push({ key: "grid", title: this._t("home_grid"), value: text, short: Math.abs(gridKw) < 0.05 ? "0 W" : power(Math.abs(gridKw)), on: Math.abs(gridKw) > 0.05, colour, icon: "grid", dir });
     }
     const sun = this._hass?.states?.["sun.sun"];
     const elevation = Number(sun?.attributes?.elevation);
@@ -5462,7 +5475,7 @@ class EvPlannerPanel extends HTMLElement {
       const start = v.status === "planned" && hasSegments(v.plan) ? v.plan.segments[0].start : null;
       const doing = kw > 0.05 ? power(kw) : !plugged ? this._t("home_unplugged") : start ? this._t("home_planned_at", { time: this._time(start) }) : v.status === "completed" ? this._t("home_done") : this._t("home_idle");
       const colour = !plugged ? "#9AA6B4" : kw > 0.05 || v.status === "completed" ? "#22C981" : start ? "#F5A524" : "#3B8BFF";
-      labels.push({ key: `car${i}`, title: v.name, value: [soc, doing].filter(Boolean).join(" · "), short: kw > 0.05 || start || v.status === "completed" ? [soc, doing].filter(Boolean).join(" · ") : soc || doing, on: kw > 0.05, colour, bar: isNum(v.soc) ? Number(v.soc) : undefined });
+      labels.push({ key: `car${i}`, title: v.name, value: [soc, doing].filter(Boolean).join(" · "), short: soc || doing, on: kw > 0.05, colour, bar: isNum(v.soc) ? Number(v.soc) : undefined });
     });
     return model;
   }
@@ -6476,10 +6489,11 @@ class EvPlannerPanel extends HTMLElement {
         this._exportHistory();
         break;
       case "scene-label": {
-        button.classList.toggle("open");
         const open = (this._scene.open = this._scene.open || new Set());
-        if (button.classList.contains("open")) open.add(button.dataset.key);
-        else open.delete(button.dataset.key);
+        if (open.has(button.dataset.key)) open.delete(button.dataset.key);
+        else open.add(button.dataset.key);
+        // Laid out again: an open label is wider, and the others make room.
+        this._scene.relabel();
         break;
       }
       case "mode":

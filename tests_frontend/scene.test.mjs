@@ -60,7 +60,7 @@ async function buildAll({ house, width }) {
       if (solar) labels.push({ key: "sun", title: "Solar", value: "3.2 kW", short: "3.2 kW", on: true });
       labels.push({ key: "home", title: "The house", value: "1.4 kW", short: "1.4 kW", on: true });
       if (battery) labels.push({ key: "battery", title: "Battery", value: "62 % · charging 1.1 kW", short: "62 %", on: true, bar: 62 });
-      labels.push({ key: "grid", title: "The grid", value: "Buying 4.6 kW", short: "Buying 4.6 kW", on: true, colour: "#3B8BFF", icon: "grid" });
+      labels.push({ key: "grid", title: "The grid", value: "Buying 4.6 kW", short: "4.6 kW", on: true, colour: "#3B8BFF", icon: "grid", dir: "in" });
       const model = {
         house,
         light: count % 2,

@@ -2,6 +2,13 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.3.0b5] - 2026-11-10
+
+Beta: only those who show beta versions in the Marketplace get it.
+
+### Changed
+- **Smaller labels in the house picture.** The grid shows its pylon, an arrow (down: in to the house, up: out to the grid) and the power; a car shows its charge level. Tap a label for its name and the rest: *buying* or *sending out*, the charging power or when the plan starts. The labels no longer lie over the cars on a phone, and the others make room when one is opened.
+
 ## [2.3.0b4] - 2026-11-10
 
 Beta: only those who show beta versions in the Marketplace get it.
