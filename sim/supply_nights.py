@@ -201,6 +201,9 @@ class SupplyResult:
     stops: int = 0  # times a car was switched off while it still needed charge
     misses: list[float] = field(default_factory=list)  # each minute: the house's real amps less what the plan expected
     blocks: list[int] = field(default_factory=list)  # each time the heat pump was held back: for how many minutes
+    over_at: list[str] = field(
+        default_factory=list
+    )  # the first minutes over the fuse: the house, the cars and what they were set to
 
 
 def _forecast(night: SupplyNight, moment: datetime) -> list[dict[str, Any]]:
@@ -373,6 +376,7 @@ async def run_supply_night(
         storage[key] = {"version": 1, "minor_version": 1, "key": key, "data": {"supply_forecast": night.history}}
     misses: list[float] = []
     over = 0
+    over_at: list[str] = []
     over_fuse = longest = run_over = blind = 0
     peak = 0.0
     at_deadline: dict[str, float] = {}
@@ -413,6 +417,10 @@ async def run_supply_night(
                 run_over = 0
             elif above > 0.5:
                 over_fuse += 1
+                if len(over_at) < 40:
+                    over_at.append(
+                        f"{moment.astimezone(ZONE):%H:%M} house {house:g} cars {[round(g, 1) for g in given]} set {[amps_set[c.key] for c in night.cars]}"
+                    )
                 run_over += 1
                 longest = max(longest, run_over)
                 peak = max(peak, above)
@@ -470,6 +478,7 @@ async def run_supply_night(
         stops,
         misses,
         blocks,
+        over_at,
     )
 
 

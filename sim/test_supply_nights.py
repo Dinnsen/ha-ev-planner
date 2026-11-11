@@ -33,7 +33,8 @@ async def test_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory,
             broken.append(f"over the fuse for {run.longest_over} minutes in a row with a frozen meter")
     elif night.guard and run.longest_over > night.latency + 2:
         broken.append(
-            f"over the fuse for {run.longest_over} minutes in a row ({run.over_fuse} in all, {run.peak_over} A at worst)"
+            f"over the fuse for {run.longest_over} minutes in a row ({run.over_fuse} in all, {run.peak_over} A at worst):"
+            f" {'; '.join(run.over_at[:1] + run.over_at[4:6] + run.over_at[-2:])}"
         )
     if "shortage" in night.tags:
         first = next(car for car in night.cars if car.priority == "first")

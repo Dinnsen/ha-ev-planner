@@ -30,7 +30,9 @@ SUMMER = "summer_id"
 SUMMER_NAME = "Sommerhus"
 SUMMER_LIMIT = 10.0
 SUMMER_HOUSE = 2.0  # what the summer house draws by itself, in amps
-CABIN_CURRENT = "number.cabin_current"
+CABIN_CURRENT = (
+    "input_number.cabin_current"  # not a number: EV Planner has numbers of its own, and theirs is the real service
+)
 CAPACITY = 60.0
 EFFICIENCY = 0.9
 TARGET = 80.0
@@ -221,7 +223,7 @@ async def run_place_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, n
         async_fire_time_changed(hass, moment)
         await hass.async_block_till_done()
 
-    hass.services.async_register("number", "set_value", set_value)
+    hass.services.async_register("input_number", "set_value", set_value)
     hass.states.async_set("zone.sommerhus", "0", {"friendly_name": SUMMER_NAME})
     freezer.move_to(start)
     publish_prices(start)
