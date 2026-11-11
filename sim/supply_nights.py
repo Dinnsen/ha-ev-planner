@@ -220,6 +220,18 @@ def _forecast(night: SupplyNight, moment: datetime) -> list[dict[str, Any]]:
     ]
 
 
+def _guard_state(household: Any) -> str:
+    """What the guard knows, for a minute over the fuse."""
+    supply = household.supply
+    sent = {k: v[0] for k, v in supply._sent.items()}
+    return (
+        f"running={supply._guard_running} events={supply.guard_events} reading={supply._meter_reading()}"
+        f" paused={sorted(supply._paused)} sent={sent}"
+        f" cuts={[round(a, 1) for _t, a in supply._cuts]}"
+        f" charging={[v.vehicle_id for v in supply.cars() if household.is_charging(v)]}"
+    )
+
+
 async def run_supply_night(
     hass: HomeAssistant,
     freezer: FrozenDateTimeFactory,
@@ -420,6 +432,7 @@ async def run_supply_night(
                 if len(over_at) < 40:
                     over_at.append(
                         f"{moment.astimezone(ZONE):%H:%M} house {house:g} cars {[round(g, 1) for g in given]} set {[amps_set[c.key] for c in night.cars]}"
+                        f" guard {_guard_state(household)}"
                     )
                 run_over += 1
                 longest = max(longest, run_over)
