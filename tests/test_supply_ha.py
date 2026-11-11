@@ -10,7 +10,7 @@ from homeassistant.config_entries import ConfigSubentryDataWithId
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.util import dt as dt_util
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
 from custom_components.ev_household_planner.supply import kw
 from custom_components.ev_household_planner.supply_control import (
@@ -242,6 +242,33 @@ async def test_the_guard_turns_the_car_down_at_once_and_up_again_later(
     assert held == later + GUARD_HOLD
     await supply.async_apply(later + timedelta(seconds=30))
     assert len(calls) == 2
+
+
+async def test_the_guard_looks_again_when_the_meter_stays_too_high(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    """A meter that keeps showing the same number sends nothing new: the guard looks again each minute."""
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass, soc=20, switch=True, charging=True)
+    _skoda(hass, soc=20)
+    hass.states.async_set(METER, "10", {"unit_of_measurement": "A"})
+    entry = _entry(supply_meter=[METER], supply_guard=True)
+    calls = await _setup(hass, freezer, entry)
+    supply = entry.runtime_data.supply
+    supply._sent.clear()
+    hass.states.async_set(AMPS, "16", {"min": 6, "max": 16})
+    calls.clear()
+    hass.states.async_set(METER, "30", {"unit_of_measurement": "A"})
+    await hass.async_block_till_done()
+    assert [c.data["value"] for c in calls] == [9]
+    # The cut did not help, and the meter says 30 as before.
+    for _ in range(3):
+        freezer.tick(timedelta(seconds=61))
+        hass.states.async_set(METER, "30", {"unit_of_measurement": "A"})
+        async_fire_time_changed(hass, dt_util.now())
+        await hass.async_block_till_done()
+    assert 6 in [c.data["value"] for c in calls]
+    assert supply.guard_events >= 2
 
 
 async def test_the_guard_stops_a_car_when_even_the_least_is_too_much(

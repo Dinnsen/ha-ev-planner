@@ -38,6 +38,7 @@ from .const import (
     CONF_SUPPLY_RESERVE,
     CONF_SUPPLY_SHARE,
     CONF_WEATHER_ENTITY,
+    CONTROL_CHARGE,
     DEFAULT_SUPPLY_RESERVE,
     PRIORITY_FIRST,
     SET_MUST_SOC,
@@ -594,7 +595,13 @@ class SupplyControl:
             self._held_until = None
 
     @callback
-    def _handle_meter(self, _event: Event[EventStateChangedData]) -> None:
+    def async_check(self) -> None:
+        """Look at the meter again. A meter that stays on the same number sends nothing new to act on."""
+        if self.guard:
+            self._handle_meter(None)
+
+    @callback
+    def _handle_meter(self, _event: Event[EventStateChangedData] | None) -> None:
         if self._guard_running:
             # One run at a time: two at once would both cut for the same amps.
             self._guard_again = True
@@ -633,13 +640,21 @@ class SupplyControl:
         if not self.guard:
             return
         reading = self._meter_reading()
+
+        # The cars that draw current: the ones that say they charge, and the ones that have just been
+        # started and have not said so yet. A car that is to be paused, and still says it charges,
+        # is most often on its way down: it comes last, so a cut is not spent on it.
+        def started(vehicle: Vehicle) -> bool:
+            return vehicle.decision is not None and vehicle.decision.control == CONTROL_CHARGE
+
         charging = sorted(
             (
                 vehicle
                 for vehicle in self.cars()
-                if self.household.is_charging(vehicle) and vehicle.vehicle_id not in self._paused
+                if (self.household.is_charging(vehicle) or started(vehicle)) and vehicle.vehicle_id not in self._paused
             ),
             key=lambda vehicle: (
+                not started(vehicle),
                 vehicle.settings.get(SET_PRIORITY) == PRIORITY_FIRST,
                 -(vehicle.deadline.timestamp() if vehicle.deadline else 0),
             ),

@@ -1163,6 +1163,8 @@ class Household(DataUpdateCoordinator[None]):
         for supply in self.supplies.values():
             if supply.sample(now):
                 self.async_save()
+            # The guard acts when the meter moves; a meter that stays too high is looked at again here.
+            supply.async_check()
             await supply.async_release_heat_pump(now)
             if await supply.async_refresh_weather(now):
                 replan = True

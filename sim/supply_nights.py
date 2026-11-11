@@ -634,7 +634,7 @@ def supply_nights() -> list[SupplyNight]:
         SupplyNight(
             "need-heat-pump-and-guard",
             monday,
-            [SupplyCar("a", 15, 80, adjustable=True), SupplyCar("b", 50, 90, adjustable=True)],
+            [SupplyCar("a", 40, 80, adjustable=True), SupplyCar("b", 60, 80, adjustable=True)],
             fuse=25,
             limit=23,
             house=_heat_pump(5, 9),
@@ -644,11 +644,12 @@ def supply_nights() -> list[SupplyNight]:
             share="need",
             tags=["need", "guard"],
         ),
-        # The same night in line, for comparison.
+        # The same night in line. The heat pump starts in the hour the cars change places: the guard must
+        # turn down the car that has just started, and look again when the meter stays where it is.
         SupplyNight(
             "queue-heat-pump-and-guard",
             monday,
-            [SupplyCar("a", 15, 80, adjustable=True), SupplyCar("b", 50, 90, adjustable=True)],
+            [SupplyCar("a", 40, 80, adjustable=True), SupplyCar("b", 60, 80, adjustable=True)],
             fuse=25,
             limit=23,
             house=_heat_pump(5, 9),
