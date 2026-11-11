@@ -76,6 +76,7 @@ class PlaceResult:
     unplanned: dict[str, int]  # minutes a car charged while EV Planner wanted it paused, after it was found
     refused: int  # commands a switch did not answer
     summer_planned: bool  # the car at the summer house was planned on that place's supply
+    over_how: dict[str, int] = field(default_factory=dict)  # what EV Planner wanted in those minutes
 
 
 def _entry(night: PlaceNight) -> MockConfigEntry:
@@ -232,6 +233,7 @@ async def run_place_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, n
     unplanned = {a.car: 0 for a in night.arrivals}
     at_deadline: dict[str, float] = {}
     over_summer = 0
+    over_how: dict[str, int] = {}
     summer_planned = False
     cost = energy = 0.0
     with patch(f"custom_components.{DOMAIN}.household.Household._async_switch", switch):
@@ -274,6 +276,10 @@ async def run_place_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, n
                         unplanned[key] += 1
                     if a.charger == "cabin" and summer_amps > SUMMER_LIMIT + 0.5:
                         over_summer += 1
+                        summer = household.supplies.get(SUMMER)
+                        share = summer.plan.amps_at(vehicle.vehicle_id, moment) if summer and summer.plan else None
+                        what = f"{decision.control if decision else None}/{decision.reason if decision else None}, share {share}, set to {cabin_amps['now']}"
+                        over_how[what] = over_how.get(what, 0) + 1
             moment += MINUTE
             if moment == deadline:
                 at_deadline = dict(socs)
@@ -308,6 +314,7 @@ async def run_place_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, n
         unplanned,
         refused,
         summer_planned,
+        over_how,
     )
 
 

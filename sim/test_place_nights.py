@@ -34,8 +34,9 @@ async def test_place_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory, 
         if not run.summer_planned:
             broken.append("the car at the summer house was not planned on the summer house's supply")
         if run.over_summer > 2:
-            broken.append(f"the summer house drew more than its fuse for {run.over_summer} minutes")
-    if night.down and not run.refused:
+            broken.append(f"the summer house drew more than its fuse for {run.over_summer} minutes ({run.over_how})")
+    # A charger that is down is tried first; a car that is down is only the backup, and may never be needed.
+    if any(not entity.endswith("_charge") for entity in night.down) and not run.refused:
         broken.append("the switch that is down was never tried")
     run.result.violations = broken
     run.result.changes_log = [

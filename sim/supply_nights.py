@@ -622,6 +622,19 @@ def supply_nights() -> list[SupplyNight]:
             share="need",
             tags=["need", "guard"],
         ),
+        # The same night in line, for comparison.
+        SupplyNight(
+            "queue-heat-pump-and-guard",
+            monday,
+            [SupplyCar("a", 15, 80, adjustable=True), SupplyCar("b", 50, 90, adjustable=True)],
+            fuse=25,
+            limit=23,
+            house=_heat_pump(5, 9),
+            plug_in="21:00",
+            equalizer=False,
+            guard=True,
+            tags=["guard"],
+        ),
         # The same spiky night without the guard, for comparison: here the fuse is on its own.
         SupplyNight(
             "spikes-without-guard",
