@@ -111,6 +111,24 @@ test("changing a rule shows the plan it would give, then stores it", async () =>
   });
 });
 
+test("a new household is shown what to set up, until there is a car, a charger and prices", async () => {
+  await withPanel("empty", {}, async ({ page, read, push, state }) => {
+    const steps = () => page.evaluate(() => [...window.harness.panel.shadowRoot.querySelectorAll(".setup-steps li")].map((li) => `${li.dataset.step}:${li.classList.contains("done")}`));
+    assert.deepEqual(await steps(), ["prices:true", "car:false", "charger:false", "supply:false", "energy:false", "notify:true"]);
+    assert.equal(await read(".setup-count"), "2 of 6");
+    assert.equal(await read(".setup a.btn", "href"), "/config/integrations/integration/ev_household_planner");
+    assert.equal(await read(".empty.panel"), null, "the steps stand in for the empty page");
+
+    // A car is added: the steps stay over the car until there is a charger too.
+    const full = fixture("two-cars");
+    await push({ ...state, vehicles: full.vehicles });
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector('.setup-steps li[data-step="car"].done'), null, { timeout: 5000 });
+    assert.ok(await read(".cars-grid"), "the car is shown under the steps");
+    await push({ ...state, vehicles: full.vehicles, chargers: full.chargers });
+    await page.waitForFunction(() => !window.harness.panel.shadowRoot.querySelector(".setup"), null, { timeout: 5000 });
+  });
+});
+
 test("each place has its own picture and its own house", async () => {
   await withPanel("two-chargers", {}, async ({ page, tap, touch, read, calls, waitForCall, push, state }) => {
     const scene = () => page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".cscene svg.cs-main")?.innerHTML || "");

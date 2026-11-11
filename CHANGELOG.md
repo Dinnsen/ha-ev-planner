@@ -2,6 +2,14 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.3.0b12] - 2026-11-11
+
+Beta: only those who show beta versions in the Marketplace get it.
+
+### Added
+- **Get started.** A new household sees what to set up, in order, on the Cars tab: prices, a car and a charger first, then the house's supply, the sun, a home battery and a heat pump, and notifications, with what is done ticked off. It is gone when there is a car, a charger and prices.
+- The simulator runs nights with two places and cars that find their charger: at home and at the summer house on its own fuse, chargers that are swapped, and a charger or a car that does not answer all night, where the other one's switch does the work. And nights where two cars share a tight supply by need.
+
 ## [2.3.0b11] - 2026-11-11
 
 Beta: only those who show beta versions in the Marketplace get it.

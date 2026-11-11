@@ -87,6 +87,7 @@ class SupplyNight:
     heat_pump: Callable[[datetime], float] | None = None  # the heat pump's amps per phase (on top of ``house``)
     heat_pump_meter: bool = False  # EV Planner is given the heat pump's power
     block: bool = False  # EV Planner may hold the heat pump back
+    share: str = "queue"  # how the cars share an hour there is not room for all of them in: "queue" or "need"
 
     def meter_lost(self, local: datetime) -> bool:
         now = local.strftime("%H:%M")
@@ -143,6 +144,8 @@ def _entry(night: SupplyNight) -> MockConfigEntry:
     }
     if night.meter:
         options["supply_meter"] = [METER]
+    if night.share != "queue":
+        options["supply_share"] = night.share
     if night.weather:
         options["weather_entity"] = WEATHER
     if night.heat_pump_meter:
@@ -592,6 +595,32 @@ def supply_nights() -> list[SupplyNight]:
             guard=True,
             meter_frozen=[("00:55", "02:30")],
             tags=["guard", "meter-frozen"],
+        ),
+        # Sharing by need: the car that lacks the most gets the most of an hour there is not room for both in.
+        SupplyNight(
+            "need-short-night",
+            monday,
+            [SupplyCar("a", 20, 80, adjustable=True), SupplyCar("b", 60, 80, adjustable=True)],
+            fuse=25,
+            limit=23,
+            house=_flat(9),
+            plug_in="22:00",
+            ready_by="06:00",
+            share="need",
+            tags=["need"],
+        ),
+        SupplyNight(
+            "need-heat-pump-and-guard",
+            monday,
+            [SupplyCar("a", 15, 80, adjustable=True), SupplyCar("b", 50, 90, adjustable=True)],
+            fuse=25,
+            limit=23,
+            house=_heat_pump(5, 9),
+            plug_in="21:00",
+            equalizer=False,
+            guard=True,
+            share="need",
+            tags=["need", "guard"],
         ),
         # The same spiky night without the guard, for comparison: here the fuse is on its own.
         SupplyNight(

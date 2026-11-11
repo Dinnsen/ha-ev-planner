@@ -79,6 +79,22 @@ const TEXT = {
     no_cars_title: "Ingen biler endnu",
     no_cars_text: "Tilføj en bil under Indstillinger → Enheder og tjenester → EV Planner → Tilføj bil.",
     add_car: "Tilføj bil",
+    setup_title: "Kom i gang",
+    setup_text: "Det hele tilføjes under integrationen. Når en bil er sat i laderen, lægger EV Planner selv den første plan.",
+    setup_count: "{done} af {all}",
+    setup_optional: "Kan vente",
+    setup_prices: "Elpriser",
+    setup_prices_text: "En prissensor med timepriser, fx Energi Data Service.",
+    setup_car: "En bil",
+    setup_car_text: "Tilføj bil: batteriets størrelse, ladeeffekten og bilens sensorer for batteri og stik.",
+    setup_charger: "En lader",
+    setup_charger_text: "Tilføj lader: dér bilen lader. En lader med en kontakt kan starte og pause bilen.",
+    setup_supply: "Husets forsyning",
+    setup_supply_text: "Under stedet Hjem: hovedsikringen og en måler, så bilerne aldrig trækker mere, end huset kan give.",
+    setup_energy: "Sol, husbatteri og varmepumpe",
+    setup_energy_text: "Tilføj dem, I har: bilen lader på overskuddet fra solen, og huset regnes med i planen.",
+    setup_notify: "Beskeder",
+    setup_notify_text: "Under Konfigurer: de mobiler, der får besked om planen og om problemer.",
     connected: "Tilsluttet",
     not_connected: "Ikke tilsluttet",
     away: "Ikke hjemme",
@@ -593,6 +609,22 @@ const TEXT = {
     no_cars_title: "No cars yet",
     no_cars_text: "Add a car under Settings → Devices & services → EV Planner → Add car.",
     add_car: "Add car",
+    setup_title: "Get started",
+    setup_text: "Everything is added under the integration. When a car is plugged in, EV Planner makes the first plan by itself.",
+    setup_count: "{done} of {all}",
+    setup_optional: "Can wait",
+    setup_prices: "Electricity prices",
+    setup_prices_text: "A price sensor with hourly prices, such as Energi Data Service.",
+    setup_car: "A car",
+    setup_car_text: "Add car: the battery's size, the charging power and the car's sensors for battery and plug.",
+    setup_charger: "A charger",
+    setup_charger_text: "Add charger: where the car charges. A charger with a switch can start and pause the car.",
+    setup_supply: "The house's supply",
+    setup_supply_text: "Under the place Home: the main fuse and a meter, so the cars never draw more than the house can give.",
+    setup_energy: "Sun, home battery and heat pump",
+    setup_energy_text: "Add the ones you have: the car charges on the surplus from the sun, and the house is counted in the plan.",
+    setup_notify: "Notifications",
+    setup_notify_text: "Under Configure: the phones that are told about the plan and about problems.",
     connected: "Plugged in",
     not_connected: "Not plugged in",
     away: "Away",
@@ -4741,13 +4773,45 @@ class EvPlannerPanel extends HTMLElement {
 
   // ------------------------------------------------------------------ cars (overview)
 
+  /* What a household sets up, in order: what is needed for a plan first, then what can wait. */
+  _setupSteps() {
+    const state = this._state || {};
+    const sites = state.sites || [];
+    const parts = sites.flatMap((site) => site.parts || []);
+    return [
+      { key: "prices", need: true, done: !!state.config?.price_entity && !state.price_issue },
+      { key: "car", need: true, done: this._cars.length > 0 },
+      { key: "charger", need: true, done: this._chargers.length > 0 },
+      { key: "supply", done: !!state.supply || sites.some((site) => site.supply) },
+      { key: "energy", done: parts.length > 0 || !!state.solar || !!state.heat_pump },
+      { key: "notify", done: (state.config?.notify || []).length > 0 },
+    ];
+  }
+
+  // Shown until there is a car, a charger and prices: the steps, with what is done ticked off.
+  _setupHtml() {
+    const steps = this._setupSteps();
+    if (steps.every((step) => step.done || !step.need)) return "";
+    const tick = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 12.5 3.6 3.6 7.4-8"/></svg>';
+    const rows = steps
+      .map((step, i) => `<li class="${step.done ? "done" : ""} ${step.need ? "" : "later"}" data-step="${step.key}"><span class="setup-mark">${step.done ? tick : i + 1}</span><span class="setup-what"><b>${this._t(`setup_${step.key}`)}${step.need || step.done ? "" : ` <small>${this._t("setup_optional")}</small>`}</b><span>${this._t(`setup_${step.key}_text`)}</span></span></li>`)
+      .join("");
+    const done = steps.filter((step) => step.done).length;
+    return `<section class="panel setup"><div class="panel-head"><h2>${MARK}<span>${this._t("setup_title")}</span></h2><span class="setup-count">${this._t("setup_count", { done, all: steps.length })}</span></div>
+      <p class="hint">${this._t("setup_text")}</p><ol class="setup-steps">${rows}</ol>
+      <a class="btn primary" href="/config/integrations/integration/ev_household_planner" target="_top">${ICONS.plus}<span>${this._t("open_integration")}</span></a></section>`;
+  }
+
   _overviewHtml() {
     const cars = this._cars;
+    const setup = this._setupHtml();
     const list = cars.length
       ? `<div class="cars-grid">${cars.map((v) => this._carCardHtml(v)).join("")}</div>`
-      : `<section class="empty panel">${MARK}<h2>${this._t("no_cars_title")}</h2><p>${this._t("no_cars_text")}</p>
+      : setup
+        ? ""
+        : `<section class="empty panel">${MARK}<h2>${this._t("no_cars_title")}</h2><p>${this._t("no_cars_text")}</p>
           <a class="btn primary" href="/config/integrations/integration/ev_household_planner" target="_top">${ICONS.plus}<span>${this._t("add_car")}</span></a></section>`;
-    return `<div class="page stack">${list}</div>`;
+    return `<div class="page stack">${setup}${list}</div>`;
   }
 
   _carCardHtml(v) {
@@ -8232,6 +8296,19 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .empty.panel h2 { margin: 0; justify-content: center; }
 .empty.panel p { color: var(--evp-soft); margin: 0; }
 .empty .btn.primary { flex: none; }
+.setup .panel-head { justify-content: space-between; }
+.setup-count { color: var(--evp-soft); font-size: 13px; font-variant-numeric: tabular-nums; }
+.setup-steps { list-style: none; margin: 14px 0 18px; padding: 0; display: grid; gap: 12px; }
+.setup-steps li { display: flex; gap: 12px; align-items: flex-start; }
+.setup-mark { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; color: var(--evp-soft); border: 1.5px solid color-mix(in srgb, var(--evp-soft) 45%, transparent); }
+.setup-mark svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.setup-steps li.done .setup-mark { color: #fff; background: var(--evp-good, #22C981); border-color: transparent; }
+.setup-what { display: grid; gap: 2px; min-width: 0; }
+.setup-what b { font-weight: 600; }
+.setup-what b small { font-weight: 500; color: var(--evp-soft); margin-left: 6px; }
+.setup-what > span { color: var(--evp-soft); font-size: 14px; line-height: 1.4; }
+.setup-steps li.done .setup-what b { color: var(--evp-soft); }
+.setup .btn.primary { display: inline-flex; flex: none; }
 .loading svg, .empty > svg { width: 72px; height: 72px; }
 .loading .seg { animation: seg 1.2s ease-in-out infinite; animation-delay: calc(var(--k) * 150ms); }
 .empty p { max-width: 46ch; line-height: 1.5; }
