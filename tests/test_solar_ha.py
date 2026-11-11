@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, patch
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from .conftest import (
@@ -238,3 +239,29 @@ async def test_without_a_grid_sensor_the_sun_is_off(
     assert household.solar.share_now(household.vehicles[TESLA]) == 0
     assert hass.states.get("select.tesla_solar") is None
     assert await household.solar.async_refresh_forecast(now) is False
+
+
+async def test_the_surplus_is_sold_when_that_pays_more_than_the_plan_costs(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    """Issue 12: sell the sun at a good price and charge in the cheap hours instead."""
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass, soc=50)
+    _grid(hass, -6000)
+    # A kWh is sold for more than any hour of the night costs.
+    entry = _entry({"power_entity": POWER}, export_price=max(NIGHT) + 1)
+    await _setup(hass, freezer, entry)
+    household = entry.runtime_data
+    tesla = household.vehicles[TESLA]
+    await _minutes(hass, freezer, now, 3)
+    assert tesla.plan is not None and tesla.plan.average_price is not None
+    assert not household.solar.wants(tesla)
+    sold = household.solar.state(dt_util.now())["sold"]
+    assert sold[TESLA]["sold_for"] == max(NIGHT) + 1
+    assert sold[TESLA]["plan"] == round(tesla.plan.average_price, 3)
+
+    # Sold for less than the plan costs, the car charges on the sun as before.
+    household.sites["home"].data["export_price"] = 0.01
+    await _minutes(hass, freezer, dt_util.now(), 3)
+    assert household.solar.wants(tesla)
+    assert household.solar.state(dt_util.now())["sold"] == {}

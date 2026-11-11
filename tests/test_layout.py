@@ -65,6 +65,10 @@ def test_what_the_picture_cannot_draw_is_left_out() -> None:
 def test_each_house_has_its_own_layout() -> None:
     assert clean_layouts(None) == {}
     assert clean_layouts({"classic": LAYOUT, "angle": {}, "castle": LAYOUT}) == {"classic": clean_layout(LAYOUT)}
+    # Another place has its own layout of its house.
+    assert clean_layouts({"cabin@01ABC": LAYOUT, "cabin@../x": LAYOUT, "castle@01ABC": LAYOUT}) == {
+        "cabin@01ABC": clean_layout(LAYOUT)
+    }
 
 
 async def test_an_administrator_places_things(

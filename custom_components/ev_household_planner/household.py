@@ -155,7 +155,13 @@ ENFORCE_AFTER_PLUG_IN = timedelta(minutes=3)
 IDLE_END = timedelta(minutes=30)
 # language: the language of notifications; "auto" follows Home Assistant's language.
 # house: which picture of a house the Home tab shows.
-SETTINGS_DEFAULTS: dict[str, Any] = {"bill_price": None, "payment_text": "", "language": "auto", "house": "classic"}
+SETTINGS_DEFAULTS: dict[str, Any] = {
+    "bill_price": None,
+    "payment_text": "",
+    "language": "auto",
+    "house": "classic",
+    "houses": {},
+}
 TRIP_TARGET = re.compile(r"(\d{2,3})\s*%")
 TOGGLE_DOMAINS = ("switch", "input_boolean", "light", "fan")
 

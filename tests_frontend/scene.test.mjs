@@ -157,9 +157,11 @@ async function buildAll({ house, width }) {
    are put on top of each other (the classic house keeps them apart at every width). */
 
 describe("the house's picture", { concurrency: 2 }, () => {
-  for (const house of ["classic", "angle"]) {
-    // As wide as on a phone and as on a desktop.
-    for (const width of [366, 900]) {
+  // The two houses drawn by hand, and the eight built from a plan.
+  const PLANNED = ["long", "tee", "aitch", "funkis", "cabin", "hipped", "storey", "terrace"];
+  for (const house of ["classic", "angle", ...PLANNED]) {
+    // As wide as on a phone and as on a desktop (a planned house: on a phone, where there is the least room).
+    for (const width of PLANNED.includes(house) ? [366] : [366, 900]) {
       test(`${house} at ${width}px: every combination builds`, async (t) => {
         const { page, context, errors } = await openPage(browser, server.url);
         let result;

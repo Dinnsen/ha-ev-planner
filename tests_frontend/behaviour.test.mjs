@@ -111,6 +111,43 @@ test("changing a rule shows the plan it would give, then stores it", async () =>
   });
 });
 
+test("each place has its own picture and its own house", async () => {
+  await withPanel("two-chargers", {}, async ({ page, tap, touch, read, calls, waitForCall, push, state }) => {
+    const scene = () => page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".cscene svg.cs-main")?.innerHTML || "");
+    const count = (selector) => page.evaluate((s) => window.harness.panel.shadowRoot.querySelectorAll(s).length, selector);
+    await tap('.tabs button[data-tab="home"]');
+    // The home is shown first: its two chargers, and not the summer house's.
+    assert.equal(await read('[data-act="place"][data-id="home"]', "aria-pressed"), "true");
+    assert.equal(await count(".cscene .cs-charger"), 2);
+    const home = await scene();
+
+    await tap('[data-act="place"][data-id="summer"]');
+    await page.waitForFunction((was) => window.harness.panel.shadowRoot.querySelector(".cscene svg.cs-main")?.innerHTML !== was, home, { timeout: 5000 });
+    assert.equal(await read('[data-act="place"][data-id="summer"]', "aria-pressed"), "true");
+    assert.equal(await count(".cscene .cs-charger"), 1, "the summer house has its one charger");
+    assert.equal(await count(".cscene .cs-car"), 0, "and no car is there");
+    const cabin = await scene();
+
+    // Each place's house is chosen by itself: the summer house starts as the wooden one.
+    await tap('.tabs button[data-tab="settings"]');
+    await tap('[data-act="tile"][data-tile="house"]');
+    assert.equal(await read('[data-act="house-look"][data-site="home"][data-house="classic"]', "aria-pressed"), "true");
+    assert.equal(await read('[data-act="house-look"][data-site="summer"][data-house="cabin"]', "aria-pressed"), "true");
+    await touch('[data-act="house-look"][data-site="summer"][data-house="funkis"]');
+    await waitForCall("settings");
+    assert.deepEqual(await calls("settings"), [{ type: `${DOMAIN}/settings`, settings: { houses: { summer: "funkis" } }, entry_id: state.entry_id }]);
+
+    await push({ ...state, settings: { ...state.settings, houses: { summer: "funkis" } } });
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector('[data-act="house-look"][data-site="summer"][data-house="funkis"]')?.getAttribute("aria-pressed") === "true", null, { timeout: 5000 });
+    assert.equal(await read('[data-act="house-look"][data-site="home"][data-house="classic"]', "aria-pressed"), "true", "the home keeps its house");
+    await tap('[data-act="sheet-close"][data-f]');
+    await tap('.tabs button[data-tab="home"]');
+    // The place that was looked at is still the one shown.
+    assert.equal(await read('[data-act="place"][data-id="summer"]', "aria-pressed"), "true");
+    assert.notEqual(await scene(), cabin, "the summer house is drawn as the new house");
+  });
+});
+
 test("the house's look is stored, and the house is drawn again when it changes", async () => {
   await withPanel("shared-supply", {}, async ({ page, tap, touch, read, calls, waitForCall, push, state }) => {
     const scene = () => page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".cscene svg.cs-main")?.innerHTML || "");

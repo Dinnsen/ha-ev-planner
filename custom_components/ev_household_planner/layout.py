@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 # Each house in Settings has its own layout.
-HOUSES = ("classic", "angle")
+HOUSES = ("classic", "angle", "long", "tee", "aitch", "funkis", "cabin", "hipped", "storey", "terrace")
 # The walls a thing can hang on: walls towards the road (s1, s2) and gables (e1, e2); which is which depends on the house.
 WALLS = ("s1", "s2", "e1", "e2")
 # What can be moved: things on a wall, and the heat pump on the ground.
@@ -45,12 +45,20 @@ def _point(value: Any, size: int, reach: float) -> list[float] | None:
     return [n for n in numbers if n is not None]
 
 
+def _house_key(key: Any) -> bool:
+    """A layout's key: a house, or a house at a place ("cabin@<the place's id>") when it is not the home's."""
+    if not isinstance(key, str) or len(key) > 80:
+        return False
+    house, _, place = key.partition("@")
+    return house in HOUSES and all(char.isalnum() or char in "_-" for char in place)
+
+
 def clean_layouts(layouts: Any) -> dict[str, Any]:
-    """A layout for each house, each kept tidy; a house with nothing placed is left out."""
+    """A layout for each house (and place), each kept tidy; a house with nothing placed is left out."""
     if not isinstance(layouts, dict):
         return {}
-    out = {house: clean_layout(layouts.get(house)) for house in HOUSES}
-    return {house: layout for house, layout in out.items() if layout}
+    out = {key: clean_layout(value) for key, value in layouts.items() if _house_key(key)}
+    return {key: layout for key, layout in out.items() if layout}
 
 
 def clean_layout(layout: Any) -> dict[str, Any]:

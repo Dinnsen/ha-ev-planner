@@ -2,6 +2,18 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.3.0b11] - 2026-11-11
+
+Beta: only those who show beta versions in the Marketplace get it.
+
+### Added
+- **Eight more houses** for the picture in the Home tab: the long house, the T-house, the H-house, the functionalist house, the wooden summer house, the hipped bungalow, the storey and a half, and the terraced house. Each has its own garage or carport, driveway, roof for the solar panels and places for the chargers, the home battery and the heat pump, and all of it can be moved with *Edit* as before.
+- **Each place has its own picture and its own house.** With more than one place, the Home tab has a button for each: the picture, the chargers, the cars and the numbers are then that place's. The house is chosen for each place under *Settings → House* (a new place starts as the wooden summer house), and what is moved in the picture is saved for each place.
+- **The surplus is sold when that pays more than the plan costs** ([#12](https://github.com/Dinnsen/ha-ev-planner/issues/12)). A car on *Sun and plan* leaves the surplus to the grid while a kWh is sold for more than the car's plan pays for one in its cheap hours, and says so. *Only sun* is not changed: that car has no plan to charge on instead. The price you sell for is set under the place's solar panels.
+
+### Fixed
+- Two labels in the picture could end on top of each other on a phone when a third was just below them.
+
 ## [2.3.0b10] - 2026-11-11
 
 Beta: only those who show beta versions in the Marketplace get it.

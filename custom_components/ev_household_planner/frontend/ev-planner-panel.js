@@ -231,6 +231,7 @@ const TEXT = {
     solar_surplus: "Sol og plan",
     solar_only: "Kun sol",
     solar_note_on: "Lader på solen: {amps}{phases}.",
+    solar_note_sold: "Solen sælges i stedet: I får {sold}/kWh for den, og planen lader for {plan}/kWh.",
     solar_note_waiting: "Venter på mere sol: der skal mindst {kw} overskud til at starte.",
     solar_note_expected: "Solprognosen lover nok sol før klar-tiden, så planen køber ikke fra nettet nu.",
     solar_phase_1: " på én fase",
@@ -469,9 +470,19 @@ const TEXT = {
     notify_language_hint: "Automatisk følger Home Assistants sprog (Indstillinger → System → Generelt).",
     lang_auto: "Automatisk",
     house_look: "Husets billede",
-    house_look_hint: "Huset i fanen Hjem: det klassiske med garage ved siden af, eller vinkelhuset med garagen i den ene længe.",
+    house_look_hint: "Huset i fanen Hjem. Hvert sted har sit eget hus; biler, ladere, sol og batteri tegnes ind i det, og en administrator kan flytte dem i billedet.",
     house_classic: "Klassisk",
     house_angle: "Vinkelhus",
+    house_long: "Længehus",
+    house_tee: "T-hus",
+    house_aitch: "H-hus",
+    house_funkis: "Funkis",
+    house_cabin: "Træsommerhus",
+    house_hipped: "Valmet parcelhus",
+    house_storey: "Halvandet plan",
+    house_terrace: "Rækkehus",
+    places: "Steder",
+    place_home: "Hjem",
     lang_da: "Dansk",
     lang_en: "English",
     price_sensor: "Prissensor",
@@ -733,6 +744,7 @@ const TEXT = {
     solar_surplus: "Sun and plan",
     solar_only: "Only sun",
     solar_note_on: "Charging on the sun: {amps}{phases}.",
+    solar_note_sold: "The sun is sold instead: it pays {sold}/kWh, and the plan charges for {plan}/kWh.",
     solar_note_waiting: "Waiting for more sun: it takes at least {kw} of surplus to start.",
     solar_note_expected: "The solar forecast promises enough sun before the ready-by time, so the plan buys nothing from the grid now.",
     solar_phase_1: " on one phase",
@@ -967,9 +979,19 @@ const TEXT = {
     notify_language_hint: "Automatic follows Home Assistant's language (Settings → System → General).",
     lang_auto: "Automatic",
     house_look: "The picture of the house",
-    house_look_hint: "The house in the Home tab: the classic one with a garage beside it, or the angle house with the garage in one wing.",
+    house_look_hint: "The house in the Home tab. Each place has its own house; cars, chargers, sun and battery are drawn into it, and an administrator can move them in the picture.",
     house_classic: "Classic",
     house_angle: "Angle house",
+    house_long: "Long house",
+    house_tee: "T-house",
+    house_aitch: "H-house",
+    house_funkis: "Functionalist",
+    house_cabin: "Wooden summer house",
+    house_hipped: "Hipped bungalow",
+    house_storey: "Storey and a half",
+    house_terrace: "Terraced house",
+    places: "Places",
+    place_home: "Home",
     lang_da: "Dansk",
     lang_en: "English",
     price_sensor: "Price sensor",
@@ -2616,7 +2638,403 @@ const ClayScene = (() => {
     };
   })();
 
-  const LAYOUTS = { classic: CLASSIC, angle: ANGLE };
+  /* ------------------------------------------------------------ houses built from a plan */
+
+  // A house from its plan: wings (each a box with a roof), the drive, where the cars stand and where
+  // things hang. Wings are given from the furthest to the nearest. The walls one sees are those
+  // towards the road (S, at a wing's y1) and the gables to the right (E, at its x1).
+  function planned(plan) {
+    const O = 0.45;
+    const EDGE = 0.16;
+    const wings = plan.wings;
+    const ridge = (w) => w.h + (w.roof.rise || 0);
+    // A wing's roof: where its eaves and its ridge run.
+    const lines = (w) => {
+      const r = w.roof;
+      const along = r.axis === "y" ? [w.y0, w.y1] : [w.x0, w.x1];
+      const a = along[0] - (r.val0 ? 0 : O);
+      const b = along[1] + (r.val1 ? 0 : O);
+      return { a, b, ra: r.val0 ? along[0] - r.val0 : a + (r.hip0 || 0), rb: r.val1 ? along[1] + r.val1 : b - (r.hip1 || 0), z: ridge(w), xm: (w.x0 + w.x1) / 2, ym: (w.y0 + w.y1) / 2 };
+    };
+    const wood = (w) => (w.wood ? 'style="filter:sepia(.5) saturate(1.3) brightness(.9)"' : "");
+
+    // The roofs solar panels can lie on: a grid of cells on a slope one sees, or on a flat roof.
+    const ROOFS = {};
+    if (plan.solar) {
+      const { wing, face, a, b, rows = 2, k0 = 0.14, k1 = 0.88, wall } = plan.solar;
+      const w = wings[wing];
+      const cols = Math.max(1, Math.round((b - a) / 1.13));
+      const step = (b - a) / cols;
+      const band = (k1 - k0) / rows;
+      const { xm, ym, z } = lines(w);
+      const top = w.h - EDGE - 0.3;
+      if (face === "S") {
+        const at = (x, k, lift = 0.03) => [x, w.y1 + O - (w.y1 + O - ym) * k, w.h + (z - w.h) * k + lift];
+        ROOFS.roof = {
+          cols, rows, prefer: "low",
+          def: Array.from({ length: rows }, (_, r) => Array.from({ length: cols }, (_c, c) => [c, r])).flat(),
+          colX: (c) => a + step * (c + 0.5),
+          quad: (c, r) => [at(a + step * c + 0.04, k0 + band * r + 0.015), at(a + step * (c + 1) - 0.04, k0 + band * r + 0.015), at(a + step * (c + 1) - 0.04, k0 + band * (r + 1) - 0.015), at(a + step * c + 0.04, k0 + band * (r + 1) - 0.015)],
+          down: (c, r) => {
+            const x = a + step * (c + 0.5);
+            return { wall, u: x, z: top, points: [at(x, k0 + band * r + 0.015), [x, w.y1 + O, w.h + 0.03], [x, w.y1 + O + 0.01, w.h - EDGE], [x, w.y1 + 0.02, top]] };
+          },
+        };
+      } else if (face === "E") {
+        const at = (y, k, lift = 0.03) => [w.x1 + O - (w.x1 + O - xm) * k, y, w.h + (z - w.h) * k + lift];
+        ROOFS.roof = {
+          cols, rows, prefer: "low",
+          def: Array.from({ length: rows }, (_, r) => Array.from({ length: cols }, (_c, c) => [c, r])).flat(),
+          colX: () => w.x1,
+          quad: (c, r) => [at(b - step * c - 0.04, k0 + band * r + 0.015), at(b - step * (c + 1) + 0.04, k0 + band * r + 0.015), at(b - step * (c + 1) + 0.04, k0 + band * (r + 1) - 0.015), at(b - step * c - 0.04, k0 + band * (r + 1) - 0.015)],
+          down: (c, r) => {
+            const y = b - step * (c + 0.5);
+            return { wall, u: y, z: top, points: [at(y, k0 + band * r + 0.015), [w.x1 + O, y, w.h + 0.03], [w.x1 + O + 0.01, y, w.h - EDGE], [w.x1 + 0.02, y, top]] };
+          },
+        };
+      } else {
+        // A flat roof: the cells lie on it, in rows from the road and back.
+        const depth = Math.min(1.75, (w.y1 - w.y0 - 1.2) / rows);
+        const y = (r) => w.y1 - 0.6 - depth * r;
+        const zf = w.h + 0.22;
+        ROOFS.roof = {
+          cols, rows, prefer: "low",
+          def: Array.from({ length: rows }, (_, r) => Array.from({ length: cols }, (_c, c) => [c, r])).flat(),
+          colX: (c) => a + step * (c + 0.5),
+          quad: (c, r) => [[a + step * c + 0.04, y(r) - 0.04, zf], [a + step * (c + 1) - 0.04, y(r) - 0.04, zf], [a + step * (c + 1) - 0.04, y(r + 1) + 0.04, zf], [a + step * c + 0.04, y(r + 1) + 0.04, zf]],
+          down: (c, r) => {
+            const x = a + step * (c + 0.5);
+            return { wall, u: x, z: w.h - 0.5, points: [[x, y(r) - 0.04, zf], [x, w.y1 + 0.02, zf], [x, w.y1 + 0.02, w.h - 0.5]] };
+          },
+        };
+      }
+    }
+
+    function drawWing(w, i, m, pos) { // eslint-disable-line no-unused-vars
+      const r = w.roof;
+      const flat = r.type === "flat";
+      const { a, b, ra, rb, z, xm, ym } = flat ? { xm: 0, ym: 0 } : lines(w);
+      const tint = wood(w);
+      let s = "";
+      // The slope one does not see much of, first.
+      if (!flat && r.axis === "x") {
+        s += rpoly([[a, w.y0 - O, w.h], [b, w.y0 - O, w.h], [rb, ym, z], [ra, ym, z]], "roofBack");
+        if (r.hip0) s += rpoly([[a, w.y0 - O, w.h], [a, w.y1 + O, w.h], [ra, ym, z]], "roofFar");
+      } else if (!flat) {
+        s += rpoly([[w.x0 - O, a, w.h], [w.x0 - O, b, w.h], [xm, rb, z], [xm, ra, z]], "roofFar");
+        if (r.hip0) s += rpoly([[w.x0 - O, a, w.h], [w.x1 + O, a, w.h], [xm, ra, z]], "roofBack");
+      }
+      // The walls, with a gable's point where the roof ends in one.
+      const south = [[w.x0, w.y1, 0], [w.x1, w.y1, 0], [w.x1, w.y1, w.h]];
+      if (!flat && r.axis === "y" && !r.hip1 && !r.val1) south.push([xm, w.y1, z - 0.12]);
+      south.push([w.x0, w.y1, w.h]);
+      s += rpoly(south, "wallS", tint);
+      const east = [[w.x1, w.y1, 0], [w.x1, w.y0, 0], [w.x1, w.y0, w.h]];
+      if (!flat && r.axis === "x" && !r.hip1 && !r.val1) east.push([w.x1, ym, z - 0.12]);
+      east.push([w.x1, w.y1, w.h]);
+      s += rpoly(east, "wallE", tint);
+      if (w.wood) {
+        // Boards on end.
+        let d = "";
+        for (let x = w.x0 + 0.5; x < w.x1; x += 0.5) d += path3([[x, w.y1 + 0.01, 0], [x, w.y1 + 0.01, w.h]]);
+        for (let y = w.y0 + 0.5; y < w.y1; y += 0.5) d += path3([[w.x1 + 0.01, y, 0], [w.x1 + 0.01, y, w.h]]);
+        s += `<path d="${d}" ${R("line", 'stroke-width=".7" stroke-opacity=".45" fill="none"')}/>`;
+      }
+      // Garage doors, doors and windows.
+      for (const [x0, x1] of w.gates || []) {
+        s += rpoly([[x0, w.y1 + 0.01, 0], [x1, w.y1 + 0.01, 0], [x1, w.y1 + 0.01, 2.12], [x0, w.y1 + 0.01, 2.12]], "door");
+        for (let k = 1; k < 4; k += 1) s += `<path d="${path3([[x0, w.y1 + 0.02, k * 0.53], [x1, w.y1 + 0.02, k * 0.53]])}" ${R("line", 'stroke-width=".8" stroke-opacity=".5"')}/>`;
+      }
+      for (const [x0, x1, top = 2.15] of w.doors || []) s += rpoly([[x0, w.y1 + 0.01, 0.02], [x1, w.y1 + 0.01, 0.02], [x1, w.y1 + 0.01, top], [x0, w.y1 + 0.01, top]], "door");
+      for (const [x0, x1, z0 = 0.93, z1 = 2.19, cols = 1] of w.winS || []) {
+        s += windowY(x0, x1, w.y1 + 0.01, z0, z1, cols);
+        if (z0 < 2.5) LIGHTS.push(`<polygon points="${pts([[x0, w.y1, 0], [x1, w.y1, 0], [x1 + 0.4, w.y1 + 2.2, 0], [x0 - 0.4, w.y1 + 2.2, 0]])}" fill="#FFC86B" opacity=".24" filter="url(#cs-shadow)"/>`);
+      }
+      for (const [y0, y1, z0 = 0.93, z1 = 2.19, cols = 1, rows = 1] of w.winE || []) s += windowX(w.x1 + 0.01, y0, y1, z0, z1, cols, rows);
+      for (const [y0, y1, top = 2.15] of w.doorsE || []) s += rpoly([[w.x1 + 0.01, y1, 0.02], [w.x1 + 0.01, y0, 0.02], [w.x1 + 0.01, y0, top], [w.x1 + 0.01, y1, top]], "door", 'style="filter:brightness(.92)"');
+      // The roof's shadow on the walls.
+      if (flat || r.axis === "x") s += eaveShadow([w.x0, w.y1 + 0.02, w.h - (flat ? 0 : EDGE) - 0.02], [w.x1, w.y1 + 0.02, w.h - (flat ? 0 : EDGE) - 0.02], flat ? 0.35 : 0.9);
+      if (flat || r.axis === "y") s += eaveShadow([w.x1 + 0.02, w.y1, w.h - (flat ? 0 : EDGE) - 0.02], [w.x1 + 0.02, w.y0, w.h - (flat ? 0 : EDGE) - 0.02], flat ? 0.35 : 0.8);
+      // The roof one sees.
+      const cells = m.solar && plan.solar && plan.solar.wing === i ? drawCells(ROOFS.roof, pos.cells.roof) : "";
+      if (flat) {
+        const p = 0.22;
+        s += rpoly([[w.x0, w.y1, w.h], [w.x1, w.y1, w.h], [w.x1, w.y1, w.h + p], [w.x0, w.y1, w.h + p]], "roofEdge");
+        s += rpoly([[w.x1, w.y1, w.h], [w.x1, w.y0, w.h], [w.x1, w.y0, w.h + p], [w.x1, w.y1, w.h + p]], "roofEdge", 'style="filter:brightness(.92)"');
+        s += rpoly([[w.x0, w.y0, w.h + p], [w.x1, w.y0, w.h + p], [w.x1, w.y1, w.h + p], [w.x0, w.y1, w.h + p]], "roof");
+        s += rpoly([[w.x0 + 0.3, w.y0 + 0.3, w.h + p], [w.x1 - 0.3, w.y0 + 0.3, w.h + p], [w.x1 - 0.3, w.y1 - 0.3, w.h + p], [w.x0 + 0.3, w.y1 - 0.3, w.h + p]], "flat");
+        s += cells;
+      } else if (r.axis === "x") {
+        s += rpoly([[a, w.y1 + O, w.h], [b, w.y1 + O, w.h], [rb, ym, z], [ra, ym, z]], "roof");
+        s += cells;
+        s += rpoly([[a, w.y1 + O, w.h], [b, w.y1 + O, w.h], [b, w.y1 + O, w.h - EDGE], [a, w.y1 + O, w.h - EDGE]], "roofEdge");
+        if (r.hip1) {
+          s += rpoly([[b, w.y0 - O, w.h], [b, w.y1 + O, w.h], [rb, ym, z]], "roofW");
+          s += rpoly([[b, w.y1 + O, w.h], [b, w.y0 - O, w.h], [b, w.y0 - O, w.h - EDGE], [b, w.y1 + O, w.h - EDGE]], "roofEdge", 'style="filter:brightness(.92)"');
+          s += `<path d="${path3([[b, w.y1 + O, w.h], [rb, ym, z]])}" stroke="#fff" stroke-opacity=".45" stroke-width="1.2" fill="none"/>`;
+        } else if (!r.val1) {
+          s += rpoly([[b, w.y1 + O, w.h], [b, ym, z], [b, ym, z - 0.2], [b, w.y1 + O, w.h - 0.2]], "roofEdge", 'style="filter:brightness(.95)"');
+          s += rpoly([[b, ym, z], [b, w.y0 - O, w.h], [b, w.y0 - O, w.h - 0.2], [b, ym, z - 0.2]], "roofEdge", 'style="filter:brightness(.9)"');
+        }
+        s += `<path d="${path3([[ra, ym, z + 0.02], [rb, ym, z + 0.02]])}" stroke="#fff" stroke-opacity=".55" stroke-width="1.2" fill="none"/>`;
+      } else {
+        s += rpoly([[w.x1 + O, a, w.h], [w.x1 + O, b, w.h], [xm, rb, z], [xm, ra, z]], "roofW");
+        s += cells;
+        s += rpoly([[w.x1 + O, b, w.h], [w.x1 + O, a, w.h], [w.x1 + O, a, w.h - EDGE], [w.x1 + O, b, w.h - EDGE]], "roofEdge", 'style="filter:brightness(.92)"');
+        if (r.hip1) {
+          s += rpoly([[w.x0 - O, b, w.h], [w.x1 + O, b, w.h], [xm, rb, z]], "roof");
+          s += rpoly([[w.x0 - O, b, w.h], [w.x1 + O, b, w.h], [w.x1 + O, b, w.h - EDGE], [w.x0 - O, b, w.h - EDGE]], "roofEdge");
+        } else if (!r.val1) {
+          s += rpoly([[w.x1 + O, b, w.h], [xm, b, z], [xm, b, z - 0.2], [w.x1 + O, b, w.h - 0.2]], "roofEdge");
+          s += rpoly([[xm, b, z], [w.x0 - O, b, w.h], [w.x0 - O, b, w.h - 0.2], [xm, b, z - 0.2]], "roofEdge", 'style="filter:brightness(.96)"');
+        }
+        s += `<path d="${path3([[xm, ra, z + 0.02], [xm, rb, z + 0.02]])}" stroke="#fff" stroke-opacity=".55" stroke-width="1.2" fill="none"/>`;
+      }
+      // A dormer in the slope towards the road: it stands where the slope is as high as its foot.
+      for (const [x0, x1, z0, z1] of w.dormers || []) {
+        const yAt = (zz) => w.y1 + O - ((zz - w.h) / r.rise) * (w.y1 + O - ym);
+        const yf = yAt(z0);
+        const yb = yAt(z1);
+        s += rpoly([[x0, yf, z0], [x1, yf, z0], [x1, yf, z1], [x0, yf, z1]], "wallS");
+        s += rpoly([[x1, yf, z0], [x1, yb, z1], [x1, yf, z1]], "wallE");
+        s += windowY(x0 + 0.25, x1 - 0.25, yf + 0.01, z0 + 0.25, z1 - 0.2, 2);
+        s += rpoly([[x0 - 0.15, yb, z1 + 0.02], [x1 + 0.15, yb, z1 + 0.02], [x1 + 0.15, yf + 0.25, z1 + 0.02], [x0 - 0.15, yf + 0.25, z1 + 0.02]], "roof");
+        s += rpoly([[x0 - 0.15, yf + 0.25, z1 + 0.02], [x1 + 0.15, yf + 0.25, z1 + 0.02], [x1 + 0.15, yf + 0.25, z1 - 0.12], [x0 - 0.15, yf + 0.25, z1 - 0.12]], "roofEdge");
+      }
+      return s;
+    }
+
+    const WALLS = {};
+    for (const [key, w] of Object.entries(plan.walls)) {
+      const wing = wings[w.wing];
+      WALLS[key] = w.kind === "S"
+        ? { kind: "S", c: wing.y1, u0: (w.u0 ?? wing.x0) + 0.05, u1: (w.u1 ?? wing.x1) - 0.05, top: w.top ?? wing.h - EDGE - 0.3 }
+        : { kind: "E", c: wing.x1, u0: (w.u0 ?? wing.y0) + 0.05, u1: (w.u1 ?? wing.y1) - 0.05, top: w.top ?? wing.h - EDGE - 0.3 };
+    }
+    const BATTERY = [0.6, 1.5, 0.3];
+    const face = plan.heatFace || "E";
+
+    function scene(m, pos) {
+      let s = "";
+      for (const [x0, y0, x1, y1] of plan.drive || []) s += rpoly([[x0, y0, 0], [x1, y0, 0], [x1, y1, 0], [x0, y1, 0]], "drive");
+      for (const [x0, y0, x1, y1] of plan.deck || []) s += rpoly([[x0, y0, 0.02], [x1, y0, 0.02], [x1, y1, 0.02], [x0, y1, 0.02]], "flat");
+      // A soft shadow under each wing, darker where the walls meet the ground.
+      for (const w of wings) {
+        s += `<polygon points="${pts([[w.x0 - 0.6, w.y0 - 0.8, 0], [w.x1 + 1.25, w.y0 - 0.8, 0], [w.x1 + 1.25, w.y1 + 0.75, 0], [w.x0 - 0.6, w.y1 + 0.75, 0]])}" ${R("shadow", 'filter="url(#cs-shadow)"')}/>`;
+      }
+      for (const w of wings) {
+        s += `<path d="${path3([[w.x0, w.y1, 0], [w.x1, w.y1, 0], [w.x1, w.y0, 0]])}" ${R("shadowLine", 'stroke-width="7" stroke-linecap="round" stroke-linejoin="round" filter="url(#cs-blur)" fill="none"')}/>`;
+      }
+      for (const [x, y, k = 1] of plan.trees || []) s += tree(x, y, k);
+      // The heat pump stands on the ground: it is drawn before the first wing that stands in front of it.
+      const [hw, , hd] = SIZE.heat;
+      const [hx, hy] = face === "E" ? [hd, hw] : [hw, hd];
+      let heat = m.heat ? `<g class="cs-thing" data-thing="heat">${drawHeat(pos.heat, face)}</g>` : "";
+      wings.forEach((w, i) => {
+        if (heat && (w.x0 >= pos.heat.x + hx - 0.01 || w.y0 >= pos.heat.y + hy - 0.01)) {
+          s += heat;
+          heat = "";
+        }
+        s += drawWing(w, i, m, pos);
+      });
+      if (m.battery) s += `<g class="cs-thing" data-thing="battery">${drawBattery(WALLS[pos.battery.w], pos.battery, BATTERY, m.battery.soc)}</g>`;
+      s += heat;
+      for (const [x, y, z = 2.35, rx = 22] of plan.lamps || []) {
+        const [lx, ly] = P(x, y, z);
+        LIGHTS.push(`<ellipse cx="${f1(lx)}" cy="${f1(ly + 30)}" rx="${rx}" ry="${f1(rx * 0.55)}" fill="#FFC86B" opacity=".35" filter="url(#cs-glowf)"/><circle cx="${f1(lx)}" cy="${f1(ly)}" r="2.6" fill="#FFE2A8"/>`);
+      }
+      return s;
+    }
+
+    // The wires are drawn from where the things are (see wiresFor): here only which ones there are.
+    function routes(m, boxes) {
+      const out = { grid: [] };
+      if (m.solar) out.sun = [];
+      if (m.heat) out.heat = [];
+      if (m.battery) out.battery = [];
+      boxes.forEach((_, i) => {
+        out[`car${i}`] = [];
+      });
+      return out;
+    }
+
+    const home = plan.home || [(WALLS.s1.u0 + WALLS.s1.u1) / 2, WALLS.s1.c + 0.01, 2.3];
+    const anchors = (m, placed) => {
+      const a = { home, grid: [plan.street[0], plan.street[1], 0.1] };
+      if (m.solar && ROOFS.roof) {
+        const q = ROOFS.roof.quad(Math.floor(ROOFS.roof.cols / 2), 0);
+        a.sun = [q[0][0], q[0][1], q[0][2] + 0.6];
+      }
+      if (m.battery) a.battery = [0, 0, 0];
+      if (m.heat) a.heat = [0, 0, 0];
+      (placed || []).forEach((p, i) => {
+        const b = BODIES[p.car.body] || BODIES.sedan;
+        a[`car${i}`] = [plan.slots[p.slot].x + b.Wd * 0.3, plan.slots[p.slot].y + b.L * 0.95, 0];
+      });
+      return a;
+    };
+    const corners = () => {
+      const out = [];
+      for (const w of wings) {
+        const top = w.roof.type === "flat" ? w.h + 0.3 : ridge(w);
+        out.push([w.x0 - O, w.y1 + O, 0], [w.x1 + O, w.y1 + O, 0], [w.x1 + O, w.y0 - O, 0], [w.x0 - O, w.y0 - O, w.h], [w.x0, w.y0, top], [w.x1, w.y0, top], [w.x0, w.y1, top]);
+      }
+      for (const [x0, y0, x1, y1] of plan.drive || []) out.push([x0, y1, 0], [x1, y1, 0], [x1, y0, 0]);
+      for (const [x, y] of plan.trees || []) out.push([x, y, 3]);
+      // Room for the wire from the road and its label.
+      out.push([plan.street[0] - 1, plan.street[1] + 1.2, 0], [plan.street[0] + 1, plan.street[1] + 1.2, 0]);
+      return out;
+    };
+    const cx = (Math.min(...wings.map((w) => w.x0)) + Math.max(...wings.map((w) => w.x1))) / 2;
+    const cy = (Math.min(...wings.map((w) => w.y0)) + Math.max(...wings.map((w) => w.y1))) / 2;
+    return {
+      SLOTS: plan.slots, BOX: plan.chargers.map((c) => ({ x: c.u })), scene, routes, placeCars: ANGLE.placeCars, anchors, corners,
+      walls: WALLS, roofs: ROOFS, battery: BATTERY, heatFace: face, coil: "under", street: plan.street, auto: true,
+      defaults: {
+        gateway: { z: 1.05, ...plan.gateway },
+        battery: { z: 0, ...plan.battery },
+        charger0: { z: 0.95, ...plan.chargers[0] },
+        charger1: { z: 0.95, ...plan.chargers[1] },
+        heat: plan.heat,
+      },
+      footprints: wings.map((w) => [w.x0, w.y0, w.x1, w.y1]),
+      area: [-3, -3, 28, 28],
+      ground: [cx + 1, cy + 4, 760, 400],
+      stars: ANGLE.stars,
+    };
+  }
+
+  const GABLE = (rise, axis = "x", more = {}) => ({ type: "gable", axis, rise, ...more });
+  const FLAT = { type: "flat" };
+
+  const PLANS = {
+    // One long house under a saddle roof, with a flat-roofed garage at its end.
+    long: {
+      wings: [
+        { x0: 0, y0: 0, x1: 18, y1: 7.5, h: 2.6, roof: GABLE(2.5), winS: [[1.2, 2.8], [3.6, 5.6, 0.93, 2.19, 2], [9.2, 11.4, 0.93, 2.19, 2], [12.2, 14.2, 0.93, 2.19, 2]], doors: [[7, 8]] },
+        { x0: 18, y0: 1.3, x1: 24.6, y1: 7.5, h: 2.5, roof: FLAT, gates: [[18.4, 20.9], [21.4, 23.9]], winE: [[3, 4.6, 1.5, 2.1]] },
+      ],
+      walls: { s1: { kind: "S", wing: 0, u1: 24.6, top: 2.1 }, e1: { kind: "E", wing: 1 } },
+      drive: [[18.1, 7.5, 24.4, 15.2], [6.8, 7.5, 8.2, 11], [6.8, 9.6, 18.1, 11]],
+      slots: [{ x: 18.74, y: 8.25 }, { x: 21.74, y: 8.25 }],
+      chargers: [{ w: "s1", u: 20.97 }, { w: "s1", u: 24.0 }],
+      gateway: { w: "s1", u: 17.2 }, battery: { w: "s1", u: 16.2 }, heat: { x: 24.85, y: 4.2 }, street: [17.45, 15.2],
+      solar: { wing: 0, face: "S", a: 8.2, b: 17.3, wall: "s1" },
+      trees: [[-2.6, 5, 1], [-2, 12.5, 0.85], [12, -2.4, 0.9], [27.5, 3, 0.85]],
+      lamps: [[8.3, 7.5], [21.15, 7.5]],
+    },
+    // A long house with a wing towards the road: the garage is in the wing.
+    tee: {
+      wings: [
+        { x0: 0, y0: 0, x1: 16, y1: 7, h: 2.6, roof: GABLE(2.4), winS: [[1, 2.8, 0.93, 2.19, 2], [3.6, 5, 0.93, 2.19], [6.4, 8.4, 0.93, 2.19, 2]], doors: [[5.2, 6.2]], winE: [[2, 4, 0.93, 2.19, 2]] },
+        { x0: 9.5, y0: 7, x1: 16, y1: 13.5, h: 2.6, roof: GABLE(2.2, "y", { val0: 3.2 }), gates: [[9.8, 12.2], [12.7, 15.1]], winE: [[9.4, 11, 1.5, 2.1]] },
+      ],
+      walls: { s1: { kind: "S", wing: 1 }, e1: { kind: "E", wing: 1 }, s2: { kind: "S", wing: 0, u1: 9.5 } },
+      drive: [[9.5, 13.5, 16.3, 21], [5, 7, 6.4, 17], [5, 15.6, 9.5, 17]],
+      slots: [{ x: 10.1, y: 14.25 }, { x: 13.0, y: 14.25 }],
+      chargers: [{ w: "s1", u: 12.27 }, { w: "s1", u: 15.3 }],
+      gateway: { w: "e1", u: 13.0 }, battery: { w: "e1", u: 11.6 }, heat: { x: 16.25, y: 2.4 }, street: [17.4, 21],
+      solar: { wing: 0, face: "S", a: 0.6, b: 8.6, wall: "s2" },
+      trees: [[-2.6, 4, 1], [-1.6, 12, 0.9], [20, 1, 0.9], [3, 20, 0.85]],
+      lamps: [[6.35, 7], [12.45, 13.5]],
+    },
+    // Two wings with a link between them: the garage is in the wing to the right.
+    aitch: {
+      wings: [
+        { x0: 0, y0: 0, x1: 6, y1: 16, h: 2.6, roof: GABLE(2.1, "y"), winS: [[1, 2.4], [3.4, 5]], winE: [[1.5, 3.5, 0.93, 2.19, 2], [11.2, 13, 0.93, 2.19, 2], [13.6, 15.2]] },
+        { x0: 6, y0: 5.5, x1: 12, y1: 10, h: 2.6, roof: GABLE(1.5, "x", { val0: 2.1, val1: 2.1 }), winS: [[7, 9.4, 0.3, 2.2, 2]], doors: [[9.9, 10.9]] },
+        { x0: 12, y0: 0, x1: 18.5, y1: 16, h: 2.6, roof: GABLE(2.2, "y"), gates: [[12.3, 14.7], [15.2, 17.6]], winE: [[1.5, 3.5, 0.93, 2.19, 2], [5, 7.4, 0.93, 2.19, 2], [9, 10.4]] },
+      ],
+      walls: { s1: { kind: "S", wing: 2 }, e1: { kind: "E", wing: 2 } },
+      drive: [[12, 16, 18.8, 23.5], [8.6, 10, 10.9, 17.4], [8.6, 16, 12, 17.4]],
+      slots: [{ x: 12.6, y: 16.75 }, { x: 15.5, y: 16.75 }],
+      chargers: [{ w: "s1", u: 14.77 }, { w: "s1", u: 17.75 }],
+      gateway: { w: "e1", u: 15.2 }, battery: { w: "e1", u: 13.2 }, heat: { x: 18.75, y: 5.6 }, street: [19.9, 23.5],
+      solar: { wing: 2, face: "E", a: 1, b: 11.5, wall: "e1" },
+      trees: [[-2.6, 6, 1], [3, 20, 0.9], [9, 13.5, 0.7], [22.5, 2, 0.9]],
+      lamps: [[11.05, 10], [14.95, 16]],
+    },
+    // White boxes with flat roofs, one of them in two storeys, the garage built in.
+    funkis: {
+      wings: [
+        { x0: 0, y0: 0, x1: 8, y1: 9, h: 5.7, roof: FLAT, winS: [[0.9, 4.2, 0.4, 2.4, 3], [0.9, 7.1, 3.3, 5.1, 4]], doors: [[5.6, 6.6, 2.3]], winE: [[1.5, 4.5, 3.3, 5.1, 2], [5.5, 8, 3.3, 5.1, 2]] },
+        { x0: 8, y0: 2, x1: 15.5, y1: 9, h: 2.9, roof: FLAT, gates: [[8.4, 10.9], [11.4, 13.9]], winE: [[3, 5, 1, 2.2, 2], [6, 8, 1, 2.2, 2]] },
+      ],
+      walls: { s1: { kind: "S", wing: 0, u1: 15.5, top: 2.5 }, e1: { kind: "E", wing: 1 } },
+      drive: [[8.1, 9, 14.4, 16.5], [5.4, 9, 6.8, 12.6], [5.4, 11.2, 8.1, 12.6]],
+      slots: [{ x: 8.74, y: 9.75 }, { x: 11.74, y: 9.75 }],
+      chargers: [{ w: "s1", u: 10.97 }, { w: "s1", u: 14.1 }],
+      gateway: { w: "s1", u: 7.2 }, battery: { w: "s1", u: 4.55 }, heat: { x: 15.75, y: 4 }, street: [7.45, 16.5],
+      solar: { wing: 0, face: "top", a: 0.6, b: 7.4, wall: "s1", rows: 3 },
+      trees: [[-2.6, 5, 1], [2.5, 13, 0.9], [18.5, 0, 0.9], [-1, -2.5, 0.8]],
+      lamps: [[6.85, 9, 2.6], [11.15, 9]],
+    },
+    // A low summer house in wood, with a shed the chargers hang on.
+    cabin: {
+      wings: [
+        { x0: 0, y0: 0, x1: 10, y1: 6.5, h: 2.3, wood: true, roof: GABLE(1.9), winS: [[0.9, 2.3, 0.8, 1.9], [3.4, 7.2, 0.1, 2, 3]], doors: [[8.2, 9.1, 2]], winE: [[2.2, 4.4, 0.8, 1.9, 2]] },
+        { x0: 11.6, y0: 2.4, x1: 16, y1: 6.5, h: 2.2, wood: true, roof: GABLE(1.0), doorsE: [[3.4, 4.3, 1.95]] },
+      ],
+      walls: { s1: { kind: "S", wing: 1 }, e1: { kind: "E", wing: 1 }, s2: { kind: "S", wing: 0 } },
+      drive: [[11, 6.5, 16.6, 13.5]],
+      deck: [[-0.6, 6.5, 10.4, 10]],
+      slots: [{ x: 11.5, y: 7.25 }, { x: 14.0, y: 7.25 }],
+      chargers: [{ w: "s1", u: 13.2 }, { w: "s1", u: 15.3 }],
+      gateway: { w: "s1", u: 11.8 }, battery: { w: "e1", u: 6.2 }, heat: { x: 16.25, y: 2.6 }, street: [10.75, 13.5],
+      solar: { wing: 0, face: "S", a: 0.8, b: 9.2, wall: "s2" },
+      trees: [[-2.6, 2, 1.1], [-2.2, 9.5, 0.9], [4, -2.6, 1], [13.5, -1.2, 1.05], [19.5, 4.5, 0.95], [7, 13, 0.8]],
+      lamps: [[7.9, 6.5, 2.1, 18]],
+      home: [5, 6.51, 2.1],
+    },
+    // A bungalow under a hipped roof, as they were built in the sixties and seventies, with a flat-roofed garage.
+    hipped: {
+      wings: [
+        { x0: 0, y0: 0, x1: 15, y1: 9, h: 2.6, roof: GABLE(2.5, "x", { hip0: 4.9, hip1: 4.9 }), winS: [[1, 3, 0.93, 2.19, 2], [4, 5.4], [8.8, 12.4, 0.5, 2.19, 3]], doors: [[6.5, 7.5]] },
+        { x0: 15, y0: 2.5, x1: 21.3, y1: 9, h: 2.5, roof: FLAT, gates: [[15.3, 17.8], [18.3, 20.8]], winE: [[4.4, 6, 1.5, 2.1]] },
+      ],
+      walls: { s1: { kind: "S", wing: 0, u1: 21.3, top: 2.1 }, e1: { kind: "E", wing: 1 } },
+      drive: [[15, 9, 21.2, 16], [6.3, 9, 7.7, 12.6], [6.3, 11.2, 15, 12.6]],
+      slots: [{ x: 15.64, y: 9.75 }, { x: 18.64, y: 9.75 }],
+      chargers: [{ w: "s1", u: 17.87 }, { w: "s1", u: 20.87 }],
+      gateway: { w: "s1", u: 14.3 }, battery: { w: "s1", u: 13.2 }, heat: { x: 21.55, y: 5 }, street: [14.55, 16],
+      solar: { wing: 0, face: "S", a: 4.6, b: 10.4, wall: "s1", k1: 0.8 },
+      trees: [[-2.6, 6, 1], [2, 13.5, 0.9], [10, -2.6, 0.9], [24.5, 3, 0.85]],
+      lamps: [[7.8, 9], [18.05, 9]],
+    },
+    // A house with a steep roof and a dormer, and a garage of its own.
+    storey: {
+      wings: [
+        { x0: 0, y0: 0, x1: 11, y1: 8.5, h: 2.9, roof: GABLE(4.2), winS: [[1, 2.6, 0.93, 2.3, 2], [3.2, 4.4, 0.93, 2.3], [7, 8.4, 0.93, 2.3], [9, 10.2, 0.93, 2.3]], doors: [[5.1, 6.1, 2.25]], winE: [[1.5, 3, 0.93, 2.3], [5.5, 7, 0.93, 2.3], [3.5, 5, 3.6, 5]], dormers: [[1.3, 3.7, 3.9, 5.5]] },
+        { x0: 12.5, y0: 2, x1: 19, y1: 8.5, h: 2.5, roof: GABLE(1.5, "y"), gates: [[12.8, 15.2], [15.7, 18.1]] },
+      ],
+      walls: { s1: { kind: "S", wing: 1 }, e1: { kind: "E", wing: 1 }, s2: { kind: "S", wing: 0 } },
+      drive: [[12.3, 8.5, 19.3, 16], [4.9, 8.5, 6.3, 12.4], [4.9, 11, 12.3, 12.4]],
+      slots: [{ x: 13.1, y: 9.25 }, { x: 16.0, y: 9.25 }],
+      chargers: [{ w: "s1", u: 15.27 }, { w: "s1", u: 18.25 }],
+      gateway: { w: "e1", u: 7.6 }, battery: { w: "e1", u: 5.8 }, heat: { x: 19.25, y: 2.2 }, street: [20.4, 16],
+      solar: { wing: 0, face: "S", a: 4.6, b: 10.6, wall: "s2", k0: 0.2, k1: 0.8 },
+      trees: [[-2.6, 4, 1], [1, 13, 0.95], [8, -2.6, 0.9], [22.5, 4, 0.85]],
+      lamps: [[6.4, 8.5, 2.5], [15.45, 8.5]],
+    },
+    // A terraced house in two storeys: the one in the middle, with the neighbours on both sides.
+    terrace: {
+      wings: [
+        { x0: -6, y0: 0, x1: 0, y1: 9, h: 5.4, roof: GABLE(2.3, "x", { val1: 0.01 }), winS: [[-5.5, -4.4, 1.1, 2.3], [-5.2, -3.4, 3.4, 4.7, 2], [-2.6, -0.8, 3.4, 4.7, 2]], doors: [[-2.8, -1.8]] },
+        { x0: 0, y0: 0, x1: 6, y1: 9, h: 5.4, roof: GABLE(2.3, "x", { val0: 0.01, val1: 0.01 }), winS: [[0.5, 1.6, 1.1, 2.3], [0.8, 2.6, 3.4, 4.7, 2], [3.4, 5.2, 3.4, 4.7, 2]], doors: [[3.2, 4.2]] },
+        { x0: 6, y0: 0, x1: 12, y1: 9, h: 5.4, roof: GABLE(2.3, "x", { val0: 0.01 }), winS: [[6.5, 7.6, 1.1, 2.3], [6.8, 8.6, 3.4, 4.7, 2], [9.4, 11.2, 3.4, 4.7, 2]], doors: [[9.2, 10.2]], winE: [[2, 3.6, 3.4, 4.7, 2], [5.5, 7, 0.93, 2.3]] },
+      ],
+      walls: { s1: { kind: "S", wing: 1, top: 2.6 } },
+      drive: [[0.2, 9, 5.8, 15.5], [-6.5, 15.5, 12.5, 18.5]],
+      slots: [{ x: 0.5, y: 9.75 }, { x: 3.3, y: 9.75 }],
+      chargers: [{ w: "s1", u: 2.6 }, { w: "s1", u: 5.3 }],
+      gateway: { w: "s1", u: 4.45 }, battery: { w: "s1", u: 1.8 }, heat: { x: 6.3, y: 9.15 }, heatFace: "S", street: [4.7, 15.5],
+      solar: { wing: 1, face: "S", a: 0.3, b: 5.7, wall: "s1" },
+      trees: [[-9, 4, 0.95], [15.5, 3, 0.9], [-4, 13, 0.8], [10.5, 13, 0.8]],
+      lamps: [[4.35, 9, 2.5, 18]],
+    },
+  };
+
+  const LAYOUTS = { classic: CLASSIC, angle: ANGLE, ...Object.fromEntries(Object.entries(PLANS).map(([key, plan]) => [key, planned(plan)])) };
 
   // Pulses of light along a wire: more and faster the more power, in the colours of where it comes from.
   const REDUCED = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -2691,7 +3109,7 @@ const ClayScene = (() => {
       return { leg, foot: leg[2], n: outward(gw), dir };
     };
     const moved = pos.moved;
-    const anew = (key) => moved.has("gateway") || (key === "sun" ? pos.panelsChanged : moved.has(key === "heat" ? "heat" : key === "battery" ? "battery" : key.replace("car", "charger")));
+    const anew = (key) => L.auto || moved.has("gateway") || (key === "sun" ? pos.panelsChanged : moved.has(key === "heat" ? "heat" : key === "battery" ? "battery" : key.replace("car", "charger")));
     for (const key of Object.keys(out)) {
       if (!anew(key)) continue;
       if (key.startsWith("car")) {
@@ -2836,11 +3254,11 @@ const ClayScene = (() => {
     get lay() {
       if (this.edit) return this.edit.layout;
       const m = this.model || {};
-      return (m.layout && m.layout[m.house || "classic"]) || {};
+      return (m.layout && m.layout[m.layoutKey || m.house || "classic"]) || {};
     }
 
     _key(m) {
-      return JSON.stringify([m.house || "classic", !!m.solar, !!m.battery, !!m.heat, m.chargers.length, m.cars.map((c) => [c.body, c.paint, c.image || "", !!c.plugged, c.charger, c.spot]), this.lay, this.edit ? [this.edit.tab, this.edit.sel] : null, !!m.canEdit]);
+      return JSON.stringify([m.house || "classic", m.layoutKey || "", !!m.solar, !!m.battery, !!m.heat, m.chargers.length, m.cars.map((c) => [c.body, c.paint, c.image || "", !!c.plugged, c.charger, c.spot]), this.lay, this.edit ? [this.edit.tab, this.edit.sel] : null, !!m.canEdit]);
     }
 
     update(m) {
@@ -3077,7 +3495,8 @@ const ClayScene = (() => {
       for (const item of items) item.y = Math.min(bottom, Math.max(top, item.y));
       // The placed ones first, so the others make room for them.
       items.sort((a, b) => Number(b.fixed) - Number(a.fixed) || b.y - a.y);
-      const meets = (a, b) => Math.abs(a.x - b.x) < a.half + b.half + 3 * unit && Math.abs(a.y - b.y) < tall;
+      // A hair less than a label's height, so one that was just moved a step clear counts as clear.
+      const meets = (a, b) => Math.abs(a.x - b.x) < a.half + b.half + 3 * unit && Math.abs(a.y - b.y) < tall - 0.01;
       for (let i = 1; i < items.length; i += 1) {
         const b = items[i];
         if (b.fixed) continue;
@@ -3421,7 +3840,7 @@ const ClayScene = (() => {
       const what = button.dataset.ed;
       const m = this.model;
       if (what === "open") {
-        const saved = (m.layout && m.layout[m.house || "classic"]) || {};
+        const saved = (m.layout && m.layout[m.layoutKey || m.house || "classic"]) || {};
         this.edit = { tab: "things", sel: null, undo: [], layout: JSON.parse(JSON.stringify(saved)) };
         this.view = null;
         this._redraw(true);
@@ -3451,7 +3870,7 @@ const ClayScene = (() => {
       } else if (what === "save") {
         const layout = JSON.parse(JSON.stringify(lay));
         for (const k of Object.keys(layout)) if (!layout[k] || (typeof layout[k] === "object" && !Array.isArray(layout[k]) && !Object.keys(layout[k]).length)) delete layout[k];
-        const house = m.house || "classic";
+        const house = m.layoutKey || m.house || "classic";
         const done = () => {
           // Shown as saved at once; the state from Home Assistant says the same a moment later.
           this.model.layout = { ...(this.model.layout || {}), [house]: layout };
@@ -3497,6 +3916,7 @@ const ClayScene = (() => {
   }
 
   Scene.BODIES = Object.keys(BODIES);
+  Scene.HOUSES = Object.keys(LAYOUTS);
   Scene.preview = (kind, paint) => {
     const body = BODIES[kind] || BODIES.sedan;
     const [cx, cy] = P(8.5, 2.6 + body.L / 2, 0.75);
@@ -4442,7 +4862,9 @@ class EvPlannerPanel extends HTMLElement {
     const solar = this._state.solar;
     if (!compact && solar && v.connected && ["surplus", "only"].includes(v.settings?.solar)) {
       const now = solar.cars?.[v.id];
-      if (now?.on) {
+      const sold = solar.sold?.[v.id];
+      if (sold) notes.push(["info", this._t("solar_note_sold", { sold: this._money(sold.sold_for), plan: this._money(sold.plan) })]);
+      else if (now?.on) {
         const amps = isNum(now.amps) ? `${Math.round(now.amps)} A` : "";
         notes.push(["info", this._t("solar_note_on", { amps, phases: now.phases === 1 ? this._t("solar_phase_1") : "" })]);
       } else if (v.plan_error === "solar_expected") notes.push(["info", this._t("solar_note_expected")]);
@@ -6306,22 +6728,37 @@ class EvPlannerPanel extends HTMLElement {
     this._scene.update(this._sceneModel());
   }
 
+  /* The place the Home tab shows: the home, or another place the household has chosen to look at. */
+  _placeNow() {
+    const sites = this._state?.sites || [];
+    return sites.find((site) => site.id === this._place) || sites.find((site) => site.home) || { id: "home", home: true, name: "" };
+  }
+
+  /* The house a place is drawn as: the one chosen for it, else the classic house (a summer house: the cabin). */
+  _houseOf(site) {
+    const settings = this._state?.settings || {};
+    const chosen = site.home ? settings.house : settings.houses?.[site.id];
+    return ClayScene.HOUSES.includes(chosen) ? chosen : site.home ? "classic" : "cabin";
+  }
+
   _sceneModel() {
-    const supply = this._state.supply;
-    const solar = this._state.solar;
+    const place = this._placeNow();
+    const supply = place.home ? this._state.supply : place.supply;
+    const solar = place.home ? this._state.solar : place.solar;
     const phases = Number(supply?.phases) || 3;
     const kwOfAmps = (a) => (Number(a) || 0) * 0.23 * phases;
     const power = (kw) => (Math.abs(kw) < 1 ? `${Math.round(Math.abs(kw) * 1000)} W` : `${this._num(Math.abs(kw), 1)} kW`);
-    // The picture is of the home: the chargers and cars that are there.
-    const chargers = this._chargers.filter((c) => (c.site ?? "home") === "home").slice(0, 2);
-    const cars = this._cars.filter((v) => v.home !== false && (v.site ?? "home") === "home").slice(0, 2);
+    // The picture is of one place: the chargers and cars that are there.
+    const chargers = this._chargers.filter((c) => (c.site ?? "home") === place.id).slice(0, 2);
+    const cars = this._cars.filter((v) => v.home !== false && (v.site ?? "home") === place.id).slice(0, 2);
     const carKw = (v) => {
       if (!v.charging) return 0;
       const amps = supply?.cars_now?.[v.id] ?? solar?.cars?.[v.id]?.amps;
       return isNum(amps) ? kwOfAmps(amps) : Number(v.charge_power) || 0;
     };
     const carsKw = cars.reduce((sum, v) => sum + carKw(v), 0);
-    const home = this._state.home || {};
+    const home = (place.home ? this._state.home : place.energy) || {};
+    const heatPump = place.home ? this._state.heat_pump : null;
     const sunKw = isNum(solar?.solar_kw) ? Number(solar.solar_kw) : isNum(home.solar_kw) ? Number(home.solar_kw) : null;
     const battery = solar?.battery || null;
     const gridKw = isNum(solar?.grid_kw)
@@ -6332,7 +6769,7 @@ class EvPlannerPanel extends HTMLElement {
     if (isNum(solar?.grid_kw)) houseKw = Math.max(0, Number(solar.grid_kw) + (sunKw || 0) - (Number(battery?.kw) || 0) - carsKw);
     else if (isNum(home.house_kw)) houseKw = Number(home.house_kw);
     else if (supply && isNum(supply.house_now)) houseKw = kwOfAmps(supply.house_now);
-    const heatKw = isNum(this._state.heat_pump?.kw) ? Number(this._state.heat_pump.kw) : isNum(home.heat_pump_kw) ? Number(home.heat_pump_kw) : null;
+    const heatKw = isNum(heatPump?.kw) ? Number(heatPump.kw) : isNum(home.heat_pump_kw) ? Number(home.heat_pump_kw) : null;
     const flows = { sun: sunKw || 0, battery: Number(battery?.kw) || 0, home: houseKw || 0, grid: gridKw === null ? 0 : -gridKw, heat: heatKw || 0 };
     const labels = [];
     if (heatKw !== null) labels.push({ key: "heat", title: this._t("home_heat"), value: power(heatKw), short: power(heatKw), on: heatKw > 0.05 });
@@ -6357,14 +6794,16 @@ class EvPlannerPanel extends HTMLElement {
     // From day (0) to night (1): day above 6°, night below −6°, gliding between them.
     const light = !Number.isFinite(elevation) ? (sun?.state === "below_horizon" ? 1 : 0) : clamp((6 - elevation) / 12, 0, 1);
     const model = {
-      house: this._state.settings?.house === "angle" ? "angle" : "classic",
+      house: this._houseOf(place),
+      // Another place has its own layout of its house.
+      layoutKey: place.home ? this._houseOf(place) : `${this._houseOf(place)}@${place.id}`,
       // Where things were placed in each house, and whether this user may place them.
       layout: this._state.layout || {},
       canEdit: !!this._hass?.user?.is_admin,
       light,
       solar: solar || isNum(home.solar_kw) ? { kw: sunKw } : null,
       battery,
-      heat: this._state.heat_pump || (heatKw !== null ? { kw: heatKw } : null),
+      heat: heatPump || (heatKw !== null ? { kw: heatKw } : null),
       chargers,
       cars: [],
       flows,
@@ -6402,7 +6841,13 @@ class EvPlannerPanel extends HTMLElement {
 
   _homeHtml() {
     const supply = this._state.supply;
-    const scene = `<section class="panel home-flow"><div class="scene-slot" role="img" aria-label="${esc(this._t("home_title"))}"></div>`;
+    const sites = this._state.sites || [];
+    const place = this._placeNow();
+    // More than one place: which one the picture shows.
+    const places = sites.length > 1
+      ? `<div class="chips places" role="group" aria-label="${esc(this._t("places"))}">${sites.map((site) => `<button data-act="place" data-id="${esc(site.id)}" data-f="place-${esc(site.id)}" class="${site.id === place.id ? "on" : ""}" aria-pressed="${site.id === place.id}">${esc(site.name || this._t("place_home"))}</button>`).join("")}</div>`
+      : "";
+    const scene = `<section class="panel home-flow">${places}<div class="scene-slot" role="img" aria-label="${esc(this._t("home_title"))}"></div>`;
     const now = this._homeNowHtml();
     const tonight = this._tonightHtml();
     const today = this._state.home?.history ? `<section class="panel home-today"><div class="panel-head"><h2>${ICONS.history}<span>${esc(this._t("home_today"))}</span></h2></div><div class="today-body">${this._todayBodyHtml()}</div></section>` : "";
@@ -6416,7 +6861,8 @@ class EvPlannerPanel extends HTMLElement {
 
   /* Live numbers under the house: only those the home has. */
   _homeNowHtml() {
-    const h = this._state.home || {};
+    const place = this._placeNow();
+    const h = (place.home ? this._state.home : place.energy) || {};
     const power = (kw) => (Math.abs(kw) < 1 ? `${Math.round(Math.abs(kw) * 1000)} W` : `${this._num(Math.abs(kw), 1)} kW`);
     const chips = [];
     const add = (icon, label, value, cls = "") => chips.push(`<div class="now-chip ${cls}"><span class="nc-icon">${ICONS[icon] || ""}</span><span class="nc-text"><small>${esc(label)}</small><b>${esc(value)}</b></span></div>`);
@@ -7290,12 +7736,13 @@ class EvPlannerPanel extends HTMLElement {
           home && this._t("settings_from_energy"),
         ]) || this._t("tile_off"),
         body: `<div class="field col"><span>${this._t("house_look")}</span>
-          <div class="chips">${["classic", "angle"]
-            .map((code) => {
-              const on = (settings.house === "angle" ? "angle" : "classic") === code;
-              return `<button data-act="house-look" data-house="${code}" data-f="hl-${code}" class="${on ? "on" : ""}" aria-pressed="${on}">${this._t(`house_${code}`)}</button>`;
+          ${(this._state.sites?.length ? this._state.sites : [{ id: "home", home: true, name: "" }])
+            .map((site, _i, all) => {
+              const now = this._houseOf(site);
+              const chips = ClayScene.HOUSES.map((code) => `<button data-act="house-look" data-site="${esc(site.id)}" data-house="${code}" data-f="hl-${esc(site.id)}-${code}" class="${now === code ? "on" : ""}" aria-pressed="${now === code}">${this._t(`house_${code}`)}</button>`).join("");
+              return `${all.length > 1 ? `<small class="place-name">${esc(site.name || this._t("place_home"))}</small>` : ""}<div class="chips">${chips}</div>`;
             })
-            .join("")}</div>
+            .join("")}
           <small>${this._t("house_look_hint")}</small></div>
           <dl class="sources">
             <div><dt>${this._t("tile_supply")}</dt><dd>${supply ? `${Math.round(supply.limit)} A · ${supply.phases} ${this._lang === "da" ? "faser" : "phases"}${supply.guard ? ` · ${this._t("home_guard")}` : ""}` : this._t("off")}</dd></div>
@@ -7458,7 +7905,13 @@ class EvPlannerPanel extends HTMLElement {
         // Nothing keeps the focus, so the page is drawn again with the new choice (see _updateMode).
         // Not only the button: on an iPhone a tap leaves the focus where it was.
         this.shadowRoot.activeElement?.blur();
-        this._saveSettings({ house: button.dataset.house });
+        if (!button.dataset.site || button.dataset.site === "home") this._saveSettings({ house: button.dataset.house });
+        else this._saveSettings({ houses: { ...(this._state.settings?.houses || {}), [button.dataset.site]: button.dataset.house } });
+        break;
+      case "place":
+        this.shadowRoot.activeElement?.blur();
+        this._place = id;
+        this._render();
         break;
       case "notify-lang":
         this.shadowRoot.activeElement?.blur();
@@ -8047,6 +8500,8 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .field.col { grid-template-columns: 1fr; gap: 6px; }
 .field small { color: var(--evp-soft); font-size: 13px; line-height: 1.4; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips.places { margin-bottom: 10px; }
+.place-name { display: block; margin: 8px 0 4px; }
 .chips button, .chip-input {
   border: 1px solid var(--evp-line); background: transparent; border-radius: 999px; padding: 7px 13px; cursor: pointer;
   font-variant-numeric: tabular-nums; transition: background .15s, border-color .15s, color .15s;

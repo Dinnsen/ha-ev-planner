@@ -847,10 +847,30 @@
   ],
   "sites": [
     {
+      "id": "home",
+      "name": "Hjem",
+      "home": true,
+      "zone": "zone.home",
+      "parts": [],
+      "supply": null,
+      "solar": null,
+      "energy": null
+    },
+    {
       "id": "summer",
       "name": "Sommerhus",
+      "home": false,
       "zone": "zone.sommerhus",
-      "supply": null
+      "parts": [
+        "solar"
+      ],
+      "supply": null,
+      "solar": null,
+      "energy": {
+        "grid_kw": -0.6,
+        "house_kw": 0.4,
+        "solar_kw": 1
+      }
     }
   ],
   "guest": {

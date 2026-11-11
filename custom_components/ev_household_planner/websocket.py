@@ -88,6 +88,7 @@ from .const import (
 )
 from .guest import GuestSession, serialize_segments
 from .household import EVPlannerConfigEntry, Household
+from .layout import HOUSES
 from .planner import PlanError
 from .prices import price_issue
 from .rules import VehiclePlan, parse_hhmm
@@ -182,7 +183,9 @@ SETTINGS_SCHEMA = vol.Schema(
         vol.Optional("bill_price"): vol.Any(None, vol.All(vol.Coerce(float), vol.Range(min=0))),
         vol.Optional("payment_text"): vol.All(cv.string, vol.Length(max=200)),
         vol.Optional("language"): vol.In(["auto", "da", "en"]),
-        vol.Optional("house"): vol.In(["classic", "angle"]),
+        vol.Optional("house"): vol.In(HOUSES),
+        # The house of each of the other places: {the place's id: house}.
+        vol.Optional("houses"): {cv.string: vol.In(HOUSES)},
     }
 )
 

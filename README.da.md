@@ -126,7 +126,7 @@ Kortene følger jeres tema uden card-mod: Home Assistants egne variabler for kor
 
 **EV Planner** i sidemenuen har fem faner: **Biler** (et kort pr. bil; tryk for bilens side med *Nu*, *Regler* og *Historik*), **Hjem** (huset som lermodel med biler, ladere, sol, batteri og varmepumpe, dag og nat), **Gæst**, **Historik** (dag, uge, måned og år, og *Eksportér CSV* med én linje pr. opladning) og **Indstillinger**.
 
-Under *Indstillinger → Hus* vælger I billedet i Hjem-fanen: det *klassiske* hus eller *vinkelhuset* (et vinkelhus set med garagen nærmest). En administrator kan trykke *Tilpas* på billedet og flytte laderne, elboksen, husbatteriet og varmepumpen, tegne ledningernes vej, sætte solceller op eller tage dem ned på tagene og flytte mærkaterne, så de ikke er i vejen. Det gemmes for hvert hus og ser ens ud på alle enheder.
+Under *Indstillinger → Hus* vælger I billedet i Hjem-fanen: det *klassiske* hus, *vinkelhuset* (et vinkelhus set med garagen nærmest) eller et af otte andre: længehus, T-hus, H-hus, funkis, træsommerhus, valmet parcelhus, halvandet plan og rækkehus. Med mere end ét sted har hvert sted sit eget hus, og Hjem-fanen har en knap for hvert sted. En administrator kan trykke *Tilpas* på billedet og flytte laderne, elboksen, husbatteriet og varmepumpen, tegne ledningernes vej, sætte solceller op eller tage dem ned på tagene og flytte mærkaterne, så de ikke er i vejen. Det gemmes for hvert hus og ser ens ud på alle enheder.
 
 <img src="docs/images/panel-home-da.png" alt="Hjem-fanen" width="48%"> <img src="docs/images/panel-home-angle-en.png" alt="Hjem-fanen med vinkelhuset om natten" width="48%">
 
@@ -138,7 +138,7 @@ EV Planner læser priserne fra én prissensor. Viser den spotprisen uden tariffe
 
 Flere biler bag én sikring: på stedet (integrationen, *Hjem*) under *Fælles forsyning* sættes det, huset højst må trække pr. fase, faserne og en måler. Bilerne planlægges så sammen under grænsen, billigste timer først, og *vagten* skruer bilerne ned med det samme, når huset skal bruge mere. En måler, der ikke har meldt sig i fem minutter, stoles der ikke på: bilerne går til mindste strøm. Med en vejr-entitet regner EV Planner med nattens temperatur, og en varmepumpe kan holdes tilbage i højst 15 minutter, før en bil stoppes. Vagten er ikke en sikring; behold laderens egen lastbalancering.
 
-Under *Solen og husbatteriet* kan en bil lade på overskuddet fra solen: *Sol og plan* eller *Kun sol*.
+Under *Solen og husbatteriet* kan en bil lade på overskuddet fra solen: *Sol og plan* eller *Kun sol*. Når en kWh sælges for mere, end bilens plan betaler for en, lader en bil på *Sol og plan* overskuddet gå til nettet og lader i sine billige timer i stedet; salgsprisen sættes under stedets solceller.
 
 ## Flere ladere og et sommerhus (beta)
 

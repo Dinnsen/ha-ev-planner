@@ -34,6 +34,7 @@ from .const import (
     REASON_SOLAR,
     SET_PRIORITY,
     SET_SOLAR,
+    SITE_HOME,
     SOLAR_ONLY,
     SOLAR_SURPLUS,
 )
@@ -82,6 +83,8 @@ class SolarControl:
         self._hold: bool | None = None
         self._restore: set[str] = set()
         self._phases_sent: dict[str, int] = {}
+        # The cars whose surplus is sold now, as that pays more than their plan costs: {car: (sold for, plan's price)}.
+        self.sold: dict[str, tuple[float, float]] = {}
 
     @property
     def hass(self) -> HomeAssistant:
@@ -185,6 +188,9 @@ class SolarControl:
                 continue
             if self.household.guest_holds(vehicle.charger_id, dt_util.now()):
                 continue
+            if (prices := self._sells(vehicle)) is not None:
+                self.sold[vehicle.vehicle_id] = prices
+                continue
             entity = supply.current_entity(vehicle)
             phases = self._phases_now(vehicle)
             power = self.household.vehicle_power(vehicle)
@@ -207,9 +213,28 @@ class SolarControl:
             )
         return out
 
+    def _sells(self, vehicle: Vehicle) -> tuple[float, float] | None:
+        """(what a kWh is sold for, what the car's plan pays for one) when selling pays more than the plan costs.
+
+        A car on "sun and plan" then leaves the surplus to the grid and
+        charges in its planned hours instead: the household ends up with more.
+        A car on "only sun" has no plan to fall back on, and charges on the sun.
+        """
+        if self.mode(vehicle) != SOLAR_SURPLUS:
+            return None
+        plan = vehicle.plan
+        price = plan.average_price if plan is not None and plan.segments else None
+        if price is None:
+            return None
+        site_id = self.site.site_id if self.site is not None else SITE_HOME
+        sold = self.household.export_price(site_id)
+        # The sun's kWh reach the battery with the same loss as the grid's, so the prices compare as they are.
+        return (sold, price) if sold > price + 0.005 else None
+
     def update(self, now: datetime) -> None:
         """Decide, before the cars' decisions, which cars charge on the sun this minute."""
         grid = self.grid_kw() if self.active else None
+        self.sold = {}
         if grid is None:
             self.decisions = {}
             return
@@ -418,6 +443,10 @@ class SolarControl:
             "cars": {
                 vid: {"on": decision.on, "amps": decision.amps, "phases": decision.phases}
                 for vid, decision in self.decisions.items()
+            },
+            # The cars that leave the surplus to the grid now: selling pays more than their plan costs.
+            "sold": {
+                vid: {"sold_for": round(sold, 3), "plan": round(price, 3)} for vid, (sold, price) in self.sold.items()
             },
             "forecast_left_today": self.forecast_today(now),
         }

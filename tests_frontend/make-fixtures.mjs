@@ -244,7 +244,10 @@ const FIXTURES = {
       charger("carport", "Carport", { connected: true, unknown: true, choices: ["renault_zoe"] }),
       charger("cabin", "Skur", { site: "summer", connected: false }),
     ],
-    sites: [{ id: "summer", name: "Sommerhus", zone: "zone.sommerhus", supply: null }],
+    sites: [
+      { id: "home", name: "Hjem", home: true, zone: "zone.home", parts: [], supply: null, solar: null, energy: null },
+      { id: "summer", name: "Sommerhus", home: false, zone: "zone.sommerhus", parts: ["solar"], supply: null, solar: null, energy: { grid_kw: -0.6, house_kw: 0.4, solar_kw: 1.0 } },
+    ],
   }),
 
   /* (c) The cars share the house's supply: a guard on the meter, solar panels, a home battery
