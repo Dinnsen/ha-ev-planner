@@ -2,6 +2,24 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.3.0b9] - 2026-11-11
+
+Beta: only those who show beta versions in the Marketplace get it.
+
+### Added
+- **A car that finds its charger.** A car that uses more than one charger gets *Found each time* as its charger. When a charger gets a car, EV Planner finds out which one it is from where the cars are and which of them says it is plugged in; two cars it could be are told apart by which charger gives power. A car that reports slowly can be asked at once (*Ask the car now*: a button, a script or an entity of the car's integration). When the car cannot be told, the household is asked on its phones (which car, or a guest), and the charger shows *Unknown car* and is left alone until then. The answer can also be given, and changed, on the charger's page.
+- **Places.** A place with chargers besides the home, a summer house say, is added under the integration, with its zone and its own supply limit and meter. A car at the place is planned on that place's supply, and finds the charger there.
+- **A backup for start and pause.** With *The other one is the backup*, the car's own switch steps in when the charger does not answer, and the other way round. What paused the car starts it again.
+- **Sharing by need** on a shared supply: cars share an hour there is not room for all of them in by the kWh each lacks, never less than 6 A each. Chosen under *Sharing between the cars*; in line, as before, is still the default.
+- **Peblar**, also the chargers Peblar builds for OK: the charger's device fills in its switch, current limit, power, energy meter and status, for Peblar's own integration and the community ones.
+- A charger's *Power now*, and its current limit, are found from its device.
+
+### Changed
+- **A new car is started and paused by its charger** when the chargers have a switch, with the car's own switch as the backup. A charger is more often there to answer than a car. Cars already set up are not changed.
+- **A car is paused at most three times in ten minutes:** a start waits when the next pause would be one too many (Peblar's own limit). A pause is always sent.
+- **Zaptec's current is raised at most every 15 minutes,** as Zaptec asks; it is still lowered at once for the house.
+- The sun on the roof, and the picture in the Home tab, are for the cars at home, not for a car at another place.
+
 ## [2.3.0b8] - 2026-11-10
 
 Beta: only those who show beta versions in the Marketplace get it.

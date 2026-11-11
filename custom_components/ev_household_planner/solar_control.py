@@ -163,7 +163,7 @@ class SolarControl:
     def _candidates(self) -> list[tuple[Vehicle, SolarCar]]:
         out: list[tuple[Vehicle, SolarCar]] = []
         supply = self.household.supply
-        for vehicle in self.household.vehicles.values():
+        for vehicle in self._cars():
             if self.mode(vehicle) not in (SOLAR_SURPLUS, SOLAR_ONLY) or vehicle.mode != "smart":
                 continue
             soc = vehicle.current_soc
@@ -214,6 +214,10 @@ class SolarControl:
         )
         self.decisions = self.controller.step(now, surplus, cars)
 
+    def _cars(self) -> list[Vehicle]:
+        """The cars at home: the sun on the roof is not for a car at another place."""
+        return [vehicle for vehicle in self.household.vehicles.values() if not self.household.at_other_site(vehicle)]
+
     def wants(self, vehicle: Vehicle) -> bool:
         decision = self.decisions.get(vehicle.vehicle_id)
         return decision is not None and decision.on
@@ -221,7 +225,7 @@ class SolarControl:
     async def async_apply(self, now: datetime) -> None:
         """Set the current (and phases) of the cars charging on the sun; give the others back their current."""
         supply = self.household.supply
-        for vehicle in self.household.vehicles.values():
+        for vehicle in self._cars():
             decision = self.decisions.get(vehicle.vehicle_id)
             on = decision is not None and decision.on and vehicle.decision.reason == REASON_SOLAR
             entity = supply.current_entity(vehicle)
@@ -270,8 +274,7 @@ class SolarControl:
         if not entity:
             return
         hold = any(
-            self.household.is_charging(vehicle) and vehicle.decision.reason in GRID_REASONS
-            for vehicle in self.household.vehicles.values()
+            self.household.is_charging(vehicle) and vehicle.decision.reason in GRID_REASONS for vehicle in self._cars()
         )
         if hold == self._hold:
             return
@@ -295,7 +298,9 @@ class SolarControl:
         grid = self.grid_kw() if self.active else None
         if grid is None:
             return 0.0
-        cars = sum(self._car_kw(other) for other in self.household.vehicles.values())
+        if self.household.at_other_site(vehicle):
+            return 0.0
+        cars = sum(self._car_kw(other) for other in self._cars())
         return solar_share(cars, grid) if self._car_kw(vehicle) > 0 else 0.0
 
     # ------------------------------------------------------------------
@@ -360,7 +365,7 @@ class SolarControl:
         }
         sharing = sum(
             1
-            for other in self.household.vehicles.values()
+            for other in self._cars()
             if self.mode(other) == SOLAR_SURPLUS and other.connected is not False and other.at_home is not False
         )
         return FORECAST_TRUST * forecast_kwh(hours, now, end) / max(1, sharing)

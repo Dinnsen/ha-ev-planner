@@ -91,7 +91,8 @@
               "supply_guard": "Guard: turn the cars down at once",
               "weather_entity": "Weather",
               "heat_pump_power": "Heat pump: power",
-              "heat_pump_block": "Heat pump: hold back"
+              "heat_pump_block": "Heat pump: hold back",
+              "supply_share": "Sharing between the cars"
             },
             "data_description": {
               "supply_limit": "The most the house may draw per phase, e.g. 23 A on a 25 A supply, or the circuit the chargers share. 0 turns it off.",
@@ -101,7 +102,8 @@
               "supply_guard": "When the meter shows more than the limit, lower the cars right away (the last in line first) and raise them again after a few minutes. Not a fuse: leave it off if an Equalizer or the charger already balances the load.",
               "weather_entity": "A weather entity with an hourly forecast. EV Planner learns how much more the house draws when it is cold, and counts on the night's temperature.",
               "heat_pump_power": "The heat pump's power (W or kW). Shown in the Home tab.",
-              "heat_pump_block": "A switch that holds the heat pump back while it is on (SG Ready or a blocking contact). When there is not enough current, EV Planner turns it on for at most 15 minutes, at most twice a night, before a car is stopped."
+              "heat_pump_block": "A switch that holds the heat pump back while it is on (SG Ready or a blocking contact). When there is not enough current, EV Planner turns it on for at most 15 minutes, at most twice a night, before a car is stopped.",
+              "supply_share": "When there is not room for all the cars in an hour. In line: the car that must be ready first takes what it needs, the next takes the rest. By need: they share by the kWh each lacks, never less than 6 A each."
             }
           },
           "solar": {
@@ -180,7 +182,8 @@
                 "unplugged_states": "States that mean unplugged",
                 "home_entity": "At home",
                 "charging_entity": "Charging",
-                "power_entity": "Charging power"
+                "power_entity": "Charging power",
+                "refresh_entity": "Ask the car now"
               },
               "data_description": {
                 "soc_entity": "The car's battery level (%). Without it, you set the level by hand.",
@@ -188,9 +191,10 @@
                 "capacity_entity": "Optional. A sensor with the car's usable battery capacity (kWh). Replaces the number above while it has a value.",
                 "connected_entity": "An entity that shows whether the car is plugged in, e.g. a charge cable sensor.",
                 "unplugged_states": "Default: off, disconnected, unplugged. For a status sensor, e.g. 3.",
-                "home_entity": "Optional. EV Planner only acts while the car is home.",
+                "home_entity": "Optional. The car's location (a device tracker). EV Planner only acts while the car is at home, or at another place you have added, and finds the car's charger among the chargers there.",
                 "charging_entity": "Optional. Shows whether the car is charging (on/charging, or a power above 0). Used to check that charging started.",
-                "power_entity": "Optional. The car's own charging power sensor (kW). EV Planner learns the power from it and counts the energy with it."
+                "power_entity": "Optional. The car's own charging power sensor (kW). EV Planner learns the power from it and counts the energy with it.",
+                "refresh_entity": "Optional. A button, a script or an entity of the car's integration. When a charger gets a car and it is not known which, EV Planner presses the button, runs the script or updates the entity, so the car reports at once instead of at its next turn. At most twice for one plug-in."
               }
             },
             "charging": {
@@ -202,15 +206,17 @@
                 "control": "Who starts and stops charging",
                 "control_entity": "The car's charge switch",
                 "current_entity": "Charging current",
-                "phase_entity": "Phase switch"
+                "phase_entity": "Phase switch",
+                "control_backup": "The other one is the backup"
               },
               "data_description": {
                 "charge_power": "What the car draws when charging at home (kW). A starting point: a car with a charging power sensor is measured instead.",
-                "charger": "The charger the car uses. Cars on the same charger share it.",
-                "control": "Choose the car, the charger, or neither.",
+                "charger": "The charger the car uses. Cars on the same charger share it. Found each time: EV Planner finds the charger from where the car is and which charger got a car. Choose that when the car uses several chargers.",
+                "control": "Choose the car, the charger, or neither. A charger is more often there to answer than a car.",
                 "control_entity": "Needed when the car starts and stops charging, e.g. switch.model3_charge.",
                 "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit, or any sensor of an Easee charger (EV Planner then uses Easee's own action). With it, cars on a shared supply share the current; without it they take turns.",
-                "phase_entity": "Optional: a switch that sets the charger to three phases (on) or one (off). On the sun, one phase lets the car charge from about 1.4 kW instead of 4.1 kW."
+                "phase_entity": "Optional: a switch that sets the charger to three phases (on) or one (off). On the sun, one phase lets the car charge from about 1.4 kW instead of 4.1 kW.",
+                "control_backup": "When the first does not answer, the other steps in: the car's own switch when the charger starts and stops charging, the charger's when the car does. What paused the car is also what starts it again."
               }
             },
             "trips": {
@@ -250,7 +256,8 @@
                 "unplugged_states": "States that mean unplugged",
                 "home_entity": "At home",
                 "charging_entity": "Charging",
-                "power_entity": "Charging power"
+                "power_entity": "Charging power",
+                "refresh_entity": "Ask the car now"
               },
               "data_description": {
                 "soc_entity": "The car's battery level (%). Without it, you set the level by hand.",
@@ -258,9 +265,10 @@
                 "capacity_entity": "Optional. A sensor with the car's usable battery capacity (kWh). Replaces the number above while it has a value.",
                 "connected_entity": "An entity that shows whether the car is plugged in, e.g. a charge cable sensor.",
                 "unplugged_states": "Default: off, disconnected, unplugged. For a status sensor, e.g. 3.",
-                "home_entity": "Optional. EV Planner only acts while the car is home.",
+                "home_entity": "Optional. The car's location (a device tracker). EV Planner only acts while the car is at home, or at another place you have added, and finds the car's charger among the chargers there.",
                 "charging_entity": "Optional. Shows whether the car is charging (on/charging, or a power above 0). Used to check that charging started.",
-                "power_entity": "Optional. The car's own charging power sensor (kW). EV Planner learns the power from it and counts the energy with it."
+                "power_entity": "Optional. The car's own charging power sensor (kW). EV Planner learns the power from it and counts the energy with it.",
+                "refresh_entity": "Optional. A button, a script or an entity of the car's integration. When a charger gets a car and it is not known which, EV Planner presses the button, runs the script or updates the entity, so the car reports at once instead of at its next turn. At most twice for one plug-in."
               }
             },
             "charging": {
@@ -272,15 +280,17 @@
                 "control": "Who starts and stops charging",
                 "control_entity": "The car's charge switch",
                 "current_entity": "Charging current",
-                "phase_entity": "Phase switch"
+                "phase_entity": "Phase switch",
+                "control_backup": "The other one is the backup"
               },
               "data_description": {
                 "charge_power": "What the car draws when charging at home (kW). A starting point: a car with a charging power sensor is measured instead.",
-                "charger": "The charger the car uses. Cars on the same charger share it.",
-                "control": "Choose the car, the charger, or neither.",
+                "charger": "The charger the car uses. Cars on the same charger share it. Found each time: EV Planner finds the charger from where the car is and which charger got a car. Choose that when the car uses several chargers.",
+                "control": "Choose the car, the charger, or neither. A charger is more often there to answer than a car.",
                 "control_entity": "Needed when the car starts and stops charging, e.g. switch.model3_charge.",
                 "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit, or any sensor of an Easee charger (EV Planner then uses Easee's own action). With it, cars on a shared supply share the current; without it they take turns.",
-                "phase_entity": "Optional: a switch that sets the charger to three phases (on) or one (off). On the sun, one phase lets the car charge from about 1.4 kW instead of 4.1 kW."
+                "phase_entity": "Optional: a switch that sets the charger to three phases (on) or one (off). On the sun, one phase lets the car charge from about 1.4 kW instead of 4.1 kW.",
+                "control_backup": "When the first does not answer, the other steps in: the car's own switch when the charger starts and stops charging, the charger's when the car does. What paused the car is also what starts it again."
               }
             },
             "trips": {
@@ -335,7 +345,9 @@
             "connected_entity": "Car plugged in",
             "unplugged_states": "States that mean unplugged",
             "current_entity": "Charging current",
-            "phase_entity": "Phase switch"
+            "phase_entity": "Phase switch",
+            "site": "Place",
+            "power_entity": "Power now"
           },
           "data_description": {
             "name": "For example Carport.",
@@ -343,10 +355,12 @@
             "power": "The most the charger gives with your installation (kW). Typically 11 kW on 3 x 16 A, 7.4 kW on 1 x 32 A.",
             "switch_entity": "Optional. Lets EV Planner start and pause this charger.",
             "energy_entity": "Optional. The charger's total energy (kWh), to measure what the guest used.",
-            "connected_entity": "Optional. Ends the guest session when the guest car is unplugged.",
+            "connected_entity": "Optional. Shows whether a car is plugged in. With it EV Planner finds the car that is at the charger, and ends the guest session when the guest car is unplugged.",
             "unplugged_states": "Default: off.",
             "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit, or any sensor of an Easee charger (EV Planner then uses Easee's own action). With it, cars on a shared supply share the current; without it they take turns.",
-            "phase_entity": "Optional: a switch that sets the charger to three phases (on) or one (off). On the sun, one phase lets the car charge from about 1.4 kW instead of 4.1 kW."
+            "phase_entity": "Optional: a switch that sets the charger to three phases (on) or one (off). On the sun, one phase lets the car charge from about 1.4 kW instead of 4.1 kW.",
+            "site": "Where the charger is: at home, or at another place you have added.",
+            "power_entity": "Optional. What the charger gives right now (W or kW). Tells which car is at it when two could be."
           }
         },
         "reconfigure": {
@@ -360,7 +374,9 @@
             "connected_entity": "Car plugged in",
             "unplugged_states": "States that mean unplugged",
             "current_entity": "Charging current",
-            "phase_entity": "Phase switch"
+            "phase_entity": "Phase switch",
+            "site": "Place",
+            "power_entity": "Power now"
           },
           "data_description": {
             "name": "For example Carport.",
@@ -368,10 +384,72 @@
             "power": "The most the charger gives with your installation (kW). Typically 11 kW on 3 x 16 A, 7.4 kW on 1 x 32 A.",
             "switch_entity": "Optional. Lets EV Planner start and pause this charger.",
             "energy_entity": "Optional. The charger's total energy (kWh), to measure what the guest used.",
-            "connected_entity": "Optional. Ends the guest session when the guest car is unplugged.",
+            "connected_entity": "Optional. Shows whether a car is plugged in. With it EV Planner finds the car that is at the charger, and ends the guest session when the guest car is unplugged.",
             "unplugged_states": "Default: off.",
             "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit, or any sensor of an Easee charger (EV Planner then uses Easee's own action). With it, cars on a shared supply share the current; without it they take turns.",
-            "phase_entity": "Optional: a switch that sets the charger to three phases (on) or one (off). On the sun, one phase lets the car charge from about 1.4 kW instead of 4.1 kW."
+            "phase_entity": "Optional: a switch that sets the charger to three phases (on) or one (off). On the sun, one phase lets the car charge from about 1.4 kW instead of 4.1 kW.",
+            "site": "Where the charger is: at home, or at another place you have added.",
+            "power_entity": "Optional. What the charger gives right now (W or kW). Tells which car is at it when two could be."
+          }
+        }
+      }
+    },
+    "site": {
+      "entry_type": "Place",
+      "initiate_flow": {
+        "user": "Add place",
+        "reconfigure": "Change place"
+      },
+      "step": {
+        "user": {
+          "title": "Add place",
+          "description": "A place with chargers besides your home, a summer house say. It has its own supply, so a car that charges there does not count on the supply at home. Afterwards, choose the place in each charger's settings.",
+          "data": {
+            "name": "Name",
+            "zone": "Zone",
+            "supply_limit": "Limit per phase",
+            "supply_phases": "Phases",
+            "supply_meter": "Meter: current per phase",
+            "supply_reserve": "The house without a meter",
+            "supply_guard": "Guard: turn the cars down at once",
+            "supply_share": "Sharing between the cars",
+            "weather_entity": "Weather"
+          },
+          "data_description": {
+            "name": "For example Summer house.",
+            "zone": "The zone in Home Assistant the cars are in when they are here. A car is at this place when its location entity shows this zone.",
+            "supply_limit": "The most the house may draw per phase, e.g. 23 A on a 25 A supply, or the circuit the chargers share. 0 turns it off.",
+            "supply_phases": "How many phases the supply and the cars charge on.",
+            "supply_meter": "Current sensors (A) for the phases, e.g. from a HAN/P1 reader, a Shelly EM or an Equalizer. EV Planner learns what the house draws hour by hour.",
+            "supply_reserve": "Without a meter: what the house is expected to draw per phase.",
+            "supply_guard": "When the meter shows more than the limit, lower the cars right away (the last in line first) and raise them again after a few minutes. Not a fuse: leave it off if an Equalizer or the charger already balances the load.",
+            "supply_share": "When there is not room for all the cars in an hour. In line: the car that must be ready first takes what it needs, the next takes the rest. By need: they share by the kWh each lacks, never less than 6 A each.",
+            "weather_entity": "A weather entity with an hourly forecast. EV Planner learns how much more the house draws when it is cold, and counts on the night's temperature."
+          }
+        },
+        "reconfigure": {
+          "title": "Change place",
+          "data": {
+            "name": "Name",
+            "zone": "Zone",
+            "supply_limit": "Limit per phase",
+            "supply_phases": "Phases",
+            "supply_meter": "Meter: current per phase",
+            "supply_reserve": "The house without a meter",
+            "supply_guard": "Guard: turn the cars down at once",
+            "supply_share": "Sharing between the cars",
+            "weather_entity": "Weather"
+          },
+          "data_description": {
+            "name": "For example Summer house.",
+            "zone": "The zone in Home Assistant the cars are in when they are here. A car is at this place when its location entity shows this zone.",
+            "supply_limit": "The most the house may draw per phase, e.g. 23 A on a 25 A supply, or the circuit the chargers share. 0 turns it off.",
+            "supply_phases": "How many phases the supply and the cars charge on.",
+            "supply_meter": "Current sensors (A) for the phases, e.g. from a HAN/P1 reader, a Shelly EM or an Equalizer. EV Planner learns what the house draws hour by hour.",
+            "supply_reserve": "Without a meter: what the house is expected to draw per phase.",
+            "supply_guard": "When the meter shows more than the limit, lower the cars right away (the last in line first) and raise them again after a few minutes. Not a fuse: leave it off if an Equalizer or the charger already balances the load.",
+            "supply_share": "When there is not room for all the cars in an hour. In line: the car that must be ready first takes what it needs, the next takes the rest. By need: they share by the kWh each lacks, never less than 6 A each.",
+            "weather_entity": "A weather entity with an hourly forecast. EV Planner learns how much more the house draws when it is cold, and counts on the night's temperature."
           }
         }
       }
@@ -752,6 +830,23 @@
       "options": {
         "1": "1 phase",
         "3": "3 phases"
+      }
+    },
+    "charger": {
+      "options": {
+        "none": "No charger",
+        "auto": "Found each time (automatic)"
+      }
+    },
+    "site": {
+      "options": {
+        "home": "Home"
+      }
+    },
+    "supply_share": {
+      "options": {
+        "queue": "In line: the first takes what it needs",
+        "need": "By need: the more kWh a car lacks, the more amps"
       }
     }
   },

@@ -88,6 +88,7 @@ function vehicle(id, name, extra = {}) {
     id, name, image: null, image_original: null,
     status: "unplugged", reason: "unplugged", supply_amps: null, has_current: false,
     control: "released", control_source: "charger", control_error: null, problem: false,
+    paused_by: null, control_backup: false, finds_charger: false, site: "home",
     mode: "smart", soc: 60, soc_source: "sensor", target: 80, target_editable: true, car_limit: null, day_target: null,
     capacity: 75, power: 11,
     charge_speed: 13.2, charge_speed_source: "estimated", charge_speed_learned_from: 0,
@@ -108,6 +109,7 @@ function vehicle(id, name, extra = {}) {
 function charger(id, name, extra = {}) {
   return {
     id, name, power: 11, control: "released", holder: null, connected: false, has_switch: true, has_meter: false,
+    site: "home", occupant: null, found_by: null, unknown: false, choices: [], has_plug_sensor: true,
     image: null, image_original: null, model: "zaptec_go", model_title: "Go", style: "slim",
     ...extra,
   };
@@ -152,7 +154,7 @@ function state(extra = {}) {
     prices: prices(),
     price_issue: null,
     supply: null, solar: null, heat_pump: null, home: null,
-    vehicles: [], chargers: [],
+    vehicles: [], chargers: [], sites: [],
     guest: guest(),
     settings: {},
     config: {
@@ -228,6 +230,21 @@ const FIXTURES = {
     chargers: [charger("garage", "Garage", { control: "charge", holder: "Tesla Model Y", connected: true })],
     guest: guest({ history: [GUEST_NOV] }),
     settings: { bill_price: 2.5, payment_text: "MobilePay 12 34 56 78", language: "auto" },
+  }),
+
+  /* Two chargers at home and one at the summer house. The cars' chargers are found each time: the
+     Tesla was found at the garage, and the carport has a car nobody has told which. */
+  "two-chargers": state({
+    vehicles: [
+      zoeUnplugged({ finds_charger: true, charger: null, connected: true, status: "waiting", reason: "waiting", control_error: "finding_charger" }),
+      teslaCharging({ finds_charger: true, control_source: "charger", control_backup: true }),
+    ],
+    chargers: [
+      charger("garage", "Garage", { control: "charge", holder: "Tesla Model Y", connected: true, occupant: "tesla_model_y", found_by: "found" }),
+      charger("carport", "Carport", { connected: true, unknown: true, choices: ["renault_zoe"] }),
+      charger("cabin", "Skur", { site: "summer", connected: false }),
+    ],
+    sites: [{ id: "summer", name: "Sommerhus", zone: "zone.sommerhus", supply: null }],
   }),
 
   /* (c) The cars share the house's supply: a guard on the meter, solar panels, a home battery

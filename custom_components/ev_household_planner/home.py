@@ -175,6 +175,8 @@ class HomeInfo:
     def cars_kw(self) -> float:
         total = 0.0
         for vehicle in self.household.vehicles.values():
+            if not self.household.at_home_site(vehicle):
+                continue
             reading = self.household.power_reading(vehicle)
             if reading is not None and reading > 0 and self.household.is_charging(vehicle):
                 total += reading

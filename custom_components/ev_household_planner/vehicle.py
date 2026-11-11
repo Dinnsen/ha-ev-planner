@@ -14,6 +14,7 @@ from uuid import uuid4
 
 from .const import (
     BLIP_KWH,
+    CHARGER_AUTO,
     COMMANDS_PER_HOUR,
     CONF_BATTERY_CAPACITY,
     CONF_CALENDAR_ENTITY,
@@ -24,10 +25,12 @@ from .const import (
     CONF_CHARGING_ENTITY,
     CONF_CONNECTED_ENTITY,
     CONF_CONTROL,
+    CONF_CONTROL_BACKUP,
     CONF_CONTROL_ENTITY,
     CONF_HOME_ENTITY,
     CONF_IMPORTED_SPEED,
     CONF_POWER_ENTITY,
+    CONF_REFRESH_ENTITY,
     CONF_SOC_ENTITY,
     CONF_TARGET_ENTITY,
     CONF_UNPLUGGED_STATES,
@@ -46,6 +49,8 @@ from .const import (
     MODE_PAUSE,
     NO_CHARGER,
     OPPORTUNISTIC_OFF,
+    PAUSES_IN_WINDOW,
+    PAUSES_WINDOW,
     PERIOD_JOIN,
     SET_CEILING,
     SET_CEILING_ABOVE,
@@ -295,6 +300,14 @@ class Vehicle:
     connected: bool | None = None
     home: bool | None = None
     charging: bool | None = None
+    # Where the car is, as its location entity says it (a zone's name, "home", "not_home" ...).
+    place: str | None = None
+    # When the car was seen to be plugged in (None when it was plugged in already when it was first read).
+    connected_since: datetime | None = None
+    # The charger the car is at now: its own when it has one, else the one it was found at.
+    at_charger: str | None = None
+    # When the car was last asked to report, to find the charger it is at.
+    refreshed_at: datetime | None = None
     # Charging power in kW as the car reports it, when it does.
     power_from_car: float | None = None
 
@@ -327,6 +340,10 @@ class Vehicle:
     retry_after: datetime | None = None
     # When EV Planner last paused the car: it rests a little before it is started again.
     paused_at: datetime | None = None
+    # What paused it ("car" or "charger"): the one that stopped it is the one that starts it.
+    paused_by: str | None = None
+    # When it was paused in the last minutes (a charger takes only so many pauses in a row).
+    pause_log: list[datetime] = field(default_factory=list)
     problem: bool = False
     verify_attempts: int = 0
 
@@ -371,6 +388,7 @@ class Vehicle:
         for key in RETIRED_SETTINGS:
             self.settings.pop(key, None)
         self.learned.check_basis(self.basis)
+        self.at_charger = self.fixed_charger
 
     # ------------------------------------------------------------------
     # Configuration
@@ -471,9 +489,28 @@ class Vehicle:
         return str(self.config.get(CONF_CALENDAR_KEYWORD) or "").strip()
 
     @property
-    def charger_id(self) -> str | None:
+    def fixed_charger(self) -> str | None:
+        """The charger chosen for the car in its setup (None: no charger, or found each time)."""
         value = self.config.get(CONF_CHARGER)
-        return None if value in (None, "", NO_CHARGER) else str(value)
+        return None if value in (None, "", NO_CHARGER, CHARGER_AUTO) else str(value)
+
+    @property
+    def finds_charger(self) -> bool:
+        """The car's charger is found each time it is plugged in."""
+        return self.config.get(CONF_CHARGER) == CHARGER_AUTO
+
+    @property
+    def charger_id(self) -> str | None:
+        """The charger the car is at now."""
+        return self.at_charger
+
+    @property
+    def control_backup(self) -> bool:
+        return bool(self.config.get(CONF_CONTROL_BACKUP))
+
+    @property
+    def refresh_entity(self) -> str | None:
+        return self.config.get(CONF_REFRESH_ENTITY) or None
 
     @property
     def control(self) -> str:
@@ -787,10 +824,15 @@ class Vehicle:
         kept for one: a start is refused when only that one is left.
         """
         self.sent_log = [moment for moment in self.sent_log if elapsed(now, moment) < timedelta(hours=1)]
+        self.pause_log = [moment for moment in self.pause_log if elapsed(now, moment) < PAUSES_WINDOW]
         if stop:
             self.sent_log.append(now)
+            self.pause_log.append(now)
             return True
         if len(self.sent_log) >= COMMANDS_PER_HOUR - 1:
+            return False
+        if len(self.pause_log) >= PAUSES_IN_WINDOW:
+            # Started now, the next pause would be one more than a charger takes in ten minutes.
             return False
         self.sent_log.append(now)
         return True
@@ -808,6 +850,8 @@ class Vehicle:
             "history": self.history,
             "session": self.session.to_dict() if self.session else None,
             "last_sent": self.last_sent,
+            "paused_by": self.paused_by,
+            "at_charger": self.at_charger if self.finds_charger else None,
             "last_soc_seen": self.last_soc_seen,
             "live_active": self.live_active,
             "reminded_on": self.reminded_on,
@@ -847,6 +891,12 @@ class Vehicle:
         self.session = Session.from_dict(session) if isinstance(session, Mapping) else None
         last_sent = data.get("last_sent")
         self.last_sent = last_sent if last_sent in (CONTROL_CHARGE, "pause") else None
+        paused_by = data.get("paused_by")
+        self.paused_by = paused_by if paused_by in ("car", "charger") else None
+        at_charger = data.get("at_charger")
+        if self.finds_charger and isinstance(at_charger, str):
+            # Checked against the chargers there are when the household starts.
+            self.at_charger = at_charger
         self.last_soc_seen = to_float(data.get("last_soc_seen"))
         self.live_active = bool(data.get("live_active"))
         reminded = data.get("reminded_on")

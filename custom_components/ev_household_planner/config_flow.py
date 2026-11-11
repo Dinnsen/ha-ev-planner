@@ -32,6 +32,7 @@ from .catalog import (
     suggest_vehicle_entities,
 )
 from .const import (
+    CHARGER_AUTO,
     CONF_BATTERY_CAPACITY,
     CONF_BATTERY_FIRST,
     CONF_BATTERY_HOLD,
@@ -46,6 +47,7 @@ from .const import (
     CONF_CHARGING_ENTITY,
     CONF_CONNECTED_ENTITY,
     CONF_CONTROL,
+    CONF_CONTROL_BACKUP,
     CONF_CONTROL_ENTITY,
     CONF_COUNTRY,
     CONF_CURRENCY,
@@ -70,6 +72,8 @@ from .const import (
     CONF_POWER_ENTITY,
     CONF_PRICE_ADD,
     CONF_PRICE_ENTITY,
+    CONF_REFRESH_ENTITY,
+    CONF_SITE,
     CONF_SOC_ENTITY,
     CONF_SOLAR_FORECAST,
     CONF_SOLAR_POWER,
@@ -79,10 +83,12 @@ from .const import (
     CONF_SUPPLY_METER,
     CONF_SUPPLY_PHASES,
     CONF_SUPPLY_RESERVE,
+    CONF_SUPPLY_SHARE,
     CONF_SWITCH_ENTITY,
     CONF_TARGET_ENTITY,
     CONF_UNPLUGGED_STATES,
     CONF_WEATHER_ENTITY,
+    CONF_ZONE,
     CONNECTION_KEYS,
     CONTROL_CAR,
     CONTROL_CHARGER,
@@ -124,8 +130,12 @@ from .const import (
     SET_READY_BY,
     SET_USE_EARLIEST_START,
     SET_USE_READY_BY,
+    SHARE_OPTIONS,
+    SHARE_QUEUE,
+    SITE_HOME,
     SOURCE_MANUAL,
     SUBENTRY_CHARGER,
+    SUBENTRY_SITE,
     SUBENTRY_VEHICLE,
 )
 from .prices import extract_price_slots
@@ -210,6 +220,12 @@ CONTROL_SELECTOR = selector.SelectSelector(
     )
 )
 STATES_SELECTOR = selector.TextSelector(selector.TextSelectorConfig(multiple=True))
+SHARE_SELECTOR = selector.SelectSelector(
+    selector.SelectSelectorConfig(
+        options=SHARE_OPTIONS, mode=selector.SelectSelectorMode.LIST, translation_key="supply_share"
+    )
+)
+ZONE_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="zone"))
 CAPACITY_SELECTOR = selector.NumberSelector(
     selector.NumberSelectorConfig(
         min=1, max=300, step=0.1, unit_of_measurement="kWh", mode=selector.NumberSelectorMode.BOX
@@ -282,7 +298,11 @@ class EVPlannerConfigFlow(ConfigFlow, domain=DOMAIN):
     @classmethod
     @callback
     def async_get_supported_subentry_types(cls, config_entry: ConfigEntry) -> dict[str, type[ConfigSubentryFlow]]:
-        return {SUBENTRY_VEHICLE: VehicleSubentryFlow, SUBENTRY_CHARGER: ChargerSubentryFlow}
+        return {
+            SUBENTRY_VEHICLE: VehicleSubentryFlow,
+            SUBENTRY_CHARGER: ChargerSubentryFlow,
+            SUBENTRY_SITE: SiteSubentryFlow,
+        }
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is None and migration.old_entries(self.hass):
@@ -419,6 +439,9 @@ class EVPlannerOptionsFlow(OptionsFlow):
                                 CONF_SUPPLY_RESERVE, default=options.get(CONF_SUPPLY_RESERVE, DEFAULT_SUPPLY_RESERVE)
                             ): AMPS_SELECTOR,
                             vol.Optional(CONF_SUPPLY_GUARD, default=bool(options.get(CONF_SUPPLY_GUARD, False))): bool,
+                            vol.Optional(
+                                CONF_SUPPLY_SHARE, default=options.get(CONF_SUPPLY_SHARE) or SHARE_QUEUE
+                            ): SHARE_SELECTOR,
                             vol.Optional(
                                 CONF_WEATHER_ENTITY,
                                 description={"suggested_value": options.get(CONF_WEATHER_ENTITY, only_weather)},
@@ -573,7 +596,10 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
 
     def _charger_options(self) -> list[selector.SelectOptionDict]:
         entry = self._get_entry()
-        options = [selector.SelectOptionDict(value=NO_CHARGER, label="-")]
+        options = [
+            selector.SelectOptionDict(value=NO_CHARGER, label="-"),
+            selector.SelectOptionDict(value=CHARGER_AUTO, label=CHARGER_AUTO),
+        ]
         options.extend(
             selector.SelectOptionDict(value=subentry_id, label=sub.title)
             for subentry_id, sub in entry.subentries.items()
@@ -583,7 +609,9 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
 
     def _schema(self, values: Mapping[str, Any]) -> vol.Schema:
         charger_selector = selector.SelectSelector(
-            selector.SelectSelectorConfig(options=self._charger_options(), mode=selector.SelectSelectorMode.DROPDOWN)
+            selector.SelectSelectorConfig(
+                options=self._charger_options(), mode=selector.SelectSelectorMode.DROPDOWN, translation_key="charger"
+            )
         )
 
         def opt(key: str) -> vol.Optional:
@@ -606,6 +634,7 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
                             opt(CONF_HOME_ENTITY): HOME_SELECTOR,
                             opt(CONF_CHARGING_ENTITY): ANY_ENTITY_SELECTOR,
                             opt(CONF_POWER_ENTITY): POWER_ENTITY_SELECTOR,
+                            opt(CONF_REFRESH_ENTITY): ANY_ENTITY_SELECTOR,
                         }
                     ),
                     {"collapsed": False},
@@ -623,6 +652,9 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
                                 CONF_CONTROL, default=values.get(CONF_CONTROL, CONTROL_NONE)
                             ): CONTROL_SELECTOR,
                             opt(CONF_CONTROL_ENTITY): SWITCH_SELECTOR,
+                            vol.Optional(
+                                CONF_CONTROL_BACKUP, default=bool(values.get(CONF_CONTROL_BACKUP, False))
+                            ): bool,
                             opt(CONF_CURRENT_ENTITY): CURRENT_SELECTOR,
                             opt(CONF_PHASE_ENTITY): SWITCH_SELECTOR,
                         }
@@ -649,12 +681,43 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
         if control == CONTROL_CHARGER:
             charger_id = data.get(CONF_CHARGER)
             entry = self._get_entry()
+            if charger_id == CHARGER_AUTO:
+                # Found each time: one of the chargers must have a switch.
+                if not any(
+                    sub.subentry_type == SUBENTRY_CHARGER and sub.data.get(CONF_SWITCH_ENTITY)
+                    for sub in entry.subentries.values()
+                ):
+                    errors["base"] = "charger_has_no_switch"
+                return errors
             charger = entry.subentries.get(charger_id) if charger_id and charger_id != NO_CHARGER else None
             if charger is None:
                 errors["base"] = "charger_required"
             elif not charger.data.get(CONF_SWITCH_ENTITY):
                 errors["base"] = "charger_has_no_switch"
         return errors
+
+    def _defaults(self, found: Mapping[str, Any]) -> dict[str, Any]:
+        """Where a new car charges and what starts and pauses it, from the chargers there are.
+
+        One charger: that one. Several: found each time. A charger with a
+        switch starts and pauses the car, as a charger is more often there to
+        answer than a car; the car's own switch is then the backup.
+        """
+        chargers = {
+            sid: sub for sid, sub in self._get_entry().subentries.items() if sub.subentry_type == SUBENTRY_CHARGER
+        }
+        values: dict[str, Any] = {}
+        if len(chargers) == 1:
+            values[CONF_CHARGER] = next(iter(chargers))
+        elif chargers:
+            values[CONF_CHARGER] = CHARGER_AUTO
+        car_switch = bool(found.get(CONF_CONTROL_ENTITY))
+        if chargers and all(sub.data.get(CONF_SWITCH_ENTITY) for sub in chargers.values()):
+            values[CONF_CONTROL] = CONTROL_CHARGER
+            values[CONF_CONTROL_BACKUP] = car_switch
+        elif car_switch:
+            values[CONF_CONTROL] = CONTROL_CAR
+        return values
 
     @staticmethod
     def _clean(data: Mapping[str, Any]) -> dict[str, Any]:
@@ -679,6 +742,7 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
                 if name:
                     found[CONF_NAME] = name
                 self._suggested = {**found, **{k: v for k, v in self._suggested.items() if v not in (None, "")}}
+            self._suggested = {**self._defaults(self._suggested), **self._suggested}
             return await self.async_step_details()
         fields: dict[vol.Marker, Any] = {
             vol.Optional(CONF_DEVICE): selector.DeviceSelector(selector.DeviceSelectorConfig())
@@ -755,30 +819,51 @@ class ChargerSubentryFlow(ConfigSubentryFlow):
     def __init__(self) -> None:
         self._values: dict[str, Any] = {}
 
-    @staticmethod
-    def _schema(values: Mapping[str, Any]) -> vol.Schema:
+    def _schema(self, values: Mapping[str, Any]) -> vol.Schema:
         def opt(key: str) -> vol.Optional:
             return vol.Optional(key, description={"suggested_value": values.get(key)})
 
-        return vol.Schema(
+        fields: dict[vol.Marker, Any] = {
+            vol.Required(CONF_NAME, default=values.get(CONF_NAME, "")): str,
+            vol.Required(CONF_MODEL, default=values.get(CONF_MODEL) or MODEL_OTHER): _model_selector(auto=False),
+            vol.Required(CONF_POWER, default=values.get(CONF_POWER, DEFAULT_CHARGE_POWER)): POWER_SELECTOR,
+        }
+        sites = [
+            selector.SelectOptionDict(value=sid, label=sub.title)
+            for sid, sub in self._get_entry().subentries.items()
+            if sub.subentry_type == SUBENTRY_SITE
+        ]
+        if sites:
+            # Only asked when the household has another place than the home.
+            known = {site["value"] for site in sites}
+            chosen = values.get(CONF_SITE)
+            fields[vol.Required(CONF_SITE, default=chosen if chosen in known else SITE_HOME)] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[selector.SelectOptionDict(value=SITE_HOME, label=SITE_HOME), *sites],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                    translation_key="site",
+                )
+            )
+        fields.update(
             {
-                vol.Required(CONF_NAME, default=values.get(CONF_NAME, "")): str,
-                vol.Required(CONF_MODEL, default=values.get(CONF_MODEL) or MODEL_OTHER): _model_selector(auto=False),
-                vol.Required(CONF_POWER, default=values.get(CONF_POWER, DEFAULT_CHARGE_POWER)): POWER_SELECTOR,
                 opt(CONF_SWITCH_ENTITY): SWITCH_SELECTOR,
                 opt(CONF_CURRENT_ENTITY): CURRENT_SELECTOR,
                 opt(CONF_PHASE_ENTITY): SWITCH_SELECTOR,
                 opt(CONF_ENERGY_ENTITY): ENERGY_SELECTOR,
+                opt(CONF_POWER_ENTITY): POWER_ENTITY_SELECTOR,
                 opt(CONF_CONNECTED_ENTITY): ANY_ENTITY_SELECTOR,
                 opt(CONF_UNPLUGGED_STATES): STATES_SELECTOR,
             }
         )
+        return vol.Schema(fields)
 
     @staticmethod
     def _clean(data: Mapping[str, Any]) -> dict[str, Any]:
         result = {key: value for key, value in data.items() if key != CONF_NAME and value not in (None, "", [])}
         if result.get(CONF_MODEL) == MODEL_OTHER:
             result.pop(CONF_MODEL)
+        if result.get(CONF_SITE) == SITE_HOME:
+            result.pop(CONF_SITE)
         return result
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
@@ -811,6 +896,54 @@ class ChargerSubentryFlow(ConfigSubentryFlow):
         if user_input is not None:
             return self.async_create_entry(title=user_input[CONF_NAME], data=self._clean(user_input))
         return self.async_show_form(step_id="details", data_schema=self._schema(self._values))
+
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
+        subentry = self._get_reconfigure_subentry()
+        if user_input is not None:
+            return self.async_update_and_abort(
+                self._get_entry(), subentry, title=user_input[CONF_NAME], data=self._clean(user_input)
+            )
+        return self.async_show_form(
+            step_id="reconfigure", data_schema=self._schema({**subentry.data, CONF_NAME: subentry.title})
+        )
+
+
+# ----------------------------------------------------------------------
+# Places
+
+
+class SiteSubentryFlow(ConfigSubentryFlow):
+    """Add or change a place with chargers besides the home: a summer house, say."""
+
+    @staticmethod
+    def _schema(values: Mapping[str, Any]) -> vol.Schema:
+        def opt(key: str) -> vol.Optional:
+            return vol.Optional(key, description={"suggested_value": values.get(key)})
+
+        return vol.Schema(
+            {
+                vol.Required(CONF_NAME, default=values.get(CONF_NAME, "")): str,
+                opt(CONF_ZONE): ZONE_SELECTOR,
+                vol.Optional(CONF_SUPPLY_LIMIT, default=values.get(CONF_SUPPLY_LIMIT) or 0): AMPS_SELECTOR,
+                vol.Optional(CONF_SUPPLY_PHASES, default=str(values.get(CONF_SUPPLY_PHASES) or "3")): PHASES_SELECTOR,
+                vol.Optional(CONF_SUPPLY_METER, default=list(values.get(CONF_SUPPLY_METER) or [])): METER_SELECTOR,
+                vol.Optional(
+                    CONF_SUPPLY_RESERVE, default=values.get(CONF_SUPPLY_RESERVE, DEFAULT_SUPPLY_RESERVE)
+                ): AMPS_SELECTOR,
+                vol.Optional(CONF_SUPPLY_GUARD, default=bool(values.get(CONF_SUPPLY_GUARD, False))): bool,
+                vol.Optional(CONF_SUPPLY_SHARE, default=values.get(CONF_SUPPLY_SHARE) or SHARE_QUEUE): SHARE_SELECTOR,
+                opt(CONF_WEATHER_ENTITY): WEATHER_SELECTOR,
+            }
+        )
+
+    @staticmethod
+    def _clean(data: Mapping[str, Any]) -> dict[str, Any]:
+        return {key: value for key, value in data.items() if key != CONF_NAME and value not in (None, "", [])}
+
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
+        if user_input is not None:
+            return self.async_create_entry(title=user_input[CONF_NAME], data=self._clean(user_input))
+        return self.async_show_form(step_id="user", data_schema=self._schema({}))
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
         subentry = self._get_reconfigure_subentry()

@@ -96,15 +96,16 @@ async def test_suggest_entities_with_a_status_sensor(hass: HomeAssistant) -> Non
     entry, device_id = await _device(hass, "wallbox", "Wallbox", "Pulsar Plus")
     pause = _add(hass, entry, device_id, "switch", "pause_resume", translation_key="pause_resume")
     status = _add(hass, entry, device_id, "sensor", "status_description", translation_key="status_description")
-    _add(hass, entry, device_id, "sensor", "charging_power", original_device_class="power")
+    power = _add(hass, entry, device_id, "sensor", "charging_power", original_device_class="power")
     model = get_model("wallbox_pulsar_plus")
     assert suggest_entities(hass, device_id, model) == {
         "switch_entity": pause,
+        "power_entity": power,
         "connected_entity": status,
         "unplugged_states": ["ready", "disconnected", "locked"],
     }
     # Without a known brand there is nothing to say which states mean "no car".
-    assert suggest_entities(hass, device_id, None) == {"switch_entity": pause}
+    assert suggest_entities(hass, device_id, None) == {"switch_entity": pause, "power_entity": power}
 
 
 async def test_describe_a_missing_device(hass: HomeAssistant) -> None:

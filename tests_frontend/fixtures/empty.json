@@ -192,6 +192,7 @@
   "home": null,
   "vehicles": [],
   "chargers": [],
+  "sites": [],
   "guest": {
     "status": "ready",
     "error": null,

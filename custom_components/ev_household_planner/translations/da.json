@@ -91,7 +91,8 @@
               "supply_guard": "Vagt: skru bilerne ned med det samme",
               "weather_entity": "Vejret",
               "heat_pump_power": "Varmepumpe: effekt",
-              "heat_pump_block": "Varmepumpe: hold tilbage"
+              "heat_pump_block": "Varmepumpe: hold tilbage",
+              "supply_share": "Deling mellem bilerne"
             },
             "data_description": {
               "supply_limit": "Det mest, huset må trække pr. fase, fx 23 A på en 25 A stikledning, eller det kredsløb laderne deler. 0 slår det fra.",
@@ -101,7 +102,8 @@
               "supply_guard": "Når måleren viser mere end grænsen, sætter EV Planner bilerne ned med det samme (den bagerste i køen først) og op igen efter et par minutter. Ikke en sikring: lad den være slået fra, hvis en Equalizer eller laderen selv fordeler strømmen.",
               "weather_entity": "En vejr-enhed med timeprognose. EV Planner lærer, hvor meget mere huset bruger, når det er koldt, og regner med nattens temperatur.",
               "heat_pump_power": "Varmepumpens effekt (W eller kW). Vises i fanen Hjem.",
-              "heat_pump_block": "En kontakt, der holder varmepumpen tilbage, når den er tændt (SG Ready eller spærring). Når der ikke er strøm nok, slår EV Planner den til i højst 15 minutter, højst to gange om natten, før en bil bliver stoppet."
+              "heat_pump_block": "En kontakt, der holder varmepumpen tilbage, når den er tændt (SG Ready eller spærring). Når der ikke er strøm nok, slår EV Planner den til i højst 15 minutter, højst to gange om natten, før en bil bliver stoppet.",
+              "supply_share": "Når der ikke er plads til alle bilerne i en time. I kø: bilen, der skal være klar først, tager, hvad den skal bruge, og den næste får resten. Efter behov: de deles efter de kWh, hver mangler, aldrig under 6 A til hver."
             }
           },
           "solar": {
@@ -180,7 +182,8 @@
                 "unplugged_states": "Tilstande, der betyder ikke tilsluttet",
                 "home_entity": "Hjemme",
                 "charging_entity": "Lader",
-                "power_entity": "Ladeeffekt"
+                "power_entity": "Ladeeffekt",
+                "refresh_entity": "Spørg bilen nu"
               },
               "data_description": {
                 "soc_entity": "Bilens batteriniveau (%). Uden den sætter du niveauet selv.",
@@ -188,9 +191,10 @@
                 "capacity_entity": "Valgfri. En sensor med bilens brugbare batterikapacitet (kWh). Erstatter tallet ovenfor, når den har en værdi.",
                 "connected_entity": "En entitet, der viser om bilen er sat til, fx en ladekabel-sensor.",
                 "unplugged_states": "Standard: off, disconnected, unplugged. For en status-sensor fx 3.",
-                "home_entity": "Valgfri. EV Planner handler kun, når bilen er hjemme.",
+                "home_entity": "Valgfri. Bilens placering (en device tracker). EV Planner handler kun, når bilen er hjemme eller et andet sted, I har tilføjet, og finder bilens lader blandt laderne dér.",
                 "charging_entity": "Valgfri. Viser om bilen lader (on/charging eller en effekt over 0). Bruges til at tjekke, at ladningen startede.",
-                "power_entity": "Valgfri. Bilens egen sensor for ladeeffekt (kW). EV Planner lærer effekten af den og tæller energien med den."
+                "power_entity": "Valgfri. Bilens egen sensor for ladeeffekt (kW). EV Planner lærer effekten af den og tæller energien med den.",
+                "refresh_entity": "Valgfrit. En knap, et script eller en entitet fra bilens integration. Når en lader får en bil, og det ikke vides hvilken, trykker EV Planner på knappen, kører scriptet eller opdaterer entiteten, så bilen melder sig med det samme i stedet for ved sin næste tur. Højst to gange for én tilslutning."
               }
             },
             "charging": {
@@ -202,15 +206,17 @@
                 "control": "Hvem starter og stopper ladningen",
                 "control_entity": "Bilens ladekontakt",
                 "current_entity": "Ladestrøm",
-                "phase_entity": "Faseskifter"
+                "phase_entity": "Faseskifter",
+                "control_backup": "Den anden er backup"
               },
               "data_description": {
                 "charge_power": "Hvad bilen trækker, når den lader hjemme (kW). Et udgangspunkt: en bil med en sensor for ladeeffekt måles i stedet.",
-                "charger": "Ladepunktet bilen bruger. Biler på samme ladepunkt deler det.",
-                "control": "Vælg bilen, laderen eller ingen af dem.",
+                "charger": "Laderen, bilen bruger. Biler på samme lader deles om den. Findes hver gang: EV Planner finder laderen ud fra, hvor bilen er, og hvilken lader der fik en bil. Vælg det, når bilen bruger flere ladere.",
+                "control": "Vælg bilen, laderen eller ingen af dem. En lader er oftere til at få fat i end en bil.",
                 "control_entity": "Skal udfyldes, når bilen starter og stopper ladningen, fx switch.model3_charge.",
                 "current_entity": "Et tal, der sætter ladestrømmen (A), fx bilens ladeampere eller laderens strømgrænse, eller en vilkårlig sensor fra en Easee-lader (så bruger EV Planner Easees egen handling). Med det deler bilerne på en fælles forsyning strømmen; uden det lader de efter tur.",
-                "phase_entity": "Valgfri: en kontakt, der sætter laderen til tre faser (til) eller én (fra). På solen kan bilen så lade fra ca. 1,4 kW i stedet for 4,1 kW."
+                "phase_entity": "Valgfri: en kontakt, der sætter laderen til tre faser (til) eller én (fra). På solen kan bilen så lade fra ca. 1,4 kW i stedet for 4,1 kW.",
+                "control_backup": "Når den første ikke svarer, træder den anden til: bilens egen kontakt, når laderen starter og stopper, og laderens, når bilen gør. Det, der satte bilen på pause, er også det, der starter den igen."
               }
             },
             "trips": {
@@ -250,7 +256,8 @@
                 "unplugged_states": "Tilstande, der betyder ikke tilsluttet",
                 "home_entity": "Hjemme",
                 "charging_entity": "Lader",
-                "power_entity": "Ladeeffekt"
+                "power_entity": "Ladeeffekt",
+                "refresh_entity": "Spørg bilen nu"
               },
               "data_description": {
                 "soc_entity": "Bilens batteriniveau (%). Uden den sætter du niveauet selv.",
@@ -258,9 +265,10 @@
                 "capacity_entity": "Valgfri. En sensor med bilens brugbare batterikapacitet (kWh). Erstatter tallet ovenfor, når den har en værdi.",
                 "connected_entity": "En entitet, der viser om bilen er sat til, fx en ladekabel-sensor.",
                 "unplugged_states": "Standard: off, disconnected, unplugged. For en status-sensor fx 3.",
-                "home_entity": "Valgfri. EV Planner handler kun, når bilen er hjemme.",
+                "home_entity": "Valgfri. Bilens placering (en device tracker). EV Planner handler kun, når bilen er hjemme eller et andet sted, I har tilføjet, og finder bilens lader blandt laderne dér.",
                 "charging_entity": "Valgfri. Viser om bilen lader (on/charging eller en effekt over 0). Bruges til at tjekke, at ladningen startede.",
-                "power_entity": "Valgfri. Bilens egen sensor for ladeeffekt (kW). EV Planner lærer effekten af den og tæller energien med den."
+                "power_entity": "Valgfri. Bilens egen sensor for ladeeffekt (kW). EV Planner lærer effekten af den og tæller energien med den.",
+                "refresh_entity": "Valgfrit. En knap, et script eller en entitet fra bilens integration. Når en lader får en bil, og det ikke vides hvilken, trykker EV Planner på knappen, kører scriptet eller opdaterer entiteten, så bilen melder sig med det samme i stedet for ved sin næste tur. Højst to gange for én tilslutning."
               }
             },
             "charging": {
@@ -272,15 +280,17 @@
                 "control": "Hvem starter og stopper ladningen",
                 "control_entity": "Bilens ladekontakt",
                 "current_entity": "Ladestrøm",
-                "phase_entity": "Faseskifter"
+                "phase_entity": "Faseskifter",
+                "control_backup": "Den anden er backup"
               },
               "data_description": {
                 "charge_power": "Hvad bilen trækker, når den lader hjemme (kW). Et udgangspunkt: en bil med en sensor for ladeeffekt måles i stedet.",
-                "charger": "Ladepunktet bilen bruger. Biler på samme ladepunkt deler det.",
-                "control": "Vælg bilen, laderen eller ingen af dem.",
+                "charger": "Laderen, bilen bruger. Biler på samme lader deles om den. Findes hver gang: EV Planner finder laderen ud fra, hvor bilen er, og hvilken lader der fik en bil. Vælg det, når bilen bruger flere ladere.",
+                "control": "Vælg bilen, laderen eller ingen af dem. En lader er oftere til at få fat i end en bil.",
                 "control_entity": "Skal udfyldes, når bilen starter og stopper ladningen, fx switch.model3_charge.",
                 "current_entity": "Et tal, der sætter ladestrømmen (A), fx bilens ladeampere eller laderens strømgrænse, eller en vilkårlig sensor fra en Easee-lader (så bruger EV Planner Easees egen handling). Med det deler bilerne på en fælles forsyning strømmen; uden det lader de efter tur.",
-                "phase_entity": "Valgfri: en kontakt, der sætter laderen til tre faser (til) eller én (fra). På solen kan bilen så lade fra ca. 1,4 kW i stedet for 4,1 kW."
+                "phase_entity": "Valgfri: en kontakt, der sætter laderen til tre faser (til) eller én (fra). På solen kan bilen så lade fra ca. 1,4 kW i stedet for 4,1 kW.",
+                "control_backup": "Når den første ikke svarer, træder den anden til: bilens egen kontakt, når laderen starter og stopper, og laderens, når bilen gør. Det, der satte bilen på pause, er også det, der starter den igen."
               }
             },
             "trips": {
@@ -335,7 +345,9 @@
             "connected_entity": "Bil tilsluttet",
             "unplugged_states": "Tilstande, der betyder ikke tilsluttet",
             "current_entity": "Ladestrøm",
-            "phase_entity": "Faseskifter"
+            "phase_entity": "Faseskifter",
+            "site": "Sted",
+            "power_entity": "Effekt nu"
           },
           "data_description": {
             "name": "Fx Carport.",
@@ -343,10 +355,12 @@
             "power": "Det meste laderen giver med jeres installation (kW). Typisk 11 kW på 3 x 16 A, 7,4 kW på 1 x 32 A.",
             "switch_entity": "Valgfri. Lader EV Planner starte og pause laderen.",
             "energy_entity": "Valgfri. Laderens samlede energi (kWh), til at måle hvad gæsten brugte.",
-            "connected_entity": "Valgfri. Afslutter gæstesessionen, når gæstebilen tages ud.",
+            "connected_entity": "Valgfrit. Viser, om en bil er tilsluttet. Med den finder EV Planner bilen, der holder ved laderen, og slutter gæstens opladning, når gæstens bil tages fra.",
             "unplugged_states": "Standard: off.",
             "current_entity": "Et tal, der sætter ladestrømmen (A), fx bilens ladeampere eller laderens strømgrænse, eller en vilkårlig sensor fra en Easee-lader (så bruger EV Planner Easees egen handling). Med det deler bilerne på en fælles forsyning strømmen; uden det lader de efter tur.",
-            "phase_entity": "Valgfri: en kontakt, der sætter laderen til tre faser (til) eller én (fra). På solen kan bilen så lade fra ca. 1,4 kW i stedet for 4,1 kW."
+            "phase_entity": "Valgfri: en kontakt, der sætter laderen til tre faser (til) eller én (fra). På solen kan bilen så lade fra ca. 1,4 kW i stedet for 4,1 kW.",
+            "site": "Hvor laderen er: hjemme, eller et andet sted, I har tilføjet.",
+            "power_entity": "Valgfrit. Hvad laderen giver lige nu (W eller kW). Viser, hvilken bil der holder ved den, når det kan være to."
           }
         },
         "reconfigure": {
@@ -360,7 +374,9 @@
             "connected_entity": "Bil tilsluttet",
             "unplugged_states": "Tilstande, der betyder ikke tilsluttet",
             "current_entity": "Ladestrøm",
-            "phase_entity": "Faseskifter"
+            "phase_entity": "Faseskifter",
+            "site": "Sted",
+            "power_entity": "Effekt nu"
           },
           "data_description": {
             "name": "Fx Carport.",
@@ -368,10 +384,72 @@
             "power": "Det meste laderen giver med jeres installation (kW). Typisk 11 kW på 3 x 16 A, 7,4 kW på 1 x 32 A.",
             "switch_entity": "Valgfri. Lader EV Planner starte og pause laderen.",
             "energy_entity": "Valgfri. Laderens samlede energi (kWh), til at måle hvad gæsten brugte.",
-            "connected_entity": "Valgfri. Afslutter gæstesessionen, når gæstebilen tages ud.",
+            "connected_entity": "Valgfrit. Viser, om en bil er tilsluttet. Med den finder EV Planner bilen, der holder ved laderen, og slutter gæstens opladning, når gæstens bil tages fra.",
             "unplugged_states": "Standard: off.",
             "current_entity": "Et tal, der sætter ladestrømmen (A), fx bilens ladeampere eller laderens strømgrænse, eller en vilkårlig sensor fra en Easee-lader (så bruger EV Planner Easees egen handling). Med det deler bilerne på en fælles forsyning strømmen; uden det lader de efter tur.",
-            "phase_entity": "Valgfri: en kontakt, der sætter laderen til tre faser (til) eller én (fra). På solen kan bilen så lade fra ca. 1,4 kW i stedet for 4,1 kW."
+            "phase_entity": "Valgfri: en kontakt, der sætter laderen til tre faser (til) eller én (fra). På solen kan bilen så lade fra ca. 1,4 kW i stedet for 4,1 kW.",
+            "site": "Hvor laderen er: hjemme, eller et andet sted, I har tilføjet.",
+            "power_entity": "Valgfrit. Hvad laderen giver lige nu (W eller kW). Viser, hvilken bil der holder ved den, når det kan være to."
+          }
+        }
+      }
+    },
+    "site": {
+      "entry_type": "Sted",
+      "initiate_flow": {
+        "user": "Tilføj sted",
+        "reconfigure": "Ret sted"
+      },
+      "step": {
+        "user": {
+          "title": "Tilføj sted",
+          "description": "Et sted med ladere ud over hjemmet, fx et sommerhus. Det har sin egen forsyning, så en bil, der lader dér, ikke tæller med på forsyningen derhjemme. Vælg bagefter stedet i hver laders indstillinger.",
+          "data": {
+            "name": "Navn",
+            "zone": "Zone",
+            "supply_limit": "Grænse pr. fase",
+            "supply_phases": "Faser",
+            "supply_meter": "Måler: strøm pr. fase",
+            "supply_reserve": "Huset uden måler",
+            "supply_guard": "Vagt: skru bilerne ned med det samme",
+            "supply_share": "Deling mellem bilerne",
+            "weather_entity": "Vejret"
+          },
+          "data_description": {
+            "name": "Fx Sommerhus.",
+            "zone": "Zonen i Home Assistant, som bilerne er i, når de er her. En bil er på dette sted, når dens placering viser denne zone.",
+            "supply_limit": "Det mest, huset må trække pr. fase, fx 23 A på en 25 A stikledning, eller det kredsløb laderne deler. 0 slår det fra.",
+            "supply_phases": "Hvor mange faser forsyningen og bilerne lader på.",
+            "supply_meter": "Strømsensorer (A) for faserne, fx fra en HAN/P1-læser, en Shelly EM eller en Equalizer. EV Planner lærer, hvad huset trækker time for time.",
+            "supply_reserve": "Uden måler: hvad huset forventes at trække pr. fase.",
+            "supply_guard": "Når måleren viser mere end grænsen, sætter EV Planner bilerne ned med det samme (den bagerste i køen først) og op igen efter et par minutter. Ikke en sikring: lad den være slået fra, hvis en Equalizer eller laderen selv fordeler strømmen.",
+            "supply_share": "Når der ikke er plads til alle bilerne i en time. I kø: bilen, der skal være klar først, tager, hvad den skal bruge, og den næste får resten. Efter behov: de deles efter de kWh, hver mangler, aldrig under 6 A til hver.",
+            "weather_entity": "En vejr-enhed med timeprognose. EV Planner lærer, hvor meget mere huset bruger, når det er koldt, og regner med nattens temperatur."
+          }
+        },
+        "reconfigure": {
+          "title": "Ret sted",
+          "data": {
+            "name": "Navn",
+            "zone": "Zone",
+            "supply_limit": "Grænse pr. fase",
+            "supply_phases": "Faser",
+            "supply_meter": "Måler: strøm pr. fase",
+            "supply_reserve": "Huset uden måler",
+            "supply_guard": "Vagt: skru bilerne ned med det samme",
+            "supply_share": "Deling mellem bilerne",
+            "weather_entity": "Vejret"
+          },
+          "data_description": {
+            "name": "Fx Sommerhus.",
+            "zone": "Zonen i Home Assistant, som bilerne er i, når de er her. En bil er på dette sted, når dens placering viser denne zone.",
+            "supply_limit": "Det mest, huset må trække pr. fase, fx 23 A på en 25 A stikledning, eller det kredsløb laderne deler. 0 slår det fra.",
+            "supply_phases": "Hvor mange faser forsyningen og bilerne lader på.",
+            "supply_meter": "Strømsensorer (A) for faserne, fx fra en HAN/P1-læser, en Shelly EM eller en Equalizer. EV Planner lærer, hvad huset trækker time for time.",
+            "supply_reserve": "Uden måler: hvad huset forventes at trække pr. fase.",
+            "supply_guard": "Når måleren viser mere end grænsen, sætter EV Planner bilerne ned med det samme (den bagerste i køen først) og op igen efter et par minutter. Ikke en sikring: lad den være slået fra, hvis en Equalizer eller laderen selv fordeler strømmen.",
+            "supply_share": "Når der ikke er plads til alle bilerne i en time. I kø: bilen, der skal være klar først, tager, hvad den skal bruge, og den næste får resten. Efter behov: de deles efter de kWh, hver mangler, aldrig under 6 A til hver.",
+            "weather_entity": "En vejr-enhed med timeprognose. EV Planner lærer, hvor meget mere huset bruger, når det er koldt, og regner med nattens temperatur."
           }
         }
       }
@@ -752,6 +830,23 @@
       "options": {
         "1": "1 fase",
         "3": "3 faser"
+      }
+    },
+    "charger": {
+      "options": {
+        "none": "Ingen lader",
+        "auto": "Findes hver gang (automatisk)"
+      }
+    },
+    "site": {
+      "options": {
+        "home": "Hjemme"
+      }
+    },
+    "supply_share": {
+      "options": {
+        "queue": "I kø: den første tager, hvad den skal bruge",
+        "need": "Efter behov: jo flere kWh en bil mangler, jo flere ampere"
       }
     }
   },

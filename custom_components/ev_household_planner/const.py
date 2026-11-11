@@ -52,6 +52,13 @@ CONNECTION_KEYS: Final = (CONF_PRICE_ENTITY, CONF_COUNTRY, CONF_MOTORAPI_KEY)
 
 SUBENTRY_VEHICLE: Final = "vehicle"
 SUBENTRY_CHARGER: Final = "charger"
+# A place with chargers and a supply of its own, besides the home: a summer house, say.
+SUBENTRY_SITE: Final = "site"
+SITE_HOME: Final = "home"
+# A place: the zone in Home Assistant the cars are in when they are there.
+CONF_ZONE: Final = "zone"
+# A charger: the place it is at (none: the home).
+CONF_SITE: Final = "site"
 
 # Vehicle
 CONF_SOURCE: Final = "source"
@@ -69,6 +76,10 @@ CONF_UNPLUGGED_STATES: Final = "unplugged_states"
 CONF_HOME_ENTITY: Final = "home_entity"
 CONF_CHARGER: Final = "charger"
 CONF_CONTROL: Final = "control"
+# The other of the car and the charger steps in when the first does not answer.
+CONF_CONTROL_BACKUP: Final = "control_backup"
+# A button, script or entity that makes the car's integration ask the car now, when a charger gets a car.
+CONF_REFRESH_ENTITY: Final = "refresh_entity"
 CONF_CONTROL_ENTITY: Final = "control_entity"
 CONF_CHARGING_ENTITY: Final = "charging_entity"
 # The car's own charging power sensor (kW), to learn the power and count the energy.
@@ -87,6 +98,31 @@ DEFAULT_BATTERY_CAPACITY: Final = 75.0
 DEFAULT_CHARGE_POWER: Final = 11.0
 DEFAULT_UNPLUGGED_STATES: Final = ["off", "disconnected", "unplugged", "not_connected", "false"]
 NO_CHARGER: Final = "none"
+# The car's charger: found each time, from where the car is and which charger got a car.
+CHARGER_AUTO: Final = "auto"
+# Who is at a charger, besides a car's id.
+OCCUPANT_GUEST: Final = "guest"
+
+# Finding the car at a charger.
+# A car that said "plugged in" this long before the charger got its car was not the one.
+PAIR_EARLIER: Final = timedelta(minutes=10)
+# The household is asked when the car has not been found after this long: with cars that
+# were asked to report, and with cars that report when they like.
+PAIR_ASK_AFTER: Final = timedelta(minutes=5)
+PAIR_ASK_AFTER_SLOW: Final = timedelta(minutes=12)
+# A car is asked to report at most twice for one plug-in, this far apart, and never more often than this.
+PAIR_REFRESH_AGAIN: Final = timedelta(minutes=4)
+PAIR_REFRESH_GAP: Final = timedelta(minutes=3)
+# A plugged-in car that no charger with a plug sensor took goes to the one without, after this long.
+PAIR_NO_SENSOR_AFTER: Final = timedelta(minutes=3)
+# A charger draws this much (kW) when a car charges on it.
+PAIR_POWER: Final = 0.5
+ACTION_PAIR: Final = "EVP_PAIR"
+
+# Pauses: a charger is paused at most this many times in ten minutes (Peblar's own limit is three),
+# so a start waits when the next pause would be one too many.
+PAUSES_WINDOW: Final = timedelta(minutes=10)
+PAUSES_IN_WINDOW: Final = 3
 
 # Charger
 CONF_POWER: Final = "power"
@@ -107,6 +143,12 @@ CONF_SUPPLY_METER: Final = "supply_meter"
 CONF_SUPPLY_RESERVE: Final = "supply_reserve"
 # Shared supply: lower the cars at once when the house draws more than planned (needs a meter and a current setting).
 CONF_SUPPLY_GUARD: Final = "supply_guard"
+# Shared supply: how cars share a slot there is not room for all of them in. In line (the first
+# takes what it needs), or by need (each a share by the kWh it lacks).
+CONF_SUPPLY_SHARE: Final = "supply_share"
+SHARE_QUEUE: Final = "queue"
+SHARE_NEED: Final = "need"
+SHARE_OPTIONS: Final = [SHARE_QUEUE, SHARE_NEED]
 # The weather: a weather entity whose hourly forecast moves the house forecast with the temperature.
 CONF_WEATHER_ENTITY: Final = "weather_entity"
 # A heat pump: its power (shown, and part of the house), and a switch that holds it back (on) for a while

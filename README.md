@@ -268,11 +268,30 @@ With a plug sensor (`connected_entity`), a charge goes to the history when the c
 - **No plan:** check `sensor.<car>_status` and its attributes (`plan_error`, `deadline`). *Waiting for prices* is normal before tomorrow's prices arrive.
 - **The car does not start:** `binary_sensor.<car>_charging_problem` and the status attribute `control_error` say why. Check that the charge switch works in Home Assistant.
 - **A repair says the car cannot be controlled:** three commands in a row failed. EV Planner keeps trying, with longer and longer waits (1, 2, 5, 10 and 15 minutes), so a car maker's cloud that is down is not hammered; the repair goes away by itself at the first command that works. A stop from the guard is always sent at once.
+- **A charger shows *Unknown car*:** EV Planner cannot tell which car is plugged in. Say which on the charger's page, and give the car an *Ask the car now* entity if it reports slowly.
 - **Download diagnostics** from the integration's page for a bug report; the license plate and API key are removed.
 
 ## Removing the integration
 
 Remove EV Planner under **Settings → Devices & services**. Its settings, plans and history are deleted with it. Remove it in the Marketplace and restart Home Assistant. Your cars and chargers are not changed.
+
+## Several chargers, and a summer house (beta)
+
+**A car that finds its charger.** In the car's setup, choose *Found each time* as its charger when it uses more than one. When a charger gets a car, EV Planner finds out which one it is: the car that is at the charger's place, says it is plugged in, and is not at another charger. It needs the charger's *Car plugged in* entity and the car's *Plugged in* and *At home* entities.
+
+- **A car that reports slowly** (many car makers' clouds only ask the car every ten minutes): give the car an *Ask the car now* entity, a button or script that makes its integration ask the car at once, or any of the car's entities (EV Planner then updates it). It is used when a charger has a car nobody has told which, at most twice for one plug-in.
+- **Two cars it could be:** the charger's *Power now* tells them apart, when one of them charges.
+- **When it cannot be told,** you get a question on your phones after five minutes (twelve when no car could be asked): which car, or a guest. Until then the charger shows *Unknown car* and is left alone. You can also answer on the charger's page in the panel, and change what EV Planner found.
+- **A charger without a plug sensor** is the car's charger when it is the only such charger at the place, and no charger with a sensor is waiting for its car.
+- A car with a charger of its own keeps it. Nothing changes for a household where every car has one.
+
+**Places.** A place with chargers besides your home, a summer house say, is added under the integration (*Add place*): its zone in Home Assistant, and its own supply limit and meter if you want one. Choose the place in each charger's settings. A car is at the place when its location shows that zone; it is then planned on that place's supply, and a car with a charger of its own at home finds the charger at the place it is at. The picture in the Home tab is of the home.
+
+**The charger starts and pauses, the car is the backup.** A new car is started and paused by its charger when the chargers have a switch, as a charger is more often there to answer than a car; with *The other one is the backup*, the car's own switch steps in when the charger does not answer (and the other way round). What paused the car is what starts it again, since a car paused by one cannot be started by the other.
+
+**Peblar (also the chargers Peblar builds for OK), Zaptec and others.** Choosing the charger's device fills in its switch, current limit, power, energy meter and status sensor. Peblar's local API must be on for Home Assistant to see the charger; without it the charger has no entities, and the car's own switch controls charging. Peblar takes three pauses in ten minutes, so EV Planner waits with a start when the next pause would be one too many; Zaptec's current is raised at most every 15 minutes (lowered at once).
+
+**Sharing by need.** Under *Shared supply*, *Sharing between the cars* can be set to *By need*: when there is not room for all the cars in an hour, they share it by the kWh each lacks, never less than 6 A each, instead of the first taking what it needs. It is only used when it leaves no car further from what it must have.
 
 ## Shared supply (beta)
 

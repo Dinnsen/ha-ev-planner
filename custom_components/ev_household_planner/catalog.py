@@ -70,7 +70,14 @@ BRANDS: dict[str, Brand] = {
     "tesla": Brand("Tesla", ("tesla_wall_connector",), aliases=("tesla motors", "tesla, inc.")),
     "go_e": Brand("go-e", ("goecharger", "goecharger_api2", "go_e"), aliases=("go-e gmbh", "goe")),
     "ohme": Brand("Ohme", ("ohme",), ("unplugged",)),
-    "peblar": Brand("Peblar", ("peblar",), ("no_ev_connected",)),
+    # Peblar's own integration and the community ones for its local API. Chargers Peblar builds for
+    # others (OK in Denmark, CoolBlue's BlueBuilt) show up as Peblar when their local API is on.
+    "peblar": Brand(
+        "Peblar",
+        ("peblar", "peblar_rest", "peblar_api", "peblar_modbus"),
+        ("no_ev_connected", "no ev connected"),
+        aliases=("bluebuilt", "coolblue"),
+    ),
     "alfen": Brand("Alfen", ("alfen_wallbox",), ("available",)),
     "charge_amps": Brand("Charge Amps", ("chargeamps",), ("available", "disconnected"), aliases=("chargeamps",)),
     "myenergi": Brand("myenergi", ("myenergi",), ("ev disconnected",)),
@@ -107,6 +114,7 @@ MODELS: tuple[ChargerModel, ...] = (
     ChargerModel("ohme_epod", "ohme", "ePod", 7.4, STYLE_SLIM, ("epod",)),
     ChargerModel("peblar_home", "peblar", "Home", 11.0, STYLE_BOX, ("peblar home",)),
     ChargerModel("peblar_business", "peblar", "Business", 22.0, STYLE_BOX, ("business",)),
+    ChargerModel("peblar_ok", "peblar", "Home (OK)", 11.0, STYLE_BOX, ("ok home", "ok hjemmelader", "ok lader")),
     ChargerModel("alfen_eve_single", "alfen", "Eve Single Pro-line", 22.0, STYLE_BOX, ("eve single",)),
     ChargerModel("alfen_eve_double", "alfen", "Eve Double", 22.0, STYLE_POST, ("eve double",)),
     ChargerModel("charge_amps_halo", "charge_amps", "Halo", 11.0, STYLE_SLIM, ("halo",)),
@@ -189,6 +197,9 @@ METER_GOOD = ("total", "lifetime", "meter", "import", "register", "life")
 METER_BAD = ("session", "added", "today", "day", "week", "month", "year", "last")
 PLUG_GOOD = ("plug", "connected", "cable", "vehicle", "car")
 STATUS_GOOD = ("status", "state", "operation", "mode", "cp")
+CURRENT_GOOD = ("limit", "current", "amp", "charge_limit", "max_current")
+CURRENT_BAD = ("solar", "threshold", "target", "grid", "installation", "available", "phase", "switch", "min")
+POWER_BAD = ("phase", "l1", "l2", "l3", "solar", "grid", "threshold", "target")
 NO_CAR_WORDS = ("disconnect", "unplug", "no_ev", "not_connected", "no car", "no_car", "ev disconnected")
 
 
@@ -236,6 +247,27 @@ def suggest_entities(hass: HomeAssistant, device_id: str, model: ChargerModel | 
         meters.append((entry, score))
     if meters:
         suggested["energy_entity"] = max(meters, key=lambda item: item[1])[0].entity_id
+
+    # The charger's own current limit (A): what the cars on a shared supply are turned up and down with.
+    currents = [
+        (e, _score(_words(e), CURRENT_GOOD, CURRENT_BAD) + (1 if e.unit_of_measurement == "A" else 0))
+        for e in entries
+        if e.domain == "number" and (e.unit_of_measurement in (None, "A"))
+    ]
+    currents = [(e, s) for e, s in currents if s > 0]
+    if currents:
+        suggested["current_entity"] = max(currents, key=lambda item: item[1])[0].entity_id
+
+    # What it gives now (kW): tells which car is at it, when two could be.
+    powers = [
+        e
+        for e in entries
+        if e.domain == "sensor"
+        and (e.device_class or e.original_device_class) == "power"
+        and not _has_word(_words(e), POWER_BAD)
+    ]
+    if powers:
+        suggested["power_entity"] = min(powers, key=lambda e: len(e.entity_id)).entity_id
 
     plugs = [
         (e, _score(_words(e), PLUG_GOOD) + (3 if (e.device_class or e.original_device_class) == "plug" else 0))

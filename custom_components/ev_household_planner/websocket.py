@@ -29,6 +29,7 @@ from .const import (
     GUEST_SOC,
     GUEST_USE_READY_BY,
     MODES,
+    OCCUPANT_GUEST,
     OPPORTUNISTIC_OPTIONS,
     PAINT_OPTIONS,
     PRIORITY_OPTIONS,
@@ -279,10 +280,16 @@ def vehicle_state(household: Household, vehicle: Vehicle) -> dict[str, Any]:
         "image_original": household.original_image_url(vehicle.vehicle_id),
         "status": vehicle.status(),
         "reason": vehicle.decision.reason,
-        "supply_amps": household.supply.vehicle_amps(vehicle.vehicle_id, now),
+        "supply_amps": household.supply_of(vehicle).vehicle_amps(vehicle.vehicle_id, now),
         "has_current": household.supply.current_entity(vehicle) is not None,
         "control": vehicle.decision.control,
         "control_source": vehicle.control,
+        # What paused the car, when it was the backup (the other of the car and the charger).
+        "paused_by": vehicle.paused_by,
+        "control_backup": len(household.control_sources(vehicle)) > 1,
+        # The car's charger is found each time; "charger" below is the one it is at now.
+        "finds_charger": household.pairing.floats(vehicle),
+        "site": site.site_id if (site := household.pairing.vehicle_site(vehicle)) else None,
         "control_error": vehicle.control_error,
         # A command that failed once or twice is tried again by itself: when, until it counts as a problem.
         "control_retry": vehicle.retry_after.isoformat()
@@ -398,8 +405,12 @@ def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
     slots = household.visible_slots(household.price_slots(now))
     vehicles = sorted(household.vehicles.values(), key=lambda vehicle: vehicle.name.casefold())
     chargers = []
+    pairing = household.pairing
     for charger in household.chargers.values():
         control, holder = household.charger_control(charger.charger_id)
+        site = pairing.site_of(charger)
+        occupant = pairing.occupant(charger)
+        unknown = pairing.unknown(charger)
         chargers.append(
             {
                 "id": charger.charger_id,
@@ -408,6 +419,14 @@ def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
                 "control": control,
                 "holder": holder,
                 "connected": charger.connected,
+                "site": site.site_id,
+                # Who is at it: a car's id or "guest"; with ``unknown`` a car is plugged in, and
+                # ``choices`` are the cars it can be, the likeliest first.
+                "occupant": occupant,
+                "found_by": charger.found_by if charger.occupant is not None else None,
+                "unknown": unknown,
+                "choices": pairing.choices(charger) if unknown else [],
+                "has_plug_sensor": charger.connected_entity is not None,
                 "has_switch": charger.switch_entity is not None,
                 "has_meter": charger.energy_entity is not None,
                 "image": household.image_url(charger.charger_id),
@@ -423,6 +442,17 @@ def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
         "prices": [{"start": s.start.isoformat(), "end": s.end.isoformat(), "price": s.price} for s in slots],
         "price_issue": price_issue(household.price_slots(now), now),
         "supply": household.supply.state(now),
+        # The household's other places, each with its own supply.
+        "sites": [
+            {
+                "id": site.site_id,
+                "name": site.name,
+                "zone": site.zone,
+                "supply": household.supplies[site.site_id].state(now),
+            }
+            for site in household.sites.values()
+            if not site.home
+        ],
         "solar": household.solar.state(now),
         "heat_pump": household.supply.heat_pump_state(now),
         "home": household.home.state(now),
@@ -687,6 +717,31 @@ async def ws_history(hass: HomeAssistant, connection: websocket_api.ActiveConnec
 
 @websocket_api.websocket_command(
     {
+        vol.Required("type"): f"{DOMAIN}/charger_occupant",
+        ENTRY: str,
+        vol.Required("charger_id"): str,
+        # A car's id, "guest", or None to let EV Planner find the car again.
+        vol.Required("occupant"): vol.Any(None, str),
+    }
+)
+@websocket_api.async_response
+@_errors
+async def ws_charger_occupant(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """The household says which car is at a charger."""
+    household = _household(hass, msg)
+    who = msg["occupant"]
+    if msg["charger_id"] not in household.chargers or (
+        who is not None and who != OCCUPANT_GUEST and who not in household.vehicles
+    ):
+        raise ServiceValidationError(translation_domain=DOMAIN, translation_key="car_not_found")
+    await household.pairing.async_set(msg["charger_id"], who)
+    connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command(
+    {
         vol.Required("type"): f"{DOMAIN}/set_image",
         ENTRY: str,
         vol.Required("target_id"): str,
@@ -745,6 +800,7 @@ def async_register_websocket(hass: HomeAssistant) -> None:
         ws_guest_charge_now,
         ws_guest_stop,
         ws_set_image,
+        ws_charger_occupant,
         ws_restore_image,
         ws_delete_history,
         ws_settings,

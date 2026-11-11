@@ -204,6 +204,39 @@ class SupplyPlan:
         return None
 
 
+def _by_need(
+    wanted: dict[str, float], need: dict[str, float], floor: dict[str, float], room: float
+) -> dict[str, float]:
+    """Share ``room`` amps between cars by the kWh each still needs.
+
+    No car gets more than it wants, and none less than a charger can give:
+    when there is not room for all of them at that, the car that needs the
+    least waits. What a car does not take goes to the others.
+    """
+    cars = [vid for vid in wanted if wanted[vid] > EPSILON]
+    while cars:
+        if sum(floor[vid] for vid in cars) > room + EPSILON:
+            # Not room for all of them at the least: the one that needs the least waits.
+            cars.remove(min(cars, key=lambda vid: need[vid]))
+            continue
+        given = {vid: floor[vid] for vid in cars}
+        left = room - sum(given.values())
+        open_cars = [vid for vid in cars if wanted[vid] > given[vid] + EPSILON]
+        while left > EPSILON and open_cars:
+            total = sum(need[vid] for vid in open_cars) or float(len(open_cars))
+            shares = {vid: left * (need[vid] / total if total else 1 / len(open_cars)) for vid in open_cars}
+            for vid in list(open_cars):
+                extra = min(shares[vid], wanted[vid] - given[vid])
+                given[vid] += extra
+                left -= extra
+                if wanted[vid] - given[vid] <= EPSILON:
+                    open_cars.remove(vid)
+            if all(shares[vid] <= EPSILON for vid in shares):
+                break
+        return given
+    return {}
+
+
 def plan_supply(
     slots: Sequence[PriceSlot],
     cars: Sequence[SharedCar],
@@ -211,6 +244,7 @@ def plan_supply(
     *,
     limit: float,
     house: Callable[[PriceSlot], float],
+    share: str = "queue",
 ) -> SupplyPlan:
     """Share ``limit`` amps (per phase) between ``cars`` over ``slots``, the house first.
 
@@ -220,7 +254,29 @@ def plan_supply(
     time. A car takes what it still needs, at most its own maximum, and never
     less than a charger can give; a car that can only be on or off takes its
     full current or waits.
+
+    With ``share="need"`` the cars of the same priority share a slot there is
+    not room for all of them in by the kWh each still needs, instead of the
+    first taking its fill. That plan is used only when it leaves no car
+    further from what it must have than taking turns does.
     """
+    queue = _plan_supply(slots, cars, now, limit=limit, house=house, by_need=False)
+    if share != "need" or len(cars) < 2:
+        return queue
+    need = _plan_supply(slots, cars, now, limit=limit, house=house, by_need=True)
+    worse = any(need.short_kwh.get(vid, 0.0) > queue.short_kwh.get(vid, 0.0) + 0.1 for vid in need.short_kwh)
+    return queue if worse else need
+
+
+def _plan_supply(
+    slots: Sequence[PriceSlot],
+    cars: Sequence[SharedCar],
+    now: datetime,
+    *,
+    limit: float,
+    house: Callable[[PriceSlot], float],
+    by_need: bool,
+) -> SupplyPlan:
     usable = [slot for slot in slots if slot.end > now]
     capacity: dict[datetime, float] = {}
     shown: list[tuple[datetime, datetime, float, float]] = []
@@ -234,30 +290,60 @@ def plan_supply(
     order = sorted(cars, key=lambda car: (car.priority, car.deadline or datetime.max.replace(tzinfo=now.tzinfo)))
     ranked = sorted(usable, key=lambda slot: (slot.price, slot.start))
 
+    def ask(car: SharedCar, slot: PriceSlot, need: float, hours: float) -> float:
+        """What the car would take of the slot when it had it to itself."""
+        room = capacity[slot.start]
+        given = amps[car.vehicle_id].get(slot.start, 0.0)
+        top = min(car.max_amps - given, room)
+        if car.adjustable:
+            wanted = min(top, amps_for(need / hours, car.phases))
+            if given + wanted < car.min_amps:
+                wanted = car.min_amps - given if top >= car.min_amps - given else 0.0
+            return wanted
+        return car.max_amps if given == 0 and room >= car.max_amps - EPSILON else 0.0
+
+    def give(car: SharedCar, slot: PriceSlot, wanted: float, left: dict[str, float], hours: float) -> None:
+        if wanted <= EPSILON:
+            return
+        vid = car.vehicle_id
+        amps[vid][slot.start] = amps[vid].get(slot.start, 0.0) + wanted
+        capacity[slot.start] -= wanted
+        left[vid] = max(0.0, left[vid] - kw(wanted, car.phases) * hours)
+
     for left in (left_must, left_want):
         for slot in ranked:
             start = max(slot.start, now)
             hours = (slot.end - start).total_seconds() / 3600
             if hours <= EPSILON:
                 continue
-            for car in order:
-                need = left[car.vehicle_id]
-                if need <= EPSILON or (car.deadline is not None and slot.end > car.deadline + timedelta(seconds=1)):
-                    continue
-                room = capacity[slot.start]
-                given = amps[car.vehicle_id].get(slot.start, 0.0)
-                top = min(car.max_amps - given, room)
-                if car.adjustable:
-                    wanted = min(top, amps_for(need / hours, car.phases))
-                    if given + wanted < car.min_amps:
-                        wanted = car.min_amps - given if top >= car.min_amps - given else 0.0
+            takers = [
+                car
+                for car in order
+                if left[car.vehicle_id] > EPSILON
+                and not (car.deadline is not None and slot.end > car.deadline + timedelta(seconds=1))
+            ]
+            if not by_need:
+                for car in takers:
+                    give(car, slot, ask(car, slot, left[car.vehicle_id], hours), left, hours)
+                continue
+            for priority in sorted({car.priority for car in takers}):
+                group = [car for car in takers if car.priority == priority]
+                # A car that is only on or off takes its turn as before.
+                for car in group:
+                    if not car.adjustable:
+                        give(car, slot, ask(car, slot, left[car.vehicle_id], hours), left, hours)
+                flexible = [car for car in group if car.adjustable]
+                wanted = {car.vehicle_id: ask(car, slot, left[car.vehicle_id], hours) for car in flexible}
+                if sum(wanted.values()) <= capacity[slot.start] + EPSILON:
+                    shares = wanted
                 else:
-                    wanted = car.max_amps if given == 0 and room >= car.max_amps - EPSILON else 0.0
-                if wanted <= EPSILON:
-                    continue
-                amps[car.vehicle_id][slot.start] = given + wanted
-                capacity[slot.start] = room - wanted
-                left[car.vehicle_id] = max(0.0, need - kw(wanted, car.phases) * hours)
+                    floor = {
+                        car.vehicle_id: max(0.0, car.min_amps - amps[car.vehicle_id].get(slot.start, 0.0))
+                        for car in flexible
+                    }
+                    shares = _by_need(wanted, {vid: left[vid] for vid in wanted}, floor, capacity[slot.start])
+                for car in flexible:
+                    give(car, slot, shares.get(car.vehicle_id, 0.0), left, hours)
 
     ends = {slot.start: slot.end for slot in usable}
     return SupplyPlan(

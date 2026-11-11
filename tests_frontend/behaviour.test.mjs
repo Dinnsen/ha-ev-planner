@@ -328,3 +328,31 @@ test("a command that is tried again by itself is shown quietly, and as a problem
     assert.deepEqual(now.notes, []);
   });
 });
+
+test("a charger with an unknown car asks which car it is, and stores the answer", async () => {
+  await withPanel("two-chargers", { size: PHONE }, async ({ page, tap, calls, waitForCall, state }) => {
+    await tap('.tabs button[data-tab="home"]');
+    const list = await page.locator("ev-planner-panel .chargers").innerText();
+    assert.match(list, /Unknown car/);
+    assert.match(list, /Tesla Model Y is plugged in/);
+    // The charger at the summer house says where it is.
+    assert.match(list, /Sommerhus/);
+    await tap('[data-act="open-charger"][data-id="carport"]');
+    const who = page.locator("ev-planner-panel .who");
+    assert.match(await who.innerText(), /cannot tell which one/);
+    await tap('.who [data-act="occupant"][data-who="renault_zoe"]');
+    await waitForCall("charger_occupant");
+    assert.deepEqual(await calls("charger_occupant"), [
+      { type: `${DOMAIN}/charger_occupant`, charger_id: "carport", occupant: "renault_zoe", entry_id: state.entry_id },
+    ]);
+  });
+});
+
+test("a car whose charger is not found yet says so, without a warning", async () => {
+  await withPanel("two-chargers", {}, async ({ page, tap }) => {
+    await tap('.tabs button[data-tab="cars"]');
+    const card = await page.locator("ev-planner-panel .cars-grid").innerText();
+    assert.match(card, /Finding the charger/);
+    assert.equal(await page.locator('ev-planner-panel .tabs button[data-tab="cars"] .badge').count(), 0);
+  });
+});

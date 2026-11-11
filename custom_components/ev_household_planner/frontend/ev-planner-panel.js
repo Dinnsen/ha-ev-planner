@@ -165,6 +165,17 @@ const TEXT = {
     holder_guest: "gæsten",
     car_plugged: "Bil tilsluttet",
     car_unplugged: "Ingen bil",
+    car_unknown: "Ukendt bil",
+    who_guest: "Gæst tilsluttet",
+    who_car: "{name} tilsluttet",
+    who_title: "Bilen ved laderen",
+    who_ask: "Der er sat en bil til, og EV Planner kan ikke se, hvilken det er.",
+    who_pick: "Hvilken er det?",
+    who_found: "{who}. EV Planner fandt den ud fra, hvor bilerne er, og hvem der blev sat til.",
+    who_chosen: "{who}. Det har I selv valgt.",
+    who_other: "Er det en anden?",
+    who_pick_guest: "En gæst",
+    finding_charger: "Finder laderen, bilen holder ved. Opladningen styres, når den er fundet.",
 
     // Charger page, pop-ups and dashboard cards
     charger_cars: "Biler på laderen",
@@ -258,6 +269,9 @@ const TEXT = {
     calendar_target: ", mål {target}",
     calendar_when: "{day} kl. {time}",
     control_source: "Styring",
+    control_has_backup: "med backup",
+    control_on_backup: "backuppen har taget over",
+    charger_not_found: "holder ikke ved en lader",
     control_car: "Bilen",
     control_charger: "Laderen",
     control_none: "Ingen (kun plan)",
@@ -654,6 +668,17 @@ const TEXT = {
     holder_guest: "the guest",
     car_plugged: "Car plugged in",
     car_unplugged: "No car",
+    car_unknown: "Unknown car",
+    who_guest: "A guest is plugged in",
+    who_car: "{name} is plugged in",
+    who_title: "The car at the charger",
+    who_ask: "A car was plugged in, and EV Planner cannot tell which one it is.",
+    who_pick: "Which one is it?",
+    who_found: "{who}. EV Planner found it from where the cars are and which one was plugged in.",
+    who_chosen: "{who}. You chose it yourselves.",
+    who_other: "Is it another one?",
+    who_pick_guest: "A guest",
+    finding_charger: "Finding the charger the car is at. Charging is controlled once it is found.",
 
     // Charger page, pop-ups and dashboard cards
     charger_cars: "Cars on this charger",
@@ -745,6 +770,9 @@ const TEXT = {
     calendar_target: ", target {target}",
     calendar_when: "{day} at {time}",
     control_source: "Control",
+    control_has_backup: "with a backup",
+    control_on_backup: "the backup has taken over",
+    charger_not_found: "not at a charger",
     control_car: "The car",
     control_charger: "The charger",
     control_none: "None (plan only)",
@@ -4361,7 +4389,7 @@ class EvPlannerPanel extends HTMLElement {
 
   /* Something to see to: a command that is tried again by itself is not, until it has failed a few times. */
   _troubled(v) {
-    return !!(v.problem || (v.control_error && !v.control_retry));
+    return !!(v.problem || (v.control_error && v.control_error !== "finding_charger" && !v.control_retry));
   }
 
   _statusTone(v) {
@@ -4400,6 +4428,7 @@ class EvPlannerPanel extends HTMLElement {
     const notes = [];
     if (v.problem) notes.push(["bad", this._t("problem")]);
     if (v.control_error === "rate_limited") notes.push(["warn", this._t("rate_limited")]);
+    else if (v.control_error === "finding_charger") notes.push(["info", this._t("finding_charger")]);
     else if (v.control_retry) notes.push(["info", this._t("control_retry", { time: this._time(v.control_retry) })]);
     else if (v.control_error) {
       const text = v.control_error === "no_control_entity" ? this._t("no_control_entity") : this._t("control_error", { error: v.control_error });
@@ -4592,14 +4621,45 @@ class EvPlannerPanel extends HTMLElement {
           const state = this._t(`charger_${c.control || "released"}`);
           const holder = c.holder === "guest" ? this._t("holder_guest") : c.holder;
           const text = holder && c.control !== "released" ? this._t("charger_for", { state, name: holder }) : state;
-          const plugged = c.connected === true ? this._t("car_plugged") : c.connected === false ? this._t("car_unplugged") : "";
+          const plugged = this._chargerWho(c);
           const model = c.model?.startsWith("generic_") ? this._t(`model_${c.model}`) : c.model_title;
-          const details = [model, isNum(c.power) ? `${this._num(c.power)} kW` : "", plugged].filter(Boolean).join(" · ");
+          const details = [this._chargerSite(c), model, isNum(c.power) ? `${this._num(c.power)} kW` : "", plugged].filter(Boolean).join(" · ");
           return `<li class="ctl-${esc(c.control || "released")}">${this._photoHtml(c.id, c.image, chargerArt(c.style), { small: true, original: c.image_original })}
             <button class="ch-open" data-act="open-charger" data-id="${esc(c.id)}" data-f="ch-${esc(c.id)}" aria-label="${esc(this._t("open_charger", { name: c.name }))}"><strong><i aria-hidden="true"></i>${esc(c.name)}</strong><span>${esc(details)}</span></button>
             <b>${esc(text)}</b></li>`;
         })
         .join("")}</ul>
+    </section>`;
+  }
+
+  /* Who is at a charger: the car's name, the guest, an unknown car, or just whether a car is plugged in. */
+  _chargerWho(c) {
+    if (c.unknown) return this._t("car_unknown");
+    if (c.occupant === "guest") return this._t("who_guest");
+    const car = c.occupant ? this._cars.find((v) => v.id === c.occupant) : null;
+    if (car) return this._t("who_car", { name: car.name });
+    return c.connected === true ? this._t("car_plugged") : c.connected === false ? this._t("car_unplugged") : "";
+  }
+
+  /* The place a charger is at, when it is not the home. */
+  _chargerSite(c) {
+    return (this._state?.sites || []).find((site) => site.id === c.site)?.name || "";
+  }
+
+  /* On a charger's page: who is at it, and the cars it can be when EV Planner got it wrong or cannot tell. */
+  _chargerWhoHtml(c) {
+    const floating = this._cars.filter((v) => v.finds_charger);
+    if (!c.unknown && !(c.occupant && c.found_by)) return "";
+    const ids = c.unknown ? c.choices || [] : floating.filter((v) => v.id !== c.occupant && !v.charger).map((v) => v.id);
+    const cars = ids.map((id) => this._cars.find((v) => v.id === id)).filter(Boolean);
+    const chip = (who, name) =>
+      `<button data-act="occupant" data-id="${esc(c.id)}" data-who="${esc(who)}" data-f="who-${esc(c.id)}-${esc(who)}">${esc(name)}</button>`;
+    const chips = [...cars.map((v) => chip(v.id, v.name)), c.occupant === "guest" ? "" : chip("guest", this._t("who_pick_guest"))].join("");
+    const text = c.unknown ? this._t("who_ask") : this._t(`who_${c.found_by === "chosen" ? "chosen" : "found"}`, { who: this._chargerWho(c) });
+    return `<section class="panel who ${c.unknown ? "ask" : ""}">
+      <h2>${ICONS.car}<span>${esc(c.unknown ? this._t("car_unknown") : this._t("who_title"))}</span></h2>
+      <p>${esc(text)}</p>
+      ${chips ? `<p class="hint">${esc(c.unknown ? this._t("who_pick") : this._t("who_other"))}</p><div class="chips">${chips}</div>` : ""}
     </section>`;
   }
 
@@ -4631,8 +4691,8 @@ class EvPlannerPanel extends HTMLElement {
     const cars = this._cars.filter((v) => v.charger?.id === c.id);
     const g = this._guest;
     const model = c.model?.startsWith("generic_") ? this._t(`model_${c.model}`) : c.model_title;
-    const plugged = c.connected === true ? this._t("car_plugged") : c.connected === false ? this._t("car_unplugged") : "";
-    const details = [model, isNum(c.power) ? `${this._num(c.power)} kW` : "", plugged].filter(Boolean).join(" · ");
+    const plugged = this._chargerWho(c);
+    const details = [this._chargerSite(c), model, isNum(c.power) ? `${this._num(c.power)} kW` : "", plugged].filter(Boolean).join(" · ");
     const next = this._chargerNext(c);
     const tone = c.control === "charge" ? "teal" : c.control === "pause" ? "sand" : "grey";
     return `<div class="page stack charger-page" data-id="${esc(c.id)}">
@@ -4643,6 +4703,7 @@ class EvPlannerPanel extends HTMLElement {
         <span class="pill ${tone}">${esc(this._chargerStateText(c))}</span>
       </header>
       ${next ? `<p class="charger-next">${ICONS.plan}<span>${esc(this._t("charger_next", { name: next.name, time: this._time(next.start) }))}</span></p>` : ""}
+      ${this._chargerWhoHtml(c)}
       <h2 class="section-title">${ICONS.car}<span>${this._t("charger_cars")}</span></h2>
       ${cars.length ? `<div class="cars-grid">${cars.map((v) => this._carCardHtml(v)).join("")}</div>` : `<p class="hint">${this._t("charger_no_cars")}</p>`}
       ${g && (!g.charger || g.charger.id === c.id) ? `<div class="side-grid">${this._guestCardHtml()}</div>` : ""}
@@ -5317,7 +5378,7 @@ class EvPlannerPanel extends HTMLElement {
     );
     this._patch(
       root.querySelector(".car-info"),
-      JSON.stringify([v.calendar, v.control_source, v.charger, v.power, v.capacity, v.charge_speed, v.charge_speed_source, v.charge_speed_learned_from, v.charge_power_source, v.curve, v.margin, v.receipt, lang]),
+      JSON.stringify([v.calendar, v.control_source, v.control_backup, v.paused_by, v.finds_charger, v.charger, v.power, v.capacity, v.charge_speed, v.charge_speed_source, v.charge_speed_learned_from, v.charge_power_source, v.curve, v.margin, v.receipt, lang]),
       this._carInfoHtml(v),
     );
     if (live) this._renderCarLive(v);
@@ -5498,9 +5559,10 @@ class EvPlannerPanel extends HTMLElement {
       const text = `${this._t("calendar_trip", { summary: cal.summary || "", when })}${target}`;
       lines.push(`<p class="info-line cal">${ICONS.calendar}<span>${esc(text)}</span></p>`);
     }
-    const source = this._t(`control_${v.control_source || "none"}`);
+    const backup = v.control_backup ? ` (${this._t(v.paused_by && v.paused_by !== v.control_source ? "control_on_backup" : "control_has_backup")})` : "";
+    const source = `${this._t(`control_${v.control_source || "none"}`)}${backup}`;
     const charger = [
-      v.charger?.name,
+      v.charger?.name || (v.finds_charger ? this._t("charger_not_found") : ""),
       isNum(v.power) ? `${this._num(v.power)} kW${v.charge_power_source === "learned" ? ` (${this._t("power_learned")})` : ""}` : "",
       isNum(v.capacity) ? `${this._t("battery_size")} ${this._kwh(v.capacity, 1)}` : "",
     ]
@@ -6250,8 +6312,9 @@ class EvPlannerPanel extends HTMLElement {
     const phases = Number(supply?.phases) || 3;
     const kwOfAmps = (a) => (Number(a) || 0) * 0.23 * phases;
     const power = (kw) => (Math.abs(kw) < 1 ? `${Math.round(Math.abs(kw) * 1000)} W` : `${this._num(Math.abs(kw), 1)} kW`);
-    const chargers = this._chargers.slice(0, 2);
-    const cars = this._cars.filter((v) => v.home !== false).slice(0, 2);
+    // The picture is of the home: the chargers and cars that are there.
+    const chargers = this._chargers.filter((c) => (c.site ?? "home") === "home").slice(0, 2);
+    const cars = this._cars.filter((v) => v.home !== false && (v.site ?? "home") === "home").slice(0, 2);
     const carKw = (v) => {
       if (!v.charging) return 0;
       const amps = supply?.cars_now?.[v.id] ?? solar?.cars?.[v.id]?.amps;
@@ -6346,6 +6409,8 @@ class EvPlannerPanel extends HTMLElement {
     const chargers = this._chargersHtml();
     let shared = "";
     if (supply) shared = this._supplyHtml(supply);
+    // The household's other places, each with its own supply.
+    for (const site of this._state.sites || []) if (site.supply) shared += this._supplyHtml(site.supply, site);
     return `<div class="home-page">${scene}${now}</section>${tonight}${shared}${today}${chargers}</div>`;
   }
 
@@ -6418,9 +6483,10 @@ class EvPlannerPanel extends HTMLElement {
       <p class="hint">${esc(this._t("home_tonight_total", { kwh: this._kwh(energy), cost: this._money(cost) }))}</p></section>`;
   }
 
-  _supplyHtml(supply) {
+  /* The shared supply of a place: the home's, or (with ``site``) another place's. */
+  _supplyHtml(supply, site = null) {
     const amps = (a) => `${Math.round(Number(a))} A`;
-    const cars = this._cars.filter((v) => v.connected);
+    const cars = this._cars.filter((v) => v.connected && (v.site ?? "home") === (site?.id ?? "home"));
     const house = isNum(supply.house_now) ? Number(supply.house_now) : isNum(supply.house_expected) ? Number(supply.house_expected) : 0;
     const carAmps = (v) => Number(supply.cars_now?.[v.id] ?? (v.charging ? supply.cars?.[v.id] : 0) ?? 0) || 0;
     const used = house + cars.reduce((sum, v) => sum + carAmps(v), 0);
@@ -6460,7 +6526,7 @@ class EvPlannerPanel extends HTMLElement {
     for (const v of cars) if (isNum(supply.short?.[v.id])) why.push(this._t("home_why_short", { name: v.name, kwh: this._kwh(supply.short[v.id]) }));
     if (supply.guard) why.push(this._t("home_guard"));
     const legend = `<div class="home-legend"><span><i style="background:var(--evp-line)"></i>${esc(this._t("home_house"))}</span>${cars.map((v, i) => `<span><i style="background:${this._carColor(i)}"></i>${esc(v.name)}</span>`).join("")}</div>`;
-    return `<section class="panel"><div class="panel-head"><h2>${ICONS.rules}<span>${esc(this._t("home_timeline"))}</span></h2></div>
+    return `<section class="panel"><div class="panel-head"><h2>${ICONS.rules}<span>${esc(site ? `${this._t("home_timeline")}: ${site.name}` : this._t("home_timeline"))}</span></h2></div>
         ${gauge}
         <p class="hint">${esc(isNum(supply.house_now) ? this._t("home_house_now", { amps: amps(supply.house_now) }) : supply.meter ? this._t("home_house_expected", { amps: amps(house) }) : this._t("home_no_meter", { amps: amps(house) }))}</p>
         <p class="hint">${esc(this._t("home_timeline_hint", { limit: amps(limit) }))}</p>
@@ -7299,6 +7365,9 @@ class EvPlannerPanel extends HTMLElement {
       case "open-charger":
         this._openCharger(id);
         break;
+      case "occupant":
+        this._ws("ev_household_planner/charger_occupant", { charger_id: id, occupant: button.dataset.who || null }).catch((err) => this._showError(err));
+        break;
       case "tab":
         this._setTab(button.dataset.tab);
         break;
@@ -7824,6 +7893,9 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .ch-open span { color: var(--evp-soft); font-size: 13px; }
 .charger-page .car-head .photo-pick > svg.art { width: 70%; height: 70%; }
 .charger-page .car-head .pill { white-space: normal; text-align: left; }
+.who p { margin: 0 0 8px; }
+.who.ask { border-color: var(--evp-sand, #E9B949); }
+.who .chips { margin-top: 6px; }
 .charger-next { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--evp-ink); font-weight: 500; }
 .charger-next svg { width: 20px; height: 20px; flex: none; fill: none; stroke: var(--evp-a); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .chargers li span { color: var(--evp-soft); font-size: 13px; }

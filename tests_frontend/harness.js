@@ -94,6 +94,7 @@ const harness = {
       case "state":
         return state;
       case "vehicle_set":
+      case "charger_occupant":
       case "guest_set":
       case "guest_lookup":
       case "guest_plan":

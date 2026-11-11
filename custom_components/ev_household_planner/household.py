@@ -48,6 +48,7 @@ from .const import (
     CONF_NOTIFY,
     CONF_PLATE_PROVIDER,
     CONF_POWER,
+    CONF_POWER_ENTITY,
     CONF_PRICE_ADD,
     CONF_PRICE_ENTITY,
     CONF_SWITCH_ENTITY,
@@ -102,9 +103,11 @@ from .const import (
     SET_REMINDER_TIME,
     SET_SCHEDULE,
     SET_TARGET_SOC,
+    SITE_HOME,
     STORAGE_KEY,
     STORAGE_VERSION,
     SUBENTRY_CHARGER,
+    SUBENTRY_SITE,
     SUBENTRY_VEHICLE,
     UNPLUG_CONFIRM,
     VERIFY_BACKOFF,
@@ -118,6 +121,7 @@ from .home import HomeInfo
 from .layout import clean_layouts
 from .learning import MIN_POWER_KW
 from .notifications import COLOR_CHARGE, COLOR_ERROR, COLOR_WARN, Notifier, tag_for
+from .pairing import Pairing, Site
 from .planner import PlanError, PriceSlot, Segment, segments_to_schedule
 from .prices import extract_price_slots
 from .rules import (
@@ -161,6 +165,14 @@ class Charger:
     connected: bool | None = None
     meter_last: float | None = None
     guest_last_sent: str | None = None
+    # Who is at the charger, when that was found or chosen: a car's id, or ``guest``.
+    occupant: str | None = None
+    # How it was found ("found", "only_charger" or "chosen"), and when the charger got its car
+    # (None: before EV Planner saw it).
+    found_by: str | None = None
+    plugged_at: datetime | None = None
+    # The household has a question about this charger on its phones.
+    asked: bool = False
 
     @property
     def power(self) -> float:
@@ -177,6 +189,10 @@ class Charger:
     @property
     def connected_entity(self) -> str | None:
         return self.config.get(CONF_CONNECTED_ENTITY) or None
+
+    @property
+    def power_entity(self) -> str | None:
+        return self.config.get(CONF_POWER_ENTITY) or None
 
     def read_connected(self, state: str | None) -> bool | None:
         if state is None or state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
@@ -230,11 +246,16 @@ class Household(DataUpdateCoordinator[None]):
         super().__init__(hass, _LOGGER, config_entry=entry, name=f"{DOMAIN}_{entry.entry_id}", update_interval=None)
         self.vehicles: dict[str, Vehicle] = {}
         self.chargers: dict[str, Charger] = {}
+        # The places with chargers: the home (its settings are the household's own), and the others.
+        self.sites: dict[str, Site] = {SITE_HOME: Site(SITE_HOME, "")}
         for subentry_id, subentry in entry.subentries.items():
             if subentry.subentry_type == SUBENTRY_VEHICLE:
                 self.vehicles[subentry_id] = Vehicle(subentry_id, subentry.title, dict(subentry.data))
             elif subentry.subentry_type == SUBENTRY_CHARGER:
                 self.chargers[subentry_id] = Charger(subentry_id, subentry.title, dict(subentry.data))
+            elif subentry.subentry_type == SUBENTRY_SITE:
+                self.sites[subentry_id] = Site(subentry_id, subentry.title, dict(subentry.data))
+        self.pairing = Pairing(self)
         self.guest = GuestSession(hass, self)
         self.settings: dict[str, Any] = dict(SETTINGS_DEFAULTS)
         # Photos of the cars and chargers: {car or charger id: image_upload id}.
@@ -256,7 +277,11 @@ class Household(DataUpdateCoordinator[None]):
         self._verify_unknown: dict[str, int] = {}
         self._verify_timers: dict[str, CALLBACK_TYPE] = {}
         self._unplug_timers: dict[str, CALLBACK_TYPE] = {}
-        self.supply = SupplyControl(self)
+        # A supply for each place; ``supply`` is the home's.
+        self.supplies: dict[str, SupplyControl] = {
+            site_id: SupplyControl(self, site) for site_id, site in self.sites.items()
+        }
+        self.supply = self.supplies[SITE_HOME]
         self.solar = SolarControl(self)
         self.home = HomeInfo(self)
         self._widgets_sent: datetime | None = None
@@ -334,6 +359,7 @@ class Household(DataUpdateCoordinator[None]):
                         hass, entities, partial(self._handle_charger_state, charger.charger_id)
                     )
                 )
+        self.pairing.restore()
         self._unsub.append(async_track_state_change_event(hass, [self.price_entity], self._handle_price_update))
         self._unsub.append(async_track_time_interval(hass, self._handle_tick, TICK))
         self._unsub.append(async_track_time_interval(hass, self._handle_calendar_tick, CALENDAR_REFRESH))
@@ -347,7 +373,8 @@ class Household(DataUpdateCoordinator[None]):
         """Once Home Assistant runs: check the price sensor, read calendars, and start acting."""
         self._started = True
         self._check_price_entity()
-        self.supply.async_start()
+        for supply in self.supplies.values():
+            supply.async_start()
         self.config_entry.async_create_task(self.hass, self._async_after_start(), f"{DOMAIN} start")
 
     async def _async_after_start(self) -> None:
@@ -363,7 +390,8 @@ class Household(DataUpdateCoordinator[None]):
         if self._widgets_timer is not None:
             self._widgets_timer()
             self._widgets_timer = None
-        self.supply.async_stop()
+        for supply in self.supplies.values():
+            supply.async_stop()
         for cancel in self._unplug_timers.values():
             cancel()
         self._unplug_timers.clear()
@@ -425,9 +453,17 @@ class Household(DataUpdateCoordinator[None]):
             data = chargers.get(charger_id) or {}
             last = data.get("guest_last_sent")
             charger.guest_last_sent = last if last in (CONTROL_CHARGE, CONTROL_PAUSE) else None
+            who = data.get("occupant")
+            charger.occupant = who if isinstance(who, str) else None
+            charger.found_by = data.get("found_by") if isinstance(data.get("found_by"), str) else None
         self.guest.load(stored.get("guest"))
         self.supply.load(stored.get("supply_forecast"))
         self.supply.load_actuators(stored.get("actuators"))
+        places = stored.get("sites") or {}
+        for site_id, supply in self.supplies.items():
+            if site_id != SITE_HOME and isinstance(place := places.get(site_id), dict):
+                supply.load(place.get("forecast"))
+                supply.load_actuators(place.get("actuators"))
         self.solar.load(stored.get("solar"))
         self.settings = {**SETTINGS_DEFAULTS, **(stored.get("settings") or {})}
         self.images = self._known_images(stored.get("images"))
@@ -460,7 +496,19 @@ class Household(DataUpdateCoordinator[None]):
         return {
             "actuators": self.supply.actuators_to_store(),
             "vehicles": {vehicle_id: vehicle.to_store() for vehicle_id, vehicle in self.vehicles.items()},
-            "chargers": {cid: {"guest_last_sent": charger.guest_last_sent} for cid, charger in self.chargers.items()},
+            "chargers": {
+                cid: {
+                    "guest_last_sent": charger.guest_last_sent,
+                    "occupant": charger.occupant,
+                    "found_by": charger.found_by,
+                }
+                for cid, charger in self.chargers.items()
+            },
+            "sites": {
+                site_id: {"forecast": supply.to_store(), "actuators": supply.actuators_to_store()}
+                for site_id, supply in self.supplies.items()
+                if site_id != SITE_HOME
+            },
             "guest": self.guest.to_store(),
             "supply_forecast": self.supply.to_store(),
             "solar": self.solar.to_store(),
@@ -570,6 +618,32 @@ class Household(DataUpdateCoordinator[None]):
             and self.guest.charger_control(now) != CONTROL_RELEASED
         )
 
+    def now(self) -> datetime:
+        return dt_util.now()
+
+    def text(self, key: str, **values: Any) -> str:
+        """A text for a notification, in the household's language."""
+        return self._text(key, **values)
+
+    def charger_power(self, charger: Charger) -> float | None:
+        """What the charger gives now (kW), when it has a power sensor."""
+        return power_value(self.hass.states.get(charger.power_entity)) if charger.power_entity else None
+
+    def supply_of(self, vehicle: Vehicle) -> SupplyControl:
+        """The supply of the place the car is at (the home's when it is at none)."""
+        site = self.pairing.vehicle_site(vehicle)
+        return self.supplies.get(site.site_id if site else SITE_HOME, self.supply)
+
+    def at_other_site(self, vehicle: Vehicle) -> bool:
+        """The car is at one of the household's other places, a summer house say."""
+        site = self.pairing.vehicle_site(vehicle)
+        return site is not None and not site.home
+
+    def at_home_site(self, vehicle: Vehicle) -> bool:
+        """The car is at the home, not at another of the household's places (or away)."""
+        site = self.pairing.vehicle_site(vehicle)
+        return site is not None and site.home
+
     # ------------------------------------------------------------------
     # Reading the cars
 
@@ -583,7 +657,9 @@ class Household(DataUpdateCoordinator[None]):
         if vehicle.connected_entity:
             vehicle.connected = vehicle.read_connected(self._state(vehicle.connected_entity))
         if vehicle.home_entity:
-            vehicle.home = vehicle.read_home(self._state(vehicle.home_entity))
+            # At home, or at another of the household's places (a summer house with a charger).
+            vehicle.place = self._state(vehicle.home_entity)
+            vehicle.home = self.pairing.at_a_site(vehicle.place)
         if vehicle.charging_entity:
             charging = is_charging_state(self._state(vehicle.charging_entity))
             if charging is not None and vehicle.charging is not None and charging != vehicle.charging:
@@ -622,6 +698,12 @@ class Household(DataUpdateCoordinator[None]):
                 cancel()
         elif vehicle.connected is False and vehicle.unplugged_at is None:
             vehicle.unplugged_at = now
+        if vehicle.connected is True and was_connected is False:
+            vehicle.connected_since = now
+        elif vehicle.connected is False:
+            vehicle.connected_since = None
+            # Unplugged: whatever paused it has let go of it.
+            vehicle.paused_by = None
         if entity_id == vehicle.soc_entity and vehicle.soc is not None:
             self._count_soc(vehicle, old_soc, vehicle.soc, now)
         if vehicle.connected is False and was_connected is True and vehicle.finish_measurement(unplugged=True):
@@ -681,7 +763,12 @@ class Household(DataUpdateCoordinator[None]):
         entity_id = event.data["entity_id"]
         new = event.data["new_state"]
         if entity_id == charger.connected_entity:
+            was = charger.connected
             charger.connected = charger.read_connected(new.state if new else None)
+            if charger.connected is True and was is False:
+                charger.plugged_at = dt_util.now()
+            elif charger.connected is False:
+                charger.plugged_at = None
             if self.guest.charger_id == charger_id:
                 self.guest.handle_connected(charger.connected)
         if entity_id == charger.energy_entity:
@@ -980,6 +1067,8 @@ class Household(DataUpdateCoordinator[None]):
     async def async_recalculate(self, *, force: bool = False, apply: bool = True) -> None:
         """Plan every car (earliest deadline first, sharing chargers) and act on it."""
         now = dt_util.now()
+        if self.pairing.resolve(now):
+            self.async_save()
         taken: dict[str, list[Segment]] = {}
         for vehicle in self._vehicle_order(now):
             charger_id = vehicle.charger_id
@@ -996,8 +1085,9 @@ class Household(DataUpdateCoordinator[None]):
                 self.plan_one(vehicle, now, blocked, stable=not force)
             if charger_id and vehicle.plan is not None and vehicle.connected is True:
                 taken.setdefault(charger_id, []).extend(vehicle.plan.segments)
-        # On a shared supply the plugged-in cars are planned together, under the limit.
-        self.supply.replan(now)
+        # On a shared supply the plugged-in cars are planned together, under the limit: each place its own.
+        for supply in self.supplies.values():
+            supply.replan(now)
         await self.async_evaluate(now, apply=apply)
 
     # ------------------------------------------------------------------
@@ -1018,12 +1108,18 @@ class Household(DataUpdateCoordinator[None]):
             if vehicle.deadline is not None and vehicle.deadline <= now:
                 replan = True
             self._count_time(vehicle, now)
-        if self.supply.sample(now):
-            self.async_save()
-        await self.supply.async_release_heat_pump(now)
+        for supply in self.supplies.values():
+            if supply.sample(now):
+                self.async_save()
+            await supply.async_release_heat_pump(now)
+            if await supply.async_refresh_weather(now):
+                replan = True
         await self.home.async_refresh(now)
-        if await self.supply.async_refresh_weather(now):
+        # Cars and chargers found each other, or lost each other: the plans follow.
+        if self.pairing.resolve(now):
+            self.async_save()
             replan = True
+        await self.pairing.async_follow_up(now)
         if await self.solar.async_refresh_forecast(now):
             replan = True
         # How the morning went, before the plan moves on to the next ready-by time.
@@ -1163,7 +1259,7 @@ class Household(DataUpdateCoordinator[None]):
             if self.solar.wants(vehicle) and decision.control == CONTROL_PAUSE and decision.reason == REASON_WAITING:
                 # The sun shines on it: charge on the surplus.
                 decision = Decision(CONTROL_CHARGE, REASON_SOLAR)
-            if decision.control == CONTROL_CHARGE and self.supply.holds_off(vehicle, now):
+            if decision.control == CONTROL_CHARGE and self.supply_of(vehicle).holds_off(vehicle, now):
                 # The guard paused it: the house needs the current for a while.
                 decision = Decision(CONTROL_PAUSE, REASON_WAITING)
             changed = decision != vehicle.decision
@@ -1177,7 +1273,8 @@ class Household(DataUpdateCoordinator[None]):
                     # Acted on with what the car says: from now on the plan is an ordinary one.
                     vehicle.plan_restored = False
         if apply and self._started:
-            await self.supply.async_apply(now)
+            for supply in self.supplies.values():
+                await supply.async_apply(now)
             await self.solar.async_apply(now)
             await self._async_apply_guest(now)
             self._maybe_refresh_widgets(now)
@@ -1190,12 +1287,67 @@ class Household(DataUpdateCoordinator[None]):
         self.async_update_listeners()
         return stopped
 
+    def control_sources(self, vehicle: Vehicle) -> list[tuple[str, str]]:
+        """What can start and pause the car, the chosen one first: ("car" or "charger", its switch).
+
+        With a backup, the other of the two comes second, when the car has it:
+        its own switch, or a switch on the charger it is at.
+        """
+        if vehicle.control == CONTROL_NONE:
+            return []
+        charger = self.chargers.get(vehicle.charger_id or "")
+        entities = {
+            CONTROL_CAR: vehicle.car_control_entity,
+            CONTROL_CHARGER: charger.switch_entity if charger else None,
+        }
+        other = CONTROL_CHARGER if vehicle.control == CONTROL_CAR else CONTROL_CAR
+        order = [vehicle.control, other] if vehicle.control_backup else [vehicle.control]
+        return [(kind, entity) for kind in order if (entity := entities[kind])]
+
     def control_entity(self, vehicle: Vehicle) -> str | None:
-        if vehicle.control == CONTROL_CAR:
-            return vehicle.car_control_entity
-        if vehicle.control == CONTROL_CHARGER:
-            charger = self.chargers.get(vehicle.charger_id or "")
-            return charger.switch_entity if charger else None
+        """The switch EV Planner starts and pauses the car with first."""
+        sources = self.control_sources(vehicle)
+        return sources[0][1] if sources else None
+
+    async def _async_send(self, vehicle: Vehicle, want_on: bool, *, force: bool) -> str | None:
+        """Start or pause the car through what controls it; an error text, or None when it is done.
+
+        A pause takes one of them: the first, and the backup when that does
+        not answer (or first, when the car went on charging after the first
+        said yes). A start takes all of them: the one that paused the car
+        must let go of it, and the other must not hold it either.
+        """
+        sources = self.control_sources(vehicle)
+        if not want_on:
+            if vehicle.verify_attempts >= 2 and len(sources) > 1:
+                # Told twice, and still charging: the other one this time.
+                sources = sources[::-1]
+            error: str | None = "no_control_entity"
+            for kind, entity in sources:
+                error = await self._async_switch(entity, False)
+                if error is None:
+                    vehicle.paused_by = kind
+                    return None
+            return error
+        errors: list[tuple[bool, str]] = []
+        done = False
+        ordered = sorted(sources, key=lambda source: source[0] != vehicle.paused_by)
+        for kind, entity in ordered:
+            holds = kind == vehicle.paused_by or self._state(entity) == "off"
+            if not holds and done and not (force and vehicle.verify_attempts >= 2):
+                # It does not hold the car back: left alone, so a car is not woken for nothing.
+                continue
+            error = await self._async_switch(entity, True)
+            if error is None:
+                done = True
+            else:
+                errors.append((holds, error))
+        if held := [error for holds, error in errors if holds]:
+            # The one that holds the car back did not let go: the car does not charge.
+            return held[0]
+        if not done:
+            return errors[0][1] if errors else "no_control_entity"
+        vehicle.paused_by = None
         return None
 
     async def _async_switch(self, entity_id: str, on: bool) -> str | None:
@@ -1237,10 +1389,15 @@ class Household(DataUpdateCoordinator[None]):
                 return True
         entity_id = self.control_entity(vehicle)
         if not entity_id:
-            vehicle.control_error = "no_control_entity"
+            # A car whose charger is found each time, and has not been found yet, waits for it.
+            waiting = vehicle.control == CONTROL_CHARGER and self.pairing.floats(vehicle)
+            vehicle.control_error = "finding_charger" if waiting else "no_control_entity"
             return False
         want_on = desired == CONTROL_CHARGE
         current = self._state(entity_id)
+        if want_on and vehicle.paused_by is not None and vehicle.paused_by != self.control_sources(vehicle)[0][0]:
+            # The backup paused it: the first one's switch does not say whether it charges.
+            current = None
         if not force and current in ("on", "off") and (current == "on") == want_on:
             # Already there; do not wake the car for nothing. A command that failed before no longer matters.
             vehicle.last_sent = desired
@@ -1257,7 +1414,7 @@ class Household(DataUpdateCoordinator[None]):
             # A stop always goes out: it is never the one too many.
             vehicle.control_error = "rate_limited"
             return False
-        error = await self._async_switch(entity_id, want_on)
+        error = await self._async_send(vehicle, want_on, force=force)
         vehicle.control_error = error
         if error is not None:
             self._control_failed(vehicle, entity_id, error, now)
@@ -1672,6 +1829,11 @@ class Household(DataUpdateCoordinator[None]):
     @callback
     def _handle_notification_action(self, event: Event) -> None:
         action = str(event.data.get("action") or "")
+        if (answer := self.pairing.action(action)) is not None:
+            self.config_entry.async_create_task(
+                self.hass, self.pairing.async_set(*answer), f"{DOMAIN} who is at the charger"
+            )
+            return
         for vehicle_id in self.vehicles:
             if action == f"{ACTION_CHARGE_NOW}_{vehicle_id}":
                 mode = MODE_CHARGE_NOW
@@ -1917,6 +2079,8 @@ class Household(DataUpdateCoordinator[None]):
 
 
 TEXT_EN: dict[str, str] = {
+    "pair_ask": "A car was plugged in to {charger}. Which one is it?",
+    "pair_guest": "A guest",
     "problem": "{name} should be charging, but it is not. Check the car and the charger.",
     "problem_pause": "{name} should be paused, but it is still charging. Check the car and the charger.",
     "problem_resume": "{name} did not charge again after the pause. Some cars must be plugged in again.",
@@ -1941,6 +2105,8 @@ TEXT_EN: dict[str, str] = {
     "action_follow": "Follow the plan",
 }
 TEXT_DA: dict[str, str] = {
+    "pair_ask": "Der er sat en bil til {charger}. Hvilken er det?",
+    "pair_guest": "En gæst",
     "problem": "{name} skulle lade, men gør det ikke. Tjek bilen og laderen.",
     "problem_pause": "{name} skulle holde pause, men lader stadig. Tjek bilen og laderen.",
     "problem_resume": "{name} startede ikke igen efter pausen. Nogle biler skal have stikket sat i igen.",

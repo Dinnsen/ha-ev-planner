@@ -140,6 +140,24 @@ Flere biler bag én sikring: under *Fælles forsyning* sættes det, huset højst
 
 Under *Solen og husbatteriet* kan en bil lade på overskuddet fra solen: *Sol og plan* eller *Kun sol*.
 
+## Flere ladere og et sommerhus (beta)
+
+**Bilen finder selv sin lader.** Vælg *Findes hver gang* som bilens lader, når den bruger flere. Når en lader får en bil, finder EV Planner ud af hvilken: den bil, der er på laderens sted, siger den er tilsluttet, og ikke holder ved en anden lader. Det kræver laderens *Bil tilsluttet* og bilens *Tilsluttet* og *Hjemme*.
+
+- **En bil, der melder sig langsomt** (mange bilers sky spørger kun bilen hvert tiende minut): giv bilen en *Spørg bilen nu*-entitet, en knap eller et script, der får integrationen til at spørge bilen med det samme. Den bruges, når en lader har en bil, ingen har sagt hvilken, højst to gange for én tilslutning.
+- **To biler, det kan være:** laderens *Effekt nu* skiller dem ad, når den ene lader.
+- **Når det ikke kan afgøres,** får I et spørgsmål på telefonerne efter fem minutter (tolv, når ingen bil kunne spørges): hvilken bil, eller en gæst. Indtil da står laderen som *Ukendt bil* og bliver ladt i fred. I kan også svare på laderens side i panelet og rette det, EV Planner fandt.
+- **En lader uden sensor for tilsluttet bil** er bilens lader, når den er den eneste af slagsen på stedet.
+- En bil med sin egen lader beholder den. Intet ændrer sig, hvor hver bil har sin lader.
+
+**Steder.** Et sted med ladere ud over hjemmet, fx et sommerhus, tilføjes under integrationen (*Tilføj sted*): dets zone i Home Assistant og dets egen grænse og måler, hvis I vil. Vælg stedet i hver laders indstillinger. Bilen er på stedet, når dens placering viser zonen; den planlægges da på stedets forsyning. Billedet i Hjem-fanen er af hjemmet.
+
+**Laderen starter og stopper, bilen er backup.** En ny bil styres af laderen, når laderne har en kontakt, for en lader er oftere til at få fat i end en bil. Med *Den anden er backup* træder bilens egen kontakt til, når laderen ikke svarer (og omvendt). Det, der satte bilen på pause, starter den også igen.
+
+**Peblar (også de ladere, Peblar bygger for OK), Zaptec og andre.** Vælg laderens enhed, så udfyldes kontakt, strømgrænse, effekt, energimåler og status. Peblars lokale API skal være slået til, for at Home Assistant kan se laderen; uden det har laderen ingen entiteter, og bilens egen kontakt styrer opladningen. Peblar tåler tre pauser på ti minutter, så EV Planner venter med en start, når næste pause ville være én for meget; Zaptecs strøm sættes højst op hvert 15. minut (ned med det samme).
+
+**Deling efter behov.** Under *Fælles forsyning* kan *Deling mellem bilerne* sættes til *Efter behov*: når der ikke er plads til alle bilerne i en time, deles de om den efter de kWh, hver mangler, aldrig under 6 A til hver.
+
 ## Sådan passer den på bilen
 
 - Højst tolv kommandoer i timen til en bil eller lader; den sidste er gemt til et stop.

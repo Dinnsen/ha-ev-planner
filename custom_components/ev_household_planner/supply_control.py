@@ -14,6 +14,7 @@ car down, the car's measured speed falls and the next plan follows.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 from dataclasses import replace
 from datetime import datetime, timedelta
 import logging
@@ -35,11 +36,14 @@ from .const import (
     CONF_SUPPLY_METER,
     CONF_SUPPLY_PHASES,
     CONF_SUPPLY_RESERVE,
+    CONF_SUPPLY_SHARE,
     CONF_WEATHER_ENTITY,
     DEFAULT_SUPPLY_RESERVE,
     PRIORITY_FIRST,
     SET_MUST_SOC,
     SET_PRIORITY,
+    SHARE_NEED,
+    SHARE_QUEUE,
 )
 from .planner import PlanError, PriceSlot, charge_need, price_at
 from .supply import BUFFER, MIN_AMPS, HouseForecast, SharedCar, SupplyPlan, amps_for, cheap_hours, kw, plan_supply
@@ -47,6 +51,7 @@ from .vehicle import elapsed, to_float
 
 if TYPE_CHECKING:
     from .household import Household
+    from .pairing import Site
     from .vehicle import Vehicle
 
 _LOGGER = logging.getLogger(__name__)
@@ -54,6 +59,9 @@ _LOGGER = logging.getLogger(__name__)
 MAX_AMPS = 32.0
 # A car's current is changed at most this often, except to lower it.
 CURRENT_EVERY = timedelta(minutes=5)
+# Zaptec asks that its current is not changed more often than every 15 minutes (lowering it for the
+# house is still done at once).
+CURRENT_EVERY_BY = {"zaptec": timedelta(minutes=15)}
 # Easee: a current set through its cloud falls back by itself after this long, so a car is
 # not left at a low current if Home Assistant stops; it is sent again before that.
 EASEE_TTL_MINUTES = 30
@@ -80,10 +88,11 @@ HEAT_PUMP_AMPS = 3.0
 
 
 class SupplyControl:
-    """The shared supply of one household."""
+    """The shared supply of one place of a household: the home, or another place with chargers."""
 
-    def __init__(self, household: Household) -> None:
+    def __init__(self, household: Household, site: Site | None = None) -> None:
         self.household = household
+        self.site = site
         self.forecast = HouseForecast()
         self.plan: SupplyPlan | None = None
         self._hour: datetime | None = None
@@ -114,8 +123,27 @@ class SupplyControl:
     # Settings
 
     @property
+    def config(self) -> Mapping[str, Any]:
+        """The place's settings: the household's own for the home, the place's for another."""
+        if self.site is None or self.site.home:
+            return self.household.config
+        return self.site.data
+
+    def cars(self) -> list[Vehicle]:
+        """The cars at this place."""
+        if self.site is None:
+            return list(self.household.vehicles.values())
+        pairing = self.household.pairing
+        return [vehicle for vehicle in self.household.vehicles.values() if pairing.vehicle_site(vehicle) is self.site]
+
+    @property
+    def share(self) -> str:
+        value = self.config.get(CONF_SUPPLY_SHARE)
+        return SHARE_NEED if value == SHARE_NEED else SHARE_QUEUE
+
+    @property
     def limit(self) -> float:
-        return to_float(self.household.config.get(CONF_SUPPLY_LIMIT)) or 0.0
+        return to_float(self.config.get(CONF_SUPPLY_LIMIT)) or 0.0
 
     @property
     def active(self) -> bool:
@@ -123,21 +151,21 @@ class SupplyControl:
 
     @property
     def phases(self) -> int:
-        return 1 if str(self.household.config.get(CONF_SUPPLY_PHASES) or "3") == "1" else 3
+        return 1 if str(self.config.get(CONF_SUPPLY_PHASES) or "3") == "1" else 3
 
     @property
     def meters(self) -> list[str]:
-        value = self.household.config.get(CONF_SUPPLY_METER) or []
+        value = self.config.get(CONF_SUPPLY_METER) or []
         return [str(entity) for entity in (value if isinstance(value, list) else [value]) if entity]
 
     @property
     def guard(self) -> bool:
         """The guard is on, and has a meter to watch."""
-        return self.active and bool(self.household.config.get(CONF_SUPPLY_GUARD)) and bool(self.meters)
+        return self.active and bool(self.config.get(CONF_SUPPLY_GUARD)) and bool(self.meters)
 
     @property
     def reserve(self) -> float:
-        value = to_float(self.household.config.get(CONF_SUPPLY_RESERVE))
+        value = to_float(self.config.get(CONF_SUPPLY_RESERVE))
         return DEFAULT_SUPPLY_RESERVE if value is None else max(0.0, value)
 
     def current_entity(self, vehicle: Vehicle) -> str | None:
@@ -153,7 +181,7 @@ class SupplyControl:
     def cars_amps(self) -> float:
         """What the cars charging now draw per phase, from their power readings or the plan."""
         total = 0.0
-        for vehicle in self.household.vehicles.values():
+        for vehicle in self.cars():
             if not self.household.is_charging(vehicle):
                 continue
             reading = self.household.power_reading(vehicle)
@@ -212,7 +240,7 @@ class SupplyControl:
 
     @property
     def weather_entity(self) -> str | None:
-        value = self.household.config.get(CONF_WEATHER_ENTITY)
+        value = self.config.get(CONF_WEATHER_ENTITY)
         return str(value) if value else None
 
     @staticmethod
@@ -320,7 +348,7 @@ class SupplyControl:
         if not self.active:
             self.plan = None
             return
-        cars = [car for vehicle in self.household.vehicles.values() if (car := self.shared_car(vehicle, now))]
+        cars = [car for vehicle in self.cars() if (car := self.shared_car(vehicle, now))]
         if not cars:
             self.plan = None
             return
@@ -328,7 +356,9 @@ class SupplyControl:
         horizon = max(deadlines) if len(deadlines) == len(cars) else now + timedelta(hours=24)
         slots = [slot for slot in self.household.price_slots(now) if slot.start < horizon]
         cheap = cheap_hours(slots)
-        self.plan = plan_supply(slots, cars, now, limit=self.limit, house=lambda slot: self.house_at(slot, cheap))
+        self.plan = plan_supply(
+            slots, cars, now, limit=self.limit, house=lambda slot: self.house_at(slot, cheap), share=self.share
+        )
         for car in cars:
             vehicle = self.household.vehicles[car.vehicle_id]
             if vehicle.plan is None:
@@ -372,12 +402,12 @@ class SupplyControl:
 
     @property
     def heat_pump_power(self) -> str | None:
-        value = self.household.config.get(CONF_HEAT_PUMP_POWER)
+        value = self.config.get(CONF_HEAT_PUMP_POWER)
         return str(value) if value else None
 
     @property
     def heat_pump_block(self) -> str | None:
-        value = self.household.config.get(CONF_HEAT_PUMP_BLOCK)
+        value = self.config.get(CONF_HEAT_PUMP_BLOCK)
         return str(value) if value else None
 
     def heat_pump_kw(self) -> float | None:
@@ -446,6 +476,11 @@ class SupplyControl:
             return False
         return True
 
+    def _raise_every(self, entity: str) -> timedelta:
+        """How often the current behind ``entity`` may be raised."""
+        entry = er.async_get(self.hass).async_get(entity)
+        return CURRENT_EVERY_BY.get(entry.platform, CURRENT_EVERY) if entry is not None else CURRENT_EVERY
+
     def _easee_device(self, entity: str) -> str | None:
         """The Easee charger behind ``entity``, when it belongs to the Easee integration."""
         entry = er.async_get(self.hass).async_get(entity)
@@ -498,7 +533,7 @@ class SupplyControl:
         """Tell each car with a current setting how many amps its share is now."""
         if self.plan is None:
             return
-        for vehicle in self.household.vehicles.values():
+        for vehicle in self.cars():
             entity = self.current_entity(vehicle)
             amps = self.plan.amps_at(vehicle.vehicle_id, now)
             if entity is None or amps is None or amps <= 0:
@@ -525,7 +560,9 @@ class SupplyControl:
             if (
                 last is not None
                 and not renew
-                and (abs(last[0] - value) < 1 or (value > last[0] and elapsed(now, last[1]) < CURRENT_EVERY))
+                and (
+                    abs(last[0] - value) < 1 or (value > last[0] and elapsed(now, last[1]) < self._raise_every(entity))
+                )
             ):
                 continue
             if not easee and not renew and to_float(self.hass.states.get(entity).state) == value:  # type: ignore[union-attr]
@@ -599,7 +636,7 @@ class SupplyControl:
         charging = sorted(
             (
                 vehicle
-                for vehicle in self.household.vehicles.values()
+                for vehicle in self.cars()
                 if self.household.is_charging(vehicle) and vehicle.vehicle_id not in self._paused
             ),
             key=lambda vehicle: (
@@ -684,7 +721,7 @@ class SupplyControl:
     def cars_now(self) -> dict[str, float]:
         """What each car charging now draws per phase, from its power reading (for the energy flow)."""
         out: dict[str, float] = {}
-        for vehicle in self.household.vehicles.values():
+        for vehicle in self.cars():
             reading = self.household.power_reading(vehicle)
             if reading is not None and reading > 0 and self.household.is_charging(vehicle):
                 out[vehicle.vehicle_id] = round(amps_for(reading, self.phases), 1)

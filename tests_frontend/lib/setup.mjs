@@ -16,7 +16,7 @@ export const FAILURES = join(HERE, "failures");
 
 export const PHONE = { width: 390, height: 844 };
 export const DESKTOP = { width: 1280, height: 800 };
-export const FIXTURES = ["empty", "two-cars", "shared-supply", "guest-charging", "trouble"];
+export const FIXTURES = ["empty", "two-cars", "two-chargers", "shared-supply", "guest-charging", "trouble"];
 
 export function fixture(name) {
   return JSON.parse(readFileSync(join(HERE, "fixtures", `${name}.json`), "utf8"));

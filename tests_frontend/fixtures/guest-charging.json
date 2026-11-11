@@ -204,6 +204,10 @@
       "control_source": "car",
       "control_error": null,
       "problem": false,
+      "paused_by": null,
+      "control_backup": false,
+      "finds_charger": false,
+      "site": "home",
       "mode": "smart",
       "soc": 52,
       "soc_source": "sensor",
@@ -544,6 +548,12 @@
       "connected": true,
       "has_switch": true,
       "has_meter": false,
+      "site": "home",
+      "occupant": null,
+      "found_by": null,
+      "unknown": false,
+      "choices": [],
+      "has_plug_sensor": true,
       "image": null,
       "image_original": null,
       "model": "zaptec_go",
@@ -551,6 +561,7 @@
       "style": "slim"
     }
   ],
+  "sites": [],
   "guest": {
     "status": "charging",
     "error": null,
