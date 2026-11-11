@@ -52,8 +52,13 @@ jobs:
         run: |
           set -o pipefail
           version=$(python3 -c "import json; print(json.load(open('custom_components/ev_household_planner/manifest.json'))['version'])")
+          set +e
           SIM_VERSION="$version ($(git rev-parse --short HEAD))" SIM_OUT="$RUNNER_TEMP/current.jsonl" \
-            pytest sim -n 4 -p no:cacheprovider -q --tb=short -rfE 2>&1 | grep -v "asyncio" | tail -80
+            pytest sim -n 4 -p no:cacheprovider -q --tb=short -rfE 2>&1 | grep -v "asyncio" | tee "$RUNNER_TEMP/sim.log" | tail -80
+          status=${PIPESTATUS[0]}
+          # Each night that broke a rule, where it can be read without opening the log.
+          grep -E "^(FAILED|ERROR) " "$RUNNER_TEMP/sim.log" | head -30 | sed 's/^/::error::/'
+          exit "$status"
 
       - name: 2.0.1, for comparison
         if: ${{ !cancelled() }}
