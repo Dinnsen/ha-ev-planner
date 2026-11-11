@@ -345,8 +345,8 @@ async def test_at_the_summer_house_the_car_is_at_the_charger_there_on_its_own_su
     assert shares and all(6 <= amps <= 8 for _start, _end, amps in shares)
     assert household.supply.plan is None
     state = panel_state(hass, household)
-    assert state["sites"][0]["name"] == "Sommerhus"
-    assert state["sites"][0]["supply"]["limit"] == 10
+    assert [(site["name"], site["home"]) for site in state["sites"]] == [("Home", True), ("Sommerhus", False)]
+    assert state["sites"][1]["supply"]["limit"] == 10
     assert next(c for c in state["chargers"] if c["id"] == CABIN)["site"] == SUMMER
 
     # Gone from the summer house: the charger is free.
@@ -500,11 +500,18 @@ async def test_add_a_place_and_put_a_charger_there(hass: HomeAssistant, init_int
     assert result["type"] is FlowResultType.FORM
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
-        {"name": "Sommerhus", "zone": "zone.sommerhus", "supply_limit": 13, "supply_phases": "3", "supply_meter": []},
+        {
+            "name": "Sommerhus",
+            "zone": "zone.sommerhus",
+            "supply": {"supply_limit": 13, "supply_phases": "3", "supply_meter": []},
+            "grid": {},
+        },
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
-    site = next(sub for sub in init_integration.subentries.values() if sub.subentry_type == "site")
+    site = next(
+        sub for sub in init_integration.subentries.values() if sub.subentry_type == "site" and not sub.data.get("home")
+    )
     assert site.title == "Sommerhus"
     assert site.data["zone"] == "zone.sommerhus" and site.data["supply_limit"] == 13
 

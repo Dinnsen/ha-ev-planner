@@ -4643,7 +4643,7 @@ class EvPlannerPanel extends HTMLElement {
 
   /* The place a charger is at, when it is not the home. */
   _chargerSite(c) {
-    return (this._state?.sites || []).find((site) => site.id === c.site)?.name || "";
+    return (this._state?.sites || []).find((site) => site.id === c.site && !site.home)?.name || "";
   }
 
   /* On a charger's page: who is at it, and the cars it can be when EV Planner got it wrong or cannot tell. */
@@ -6410,7 +6410,7 @@ class EvPlannerPanel extends HTMLElement {
     let shared = "";
     if (supply) shared = this._supplyHtml(supply);
     // The household's other places, each with its own supply.
-    for (const site of this._state.sites || []) if (site.supply) shared += this._supplyHtml(site.supply, site);
+    for (const site of this._state.sites || []) if (site.supply && !site.home) shared += this._supplyHtml(site.supply, site);
     return `<div class="home-page">${scene}${now}</section>${tonight}${shared}${today}${chargers}</div>`;
   }
 

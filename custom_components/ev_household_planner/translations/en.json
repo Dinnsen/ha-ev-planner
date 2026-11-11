@@ -79,64 +79,7 @@
           "update_widgets": "Ask the iOS companion app to refresh its widgets when a car's status changes (at most every 15 minutes).",
           "price_add": "An amount per kWh added to the price sensor's prices, e.g. tariffs and taxes when the sensor only has the spot price. 0 when the sensor has the full price."
         },
-        "sections": {
-          "supply": {
-            "name": "Shared supply (beta)",
-            "description": "Several cars behind one fuse: EV Planner plans them together under the limit, the house first. It does not protect the fuse; your charger's own load balancing does that.",
-            "data": {
-              "supply_limit": "Limit per phase",
-              "supply_phases": "Phases",
-              "supply_meter": "Meter: current per phase",
-              "supply_reserve": "The house without a meter",
-              "supply_guard": "Guard: turn the cars down at once",
-              "weather_entity": "Weather",
-              "heat_pump_power": "Heat pump: power",
-              "heat_pump_block": "Heat pump: hold back",
-              "supply_share": "Sharing between the cars"
-            },
-            "data_description": {
-              "supply_limit": "The most the house may draw per phase, e.g. 23 A on a 25 A supply, or the circuit the chargers share. 0 turns it off.",
-              "supply_phases": "How many phases the supply and the cars charge on.",
-              "supply_meter": "Current sensors (A) for the phases, e.g. from a HAN/P1 reader, a Shelly EM or an Equalizer. EV Planner learns what the house draws hour by hour.",
-              "supply_reserve": "Without a meter: what the house is expected to draw per phase.",
-              "supply_guard": "When the meter shows more than the limit, lower the cars right away (the last in line first) and raise them again after a few minutes. Not a fuse: leave it off if an Equalizer or the charger already balances the load.",
-              "weather_entity": "A weather entity with an hourly forecast. EV Planner learns how much more the house draws when it is cold, and counts on the night's temperature.",
-              "heat_pump_power": "The heat pump's power (W or kW). Shown in the Home tab.",
-              "heat_pump_block": "A switch that holds the heat pump back while it is on (SG Ready or a blocking contact). When there is not enough current, EV Planner turns it on for at most 15 minutes, at most twice a night, before a car is stopped.",
-              "supply_share": "When there is not room for all the cars in an hour. In line: the car that must be ready first takes what it needs, the next takes the rest. By need: they share by the kWh each lacks, never less than 6 A each."
-            }
-          },
-          "solar": {
-            "name": "The sun and the home battery (beta)",
-            "description": "Cars set to charge on the sun take what the house sends to the grid. Needs a sensor for the power to and from the grid.",
-            "data": {
-              "grid_power": "Grid power",
-              "grid_power_inverted": "The grid sensor is negative when the house buys",
-              "solar_power": "Solar power",
-              "battery_soc": "Home battery level",
-              "battery_power": "Home battery power",
-              "battery_power_inverted": "The battery sensor is negative when it charges",
-              "battery_first_until": "The home battery first, up to",
-              "battery_hold": "Hold the home battery",
-              "solar_forecast": "Use the solar forecast",
-              "export_price": "Price for electricity you sell",
-              "export_price_entity": "Sensor with the price you sell at"
-            },
-            "data_description": {
-              "grid_power": "W or kW, positive when the house buys from the grid and negative when it sends to it (a HAN/P1 reader or the inverter).",
-              "grid_power_inverted": "Turn on if your sensor shows it the other way round.",
-              "solar_power": "Optional: what the panels make, for the Home tab.",
-              "battery_soc": "Optional: the home battery's charge level.",
-              "battery_power": "Optional: positive when the battery charges, negative when it gives.",
-              "battery_power_inverted": "Turn on if your sensor shows it the other way round.",
-              "battery_first_until": "Below this level the home battery keeps the sun it takes; above it the cars may have it. 100 %: the battery always first.",
-              "battery_hold": "Optional: a switch that stops the home battery from discharging. EV Planner turns it on while a car charges from the grid, so the battery does not empty itself into the car.",
-              "solar_forecast": "With a solar forecast in the Energy dashboard (Forecast.Solar, Solcast), a car set to Sun and plan buys less at night when the next day looks sunny enough before its ready-by time.",
-              "export_price": "What a kWh sent to the grid pays. A kWh of the sun in a car then costs that much in the history, as it was not sold. 0: the sun is counted as free.",
-              "export_price_entity": "A sensor with the price per kWh right now. Used before the fixed price."
-            }
-          }
-        }
+        "description": "What is the whole household's. The supply, the sun, a home battery and a heat pump belong to a place: change the place, or add them as parts, under the integration."
       }
     }
   },
@@ -403,55 +346,241 @@
       "step": {
         "user": {
           "title": "Add place",
-          "description": "A place with chargers besides your home, a summer house say. It has its own supply, so a car that charges there does not count on the supply at home. Afterwards, choose the place in each charger's settings.",
+          "description": "A place with chargers besides your home, a summer house say. It has its own supply, so a car that charges there does not count on the supply at home. Afterwards, choose the place in each charger's settings, and add its solar panels, home battery and heat pump as parts of their own.",
           "data": {
             "name": "Name",
-            "zone": "Zone",
-            "supply_limit": "Limit per phase",
-            "supply_phases": "Phases",
-            "supply_meter": "Meter: current per phase",
-            "supply_reserve": "The house without a meter",
-            "supply_guard": "Guard: turn the cars down at once",
-            "supply_share": "Sharing between the cars",
-            "weather_entity": "Weather"
+            "zone": "Zone"
           },
           "data_description": {
             "name": "For example Summer house.",
-            "zone": "The zone in Home Assistant the cars are in when they are here. A car is at this place when its location entity shows this zone.",
-            "supply_limit": "The most the house may draw per phase, e.g. 23 A on a 25 A supply, or the circuit the chargers share. 0 turns it off.",
-            "supply_phases": "How many phases the supply and the cars charge on.",
-            "supply_meter": "Current sensors (A) for the phases, e.g. from a HAN/P1 reader, a Shelly EM or an Equalizer. EV Planner learns what the house draws hour by hour.",
-            "supply_reserve": "Without a meter: what the house is expected to draw per phase.",
-            "supply_guard": "When the meter shows more than the limit, lower the cars right away (the last in line first) and raise them again after a few minutes. Not a fuse: leave it off if an Equalizer or the charger already balances the load.",
-            "supply_share": "When there is not room for all the cars in an hour. In line: the car that must be ready first takes what it needs, the next takes the rest. By need: they share by the kWh each lacks, never less than 6 A each.",
-            "weather_entity": "A weather entity with an hourly forecast. EV Planner learns how much more the house draws when it is cold, and counts on the night's temperature."
+            "zone": "The zone in Home Assistant the cars are in when they are here. A car is at this place when its location entity shows this zone."
+          },
+          "sections": {
+            "supply": {
+              "name": "Shared supply (beta)",
+              "data": {
+                "supply_limit": "Limit per phase",
+                "supply_phases": "Phases",
+                "supply_meter": "Meter: current per phase",
+                "supply_reserve": "The house without a meter",
+                "supply_guard": "Guard: turn the cars down at once",
+                "supply_share": "Sharing between the cars",
+                "weather_entity": "Weather"
+              },
+              "data_description": {
+                "supply_limit": "The most the house may draw per phase, e.g. 23 A on a 25 A supply, or the circuit the chargers share. 0 turns it off.",
+                "supply_phases": "How many phases the supply and the cars charge on.",
+                "supply_meter": "Current sensors (A) for the phases, e.g. from a HAN/P1 reader, a Shelly EM or an Equalizer. EV Planner learns what the house draws hour by hour.",
+                "supply_reserve": "Without a meter: what the house is expected to draw per phase.",
+                "supply_guard": "When the meter shows more than the limit, lower the cars right away (the last in line first) and raise them again after a few minutes. Not a fuse: leave it off if an Equalizer or the charger already balances the load.",
+                "supply_share": "When there is not room for all the cars in an hour. In line: the car that must be ready first takes what it needs, the next takes the rest. By need: they share by the kWh each lacks, never less than 6 A each.",
+                "weather_entity": "A weather entity with an hourly forecast. EV Planner learns how much more the house draws when it is cold, and counts on the night's temperature."
+              }
+            },
+            "grid": {
+              "name": "The grid, for charging on the sun (beta)",
+              "description": "With a sensor for the power to and from the grid, a car can charge on what the place would otherwise sell.",
+              "data": {
+                "grid_power": "Grid power",
+                "grid_power_inverted": "The grid sensor is negative when the house buys",
+                "export_price": "Price for electricity you sell",
+                "export_price_entity": "Sensor with the price you sell at"
+              },
+              "data_description": {
+                "grid_power": "W or kW, positive when the house buys from the grid and negative when it sends to it (a HAN/P1 reader or the inverter).",
+                "grid_power_inverted": "Turn on if your sensor shows it the other way round.",
+                "export_price": "What a kWh sent to the grid pays. A kWh of the sun in a car then costs that much in the history, as it was not sold. 0: the sun is counted as free.",
+                "export_price_entity": "A sensor with the price per kWh right now. Used before the fixed price."
+              }
+            }
           }
         },
         "reconfigure": {
           "title": "Change place",
+          "description": "The place's supply, and its meter to the grid. Solar panels, a home battery and a heat pump are parts of their own: add them under the integration and choose this place.",
           "data": {
             "name": "Name",
-            "zone": "Zone",
-            "supply_limit": "Limit per phase",
-            "supply_phases": "Phases",
-            "supply_meter": "Meter: current per phase",
-            "supply_reserve": "The house without a meter",
-            "supply_guard": "Guard: turn the cars down at once",
-            "supply_share": "Sharing between the cars",
-            "weather_entity": "Weather"
+            "zone": "Zone"
           },
           "data_description": {
             "name": "For example Summer house.",
-            "zone": "The zone in Home Assistant the cars are in when they are here. A car is at this place when its location entity shows this zone.",
-            "supply_limit": "The most the house may draw per phase, e.g. 23 A on a 25 A supply, or the circuit the chargers share. 0 turns it off.",
-            "supply_phases": "How many phases the supply and the cars charge on.",
-            "supply_meter": "Current sensors (A) for the phases, e.g. from a HAN/P1 reader, a Shelly EM or an Equalizer. EV Planner learns what the house draws hour by hour.",
-            "supply_reserve": "Without a meter: what the house is expected to draw per phase.",
-            "supply_guard": "When the meter shows more than the limit, lower the cars right away (the last in line first) and raise them again after a few minutes. Not a fuse: leave it off if an Equalizer or the charger already balances the load.",
-            "supply_share": "When there is not room for all the cars in an hour. In line: the car that must be ready first takes what it needs, the next takes the rest. By need: they share by the kWh each lacks, never less than 6 A each.",
-            "weather_entity": "A weather entity with an hourly forecast. EV Planner learns how much more the house draws when it is cold, and counts on the night's temperature."
+            "zone": "The zone in Home Assistant the cars are in when they are here. A car is at this place when its location entity shows this zone."
+          },
+          "sections": {
+            "supply": {
+              "name": "Shared supply (beta)",
+              "data": {
+                "supply_limit": "Limit per phase",
+                "supply_phases": "Phases",
+                "supply_meter": "Meter: current per phase",
+                "supply_reserve": "The house without a meter",
+                "supply_guard": "Guard: turn the cars down at once",
+                "supply_share": "Sharing between the cars",
+                "weather_entity": "Weather"
+              },
+              "data_description": {
+                "supply_limit": "The most the house may draw per phase, e.g. 23 A on a 25 A supply, or the circuit the chargers share. 0 turns it off.",
+                "supply_phases": "How many phases the supply and the cars charge on.",
+                "supply_meter": "Current sensors (A) for the phases, e.g. from a HAN/P1 reader, a Shelly EM or an Equalizer. EV Planner learns what the house draws hour by hour.",
+                "supply_reserve": "Without a meter: what the house is expected to draw per phase.",
+                "supply_guard": "When the meter shows more than the limit, lower the cars right away (the last in line first) and raise them again after a few minutes. Not a fuse: leave it off if an Equalizer or the charger already balances the load.",
+                "supply_share": "When there is not room for all the cars in an hour. In line: the car that must be ready first takes what it needs, the next takes the rest. By need: they share by the kWh each lacks, never less than 6 A each.",
+                "weather_entity": "A weather entity with an hourly forecast. EV Planner learns how much more the house draws when it is cold, and counts on the night's temperature."
+              }
+            },
+            "grid": {
+              "name": "The grid, for charging on the sun (beta)",
+              "description": "With a sensor for the power to and from the grid, a car can charge on what the place would otherwise sell.",
+              "data": {
+                "grid_power": "Grid power",
+                "grid_power_inverted": "The grid sensor is negative when the house buys",
+                "export_price": "Price for electricity you sell",
+                "export_price_entity": "Sensor with the price you sell at"
+              },
+              "data_description": {
+                "grid_power": "W or kW, positive when the house buys from the grid and negative when it sends to it (a HAN/P1 reader or the inverter).",
+                "grid_power_inverted": "Turn on if your sensor shows it the other way round.",
+                "export_price": "What a kWh sent to the grid pays. A kWh of the sun in a car then costs that much in the history, as it was not sold. 0: the sun is counted as free.",
+                "export_price_entity": "A sensor with the price per kWh right now. Used before the fixed price."
+              }
+            }
           }
         }
+      }
+    },
+    "solar": {
+      "entry_type": "Solar panels",
+      "initiate_flow": {
+        "user": "Add solar panels",
+        "reconfigure": "Change solar panels"
+      },
+      "step": {
+        "user": {
+          "title": "Add solar panels",
+          "data": {
+            "name": "Name",
+            "site": "Place",
+            "solar_power": "Solar power",
+            "solar_forecast": "Use the solar forecast"
+          },
+          "data_description": {
+            "site": "The place it is at.",
+            "solar_power": "Optional: what the panels make, for the Home tab.",
+            "solar_forecast": "With a solar forecast in the Energy dashboard (Forecast.Solar, Solcast), a car set to Sun and plan buys less at night when the next day looks sunny enough before its ready-by time."
+          },
+          "description": "The sun on a place's roof. A car can then charge on the surplus; choose that on the car (Sun and plan, or Only sun). The place's meter to the grid is set on the place."
+        },
+        "reconfigure": {
+          "title": "Change solar panels",
+          "data": {
+            "name": "Name",
+            "site": "Place",
+            "solar_power": "Solar power",
+            "solar_forecast": "Use the solar forecast"
+          },
+          "data_description": {
+            "site": "The place it is at.",
+            "solar_power": "Optional: what the panels make, for the Home tab.",
+            "solar_forecast": "With a solar forecast in the Energy dashboard (Forecast.Solar, Solcast), a car set to Sun and plan buys less at night when the next day looks sunny enough before its ready-by time."
+          }
+        }
+      },
+      "error": {
+        "already_there": "The place already has one. Change that one instead."
+      }
+    },
+    "battery": {
+      "entry_type": "Home battery",
+      "initiate_flow": {
+        "user": "Add home battery",
+        "reconfigure": "Change home battery"
+      },
+      "step": {
+        "user": {
+          "title": "Add home battery",
+          "data": {
+            "name": "Name",
+            "site": "Place",
+            "battery_soc": "Home battery level",
+            "battery_power": "Home battery power",
+            "battery_power_inverted": "The battery sensor is negative when it charges",
+            "battery_first_until": "The home battery first, up to",
+            "battery_hold": "Hold the home battery"
+          },
+          "data_description": {
+            "site": "The place it is at.",
+            "battery_soc": "Optional: the home battery's charge level.",
+            "battery_power": "Optional: positive when the battery charges, negative when it gives.",
+            "battery_power_inverted": "Turn on if your sensor shows it the other way round.",
+            "battery_first_until": "Below this level the home battery keeps the sun it takes; above it the cars may have it. 100 %: the battery always first.",
+            "battery_hold": "Optional: a switch that stops the home battery from discharging. EV Planner turns it on while a car charges from the grid, so the battery does not empty itself into the car."
+          },
+          "description": "A home battery at a place. EV Planner lets it fill first, and can hold it while a car charges from the grid."
+        },
+        "reconfigure": {
+          "title": "Change home battery",
+          "data": {
+            "name": "Name",
+            "site": "Place",
+            "battery_soc": "Home battery level",
+            "battery_power": "Home battery power",
+            "battery_power_inverted": "The battery sensor is negative when it charges",
+            "battery_first_until": "The home battery first, up to",
+            "battery_hold": "Hold the home battery"
+          },
+          "data_description": {
+            "site": "The place it is at.",
+            "battery_soc": "Optional: the home battery's charge level.",
+            "battery_power": "Optional: positive when the battery charges, negative when it gives.",
+            "battery_power_inverted": "Turn on if your sensor shows it the other way round.",
+            "battery_first_until": "Below this level the home battery keeps the sun it takes; above it the cars may have it. 100 %: the battery always first.",
+            "battery_hold": "Optional: a switch that stops the home battery from discharging. EV Planner turns it on while a car charges from the grid, so the battery does not empty itself into the car."
+          }
+        }
+      },
+      "error": {
+        "already_there": "The place already has one. Change that one instead."
+      }
+    },
+    "heat_pump": {
+      "entry_type": "Heat pump",
+      "initiate_flow": {
+        "user": "Add heat pump",
+        "reconfigure": "Change heat pump"
+      },
+      "step": {
+        "user": {
+          "title": "Add heat pump",
+          "data": {
+            "name": "Name",
+            "site": "Place",
+            "heat_pump_power": "Heat pump: power",
+            "heat_pump_block": "Heat pump: hold back"
+          },
+          "data_description": {
+            "site": "The place it is at.",
+            "heat_pump_power": "The heat pump's power (W or kW). Shown in the Home tab.",
+            "heat_pump_block": "A switch that holds the heat pump back while it is on (SG Ready or a blocking contact). When there is not enough current, EV Planner turns it on for at most 15 minutes, at most twice a night, before a car is stopped."
+          },
+          "description": "A heat pump at a place. Its power is shown in the Home tab; with a switch that holds it back, the guard holds it back for a short while before it stops a car."
+        },
+        "reconfigure": {
+          "title": "Change heat pump",
+          "data": {
+            "name": "Name",
+            "site": "Place",
+            "heat_pump_power": "Heat pump: power",
+            "heat_pump_block": "Heat pump: hold back"
+          },
+          "data_description": {
+            "site": "The place it is at.",
+            "heat_pump_power": "The heat pump's power (W or kW). Shown in the Home tab.",
+            "heat_pump_block": "A switch that holds the heat pump back while it is on (SG Ready or a blocking contact). When there is not enough current, EV Planner turns it on for at most 15 minutes, at most twice a night, before a car is stopped."
+          }
+        }
+      },
+      "error": {
+        "already_there": "The place already has one. Change that one instead."
       }
     }
   },

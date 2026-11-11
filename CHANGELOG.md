@@ -2,6 +2,15 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.3.0b10] - 2026-11-11
+
+Beta: only those who show beta versions in the Marketplace get it.
+
+### Changed
+- **The home is a place, and the sun, a home battery and a heat pump are parts of their own.** What was one long form under *Configure* is now added under the integration, like cars and chargers: places (*Home*, and say a *Vacation house*), each with its supply and its meter to the grid, and solar panels, a home battery and a heat pump, each at a place. *Configure* keeps what is the whole household's: currency, notifications and what is added to every price.
+- **Your settings are moved for you.** The first time this version starts, your home becomes the place *Home* with your supply and grid settings, and your solar panels, home battery and heat pump become parts of it. Nothing has to be set again, and no entity changes.
+- **A summer house can have its own sun, home battery and heat pump.** A car there charges on that place's surplus, and its energy is counted at that place's price for what it sells.
+
 ## [2.3.0b9] - 2026-11-11
 
 Beta: only those who show beta versions in the Marketplace get it.

@@ -79,64 +79,7 @@
           "update_widgets": "Bed iOS companion-appen om at opdatere sine widgets, når en bils status ændres (højst hvert 15. minut).",
           "price_add": "Et beløb pr. kWh, der lægges til prissensorens priser, fx tariffer og afgifter når sensoren kun har spotprisen. 0 når sensoren har den fulde pris."
         },
-        "sections": {
-          "supply": {
-            "name": "Fælles forsyning (beta)",
-            "description": "Flere biler bag én sikring: EV Planner planlægger dem sammen under grænsen, og huset kommer først. Den beskytter ikke sikringen; det gør laderens egen lastbalancering.",
-            "data": {
-              "supply_limit": "Grænse pr. fase",
-              "supply_phases": "Faser",
-              "supply_meter": "Måler: strøm pr. fase",
-              "supply_reserve": "Huset uden måler",
-              "supply_guard": "Vagt: skru bilerne ned med det samme",
-              "weather_entity": "Vejret",
-              "heat_pump_power": "Varmepumpe: effekt",
-              "heat_pump_block": "Varmepumpe: hold tilbage",
-              "supply_share": "Deling mellem bilerne"
-            },
-            "data_description": {
-              "supply_limit": "Det mest, huset må trække pr. fase, fx 23 A på en 25 A stikledning, eller det kredsløb laderne deler. 0 slår det fra.",
-              "supply_phases": "Hvor mange faser forsyningen og bilerne lader på.",
-              "supply_meter": "Strømsensorer (A) for faserne, fx fra en HAN/P1-læser, en Shelly EM eller en Equalizer. EV Planner lærer, hvad huset trækker time for time.",
-              "supply_reserve": "Uden måler: hvad huset forventes at trække pr. fase.",
-              "supply_guard": "Når måleren viser mere end grænsen, sætter EV Planner bilerne ned med det samme (den bagerste i køen først) og op igen efter et par minutter. Ikke en sikring: lad den være slået fra, hvis en Equalizer eller laderen selv fordeler strømmen.",
-              "weather_entity": "En vejr-enhed med timeprognose. EV Planner lærer, hvor meget mere huset bruger, når det er koldt, og regner med nattens temperatur.",
-              "heat_pump_power": "Varmepumpens effekt (W eller kW). Vises i fanen Hjem.",
-              "heat_pump_block": "En kontakt, der holder varmepumpen tilbage, når den er tændt (SG Ready eller spærring). Når der ikke er strøm nok, slår EV Planner den til i højst 15 minutter, højst to gange om natten, før en bil bliver stoppet.",
-              "supply_share": "Når der ikke er plads til alle bilerne i en time. I kø: bilen, der skal være klar først, tager, hvad den skal bruge, og den næste får resten. Efter behov: de deles efter de kWh, hver mangler, aldrig under 6 A til hver."
-            }
-          },
-          "solar": {
-            "name": "Solen og husbatteriet (beta)",
-            "description": "Biler, der er sat til at lade på solen, tager det, huset sender ud på nettet. Kræver en sensor for strømmen til og fra nettet.",
-            "data": {
-              "grid_power": "Effekt til/fra nettet",
-              "grid_power_inverted": "Netsensoren er negativ, når huset køber",
-              "solar_power": "Solcellernes effekt",
-              "battery_soc": "Husbatteriets niveau",
-              "battery_power": "Husbatteriets effekt",
-              "battery_power_inverted": "Batterisensoren er negativ, når det lader",
-              "battery_first_until": "Husbatteriet først, op til",
-              "battery_hold": "Hold husbatteriet",
-              "solar_forecast": "Brug solprognosen",
-              "export_price": "Pris for strøm du sælger",
-              "export_price_entity": "Sensor med din salgspris"
-            },
-            "data_description": {
-              "grid_power": "W eller kW, positiv når huset køber fra nettet og negativ når det sender ud (en HAN/P1-læser eller inverteren).",
-              "grid_power_inverted": "Slå til, hvis din sensor viser det omvendt.",
-              "solar_power": "Valgfri: hvad panelerne laver, til fanen Hjem.",
-              "battery_soc": "Valgfri: husbatteriets ladeniveau.",
-              "battery_power": "Valgfri: positiv når batteriet lader, negativ når det afgiver.",
-              "battery_power_inverted": "Slå til, hvis din sensor viser det omvendt.",
-              "battery_first_until": "Under dette niveau beholder husbatteriet den sol, det tager; over det må bilerne få den. 100 %: batteriet altid først.",
-              "battery_hold": "Valgfri: en kontakt, der stopper husbatteriet i at aflade. EV Planner slår den til, mens en bil lader fra nettet, så batteriet ikke tømmer sig over i bilen.",
-              "solar_forecast": "Med en solprognose i Energi-dashboardet (Forecast.Solar, Solcast) køber en bil med Sol og plan mindre om natten, når næste dag ser sol nok ud før klar-tiden.",
-              "export_price": "Hvad en kWh sendt til nettet giver. En kWh fra solen i en bil koster så det i historikken, fordi den ikke blev solgt. 0: solen regnes som gratis.",
-              "export_price_entity": "En sensor med prisen pr. kWh lige nu. Bruges før den faste pris."
-            }
-          }
-        }
+        "description": "Det, der er hele husstandens. Forsyning, sol, husbatteri og varmepumpe hører til et sted: ret stedet, eller tilføj dem som dele, under integrationen."
       }
     }
   },
@@ -403,55 +346,241 @@
       "step": {
         "user": {
           "title": "Tilføj sted",
-          "description": "Et sted med ladere ud over hjemmet, fx et sommerhus. Det har sin egen forsyning, så en bil, der lader dér, ikke tæller med på forsyningen derhjemme. Vælg bagefter stedet i hver laders indstillinger.",
+          "description": "Et sted med ladere ud over hjemmet, fx et sommerhus. Det har sin egen forsyning, så en bil, der lader dér, ikke tæller med på forsyningen derhjemme. Vælg bagefter stedet i hver laders indstillinger, og tilføj stedets solceller, husbatteri og varmepumpe som dele for sig.",
           "data": {
             "name": "Navn",
-            "zone": "Zone",
-            "supply_limit": "Grænse pr. fase",
-            "supply_phases": "Faser",
-            "supply_meter": "Måler: strøm pr. fase",
-            "supply_reserve": "Huset uden måler",
-            "supply_guard": "Vagt: skru bilerne ned med det samme",
-            "supply_share": "Deling mellem bilerne",
-            "weather_entity": "Vejret"
+            "zone": "Zone"
           },
           "data_description": {
             "name": "Fx Sommerhus.",
-            "zone": "Zonen i Home Assistant, som bilerne er i, når de er her. En bil er på dette sted, når dens placering viser denne zone.",
-            "supply_limit": "Det mest, huset må trække pr. fase, fx 23 A på en 25 A stikledning, eller det kredsløb laderne deler. 0 slår det fra.",
-            "supply_phases": "Hvor mange faser forsyningen og bilerne lader på.",
-            "supply_meter": "Strømsensorer (A) for faserne, fx fra en HAN/P1-læser, en Shelly EM eller en Equalizer. EV Planner lærer, hvad huset trækker time for time.",
-            "supply_reserve": "Uden måler: hvad huset forventes at trække pr. fase.",
-            "supply_guard": "Når måleren viser mere end grænsen, sætter EV Planner bilerne ned med det samme (den bagerste i køen først) og op igen efter et par minutter. Ikke en sikring: lad den være slået fra, hvis en Equalizer eller laderen selv fordeler strømmen.",
-            "supply_share": "Når der ikke er plads til alle bilerne i en time. I kø: bilen, der skal være klar først, tager, hvad den skal bruge, og den næste får resten. Efter behov: de deles efter de kWh, hver mangler, aldrig under 6 A til hver.",
-            "weather_entity": "En vejr-enhed med timeprognose. EV Planner lærer, hvor meget mere huset bruger, når det er koldt, og regner med nattens temperatur."
+            "zone": "Zonen i Home Assistant, som bilerne er i, når de er her. En bil er på dette sted, når dens placering viser denne zone."
+          },
+          "sections": {
+            "supply": {
+              "name": "Fælles forsyning (beta)",
+              "data": {
+                "supply_limit": "Grænse pr. fase",
+                "supply_phases": "Faser",
+                "supply_meter": "Måler: strøm pr. fase",
+                "supply_reserve": "Huset uden måler",
+                "supply_guard": "Vagt: skru bilerne ned med det samme",
+                "supply_share": "Deling mellem bilerne",
+                "weather_entity": "Vejret"
+              },
+              "data_description": {
+                "supply_limit": "Det mest, huset må trække pr. fase, fx 23 A på en 25 A stikledning, eller det kredsløb laderne deler. 0 slår det fra.",
+                "supply_phases": "Hvor mange faser forsyningen og bilerne lader på.",
+                "supply_meter": "Strømsensorer (A) for faserne, fx fra en HAN/P1-læser, en Shelly EM eller en Equalizer. EV Planner lærer, hvad huset trækker time for time.",
+                "supply_reserve": "Uden måler: hvad huset forventes at trække pr. fase.",
+                "supply_guard": "Når måleren viser mere end grænsen, sætter EV Planner bilerne ned med det samme (den bagerste i køen først) og op igen efter et par minutter. Ikke en sikring: lad den være slået fra, hvis en Equalizer eller laderen selv fordeler strømmen.",
+                "supply_share": "Når der ikke er plads til alle bilerne i en time. I kø: bilen, der skal være klar først, tager, hvad den skal bruge, og den næste får resten. Efter behov: de deles efter de kWh, hver mangler, aldrig under 6 A til hver.",
+                "weather_entity": "En vejr-enhed med timeprognose. EV Planner lærer, hvor meget mere huset bruger, når det er koldt, og regner med nattens temperatur."
+              }
+            },
+            "grid": {
+              "name": "Nettet, til opladning på solen (beta)",
+              "description": "Med en sensor for effekten til og fra nettet kan en bil lade på det, stedet ellers ville sælge.",
+              "data": {
+                "grid_power": "Effekt til/fra nettet",
+                "grid_power_inverted": "Netsensoren er negativ, når huset køber",
+                "export_price": "Pris for strøm du sælger",
+                "export_price_entity": "Sensor med din salgspris"
+              },
+              "data_description": {
+                "grid_power": "W eller kW, positiv når huset køber fra nettet og negativ når det sender ud (en HAN/P1-læser eller inverteren).",
+                "grid_power_inverted": "Slå til, hvis din sensor viser det omvendt.",
+                "export_price": "Hvad en kWh sendt til nettet giver. En kWh fra solen i en bil koster så det i historikken, fordi den ikke blev solgt. 0: solen regnes som gratis.",
+                "export_price_entity": "En sensor med prisen pr. kWh lige nu. Bruges før den faste pris."
+              }
+            }
           }
         },
         "reconfigure": {
           "title": "Ret sted",
+          "description": "Stedets forsyning og dets måler mod nettet. Solceller, husbatteri og varmepumpe er dele for sig: tilføj dem under integrationen, og vælg dette sted.",
           "data": {
             "name": "Navn",
-            "zone": "Zone",
-            "supply_limit": "Grænse pr. fase",
-            "supply_phases": "Faser",
-            "supply_meter": "Måler: strøm pr. fase",
-            "supply_reserve": "Huset uden måler",
-            "supply_guard": "Vagt: skru bilerne ned med det samme",
-            "supply_share": "Deling mellem bilerne",
-            "weather_entity": "Vejret"
+            "zone": "Zone"
           },
           "data_description": {
             "name": "Fx Sommerhus.",
-            "zone": "Zonen i Home Assistant, som bilerne er i, når de er her. En bil er på dette sted, når dens placering viser denne zone.",
-            "supply_limit": "Det mest, huset må trække pr. fase, fx 23 A på en 25 A stikledning, eller det kredsløb laderne deler. 0 slår det fra.",
-            "supply_phases": "Hvor mange faser forsyningen og bilerne lader på.",
-            "supply_meter": "Strømsensorer (A) for faserne, fx fra en HAN/P1-læser, en Shelly EM eller en Equalizer. EV Planner lærer, hvad huset trækker time for time.",
-            "supply_reserve": "Uden måler: hvad huset forventes at trække pr. fase.",
-            "supply_guard": "Når måleren viser mere end grænsen, sætter EV Planner bilerne ned med det samme (den bagerste i køen først) og op igen efter et par minutter. Ikke en sikring: lad den være slået fra, hvis en Equalizer eller laderen selv fordeler strømmen.",
-            "supply_share": "Når der ikke er plads til alle bilerne i en time. I kø: bilen, der skal være klar først, tager, hvad den skal bruge, og den næste får resten. Efter behov: de deles efter de kWh, hver mangler, aldrig under 6 A til hver.",
-            "weather_entity": "En vejr-enhed med timeprognose. EV Planner lærer, hvor meget mere huset bruger, når det er koldt, og regner med nattens temperatur."
+            "zone": "Zonen i Home Assistant, som bilerne er i, når de er her. En bil er på dette sted, når dens placering viser denne zone."
+          },
+          "sections": {
+            "supply": {
+              "name": "Fælles forsyning (beta)",
+              "data": {
+                "supply_limit": "Grænse pr. fase",
+                "supply_phases": "Faser",
+                "supply_meter": "Måler: strøm pr. fase",
+                "supply_reserve": "Huset uden måler",
+                "supply_guard": "Vagt: skru bilerne ned med det samme",
+                "supply_share": "Deling mellem bilerne",
+                "weather_entity": "Vejret"
+              },
+              "data_description": {
+                "supply_limit": "Det mest, huset må trække pr. fase, fx 23 A på en 25 A stikledning, eller det kredsløb laderne deler. 0 slår det fra.",
+                "supply_phases": "Hvor mange faser forsyningen og bilerne lader på.",
+                "supply_meter": "Strømsensorer (A) for faserne, fx fra en HAN/P1-læser, en Shelly EM eller en Equalizer. EV Planner lærer, hvad huset trækker time for time.",
+                "supply_reserve": "Uden måler: hvad huset forventes at trække pr. fase.",
+                "supply_guard": "Når måleren viser mere end grænsen, sætter EV Planner bilerne ned med det samme (den bagerste i køen først) og op igen efter et par minutter. Ikke en sikring: lad den være slået fra, hvis en Equalizer eller laderen selv fordeler strømmen.",
+                "supply_share": "Når der ikke er plads til alle bilerne i en time. I kø: bilen, der skal være klar først, tager, hvad den skal bruge, og den næste får resten. Efter behov: de deles efter de kWh, hver mangler, aldrig under 6 A til hver.",
+                "weather_entity": "En vejr-enhed med timeprognose. EV Planner lærer, hvor meget mere huset bruger, når det er koldt, og regner med nattens temperatur."
+              }
+            },
+            "grid": {
+              "name": "Nettet, til opladning på solen (beta)",
+              "description": "Med en sensor for effekten til og fra nettet kan en bil lade på det, stedet ellers ville sælge.",
+              "data": {
+                "grid_power": "Effekt til/fra nettet",
+                "grid_power_inverted": "Netsensoren er negativ, når huset køber",
+                "export_price": "Pris for strøm du sælger",
+                "export_price_entity": "Sensor med din salgspris"
+              },
+              "data_description": {
+                "grid_power": "W eller kW, positiv når huset køber fra nettet og negativ når det sender ud (en HAN/P1-læser eller inverteren).",
+                "grid_power_inverted": "Slå til, hvis din sensor viser det omvendt.",
+                "export_price": "Hvad en kWh sendt til nettet giver. En kWh fra solen i en bil koster så det i historikken, fordi den ikke blev solgt. 0: solen regnes som gratis.",
+                "export_price_entity": "En sensor med prisen pr. kWh lige nu. Bruges før den faste pris."
+              }
+            }
           }
         }
+      }
+    },
+    "solar": {
+      "entry_type": "Solceller",
+      "initiate_flow": {
+        "user": "Tilføj solceller",
+        "reconfigure": "Ret solceller"
+      },
+      "step": {
+        "user": {
+          "title": "Tilføj solceller",
+          "data": {
+            "name": "Navn",
+            "site": "Sted",
+            "solar_power": "Solcellernes effekt",
+            "solar_forecast": "Brug solprognosen"
+          },
+          "data_description": {
+            "site": "Stedet, den hører til.",
+            "solar_power": "Valgfri: hvad panelerne laver, til fanen Hjem.",
+            "solar_forecast": "Med en solprognose i Energi-dashboardet (Forecast.Solar, Solcast) køber en bil med Sol og plan mindre om natten, når næste dag ser sol nok ud før klar-tiden."
+          },
+          "description": "Solen på et steds tag. En bil kan så lade på overskuddet; vælg det på bilen (Sol og plan, eller Kun sol). Stedets måler mod nettet sættes på stedet."
+        },
+        "reconfigure": {
+          "title": "Ret solceller",
+          "data": {
+            "name": "Navn",
+            "site": "Sted",
+            "solar_power": "Solcellernes effekt",
+            "solar_forecast": "Brug solprognosen"
+          },
+          "data_description": {
+            "site": "Stedet, den hører til.",
+            "solar_power": "Valgfri: hvad panelerne laver, til fanen Hjem.",
+            "solar_forecast": "Med en solprognose i Energi-dashboardet (Forecast.Solar, Solcast) køber en bil med Sol og plan mindre om natten, når næste dag ser sol nok ud før klar-tiden."
+          }
+        }
+      },
+      "error": {
+        "already_there": "Stedet har allerede én. Ret den i stedet."
+      }
+    },
+    "battery": {
+      "entry_type": "Husbatteri",
+      "initiate_flow": {
+        "user": "Tilføj husbatteri",
+        "reconfigure": "Ret husbatteri"
+      },
+      "step": {
+        "user": {
+          "title": "Tilføj husbatteri",
+          "data": {
+            "name": "Navn",
+            "site": "Sted",
+            "battery_soc": "Husbatteriets niveau",
+            "battery_power": "Husbatteriets effekt",
+            "battery_power_inverted": "Batterisensoren er negativ, når det lader",
+            "battery_first_until": "Husbatteriet først, op til",
+            "battery_hold": "Hold husbatteriet"
+          },
+          "data_description": {
+            "site": "Stedet, den hører til.",
+            "battery_soc": "Valgfri: husbatteriets ladeniveau.",
+            "battery_power": "Valgfri: positiv når batteriet lader, negativ når det afgiver.",
+            "battery_power_inverted": "Slå til, hvis din sensor viser det omvendt.",
+            "battery_first_until": "Under dette niveau beholder husbatteriet den sol, det tager; over det må bilerne få den. 100 %: batteriet altid først.",
+            "battery_hold": "Valgfri: en kontakt, der stopper husbatteriet i at aflade. EV Planner slår den til, mens en bil lader fra nettet, så batteriet ikke tømmer sig over i bilen."
+          },
+          "description": "Et husbatteri på et sted. EV Planner lader det fylde først, og kan holde det, mens en bil lader fra nettet."
+        },
+        "reconfigure": {
+          "title": "Ret husbatteri",
+          "data": {
+            "name": "Navn",
+            "site": "Sted",
+            "battery_soc": "Husbatteriets niveau",
+            "battery_power": "Husbatteriets effekt",
+            "battery_power_inverted": "Batterisensoren er negativ, når det lader",
+            "battery_first_until": "Husbatteriet først, op til",
+            "battery_hold": "Hold husbatteriet"
+          },
+          "data_description": {
+            "site": "Stedet, den hører til.",
+            "battery_soc": "Valgfri: husbatteriets ladeniveau.",
+            "battery_power": "Valgfri: positiv når batteriet lader, negativ når det afgiver.",
+            "battery_power_inverted": "Slå til, hvis din sensor viser det omvendt.",
+            "battery_first_until": "Under dette niveau beholder husbatteriet den sol, det tager; over det må bilerne få den. 100 %: batteriet altid først.",
+            "battery_hold": "Valgfri: en kontakt, der stopper husbatteriet i at aflade. EV Planner slår den til, mens en bil lader fra nettet, så batteriet ikke tømmer sig over i bilen."
+          }
+        }
+      },
+      "error": {
+        "already_there": "Stedet har allerede én. Ret den i stedet."
+      }
+    },
+    "heat_pump": {
+      "entry_type": "Varmepumpe",
+      "initiate_flow": {
+        "user": "Tilføj varmepumpe",
+        "reconfigure": "Ret varmepumpe"
+      },
+      "step": {
+        "user": {
+          "title": "Tilføj varmepumpe",
+          "data": {
+            "name": "Navn",
+            "site": "Sted",
+            "heat_pump_power": "Varmepumpe: effekt",
+            "heat_pump_block": "Varmepumpe: hold tilbage"
+          },
+          "data_description": {
+            "site": "Stedet, den hører til.",
+            "heat_pump_power": "Varmepumpens effekt (W eller kW). Vises i fanen Hjem.",
+            "heat_pump_block": "En kontakt, der holder varmepumpen tilbage, når den er tændt (SG Ready eller spærring). Når der ikke er strøm nok, slår EV Planner den til i højst 15 minutter, højst to gange om natten, før en bil bliver stoppet."
+          },
+          "description": "En varmepumpe på et sted. Dens effekt vises i Hjem-fanen; med en kontakt, der holder den tilbage, holder vagten den tilbage et kort øjeblik, før den stopper en bil."
+        },
+        "reconfigure": {
+          "title": "Ret varmepumpe",
+          "data": {
+            "name": "Navn",
+            "site": "Sted",
+            "heat_pump_power": "Varmepumpe: effekt",
+            "heat_pump_block": "Varmepumpe: hold tilbage"
+          },
+          "data_description": {
+            "site": "Stedet, den hører til.",
+            "heat_pump_power": "Varmepumpens effekt (W eller kW). Vises i fanen Hjem.",
+            "heat_pump_block": "En kontakt, der holder varmepumpen tilbage, når den er tændt (SG Ready eller spærring). Når der ikke er strøm nok, slår EV Planner den til i højst 15 minutter, højst to gange om natten, før en bil bliver stoppet."
+          }
+        }
+      },
+      "error": {
+        "already_there": "Stedet har allerede én. Ret den i stedet."
       }
     }
   },

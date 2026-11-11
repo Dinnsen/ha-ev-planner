@@ -10,7 +10,7 @@ from homeassistant.helpers import config_validation as cv, device_registry as dr
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 
-from . import migration
+from . import migration, places
 from .const import DOMAIN, PLATFORMS, STORAGE_KEY, STORAGE_VERSION
 from .household import EVPlannerConfigEntry, Household
 from .panel import async_register_panel, async_unregister_panel
@@ -36,6 +36,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: EVPlannerConfigEntry) ->
     await migration.async_take_over(hass, entry)
     await migration.async_check_old_files(hass)
     _remove_retired_entities(hass, entry)
+    # The home is a place of its own; a household from before that gets one, with its settings.
+    places.async_ensure_home(hass, entry)
     household = Household(hass, entry)
     await household.async_initialize()
     entry.runtime_data = household

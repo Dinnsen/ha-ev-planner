@@ -15,11 +15,14 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from homeassistant.util import dt as dt_util
 
-from .const import CONF_HEAT_PUMP_POWER
+from .const import CONF_HEAT_PUMP_POWER, SITE_HOME
 from .vehicle import elapsed
 
 if TYPE_CHECKING:
     from .household import Household
+    from .pairing import Site
+    from .solar_control import SolarControl
+    from .supply_control import SupplyControl
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,10 +44,11 @@ def _rate(config: Any) -> tuple[str | None, str | None, bool]:
 
 
 class HomeInfo:
-    """The Energy dashboard's view of the home, kept fresh."""
+    """What a place draws now. For the home, with the Energy dashboard's view of it, kept fresh."""
 
-    def __init__(self, household: Household) -> None:
+    def __init__(self, household: Household, site: Site | None = None) -> None:
         self.household = household
+        self.site = site
         self.grid: tuple[str | None, str | None, bool] = (None, None, False)
         self.grid_energy: list[str] = []
         self.solar: list[str] = []
@@ -58,6 +62,8 @@ class HomeInfo:
 
     async def async_refresh(self, now: datetime, force: bool = False) -> bool:
         """Read the Energy dashboard's settings; True when they were read."""
+        if self.site is not None and not self.site.home:
+            return False
         if not force and self._read_at is not None and elapsed(now, self._read_at) < ENERGY_EVERY:
             return False
         self._read_at = now
@@ -104,6 +110,18 @@ class HomeInfo:
         ]
         return True
 
+    @property
+    def _site_id(self) -> str:
+        return self.site.site_id if self.site is not None else SITE_HOME
+
+    @property
+    def _solar(self) -> SolarControl:
+        return self.household.solars[self._site_id]
+
+    @property
+    def _supply(self) -> SupplyControl:
+        return self.household.supplies[self._site_id]
+
     def _name(self, entity_id: Any) -> str:
         state = self.hass.states.get(str(entity_id)) if entity_id else None
         return str(state.name) if state is not None else str(entity_id or "")
@@ -140,14 +158,14 @@ class HomeInfo:
         return bool(self.solar)
 
     def grid_kw(self) -> float | None:
-        if (kw := self.household.solar.grid_kw()) is not None:
+        if (kw := self._solar.grid_kw()) is not None:
             return kw
         return self._kw(self.grid)
 
     def solar_kw(self) -> float | None:
         from .household import power_value
 
-        if (kw := self.household.solar.solar_kw()) is not None:
+        if (kw := self._solar.solar_kw()) is not None:
             return kw
         values = [power_value(self.hass.states.get(entity)) for entity in self.solar]
         readings = [value for value in values if value is not None]
@@ -155,15 +173,15 @@ class HomeInfo:
 
     def battery_kw(self) -> float | None:
         """Positive when the home battery charges."""
-        if (kw := self.household.solar.battery_kw()) is not None:
+        if (kw := self._solar.battery_kw()) is not None:
             return kw
         value = self._kw(self.battery)
         # The Energy dashboard counts a battery's power positive when it gives.
         return None if value is None else -value
 
     def heat_pump_kw(self) -> float | None:
-        if self.household.config.get(CONF_HEAT_PUMP_POWER):
-            return self.household.supply.heat_pump_kw()
+        if self._supply.config.get(CONF_HEAT_PUMP_POWER):
+            return self._supply.heat_pump_kw()
         from .household import power_value
 
         for device in self.devices:
@@ -175,7 +193,10 @@ class HomeInfo:
     def cars_kw(self) -> float:
         total = 0.0
         for vehicle in self.household.vehicles.values():
-            if not self.household.at_home_site(vehicle):
+            if (
+                self.household.site_id_of(vehicle) != self._site_id
+                or self.household.pairing.vehicle_site(vehicle) is None
+            ):
                 continue
             reading = self.household.power_reading(vehicle)
             if reading is not None and reading > 0 and self.household.is_charging(vehicle):
@@ -190,7 +211,7 @@ class HomeInfo:
         solar = self.solar_kw()
         battery = self.battery_kw()
         heat_pump = self.heat_pump_kw()
-        temperature = self.household.supply.temperature_now()
+        temperature = self._supply.temperature_now()
         if grid is None and solar is None and heat_pump is None and temperature is None:
             return None
         cars = self.cars_kw()

@@ -136,7 +136,7 @@ EV Planner læser priserne fra én prissensor. Viser den spotprisen uden tariffe
 
 ## Fælles forsyning, sol og varmepumpe (beta)
 
-Flere biler bag én sikring: under *Fælles forsyning* sættes det, huset højst må trække pr. fase, faserne og en måler. Bilerne planlægges så sammen under grænsen, billigste timer først, og *vagten* skruer bilerne ned med det samme, når huset skal bruge mere. En måler, der ikke har meldt sig i fem minutter, stoles der ikke på: bilerne går til mindste strøm. Med en vejr-entitet regner EV Planner med nattens temperatur, og en varmepumpe kan holdes tilbage i højst 15 minutter, før en bil stoppes. Vagten er ikke en sikring; behold laderens egen lastbalancering.
+Flere biler bag én sikring: på stedet (integrationen, *Hjem*) under *Fælles forsyning* sættes det, huset højst må trække pr. fase, faserne og en måler. Bilerne planlægges så sammen under grænsen, billigste timer først, og *vagten* skruer bilerne ned med det samme, når huset skal bruge mere. En måler, der ikke har meldt sig i fem minutter, stoles der ikke på: bilerne går til mindste strøm. Med en vejr-entitet regner EV Planner med nattens temperatur, og en varmepumpe kan holdes tilbage i højst 15 minutter, før en bil stoppes. Vagten er ikke en sikring; behold laderens egen lastbalancering.
 
 Under *Solen og husbatteriet* kan en bil lade på overskuddet fra solen: *Sol og plan* eller *Kun sol*.
 
@@ -150,7 +150,7 @@ Under *Solen og husbatteriet* kan en bil lade på overskuddet fra solen: *Sol og
 - **En lader uden sensor for tilsluttet bil** er bilens lader, når den er den eneste af slagsen på stedet.
 - En bil med sin egen lader beholder den. Intet ændrer sig, hvor hver bil har sin lader.
 
-**Steder.** Et sted med ladere ud over hjemmet, fx et sommerhus, tilføjes under integrationen (*Tilføj sted*): dets zone i Home Assistant og dets egen grænse og måler, hvis I vil. Vælg stedet i hver laders indstillinger. Bilen er på stedet, når dens placering viser zonen; den planlægges da på stedets forsyning. Billedet i Hjem-fanen er af hjemmet.
+**Steder.** Hjemmet er et sted (*Hjem*), og et sted med ladere ud over det, fx et sommerhus, tilføjes under integrationen (*Tilføj sted*): dets zone i Home Assistant og dets egen grænse og måler, hvis I vil. Solceller, husbatteri og varmepumpe er dele for sig, som tilføjes på samme måde og hører til et sted. Vælg stedet i hver laders indstillinger. Bilen er på stedet, når dens placering viser zonen; den planlægges da på stedets forsyning. Billedet i Hjem-fanen er af hjemmet.
 
 **Laderen starter og stopper, bilen er backup.** En ny bil styres af laderen, når laderne har en kontakt, for en lader er oftere til at få fat i end en bil. Med *Den anden er backup* træder bilens egen kontakt til, når laderen ikke svarer (og omvendt). Det, der satte bilen på pause, starter den også igen.
 

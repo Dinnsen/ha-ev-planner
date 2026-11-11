@@ -124,8 +124,8 @@ class SupplyControl:
 
     @property
     def config(self) -> Mapping[str, Any]:
-        """The place's settings: the household's own for the home, the place's for another."""
-        if self.site is None or self.site.home:
+        """The place's settings."""
+        if self.site is None:
             return self.household.config
         return self.site.data
 

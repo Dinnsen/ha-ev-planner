@@ -58,7 +58,9 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     household = entry.runtime_data
-    descriptions = VEHICLE_SELECTS + ((SOLAR_SELECT,) if household.solar.active else ())
+    descriptions = VEHICLE_SELECTS + (
+        (SOLAR_SELECT,) if any(solar.active for solar in household.solars.values()) else ()
+    )
     for vehicle_id in household.vehicles:
         async_add_entities(
             (VehicleSelect(household, vehicle_id, description) for description in descriptions),

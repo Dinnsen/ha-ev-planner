@@ -55,6 +55,13 @@ SUBENTRY_CHARGER: Final = "charger"
 # A place with chargers and a supply of its own, besides the home: a summer house, say.
 SUBENTRY_SITE: Final = "site"
 SITE_HOME: Final = "home"
+# The place that is the home has this in its data. Every household has one.
+CONF_HOME: Final = "home"
+# The sun on the roof, a home battery and a heat pump: a part each, at a place.
+SUBENTRY_SOLAR: Final = "solar"
+SUBENTRY_BATTERY: Final = "battery"
+SUBENTRY_HEAT_PUMP: Final = "heat_pump"
+PART_TYPES: Final = (SUBENTRY_SOLAR, SUBENTRY_BATTERY, SUBENTRY_HEAT_PUMP)
 # A place: the zone in Home Assistant the cars are in when they are there.
 CONF_ZONE: Final = "zone"
 # A charger: the place it is at (none: the home).
@@ -510,3 +517,32 @@ OPEN_EV_DATA_FALLBACK_URL: Final = "https://raw.githubusercontent.com/KilowattAp
 REDACT_KEYS: Final = {CONF_MOTORAPI_KEY, "vin", GUEST_PLATE, "plate"}
 
 ESC_DOMAIN: Final = "ev_smart_charging"
+
+# What used to be settings of the whole household (under Configure) and now belongs to a place, or
+# to a part at a place. Read from the old settings as long as they are still there.
+SITE_KEYS: Final = (
+    CONF_ZONE,
+    CONF_SUPPLY_LIMIT,
+    CONF_SUPPLY_PHASES,
+    CONF_SUPPLY_METER,
+    CONF_SUPPLY_RESERVE,
+    CONF_SUPPLY_GUARD,
+    CONF_SUPPLY_SHARE,
+    CONF_WEATHER_ENTITY,
+    CONF_GRID_POWER,
+    CONF_GRID_INVERTED,
+    CONF_EXPORT_PRICE,
+    CONF_EXPORT_PRICE_ENTITY,
+)
+PART_KEYS: Final = {
+    SUBENTRY_SOLAR: (CONF_SOLAR_POWER, CONF_SOLAR_FORECAST),
+    SUBENTRY_BATTERY: (
+        CONF_BATTERY_SOC,
+        CONF_BATTERY_POWER,
+        CONF_BATTERY_INVERTED,
+        CONF_BATTERY_FIRST,
+        CONF_BATTERY_HOLD,
+    ),
+    SUBENTRY_HEAT_PUMP: (CONF_HEAT_PUMP_POWER, CONF_HEAT_PUMP_BLOCK),
+}
+MOVED_KEYS: Final = (*SITE_KEYS, *(key for keys in PART_KEYS.values() for key in keys))

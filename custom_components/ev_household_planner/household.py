@@ -44,6 +44,7 @@ from .const import (
     CONF_ENERGY_ENTITY,
     CONF_EXPORT_PRICE,
     CONF_EXPORT_PRICE_ENTITY,
+    CONF_HOME,
     CONF_MOTORAPI_KEY,
     CONF_NOTIFY,
     CONF_PLATE_PROVIDER,
@@ -51,6 +52,7 @@ from .const import (
     CONF_POWER_ENTITY,
     CONF_PRICE_ADD,
     CONF_PRICE_ENTITY,
+    CONF_SITE,
     CONF_SWITCH_ENTITY,
     CONF_UNPLUGGED_STATES,
     CONTROL_BACKOFF,
@@ -79,6 +81,9 @@ from .const import (
     MODE_PAUSE,
     MODE_SMART,
     MODES,
+    MOVED_KEYS,
+    PART_KEYS,
+    PART_TYPES,
     PLANNING_HORIZON,
     PROBLEM_RECHECK,
     REASON_SOLAR,
@@ -246,15 +251,37 @@ class Household(DataUpdateCoordinator[None]):
         super().__init__(hass, _LOGGER, config_entry=entry, name=f"{DOMAIN}_{entry.entry_id}", update_interval=None)
         self.vehicles: dict[str, Vehicle] = {}
         self.chargers: dict[str, Charger] = {}
-        # The places with chargers: the home (its settings are the household's own), and the others.
-        self.sites: dict[str, Site] = {SITE_HOME: Site(SITE_HOME, "")}
+        # The places: the home, and the others (a summer house). The home is always there and has
+        # the id "home" here, whatever its subentry is called; a household from before places were
+        # parts of their own has its home's settings among its own, and they are read from there.
+        legacy = {key: value for key in MOVED_KEYS if (value := self.config.get(key)) not in (None, "", [])}
+        self.sites: dict[str, Site] = {SITE_HOME: Site(SITE_HOME, "", legacy)}
+        self._site_keys: dict[str, str] = {}
         for subentry_id, subentry in entry.subentries.items():
             if subentry.subentry_type == SUBENTRY_VEHICLE:
                 self.vehicles[subentry_id] = Vehicle(subentry_id, subentry.title, dict(subentry.data))
             elif subentry.subentry_type == SUBENTRY_CHARGER:
                 self.chargers[subentry_id] = Charger(subentry_id, subentry.title, dict(subentry.data))
             elif subentry.subentry_type == SUBENTRY_SITE:
-                self.sites[subentry_id] = Site(subentry_id, subentry.title, dict(subentry.data))
+                if subentry.data.get(CONF_HOME) and SITE_HOME not in self._site_keys.values():
+                    self._site_keys[subentry_id] = SITE_HOME
+                    self.sites[SITE_HOME] = Site(SITE_HOME, subentry.title, {**legacy, **subentry.data})
+                else:
+                    self.sites[subentry_id] = Site(subentry_id, subentry.title, dict(subentry.data))
+        # The parts of a place (the sun, a home battery, a heat pump): one of each kind for a place.
+        for subentry_id, subentry in entry.subentries.items():
+            kind = subentry.subentry_type
+            if kind not in PART_TYPES:
+                continue
+            site = self.sites[self.site_key(subentry.data.get(CONF_SITE))]
+            if kind in site.parts:
+                continue
+            site.parts[kind] = subentry_id
+            for key in PART_KEYS[kind]:
+                if key in subentry.data:
+                    site.data[key] = subentry.data[key]
+                else:
+                    site.data.pop(key, None)
         self.pairing = Pairing(self)
         self.guest = GuestSession(hass, self)
         self.settings: dict[str, Any] = dict(SETTINGS_DEFAULTS)
@@ -282,8 +309,13 @@ class Household(DataUpdateCoordinator[None]):
             site_id: SupplyControl(self, site) for site_id, site in self.sites.items()
         }
         self.supply = self.supplies[SITE_HOME]
-        self.solar = SolarControl(self)
-        self.home = HomeInfo(self)
+        # The sun and what the place draws, for each place; ``solar`` and ``home`` are the home's.
+        self.solars: dict[str, SolarControl] = {
+            site_id: SolarControl(self, site) for site_id, site in self.sites.items()
+        }
+        self.homes: dict[str, HomeInfo] = {site_id: HomeInfo(self, site) for site_id, site in self.sites.items()}
+        self.solar = self.solars[SITE_HOME]
+        self.home = self.homes[SITE_HOME]
         self._widgets_sent: datetime | None = None
         # The status words in Danish and English, for the summary line widgets show.
         self._status_texts: dict[str, dict[str, str]] = {}
@@ -335,7 +367,7 @@ class Household(DataUpdateCoordinator[None]):
         await self._async_load_status_texts()
         hass = self.hass
         start = dt_util.now()
-        await self.home.async_refresh(start, force=True)
+        await self.home.async_refresh(start, force=True)  # the Energy dashboard is the home's
         for vehicle in self.vehicles.values():
             self._read_vehicle(vehicle)
             vehicle.last_soc_seen = vehicle.soc if vehicle.soc is not None else vehicle.last_soc_seen
@@ -464,6 +496,7 @@ class Household(DataUpdateCoordinator[None]):
             if site_id != SITE_HOME and isinstance(place := places.get(site_id), dict):
                 supply.load(place.get("forecast"))
                 supply.load_actuators(place.get("actuators"))
+                self.solars[site_id].load(place.get("solar"))
         self.solar.load(stored.get("solar"))
         self.settings = {**SETTINGS_DEFAULTS, **(stored.get("settings") or {})}
         self.images = self._known_images(stored.get("images"))
@@ -505,7 +538,11 @@ class Household(DataUpdateCoordinator[None]):
                 for cid, charger in self.chargers.items()
             },
             "sites": {
-                site_id: {"forecast": supply.to_store(), "actuators": supply.actuators_to_store()}
+                site_id: {
+                    "forecast": supply.to_store(),
+                    "actuators": supply.actuators_to_store(),
+                    "solar": self.solars[site_id].to_store(),
+                }
                 for site_id, supply in self.supplies.items()
                 if site_id != SITE_HOME
             },
@@ -534,13 +571,28 @@ class Household(DataUpdateCoordinator[None]):
             cache = self._slots_cache = (state, day, add, slots)
         return list(cache[3])
 
-    def export_price(self) -> float:
-        """What a kWh sent to the grid pays now: the sensor, else the fixed price, else nothing."""
-        if (entity := self.config.get(CONF_EXPORT_PRICE_ENTITY)) and (
+    def export_price(self, site_id: str = SITE_HOME) -> float:
+        """What a kWh sent to the grid pays now at a place: the sensor, else the fixed price, else nothing."""
+        config = self.sites.get(site_id, self.sites[SITE_HOME]).data
+        if (entity := config.get(CONF_EXPORT_PRICE_ENTITY)) and (
             value := to_float(self._state(str(entity)))
         ) is not None:
             return max(0.0, value)
-        return max(0.0, to_float(self.config.get(CONF_EXPORT_PRICE)) or 0.0)
+        return max(0.0, to_float(config.get(CONF_EXPORT_PRICE)) or 0.0)
+
+    def site_key(self, raw: Any) -> str:
+        """The id a place has here, from what a charger or a part has stored for it (none: the home)."""
+        key = self._site_keys.get(str(raw), str(raw)) if raw else SITE_HOME
+        return key if key in self.sites else SITE_HOME
+
+    def site_id_of(self, vehicle: Vehicle) -> str:
+        """The place the car is at (the home when it is at none)."""
+        site = self.pairing.vehicle_site(vehicle)
+        return site.site_id if site else SITE_HOME
+
+    def solar_of(self, vehicle: Vehicle) -> SolarControl:
+        """The sun of the place the car is at."""
+        return self.solars[self.site_id_of(vehicle)]
 
     def visible_slots(self, slots: list[PriceSlot]) -> list[PriceSlot]:
         """Today's and tomorrow's prices, for graphs."""
@@ -631,13 +683,7 @@ class Household(DataUpdateCoordinator[None]):
 
     def supply_of(self, vehicle: Vehicle) -> SupplyControl:
         """The supply of the place the car is at (the home's when it is at none)."""
-        site = self.pairing.vehicle_site(vehicle)
-        return self.supplies.get(site.site_id if site else SITE_HOME, self.supply)
-
-    def at_other_site(self, vehicle: Vehicle) -> bool:
-        """The car is at one of the household's other places, a summer house say."""
-        site = self.pairing.vehicle_site(vehicle)
-        return site is not None and not site.home
+        return self.supplies[self.site_id_of(vehicle)]
 
     def at_home_site(self, vehicle: Vehicle) -> bool:
         """The car is at the home, not at another of the household's places (or away)."""
@@ -859,11 +905,11 @@ class Household(DataUpdateCoordinator[None]):
             vehicle.plan, vehicle.plan_error = None, None
             return
         aim = self._aim(vehicle, now)
-        if self.solar.only(vehicle):
+        if self.solar_of(vehicle).only(vehicle):
             # Only the sun: no plan from the grid.
             vehicle.plan, vehicle.plan_error, vehicle.planned_at = None, "solar_only", now
             return
-        sun = self.solar.expected_soc(vehicle, now, aim)
+        sun = self.solar_of(vehicle).expected_soc(vehicle, now, aim)
         if sun > 0 and soc + sun >= vehicle.target:
             # The forecast promises enough sun before the ready-by time; the plan waits for it.
             vehicle.plan, vehicle.plan_error, vehicle.planned_at = None, "solar_expected", now
@@ -1120,7 +1166,7 @@ class Household(DataUpdateCoordinator[None]):
             self.async_save()
             replan = True
         await self.pairing.async_follow_up(now)
-        if await self.solar.async_refresh_forecast(now):
+        if await self.solar.async_refresh_forecast(now):  # the forecast is the home's
             replan = True
         # How the morning went, before the plan moves on to the next ready-by time.
         await self._async_receipts(now)
@@ -1187,8 +1233,8 @@ class Household(DataUpdateCoordinator[None]):
             kwh,
             current_price(self.price_slots(now), now),
             source,
-            solar=kwh * self.solar.share_now(vehicle),
-            solar_price=self.export_price(),
+            solar=kwh * self.solar_of(vehicle).share_now(vehicle),
+            solar_price=self.export_price(self.site_id_of(vehicle)),
         )
         if not vehicle.has_soc_sensor:
             speed, _source = vehicle.charge_speed(self.vehicle_power(vehicle))
@@ -1238,7 +1284,8 @@ class Household(DataUpdateCoordinator[None]):
         prices = self.price_slots(now)
         price_now = current_price(prices, now)
         if apply and self._started:
-            self.solar.update(now)
+            for solar in self.solars.values():
+                solar.update(now)
         for vehicle in self.vehicles.values():
             if (mode := vehicle.mode_after_charge_now()) is not None:
                 vehicle.settings[SET_MODE] = mode
@@ -1256,7 +1303,11 @@ class Household(DataUpdateCoordinator[None]):
                 plan_done=vehicle.plan_done,
                 charger_free=not self.guest_holds(vehicle.charger_id, now),
             )
-            if self.solar.wants(vehicle) and decision.control == CONTROL_PAUSE and decision.reason == REASON_WAITING:
+            if (
+                self.solar_of(vehicle).wants(vehicle)
+                and decision.control == CONTROL_PAUSE
+                and decision.reason == REASON_WAITING
+            ):
                 # The sun shines on it: charge on the surplus.
                 decision = Decision(CONTROL_CHARGE, REASON_SOLAR)
             if decision.control == CONTROL_CHARGE and self.supply_of(vehicle).holds_off(vehicle, now):
@@ -1275,7 +1326,8 @@ class Household(DataUpdateCoordinator[None]):
         if apply and self._started:
             for supply in self.supplies.values():
                 await supply.async_apply(now)
-            await self.solar.async_apply(now)
+            for solar in self.solars.values():
+                await solar.async_apply(now)
             await self._async_apply_guest(now)
             self._maybe_refresh_widgets(now)
         self.async_update_listeners()

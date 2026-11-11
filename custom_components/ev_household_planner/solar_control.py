@@ -54,6 +54,8 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
     from .household import Household
+    from .pairing import Site
+    from .supply_control import SupplyControl
     from .vehicle import Vehicle
 
 _LOGGER = logging.getLogger(__name__)
@@ -68,10 +70,11 @@ CHARGE_EFFICIENCY = 0.9
 
 
 class SolarControl:
-    """The sun of one household."""
+    """The sun of one place of a household: the home, or another place with panels."""
 
-    def __init__(self, household: Household) -> None:
+    def __init__(self, household: Household, site: Site | None = None) -> None:
         self.household = household
+        self.site = site
         self.controller = SurplusController()
         self.decisions: dict[str, SolarDecision] = {}
         self.forecast: dict[datetime, float] = {}
@@ -88,7 +91,14 @@ class SolarControl:
     # Settings and readings
 
     def _option(self, key: str) -> Any:
-        return self.household.config.get(key)
+        if self.site is None:
+            return self.household.config.get(key)
+        return self.site.data.get(key)
+
+    @property
+    def _supply(self) -> SupplyControl:
+        """The supply of the same place."""
+        return self.household.supplies[self.site.site_id] if self.site is not None else self.household.supply
 
     @property
     def active(self) -> bool:
@@ -143,7 +153,7 @@ class SolarControl:
             state = self.household.state_of(entity)
             if state in ("on", "off"):
                 return 3 if state == "on" else 1
-        return self.household.supply.phases
+        return self._supply.phases
 
     def _car_kw(self, vehicle: Vehicle) -> float:
         """What the car draws now: its reading, else the current the sun gave it, else its charging power."""
@@ -162,7 +172,7 @@ class SolarControl:
 
     def _candidates(self) -> list[tuple[Vehicle, SolarCar]]:
         out: list[tuple[Vehicle, SolarCar]] = []
-        supply = self.household.supply
+        supply = self._supply
         for vehicle in self._cars():
             if self.mode(vehicle) not in (SOLAR_SURPLUS, SOLAR_ONLY) or vehicle.mode != "smart":
                 continue
@@ -215,8 +225,15 @@ class SolarControl:
         self.decisions = self.controller.step(now, surplus, cars)
 
     def _cars(self) -> list[Vehicle]:
-        """The cars at home: the sun on the roof is not for a car at another place."""
-        return [vehicle for vehicle in self.household.vehicles.values() if not self.household.at_other_site(vehicle)]
+        """The cars at this place: the sun on one roof is not for a car at another place."""
+        return [vehicle for vehicle in self.household.vehicles.values() if self._here(vehicle)]
+
+    def _here(self, vehicle: Vehicle) -> bool:
+        site = self.household.pairing.vehicle_site(vehicle)
+        if self.site is None or self.site.home:
+            # A car that is away is the home's, as before there were other places.
+            return site is None or site.home
+        return site is self.site
 
     def wants(self, vehicle: Vehicle) -> bool:
         decision = self.decisions.get(vehicle.vehicle_id)
@@ -224,7 +241,7 @@ class SolarControl:
 
     async def async_apply(self, now: datetime) -> None:
         """Set the current (and phases) of the cars charging on the sun; give the others back their current."""
-        supply = self.household.supply
+        supply = self._supply
         for vehicle in self._cars():
             decision = self.decisions.get(vehicle.vehicle_id)
             on = decision is not None and decision.on and vehicle.decision.reason == REASON_SOLAR
@@ -298,7 +315,7 @@ class SolarControl:
         grid = self.grid_kw() if self.active else None
         if grid is None:
             return 0.0
-        if self.household.at_other_site(vehicle):
+        if not self._here(vehicle):
             return 0.0
         cars = sum(self._car_kw(other) for other in self._cars())
         return solar_share(cars, grid) if self._car_kw(vehicle) > 0 else 0.0
@@ -308,6 +325,9 @@ class SolarControl:
 
     async def async_refresh_forecast(self, now: datetime, *, force: bool = False) -> bool:
         """Fetch the forecast from the Energy dashboard's solar forecast; True when it changed."""
+        if self.site is not None and not self.site.home:
+            # The Energy dashboard is the home's: another place has no forecast.
+            return False
         if not self.active or self._option(CONF_SOLAR_FORECAST) is False:
             changed = bool(self.forecast)
             self.forecast = {}

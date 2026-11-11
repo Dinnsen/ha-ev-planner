@@ -17,7 +17,6 @@ The choice itself (``choose``) is plain Python, so it can be tested alone.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 import logging
@@ -65,7 +64,10 @@ class Site:
 
     site_id: str
     name: str
-    data: Mapping[str, Any] = field(default_factory=dict)
+    # The place's settings, with those of its parts (the sun, a home battery, a heat pump) in them.
+    data: dict[str, Any] = field(default_factory=dict)
+    # Its parts: {"solar": the part's id, ...}.
+    parts: dict[str, str] = field(default_factory=dict)
 
     @property
     def home(self) -> bool:
@@ -176,7 +178,7 @@ class Pairing:
         sites = self.household.sites
         if charger is None:
             return sites[SITE_HOME]
-        return sites.get(str(charger.config.get(CONF_SITE) or SITE_HOME)) or sites[SITE_HOME]
+        return sites[self.household.site_key(charger.config.get(CONF_SITE))]
 
     def place_site(self, vehicle: Vehicle) -> Site | None:
         """The place the car's location entity says it is at (None: not at one, or not known)."""

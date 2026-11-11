@@ -442,16 +442,19 @@ def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
         "prices": [{"start": s.start.isoformat(), "end": s.end.isoformat(), "price": s.price} for s in slots],
         "price_issue": price_issue(household.price_slots(now), now),
         "supply": household.supply.state(now),
-        # The household's other places, each with its own supply.
+        # The household's places, the home first: each with its own supply, sun and house.
         "sites": [
             {
                 "id": site.site_id,
                 "name": site.name,
+                "home": site.home,
                 "zone": site.zone,
+                "parts": sorted(site.parts),
                 "supply": household.supplies[site.site_id].state(now),
+                "solar": household.solars[site.site_id].state(now),
+                "energy": household.homes[site.site_id].state(now),
             }
             for site in household.sites.values()
-            if not site.home
         ],
         "solar": household.solar.state(now),
         "heat_pump": household.supply.heat_pump_state(now),
@@ -470,7 +473,7 @@ def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
     }
 
 
-LISTS = ("vehicles", "chargers")
+LISTS = ("vehicles", "chargers", "sites")
 
 
 def state_patch(old: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]:

@@ -20,7 +20,7 @@ from homeassistant.helpers import entity_registry as er, selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
 
-from . import migration
+from . import migration, places
 from .api import PlateAuthError, PlateLookupFailed, async_validate_plate_provider_credentials
 from .catalog import (
     MODEL_AUTO,
@@ -60,6 +60,7 @@ from .const import (
     CONF_GRID_POWER,
     CONF_HEAT_PUMP_BLOCK,
     CONF_HEAT_PUMP_POWER,
+    CONF_HOME,
     CONF_HOME_ENTITY,
     CONF_IMPORTED_FROM,
     CONF_IMPORTED_SPEED,
@@ -113,6 +114,7 @@ from .const import (
     OPPORTUNISTIC_FOLLOW,
     OPPORTUNISTIC_LOWER,
     OPPORTUNISTIC_OFF,
+    PART_KEYS,
     SET_CEILING,
     SET_CEILING_ENABLED,
     SET_CONTINUOUS,
@@ -133,9 +135,13 @@ from .const import (
     SHARE_OPTIONS,
     SHARE_QUEUE,
     SITE_HOME,
+    SITE_KEYS,
     SOURCE_MANUAL,
+    SUBENTRY_BATTERY,
     SUBENTRY_CHARGER,
+    SUBENTRY_HEAT_PUMP,
     SUBENTRY_SITE,
+    SUBENTRY_SOLAR,
     SUBENTRY_VEHICLE,
 )
 from .prices import extract_price_slots
@@ -302,6 +308,9 @@ class EVPlannerConfigFlow(ConfigFlow, domain=DOMAIN):
             SUBENTRY_VEHICLE: VehicleSubentryFlow,
             SUBENTRY_CHARGER: ChargerSubentryFlow,
             SUBENTRY_SITE: SiteSubentryFlow,
+            SUBENTRY_SOLAR: SolarSubentryFlow,
+            SUBENTRY_BATTERY: BatterySubentryFlow,
+            SUBENTRY_HEAT_PUMP: HeatPumpSubentryFlow,
         }
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
@@ -401,22 +410,16 @@ class EVPlannerConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class EVPlannerOptionsFlow(OptionsFlow):
-    """Currency and notifications; the update listener reloads the household."""
+    """What is the whole household's: currency, notifications and what is added to every price.
+
+    The supply, the sun, the home battery and the heat pump belong to a place
+    and are parts of their own, added under the integration.
+    """
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
-            supply = user_input.pop(SECTION_SUPPLY, None) or {}
-            solar = user_input.pop(SECTION_SOLAR, None) or {}
-            return self.async_create_entry(data={**user_input, **supply, **solar})
+            return self.async_create_entry(data=user_input)
         options = self.config_entry.options
-
-        def sug(key: str) -> vol.Optional:
-            return vol.Optional(key, description={"suggested_value": options.get(key)})
-
-        # The weather entity, when there is only one: suggested for the house forecast.
-        weathers = self.hass.states.async_entity_ids("weather")
-        only_weather = weathers[0] if len(weathers) == 1 else None
-
         schema = vol.Schema(
             {
                 vol.Required(CONF_CURRENCY, default=options.get(CONF_CURRENCY) or DEFAULT_CURRENCY): _currency_selector(
@@ -425,61 +428,6 @@ class EVPlannerOptionsFlow(OptionsFlow):
                 vol.Optional(CONF_NOTIFY, default=list(options.get(CONF_NOTIFY) or [])): _notify_selector(self.hass),
                 vol.Optional("update_widgets", default=bool(options.get("update_widgets", False))): bool,
                 vol.Optional(CONF_PRICE_ADD, default=options.get(CONF_PRICE_ADD) or 0): PRICE_SELECTOR,
-                vol.Optional(SECTION_SUPPLY): section(
-                    vol.Schema(
-                        {
-                            vol.Optional(CONF_SUPPLY_LIMIT, default=options.get(CONF_SUPPLY_LIMIT) or 0): AMPS_SELECTOR,
-                            vol.Optional(
-                                CONF_SUPPLY_PHASES, default=str(options.get(CONF_SUPPLY_PHASES) or "3")
-                            ): PHASES_SELECTOR,
-                            vol.Optional(
-                                CONF_SUPPLY_METER, default=list(options.get(CONF_SUPPLY_METER) or [])
-                            ): METER_SELECTOR,
-                            vol.Optional(
-                                CONF_SUPPLY_RESERVE, default=options.get(CONF_SUPPLY_RESERVE, DEFAULT_SUPPLY_RESERVE)
-                            ): AMPS_SELECTOR,
-                            vol.Optional(CONF_SUPPLY_GUARD, default=bool(options.get(CONF_SUPPLY_GUARD, False))): bool,
-                            vol.Optional(
-                                CONF_SUPPLY_SHARE, default=options.get(CONF_SUPPLY_SHARE) or SHARE_QUEUE
-                            ): SHARE_SELECTOR,
-                            vol.Optional(
-                                CONF_WEATHER_ENTITY,
-                                description={"suggested_value": options.get(CONF_WEATHER_ENTITY, only_weather)},
-                            ): WEATHER_SELECTOR,
-                            sug(CONF_HEAT_PUMP_POWER): POWER_ENTITY_SELECTOR,
-                            sug(CONF_HEAT_PUMP_BLOCK): SWITCH_SELECTOR,
-                        }
-                    ),
-                    {"collapsed": not options.get(CONF_SUPPLY_LIMIT)},
-                ),
-                vol.Optional(SECTION_SOLAR): section(
-                    vol.Schema(
-                        {
-                            sug(CONF_GRID_POWER): POWER_ENTITY_SELECTOR,
-                            vol.Optional(
-                                CONF_GRID_INVERTED, default=bool(options.get(CONF_GRID_INVERTED, False))
-                            ): bool,
-                            sug(CONF_SOLAR_POWER): POWER_ENTITY_SELECTOR,
-                            sug(CONF_BATTERY_SOC): BATTERY_LEVEL_SELECTOR,
-                            sug(CONF_BATTERY_POWER): POWER_ENTITY_SELECTOR,
-                            vol.Optional(
-                                CONF_BATTERY_INVERTED, default=bool(options.get(CONF_BATTERY_INVERTED, False))
-                            ): bool,
-                            vol.Optional(
-                                CONF_BATTERY_FIRST, default=options.get(CONF_BATTERY_FIRST, DEFAULT_BATTERY_FIRST)
-                            ): PERCENT_SELECTOR,
-                            sug(CONF_BATTERY_HOLD): SWITCH_SELECTOR,
-                            vol.Optional(
-                                CONF_EXPORT_PRICE, default=options.get(CONF_EXPORT_PRICE) or 0
-                            ): PRICE_SELECTOR,
-                            sug(CONF_EXPORT_PRICE_ENTITY): PRICE_SENSOR_SELECTOR,
-                            vol.Optional(
-                                CONF_SOLAR_FORECAST, default=bool(options.get(CONF_SOLAR_FORECAST, True))
-                            ): bool,
-                        }
-                    ),
-                    {"collapsed": not options.get(CONF_GRID_POWER)},
-                ),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)
@@ -828,22 +776,12 @@ class ChargerSubentryFlow(ConfigSubentryFlow):
             vol.Required(CONF_MODEL, default=values.get(CONF_MODEL) or MODEL_OTHER): _model_selector(auto=False),
             vol.Required(CONF_POWER, default=values.get(CONF_POWER, DEFAULT_CHARGE_POWER)): POWER_SELECTOR,
         }
-        sites = [
-            selector.SelectOptionDict(value=sid, label=sub.title)
-            for sid, sub in self._get_entry().subentries.items()
-            if sub.subentry_type == SUBENTRY_SITE
-        ]
-        if sites:
+        sites = _site_options(self._get_entry())
+        if len(sites) > 1:
             # Only asked when the household has another place than the home.
             known = {site["value"] for site in sites}
             chosen = values.get(CONF_SITE)
-            fields[vol.Required(CONF_SITE, default=chosen if chosen in known else SITE_HOME)] = selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=[selector.SelectOptionDict(value=SITE_HOME, label=SITE_HOME), *sites],
-                    mode=selector.SelectSelectorMode.DROPDOWN,
-                    translation_key="site",
-                )
-            )
+            fields[vol.Required(CONF_SITE, default=chosen if chosen in known else SITE_HOME)] = _site_selector(sites)
         fields.update(
             {
                 opt(CONF_SWITCH_ENTITY): SWITCH_SELECTOR,
@@ -909,48 +847,241 @@ class ChargerSubentryFlow(ConfigSubentryFlow):
 
 
 # ----------------------------------------------------------------------
-# Places
+# Places, and their parts
+
+
+def _site_options(entry: ConfigEntry) -> list[selector.SelectOptionDict]:
+    """The household's places, the home first. The home's value is always "home"."""
+    home = places.home_subentry(entry)
+    options = [selector.SelectOptionDict(value=SITE_HOME, label=home.title if home else SITE_HOME)]
+    options.extend(
+        selector.SelectOptionDict(value=sid, label=sub.title)
+        for sid, sub in entry.subentries.items()
+        if sub.subentry_type == SUBENTRY_SITE and sub is not home
+    )
+    return options
+
+
+def _site_selector(options: list[selector.SelectOptionDict]) -> selector.SelectSelector:
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=options, mode=selector.SelectSelectorMode.DROPDOWN, translation_key="site"
+        )
+    )
+
+
+def _site_of(entry: ConfigEntry, raw: Any) -> str:
+    """The value a place has in a selector, from what is stored for it."""
+    home = places.home_subentry(entry)
+    if not raw or raw == SITE_HOME or (home is not None and raw == home.subentry_id):
+        return SITE_HOME
+    return str(raw) if raw in entry.subentries else SITE_HOME
+
+
+SECTION_GRID = "grid"
+SUPPLY_FIELDS = (
+    CONF_SUPPLY_LIMIT,
+    CONF_SUPPLY_PHASES,
+    CONF_SUPPLY_METER,
+    CONF_SUPPLY_RESERVE,
+    CONF_SUPPLY_GUARD,
+    CONF_SUPPLY_SHARE,
+    CONF_WEATHER_ENTITY,
+)
 
 
 class SiteSubentryFlow(ConfigSubentryFlow):
-    """Add or change a place with chargers besides the home: a summer house, say."""
+    """Add or change a place: the home, or another place with chargers (a summer house).
 
-    @staticmethod
-    def _schema(values: Mapping[str, Any]) -> vol.Schema:
+    A place has its own supply (what it may draw, and a meter), and its own
+    meter to the grid for the sun.
+    """
+
+    def _schema(self, values: Mapping[str, Any], *, home: bool) -> vol.Schema:
         def opt(key: str) -> vol.Optional:
             return vol.Optional(key, description={"suggested_value": values.get(key)})
 
-        return vol.Schema(
-            {
-                vol.Required(CONF_NAME, default=values.get(CONF_NAME, "")): str,
-                opt(CONF_ZONE): ZONE_SELECTOR,
-                vol.Optional(CONF_SUPPLY_LIMIT, default=values.get(CONF_SUPPLY_LIMIT) or 0): AMPS_SELECTOR,
-                vol.Optional(CONF_SUPPLY_PHASES, default=str(values.get(CONF_SUPPLY_PHASES) or "3")): PHASES_SELECTOR,
-                vol.Optional(CONF_SUPPLY_METER, default=list(values.get(CONF_SUPPLY_METER) or [])): METER_SELECTOR,
-                vol.Optional(
-                    CONF_SUPPLY_RESERVE, default=values.get(CONF_SUPPLY_RESERVE, DEFAULT_SUPPLY_RESERVE)
-                ): AMPS_SELECTOR,
-                vol.Optional(CONF_SUPPLY_GUARD, default=bool(values.get(CONF_SUPPLY_GUARD, False))): bool,
-                vol.Optional(CONF_SUPPLY_SHARE, default=values.get(CONF_SUPPLY_SHARE) or SHARE_QUEUE): SHARE_SELECTOR,
-                opt(CONF_WEATHER_ENTITY): WEATHER_SELECTOR,
-            }
+        weathers = self.hass.states.async_entity_ids("weather")
+        only_weather = weathers[0] if home and len(weathers) == 1 else None
+        fields: dict[vol.Marker, Any] = {vol.Required(CONF_NAME, default=values.get(CONF_NAME, "")): str}
+        if not home:
+            # The home is where a car's location says "home".
+            fields[opt(CONF_ZONE)] = ZONE_SELECTOR
+        fields[vol.Required(SECTION_SUPPLY)] = section(
+            vol.Schema(
+                {
+                    vol.Optional(CONF_SUPPLY_LIMIT, default=values.get(CONF_SUPPLY_LIMIT) or 0): AMPS_SELECTOR,
+                    vol.Optional(
+                        CONF_SUPPLY_PHASES, default=str(values.get(CONF_SUPPLY_PHASES) or "3")
+                    ): PHASES_SELECTOR,
+                    vol.Optional(CONF_SUPPLY_METER, default=list(values.get(CONF_SUPPLY_METER) or [])): METER_SELECTOR,
+                    vol.Optional(
+                        CONF_SUPPLY_RESERVE, default=values.get(CONF_SUPPLY_RESERVE, DEFAULT_SUPPLY_RESERVE)
+                    ): AMPS_SELECTOR,
+                    vol.Optional(CONF_SUPPLY_GUARD, default=bool(values.get(CONF_SUPPLY_GUARD, False))): bool,
+                    vol.Optional(
+                        CONF_SUPPLY_SHARE, default=values.get(CONF_SUPPLY_SHARE) or SHARE_QUEUE
+                    ): SHARE_SELECTOR,
+                    vol.Optional(
+                        CONF_WEATHER_ENTITY,
+                        description={"suggested_value": values.get(CONF_WEATHER_ENTITY, only_weather)},
+                    ): WEATHER_SELECTOR,
+                }
+            ),
+            {"collapsed": not values.get(CONF_SUPPLY_LIMIT)},
         )
+        fields[vol.Required(SECTION_GRID)] = section(
+            vol.Schema(
+                {
+                    opt(CONF_GRID_POWER): POWER_ENTITY_SELECTOR,
+                    vol.Optional(CONF_GRID_INVERTED, default=bool(values.get(CONF_GRID_INVERTED, False))): bool,
+                    vol.Optional(CONF_EXPORT_PRICE, default=values.get(CONF_EXPORT_PRICE) or 0): PRICE_SELECTOR,
+                    opt(CONF_EXPORT_PRICE_ENTITY): PRICE_SENSOR_SELECTOR,
+                }
+            ),
+            {"collapsed": not values.get(CONF_GRID_POWER)},
+        )
+        return vol.Schema(fields)
 
     @staticmethod
-    def _clean(data: Mapping[str, Any]) -> dict[str, Any]:
-        return {key: value for key, value in data.items() if key != CONF_NAME and value not in (None, "", [])}
+    def _clean(data: Mapping[str, Any], *, home: bool) -> dict[str, Any]:
+        flat = {**data, **(data.get(SECTION_SUPPLY) or {}), **(data.get(SECTION_GRID) or {})}
+        result = {key: flat[key] for key in SITE_KEYS if flat.get(key) not in (None, "", [], 0, False)}
+        if CONF_SUPPLY_RESERVE in flat and flat[CONF_SUPPLY_RESERVE] is not None:
+            result[CONF_SUPPLY_RESERVE] = flat[CONF_SUPPLY_RESERVE]
+        if home:
+            result = {CONF_HOME: True, **{key: value for key, value in result.items() if key != CONF_ZONE}}
+        return result
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
         if user_input is not None:
-            return self.async_create_entry(title=user_input[CONF_NAME], data=self._clean(user_input))
-        return self.async_show_form(step_id="user", data_schema=self._schema({}))
+            return self.async_create_entry(title=user_input[CONF_NAME], data=self._clean(user_input, home=False))
+        return self.async_show_form(step_id="user", data_schema=self._schema({}, home=False))
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
         subentry = self._get_reconfigure_subentry()
+        home = bool(subentry.data.get(CONF_HOME))
         if user_input is not None:
             return self.async_update_and_abort(
-                self._get_entry(), subentry, title=user_input[CONF_NAME], data=self._clean(user_input)
+                self._get_entry(), subentry, title=user_input[CONF_NAME], data=self._clean(user_input, home=home)
             )
         return self.async_show_form(
-            step_id="reconfigure", data_schema=self._schema({**subentry.data, CONF_NAME: subentry.title})
+            step_id="reconfigure",
+            data_schema=self._schema({**subentry.data, CONF_NAME: subentry.title}, home=home),
         )
+
+
+class _PartSubentryFlow(ConfigSubentryFlow):
+    """Something a place has one of: the sun on its roof, a home battery, a heat pump."""
+
+    KIND = ""
+
+    def _fields(self, values: Mapping[str, Any]) -> dict[vol.Marker, Any]:
+        raise NotImplementedError
+
+    def _found(self) -> dict[str, Any]:
+        """What Home Assistant already knows about it (the Energy dashboard), to fill in."""
+        return {}
+
+    def _schema(self, values: Mapping[str, Any]) -> vol.Schema:
+        fields: dict[vol.Marker, Any] = {
+            vol.Required(CONF_NAME, default=values.get(CONF_NAME) or places.title(self.hass, self.KIND)): str
+        }
+        sites = _site_options(self._get_entry())
+        if len(sites) > 1:
+            chosen = _site_of(self._get_entry(), values.get(CONF_SITE))
+            fields[vol.Required(CONF_SITE, default=chosen)] = _site_selector(sites)
+        fields.update(self._fields(values))
+        return vol.Schema(fields)
+
+    def _taken(self, site: str, but: str | None = None) -> bool:
+        """The place already has one of these."""
+        entry = self._get_entry()
+        return any(
+            sub.subentry_type == self.KIND and sid != but and _site_of(entry, sub.data.get(CONF_SITE)) == site
+            for sid, sub in entry.subentries.items()
+        )
+
+    def _clean(self, data: Mapping[str, Any]) -> dict[str, Any]:
+        result = {key: data[key] for key in PART_KEYS[self.KIND] if data.get(key) not in (None, "", [])}
+        site = _site_of(self._get_entry(), data.get(CONF_SITE))
+        if site != SITE_HOME:
+            result[CONF_SITE] = site
+        return result
+
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if self._taken(_site_of(self._get_entry(), user_input.get(CONF_SITE))):
+                errors["base"] = "already_there"
+            else:
+                return self.async_create_entry(title=user_input[CONF_NAME], data=self._clean(user_input))
+        return self.async_show_form(
+            step_id="user", data_schema=self._schema(user_input or self._found()), errors=errors
+        )
+
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
+        subentry = self._get_reconfigure_subentry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if self._taken(_site_of(self._get_entry(), user_input.get(CONF_SITE)), subentry.subentry_id):
+                errors["base"] = "already_there"
+            else:
+                return self.async_update_and_abort(
+                    self._get_entry(), subentry, title=user_input[CONF_NAME], data=self._clean(user_input)
+                )
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self._schema(user_input or {**subentry.data, CONF_NAME: subentry.title}),
+            errors=errors,
+        )
+
+
+def _opt(values: Mapping[str, Any], key: str) -> vol.Optional:
+    return vol.Optional(key, description={"suggested_value": values.get(key)})
+
+
+class SolarSubentryFlow(_PartSubentryFlow):
+    """The sun on a place's roof."""
+
+    KIND = SUBENTRY_SOLAR
+
+    def _found(self) -> dict[str, Any]:
+        household = getattr(self._get_entry(), "runtime_data", None)
+        entity = household.home.solar_power_entity if household is not None else None
+        return {CONF_SOLAR_POWER: entity} if entity else {}
+
+    def _fields(self, values: Mapping[str, Any]) -> dict[vol.Marker, Any]:
+        return {
+            _opt(values, CONF_SOLAR_POWER): POWER_ENTITY_SELECTOR,
+            vol.Optional(CONF_SOLAR_FORECAST, default=bool(values.get(CONF_SOLAR_FORECAST, True))): bool,
+        }
+
+
+class BatterySubentryFlow(_PartSubentryFlow):
+    """A place's home battery."""
+
+    KIND = SUBENTRY_BATTERY
+
+    def _fields(self, values: Mapping[str, Any]) -> dict[vol.Marker, Any]:
+        return {
+            _opt(values, CONF_BATTERY_SOC): BATTERY_LEVEL_SELECTOR,
+            _opt(values, CONF_BATTERY_POWER): POWER_ENTITY_SELECTOR,
+            vol.Optional(CONF_BATTERY_INVERTED, default=bool(values.get(CONF_BATTERY_INVERTED, False))): bool,
+            vol.Optional(
+                CONF_BATTERY_FIRST, default=values.get(CONF_BATTERY_FIRST, DEFAULT_BATTERY_FIRST)
+            ): PERCENT_SELECTOR,
+            _opt(values, CONF_BATTERY_HOLD): SWITCH_SELECTOR,
+        }
+
+
+class HeatPumpSubentryFlow(_PartSubentryFlow):
+    """A place's heat pump."""
+
+    KIND = SUBENTRY_HEAT_PUMP
+
+    def _fields(self, values: Mapping[str, Any]) -> dict[vol.Marker, Any]:
+        return {
+            _opt(values, CONF_HEAT_PUMP_POWER): POWER_ENTITY_SELECTOR,
+            _opt(values, CONF_HEAT_PUMP_BLOCK): SWITCH_SELECTOR,
+        }
