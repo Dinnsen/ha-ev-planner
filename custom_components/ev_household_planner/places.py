@@ -17,6 +17,7 @@ from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant
 
 from .const import (
+    CONF_BATTERY_HOLD,
     CONF_BATTERY_POWER,
     CONF_BATTERY_SOC,
     CONF_HEAT_PUMP_BLOCK,
@@ -35,7 +36,7 @@ from .const import (
 # A part is made when one of these is set.
 PART_NEEDS = {
     SUBENTRY_SOLAR: (CONF_SOLAR_POWER,),
-    SUBENTRY_BATTERY: (CONF_BATTERY_SOC, CONF_BATTERY_POWER),
+    SUBENTRY_BATTERY: (CONF_BATTERY_SOC, CONF_BATTERY_POWER, CONF_BATTERY_HOLD),
     SUBENTRY_HEAT_PUMP: (CONF_HEAT_PUMP_POWER, CONF_HEAT_PUMP_BLOCK),
 }
 TITLES = {

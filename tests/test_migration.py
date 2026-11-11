@@ -113,7 +113,9 @@ async def test_a_household_of_1x_is_moved_with_everything_in_it(
     assert entry.title == "Marielystvej"
     assert "migrated_from" not in entry.data
     assert entry.data["price_entity"] == PRICE_ENTITY
-    assert set(entry.subentries) == {CARPORT, TESLA}
+    # The car and the charger as they were, and the home as a place of its own.
+    assert {sid for sid, sub in entry.subentries.items() if sub.subentry_type != "site"} == {CARPORT, TESLA}
+    assert [sub.data for sub in entry.subentries.values() if sub.subentry_type == "site"] == [{"home": True}]
     # The 1.x household is gone; the other integration's entry is not.
     assert hass.config_entries.async_get_entry(OLD_ID) is None
     assert hass.config_entries.async_get_entry(other.entry_id) is not None

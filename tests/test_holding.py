@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timedelta
 from typing import Any
-from unittest.mock import PropertyMock, patch
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
@@ -252,11 +251,11 @@ async def test_the_prices_are_read_once_and_an_amount_is_added(
     # A kWh of the sun costs what it would have been sold for.
     assert household.export_price() == 0.4
     hass.states.async_set("sensor.sell", "0.6")
-    config = {**household.config, "export_price_entity": "sensor.sell"}
-    with patch.object(type(household), "config", new_callable=PropertyMock, return_value=config):
-        assert household.export_price() == 0.6
-        hass.states.async_set("sensor.sell", "unknown")
-        assert household.export_price() == 0.4
+    # The price is the place's: a sensor for it wins, while it has a number.
+    household.sites["home"].data["export_price_entity"] = "sensor.sell"
+    assert household.export_price() == 0.6
+    hass.states.async_set("sensor.sell", "unknown")
+    assert household.export_price() == 0.4
     vehicle = household.vehicles[TESLA]
     vehicle.months.clear()
     vehicle.add_energy(dt_util.now(), 10, 2.0, solar=4, solar_price=0.5)
