@@ -2,6 +2,13 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.3.0b14] - 2026-11-12
+
+Beta: only those who show beta versions in the Marketplace get it.
+
+### Fixed
+- **Keep the charger on does not charge a car past its target.** At the target, a car with *Keep the charger on* was turned on again, and a car whose own limit is higher than the target then charged on to that limit. It is now only left on when it stops at the target by itself: the target is 100 %, or the car's own limit is the target. Otherwise it is paused there.
+
 ## [2.3.0b13] - 2026-11-12
 
 Beta: only those who show beta versions in the Marketplace get it.

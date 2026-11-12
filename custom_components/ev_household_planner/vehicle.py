@@ -601,6 +601,21 @@ class Vehicle:
         return to_float(self.settings.get(SET_TARGET_SOC)) or 80.0
 
     @property
+    def stops_itself(self) -> bool:
+        """The car stops at the target by itself, so it can be left on when it is there.
+
+        Left on, a car charges to its own limit. That is the target when the
+        target is full, or when the car's own limit is known and no higher.
+        With a lower target than the car's limit, or a limit nobody knows,
+        "on" would charge the car past the target: it is paused instead.
+        """
+        target = self.target
+        if target >= 99.5:
+            return True
+        limit = self.target_from_car if self.target_entity else None
+        return limit is not None and limit <= target + 1
+
+    @property
     def mode(self) -> str:
         return str(self.settings.get(SET_MODE) or "smart")
 
@@ -620,7 +635,7 @@ class Vehicle:
             follow_level=to_float(s.get(SET_FOLLOW_LEVEL)) or 90.0,
             low_price_level=to_float(s.get(SET_LOW_PRICE_LEVEL)) if s.get(SET_LOW_PRICE_ENABLED) else None,
             low_soc_level=to_float(s.get(SET_LOW_SOC_LEVEL)) if s.get(SET_LOW_SOC_ENABLED) else None,
-            keep_on=bool(s.get(SET_KEEP_ON)),
+            keep_on=bool(s.get(SET_KEEP_ON)) and self.stops_itself,
             join_within=max(0.0, to_float(s.get(SET_JOIN_WITHIN)) or 0.0) if s.get(SET_JOIN_ENABLED) else None,
             early_within=max(0.0, to_float(s.get(SET_EARLY_WITHIN)) or 0.0) if s.get(SET_EARLY_ENABLED) else None,
             topup_level=to_float(s.get(SET_TOPUP_LEVEL)) if s.get(SET_TOPUP_ENABLED) else None,

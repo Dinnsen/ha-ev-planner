@@ -99,6 +99,20 @@ def test_home_and_charging_states() -> None:
     assert month_key(NOW) == "2026-10"
 
 
+def test_a_car_is_only_left_on_when_it_stops_at_the_target_by_itself() -> None:
+    """Left on at a target under the car's own limit, the car would charge past the target."""
+    vehicle = make()
+    vehicle.settings.update({"keep_charger_on": True, "target_soc": 100})
+    assert vehicle.rules().keep_on
+    # A lower target, and nobody knows the car's own limit: it would go on to wherever that is.
+    vehicle.settings["target_soc"] = 41
+    assert not vehicle.rules().keep_on
+    # The car's own limit is the target: the car stops there.
+    vehicle.config["target_entity"] = "number.car_limit"
+    vehicle.target_from_car = 80.0
+    assert vehicle.target == 80 and vehicle.rules().keep_on
+
+
 def test_rules_from_settings() -> None:
     vehicle = make()
     assert vehicle.rules() == Rules(min_soc=0, ceiling=None, low_price_level=None, low_soc_level=None)
@@ -112,6 +126,7 @@ def test_rules_from_settings() -> None:
             "low_soc_level": 15,
             "min_soc": 30,
             "keep_charger_on": True,
+            "target_soc": 100,
             "opportunistic": "lower_ceiling",
             "join_period": True,
             "join_within": 0.08,
