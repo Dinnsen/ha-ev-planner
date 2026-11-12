@@ -93,6 +93,7 @@ from .const import (
     REMINDER_MAX_REPEATS,
     SAVE_COUNTERS,
     SET_DAY_TARGETS,
+    SET_KNOWN_PRICES,
     SET_LIVE,
     SET_MANUAL_SOC,
     SET_MODE,
@@ -577,6 +578,16 @@ class Household(DataUpdateCoordinator[None]):
             cache = self._slots_cache = (state, day, add, slots)
         return list(cache[3])
 
+    def plan_on_forecast(self, vehicle: Vehicle, now: datetime) -> bool:
+        """Whether a car's plan has hours whose price is a forecast, not a published price."""
+        plan = vehicle.plan
+        if plan is None or not plan.segments:
+            return False
+        forecasts = [slot for slot in self.price_slots(now) if slot.forecast]
+        return any(
+            slot.start < segment.end and segment.start < slot.end for segment in plan.segments for slot in forecasts
+        )
+
     def export_price(self, site_id: str = SITE_HOME) -> float:
         """What a kWh sent to the grid pays now at a place: the sensor, else the fixed price, else nothing."""
         config = self.sites.get(site_id, self.sites[SITE_HOME]).data
@@ -929,6 +940,14 @@ class Household(DataUpdateCoordinator[None]):
             curve=vehicle.learned.speeds(),
         )
         prices = self.price_slots(now)
+        if vehicle.settings.get(SET_KNOWN_PRICES):
+            # Only the prices that are published: the car is ready by the ready-by time, or by the
+            # end of the prices there are when that comes first. Nothing is bet on a forecast.
+            known = [slot for slot in prices if not slot.forecast]
+            if known:
+                prices = known
+                if aim is not None and known[-1].end < aim:
+                    aim = known[-1].end
         try:
             plan = plan_vehicle(
                 prices,

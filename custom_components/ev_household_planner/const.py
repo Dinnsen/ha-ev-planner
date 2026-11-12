@@ -226,6 +226,7 @@ SET_NOTIFY_DONE: Final = "notify_done"
 SET_NOTIFY_RECEIPT: Final = "notify_receipt"
 # Charge earlier when it costs at most ``early_within`` more per kWh than the cheapest plan.
 SET_EARLY_ENABLED: Final = "prefer_early"
+SET_KNOWN_PRICES: Final = "known_prices"
 SET_EARLY_WITHIN: Final = "early_within"
 # Charge to ``topup_level`` at the cheapest prices, and the rest just before the ready-by time.
 SET_TOPUP_ENABLED: Final = "topup"
@@ -309,6 +310,7 @@ DEFAULT_VEHICLE_SETTINGS: Final[dict[str, object]] = {
     SET_NOTIFY_DONE: False,
     SET_NOTIFY_RECEIPT: True,
     SET_EARLY_ENABLED: False,
+    SET_KNOWN_PRICES: False,
     SET_EARLY_WITHIN: 0.02,
     SET_TOPUP_ENABLED: False,
     SET_TOPUP_LEVEL: 80.0,

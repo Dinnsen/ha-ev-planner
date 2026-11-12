@@ -19,6 +19,7 @@ from .conftest import (
     CHARGER_SWITCH,
     CHARGING,
     NIGHT,
+    PRICE_ENTITY,
     SOC,
     TESLA,
     NotifyCalls,
@@ -332,3 +333,40 @@ async def test_unknown_location_counts_as_away(
     hass.states.async_set("binary_sensor.tesla_home", "on")
     await settle(hass, freezer)
     assert switches.calls == [("turn_off", CHARGE_SWITCH)]
+
+
+async def test_a_plan_on_forecast_prices_says_so_and_can_be_made_from_the_known_prices(
+    hass: HomeAssistant, switches: SwitchCalls, init_integration: MockConfigEntry, freezer: FrozenDateTimeFactory
+) -> None:
+    """Ready by in three days: the cheap hours are a forecast, until the car is told to use what is known."""
+    household = init_integration.runtime_data
+    tesla = household.vehicles[TESLA]
+    start = dt_util.now().replace(minute=0, second=0, microsecond=0)
+    hours = lambda first, prices: [  # noqa: E731
+        {"hour": (start + timedelta(hours=first + i)).isoformat(), "price": price} for i, price in enumerate(prices)
+    ]
+    published = [2.0, 1.9, 1.8, 1.7, 1.9, 2.0, 2.1, 2.2]
+    # The forecast goes on for four days, and is at its cheapest two days from now.
+    forecast = [0.2 if 40 <= i < 46 else 1.6 for i in range(96)]
+    hass.states.async_set(
+        PRICE_ENTITY,
+        "2.0",
+        {"raw_today": hours(0, published), "raw_tomorrow": [], "forecast": hours(len(published), forecast)},
+    )
+    days = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+    off = {days[(start + timedelta(days=d)).weekday()]: "none" for d in range(3)}
+    await household.async_set_vehicle(TESLA, {"ready_by": "07:00", "use_ready_by": True, "schedule": off})
+    await settle(hass, freezer)
+    now = dt_util.now()
+    known_end = start + timedelta(hours=len(published))
+    assert tesla.plan is not None and tesla.plan.segments
+    assert tesla.plan.start >= known_end, "the cheapest hours are the forecast's"
+    assert household.plan_on_forecast(tesla, now)
+
+    await household.async_set_vehicle(TESLA, {"known_prices": True})
+    await settle(hass, freezer)
+    assert tesla.plan is not None and tesla.plan.segments
+    assert tesla.plan.end <= known_end, "only hours with a published price"
+    assert not household.plan_on_forecast(tesla, dt_util.now())
+    # The ready-by time is the household's own, as before.
+    assert tesla.deadline is not None and tesla.deadline > known_end

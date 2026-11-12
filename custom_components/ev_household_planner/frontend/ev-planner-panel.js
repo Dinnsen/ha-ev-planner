@@ -155,6 +155,10 @@ const TEXT = {
     day_target_usual: "Som normalt",
     note_car_limit: "Bilens egen ladegrænse er {limit}: den stopper der, selv om målet er {target}.",
     note_no_resume: "{name} starter ikke igen efter en pause, så den lader i ét stræk.",
+    note_forecast: "Foreløbig plan: timerne ligger længere ude end de kendte priser og bygger på prisprognosen. Den regnes om, når priserne kommer.",
+    note_forecast_do: "Brug kendte priser",
+    note_known: "Planlagt ud fra de kendte priser, ikke prognosen: bilen lades i de billigste timer, der er priser for.",
+    note_known_do: "Brug prognosen",
     try_again: "Prøv igen",
     rate_limited: "Bilen har fået mange kommandoer den sidste time; EV Planner venter lidt med den næste.",
     price_issue_stale: "Prissensoren har ingen priser for nu og frem. Tjek integrationen.",
@@ -686,6 +690,10 @@ const TEXT = {
     day_target_usual: "As usual",
     note_car_limit: "The car's own charge limit is {limit}: it stops there, even though the target is {target}.",
     note_no_resume: "{name} does not charge again after a pause, so it charges in one go.",
+    note_forecast: "A plan for now: its hours are further ahead than the known prices and build on the price forecast. It is made again when the prices come.",
+    note_forecast_do: "Use known prices",
+    note_known: "Planned from the known prices, not the forecast: the car is charged in the cheapest hours there are prices for.",
+    note_known_do: "Use the forecast",
     try_again: "Try again",
     rate_limited: "The car has had many commands in the last hour; EV Planner waits a little before the next.",
     price_issue_stale: "The price sensor has no prices for now or later. Check the integration.",
@@ -4947,6 +4955,8 @@ class EvPlannerPanel extends HTMLElement {
       const short = supply.short?.[v.id];
       if (isNum(short)) notes.push(["warn", this._t("supply_short", { kwh: this._kwh(short) })]);
     }
+    if (plan && v.plan_forecast) notes.push(["info", this._t("note_forecast"), "known-prices", this._t("note_forecast_do")]);
+    else if (v.settings?.known_prices) notes.push(["info", this._t("note_known"), "forecast-prices", this._t("note_known_do")]);
     if (plan) {
       if (plan.min_only) notes.push(["warn", this._t("note_min_only")]);
       else if (plan.limited) notes.push(["warn", this._t("note_limited")]);
@@ -4960,9 +4970,9 @@ class EvPlannerPanel extends HTMLElement {
     if (!notes.length) return compact ? "" : `<div class="notes"></div>`;
     return `<div class="notes">${notes
       .map(
-        ([kind, text, act]) =>
+        ([kind, text, act, label]) =>
           `<p class="note-line ${kind}">${ICONS[kind === "info" ? "info" : "warn"]}<span>${esc(text)}</span>${
-            act ? `<button class="btn ghost small" data-act="${act}" data-id="${esc(v.id)}">${this._t("try_again")}</button>` : ""
+            act ? `<button class="btn ghost small" data-act="${act}" data-id="${esc(v.id)}">${label || this._t("try_again")}</button>` : ""
           }</p>`,
       )
       .join("")}</div>`;
@@ -5898,7 +5908,7 @@ class EvPlannerPanel extends HTMLElement {
     this._renderStatusLine(kind, text);
     const extra = shown.plan && isNum(shown.plan.end_soc) ? [[this._t("target"), this._pct(shown.plan.end_soc)]] : [];
     this._renderFacts(shown.plan, extra);
-    this._patch(root.querySelector(".car-notes"), JSON.stringify([v.problem, v.control_error, v.control_retry, v.car_limit, v.target, v.resumes, this._state.price_issue, this._state.supply, v.supply_amps, v.connected, shown.plan && [shown.plan.limited, shown.plan.min_only, shown.plan.short, shown.plan.opportunistic, shown.plan.ceiling], shown.deadline, this._lang]), this._notesHtml(v, shown.plan ? { ...shown.plan, deadline: shown.deadline } : null));
+    this._patch(root.querySelector(".car-notes"), JSON.stringify([v.problem, v.control_error, v.control_retry, v.car_limit, v.target, v.resumes, this._state.price_issue, this._state.supply, v.supply_amps, v.connected, v.plan_forecast, v.settings?.known_prices, shown.plan && [shown.plan.limited, shown.plan.min_only, shown.plan.short, shown.plan.opportunistic, shown.plan.ceiling], shown.deadline, this._lang]), this._notesHtml(v, shown.plan ? { ...shown.plan, deadline: shown.deadline } : null));
     const glance = root.querySelector(".car-page .glance");
     if (glance) glance.textContent = this._glanceText(v, shown);
     const why = root.querySelector(".car-page .why");
@@ -8026,6 +8036,10 @@ class EvPlannerPanel extends HTMLElement {
           delete targets[button.dataset.day];
           this._vchange({ day_targets: targets });
         }
+        break;
+      case "known-prices":
+      case "forecast-prices":
+        this._run("prices", "ev_household_planner/vehicle_set", { vehicle_id: id, settings: { known_prices: act === "known-prices" } });
         break;
       case "forget-resume":
         this._run("forget", "ev_household_planner/vehicle_set", { vehicle_id: id, settings: { forget_resume: true } });

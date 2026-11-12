@@ -2,6 +2,14 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.3.0b16] - 2026-11-12
+
+Beta: only those who show beta versions in the Marketplace get it.
+
+### Added
+- **A plan that builds on the price forecast says so.** When the ready-by time is further ahead than the published prices (a Friday without a ready-by time, and the next is Monday), the cheapest hours can be ones that only have a forecast. The car's page and card now say that it is a plan for now, made again when the prices come.
+- **Use known prices.** A button on that note makes the car's plan from the published prices only: it is charged in the cheapest hours there are prices for, by the ready-by time or by the end of the known prices when that comes first. *Use the forecast* turns it back.
+
 ## [2.3.0b15] - 2026-11-12
 
 Beta: only those who show beta versions in the Marketplace get it.
