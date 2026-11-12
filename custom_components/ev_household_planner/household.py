@@ -585,7 +585,9 @@ class Household(DataUpdateCoordinator[None]):
             return False
         forecasts = [slot for slot in self.price_slots(now) if slot.forecast]
         return any(
-            slot.start < segment.end and segment.start < slot.end for segment in plan.segments for slot in forecasts
+            slot.start < segment["end"] and segment["start"] < slot.end
+            for segment in plan.segments
+            for slot in forecasts
         )
 
     def export_price(self, site_id: str = SITE_HOME) -> float:
