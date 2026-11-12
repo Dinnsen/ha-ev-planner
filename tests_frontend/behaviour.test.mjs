@@ -136,7 +136,7 @@ test("a plan on the price forecast says so, and a button makes it from the known
     assert.equal(await read(note), null);
     await push({ ...state, vehicles: state.vehicles.map((v) => (v.id === car.id ? { ...v, plan_forecast: true, plan_other_cost: v.plan.cost + 12.5 } : v)) });
     await page.waitForFunction((s) => window.harness.panel.shadowRoot.querySelector(s), note, { timeout: 5000 });
-    assert.equal(await read(note), "Use known prices+DKK 12.50");
+    assert.equal((await read(note)).replace(/\s/g, " "), "Use known prices+DKK 12.50");
     assert.equal(await read(".cars-grid .basis span"), "Price forecast");
     await tap(note);
     await waitForCall("vehicle_set");
