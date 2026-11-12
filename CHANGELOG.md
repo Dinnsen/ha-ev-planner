@@ -2,6 +2,35 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.3.0] - 2026-11-12
+
+Everything from the 2.2 and 2.3 betas, for those coming from 2.1.2. The betas below list each change.
+
+### Coming from 2.1.2
+
+- **Nothing to do.** Your cars, chargers, settings, plans, history and entities stay as they are; the entity ids do not change. Your home becomes the place *Home* under the integration by itself.
+- **The Home tab** is new in the panel: your house as a clay model, by day and by night, with the cars, chargers, the sun, a home battery and a heat pump. Ten houses to choose from under *Settings → House*.
+- **Configure** now has only the currency, the phones, the iOS widgets and an amount added to every price. A shared supply is set on the place *Home*; solar panels, a home battery and a heat pump are added under the integration (*Add solar panels*, ...).
+
+### New
+
+- **A shared supply.** Several cars behind one fuse are planned together under a limit per phase, in line or by need. The *guard* watches the meter and turns the cars down within the minute when the house needs more, holds a heat pump back if it may, and pauses a car as the last thing. Easee's own dynamic limit is used, so the charger falls back by itself if Home Assistant stops.
+- **The sun and the home battery.** A car can charge on the surplus (*Sun and plan* or *Only sun*), amp by amp and on one phase when the sun is small, with the home battery first. The surplus is sold instead when a kWh sells for more than the car's plan pays at night. The history shows each charge's share of sun.
+- **Places, and cars that find their charger.** A summer house with its own chargers, supply, sun and picture. A car that uses several chargers is found at the one it is plugged in to, by its location, the plugs and the chargers' power, and you are asked on your phones when it cannot be told.
+- **The charger and the car back each other up.** When one does not answer a start or a pause, the other one's switch does it.
+- **Known prices or the forecast.** A plan for a ready-by time days ahead can use the price forecast, or only the published prices; the button shows what the other would cost.
+- **Get started** on the Cars tab for a new household, with what is done ticked off.
+- **History** by day, week, month or year for each car, charger, the guests or the whole house, with *Export CSV*; and what EV Planner has learned about each car.
+- **The car's page** in three views (*Now*, *Rules*, *History*), and *Settings* as tiles.
+- **A price for what you sell** and **an amount added to every price**, for sensors without tariffs.
+- **Peblar** (also OK's chargers), **Zaptec** and about 40 other chargers are filled in from their device, with the care each one needs (Peblar: at most three pauses in ten minutes; Zaptec: raised at most every 15 minutes).
+
+### Safer
+
+- A command that fails is tried again later and later, a stop from the guard always goes out, and what was held back is remembered across a restart.
+- *Keep the charger on* only leaves a car on when it stops at its target by itself.
+- Every release has passed the tests, the panel's tests, 72 simulated nights and days, and an upgrade from the last release.
+
 ## [2.3.0b17] - 2026-11-12
 
 Beta: only those who show beta versions in the Marketplace get it.

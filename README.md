@@ -108,8 +108,6 @@ Run both for a while with **who starts and stops charging** set to *neither* in 
 
 ## The panel
 
-> **The Home tab is in the beta (2.3.0).** Version 2.1.2 has the tabs Cars, Guest, History and Settings. To get the Home tab, the houses, places, a shared supply and charging on the sun: in HACS, open EV Planner → the three dots → *Redownload* → turn on *Show beta versions* (or *Need a different version?*) and choose the newest `2.3.0b`.
-
 **EV Planner** in the sidebar has five tabs:
 
 - **Cars:** a card per car with a small price clock, the charge level and target, the status and the mode. Tap a car for its page in three views: *Now* (the large price clock, the plan, the battery with handles, ready by and the weekday schedule, and the next two days' prices), *Rules* (tiles for price, battery, time, messages and more, each opening as a sheet) and *History* (what EV Planner has learned about the car, and its charges).
@@ -284,7 +282,7 @@ With a plug sensor (`connected_entity`), a charge goes to the history when the c
 
 Remove EV Planner under **Settings → Devices & services**. Its settings, plans and history are deleted with it. Remove it in the Marketplace and restart Home Assistant. Your cars and chargers are not changed.
 
-## Several chargers, and a summer house (beta)
+## Several chargers, and a summer house
 
 **A car that finds its charger.** In the car's setup, choose *Found each time* as its charger when it uses more than one. When a charger gets a car, EV Planner finds out which one it is: the car that is at the charger's place, says it is plugged in, and is not at another charger. It needs the charger's *Car plugged in* entity and the car's *Plugged in* and *At home* entities.
 
@@ -302,13 +300,13 @@ Remove EV Planner under **Settings → Devices & services**. Its settings, plans
 
 **Sharing by need.** Under *Shared supply*, *Sharing between the cars* can be set to *By need*: when there is not room for all the cars in an hour, they share it by the kWh each lacks, never less than 6 A each, instead of the first taking what it needs. It is only used when it leaves no car further from what it must have.
 
-## Shared supply (beta)
+## Shared supply
 
 Several cars behind one fuse, or two chargers on one circuit: on the place (the integration, *Home*), under *Shared supply*, set the most the house may draw per phase (for example 23 A on a 25 A supply), the phases, and a meter if you have one. EV Planner then plans the plugged-in cars together under that limit, cheapest slots first. The house comes first (learned from the meter, or a fixed reserve), every car first gets what it must have by its ready-by time, and then they fill up by priority. A car or charger with a current setting gets its share in amps; one that can only be switched on and off takes its turn. Plans aim to be done an hour early. EV Planner does not protect the fuse; keep your charger's own load balancing on.
 
 An Easee charger needs no number: pick any sensor of the charger as its charging current, and EV Planner uses Easee's own action (with a 30-minute time limit, renewed, so the charger falls back by itself if Home Assistant stops). Without an Equalizer, you can turn on the *guard*: it watches the meter and turns the cars down at once when the house needs more, and puts them at the least current if the meter stops reporting. It reacts in seconds, not milliseconds, and is not a fuse. The *Home* tab in the panel shows the house, the cars and who gets the current through the night.
 
-### Weather and heat pump (beta)
+### Weather and heat pump
 
 Under *Shared supply* you can also pick a weather entity: EV Planner learns how much more the house draws when it is colder and counts on the night's forecast. A heat pump's power is shown in the Home tab; with a switch that holds it back (SG Ready or a blocking contact, on = held back), the guard holds it back for at most 15 minutes, twice a night, before it stops a car.
 
@@ -356,7 +354,7 @@ What EV Planner does by itself, and how long it waits. None of these are setting
 | Finding the charger | By the car's location, the plugs and the charger's power. Still unsure after 5 minutes (12 for a car that reports slowly): the phones are asked, and the charger is left alone until then. |
 | Keep the charger on | Only when the car stops at the target by itself: the target is 100 %, or the car's own limit is the target. |
 
-## The sun and the home battery (beta)
+## The sun and the home battery
 
 Under the integration, **Add solar panels** (and **Add home battery**) at the place: a sensor for the power to and from the grid (positive when the house buys), the panels' power, and the price you sell for. Each car then has a *Solar* setting: *Off*, *Sun and plan* (charge on the surplus when the sun shines; the plan sees to the rest by the ready-by time) or *Only sun*. A car with a current setting follows the surplus; with a phase switch it charges on one phase when the sun is small. With a home battery, the battery comes first up to the level you choose. With a solar forecast in the Energy dashboard, *Sun and plan* buys less at night when the next day looks sunny. The history shows how much of each charge came from the sun. When a kWh is sold for more than a car's plan pays for one, a car on *Sun and plan* leaves the surplus to the grid and charges in its cheap hours instead; set the price you sell for under the place's solar panels.
 

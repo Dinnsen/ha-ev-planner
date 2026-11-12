@@ -129,8 +129,6 @@ Kortene følger jeres tema uden card-mod: Home Assistants egne variabler for kor
 
 ## Panelet
 
-> **Hjem-fanen er i betaen (2.3.0).** Version 2.1.2 har fanerne Biler, Gæst, Historik og Indstillinger. For at få Hjem-fanen, husene, steder, fælles forsyning og ladning på solen: åbn EV Planner i HACS → de tre prikker → *Download igen* → slå *Vis betaversioner* til (eller *Brug for en anden version?*) og vælg den nyeste `2.3.0b`.
-
 **EV Planner** i sidemenuen har fem faner: **Biler** (et kort pr. bil; tryk for bilens side med *Nu*, *Regler* og *Historik*), **Hjem** (huset som lermodel med biler, ladere, sol, batteri og varmepumpe, dag og nat), **Gæst**, **Historik** (dag, uge, måned og år, og *Eksportér CSV* med én linje pr. opladning) og **Indstillinger**.
 
 Under *Indstillinger → Hus* vælger I billedet i Hjem-fanen: det *klassiske* hus, *vinkelhuset* (et vinkelhus set med garagen nærmest) eller et af otte andre: længehus, T-hus, H-hus, funkis, træsommerhus, valmet parcelhus, halvandet plan og rækkehus. Med mere end ét sted har hvert sted sit eget hus, og Hjem-fanen har en knap for hvert sted. En administrator kan trykke *Tilpas* på billedet og flytte laderne, elboksen, husbatteriet og varmepumpen, tegne ledningernes vej, sætte solceller op eller tage dem ned på tagene og flytte mærkaterne, så de ikke er i vejen. Det gemmes for hvert hus og ser ens ud på alle enheder.
@@ -141,13 +139,13 @@ Under *Indstillinger → Hus* vælger I billedet i Hjem-fanen: det *klassiske* h
 
 EV Planner læser priserne fra én prissensor. Viser den spotprisen uden tariffer og afgifter, så sæt *Lægges til hver pris* i indstillingerne: et beløb pr. kWh, der lægges til hver time. Med solceller kan I angive, hvad I får for en solgt kWh, som tal eller sensor (under stedets solceller): opladningens kWh fra solen regnes så til den pris i stedet for som gratis.
 
-## Fælles forsyning, sol og varmepumpe (beta)
+## Fælles forsyning, sol og varmepumpe
 
 Flere biler bag én sikring: på stedet (integrationen, *Hjem*) under *Fælles forsyning* sættes det, huset højst må trække pr. fase, faserne og en måler. Bilerne planlægges så sammen under grænsen, billigste timer først, og *vagten* skruer bilerne ned med det samme, når huset skal bruge mere. En måler, der ikke har meldt sig i fem minutter, stoles der ikke på: bilerne går til mindste strøm. Med en vejr-entitet regner EV Planner med nattens temperatur, og en varmepumpe kan holdes tilbage i højst 15 minutter, før en bil stoppes. Vagten er ikke en sikring; behold laderens egen lastbalancering.
 
 Med solceller (**Tilføj solceller** under integrationen, på stedet: en sensor for strømmen til og fra nettet, solcellernes effekt og salgsprisen) kan en bil lade på overskuddet fra solen: *Sol og plan* eller *Kun sol*. Når en kWh sælges for mere, end bilens plan betaler for en, lader en bil på *Sol og plan* overskuddet gå til nettet og lader i sine billige timer i stedet; salgsprisen sættes under stedets solceller.
 
-## Flere ladere og et sommerhus (beta)
+## Flere ladere og et sommerhus
 
 **Bilen finder selv sin lader.** Vælg *Findes hver gang* som bilens lader, når den bruger flere. Når en lader får en bil, finder EV Planner ud af hvilken: den bil, der er på laderens sted, siger den er tilsluttet, og ikke holder ved en anden lader. Det kræver laderens *Bil tilsluttet* og bilens *Tilsluttet* og *Hjemme*.
 
