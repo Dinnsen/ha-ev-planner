@@ -2,6 +2,13 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.3.0b17] - 2026-11-12
+
+Beta: only those who show beta versions in the Marketplace get it.
+
+### Changed
+- **Known prices or the forecast: one line and one button.** The long notes are gone. The car's card and page show which prices the plan is made from (*Price forecast* or *Known prices*) and a button to change, with what the charge would cost more or less on the other.
+
 ## [2.3.0b16] - 2026-11-12
 
 Beta: only those who show beta versions in the Marketplace get it.

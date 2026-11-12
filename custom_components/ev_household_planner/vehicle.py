@@ -325,6 +325,7 @@ class Vehicle:
     planned_at: datetime | None = None
     decision: Decision = field(default_factory=lambda: Decision(CONTROL_RELEASED, "off"))
     plan_done: bool = False
+    other_cost: float | None = None  # the plan's cost on the other prices (known or forecast), when they differ
     # The plan came from storage (Home Assistant restarted) and has not been acted on yet.
     plan_restored: bool = False
 

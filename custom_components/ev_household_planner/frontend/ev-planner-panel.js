@@ -155,9 +155,9 @@ const TEXT = {
     day_target_usual: "Som normalt",
     note_car_limit: "Bilens egen ladegrænse er {limit}: den stopper der, selv om målet er {target}.",
     note_no_resume: "{name} starter ikke igen efter en pause, så den lader i ét stræk.",
-    note_forecast: "Foreløbig plan: timerne ligger længere ude end de kendte priser og bygger på prisprognosen. Den regnes om, når priserne kommer.",
     note_forecast_do: "Brug kendte priser",
-    note_known: "Planlagt ud fra de kendte priser, ikke prognosen: bilen lades i de billigste timer, der er priser for.",
+    basis_forecast: "Prisprognose",
+    basis_known: "Kendte priser",
     note_known_do: "Brug prognosen",
     try_again: "Prøv igen",
     rate_limited: "Bilen har fået mange kommandoer den sidste time; EV Planner venter lidt med den næste.",
@@ -690,9 +690,9 @@ const TEXT = {
     day_target_usual: "As usual",
     note_car_limit: "The car's own charge limit is {limit}: it stops there, even though the target is {target}.",
     note_no_resume: "{name} does not charge again after a pause, so it charges in one go.",
-    note_forecast: "A plan for now: its hours are further ahead than the known prices and build on the price forecast. It is made again when the prices come.",
     note_forecast_do: "Use known prices",
-    note_known: "Planned from the known prices, not the forecast: the car is charged in the cheapest hours there are prices for.",
+    basis_forecast: "Price forecast",
+    basis_known: "Known prices",
     note_known_do: "Use the forecast",
     try_again: "Try again",
     rate_limited: "The car has had many commands in the last hour; EV Planner waits a little before the next.",
@@ -4955,8 +4955,6 @@ class EvPlannerPanel extends HTMLElement {
       const short = supply.short?.[v.id];
       if (isNum(short)) notes.push(["warn", this._t("supply_short", { kwh: this._kwh(short) })]);
     }
-    if (plan && v.plan_forecast) notes.push(["info", this._t("note_forecast"), "known-prices", this._t("note_forecast_do")]);
-    else if (v.settings?.known_prices) notes.push(["info", this._t("note_known"), "forecast-prices", this._t("note_known_do")]);
     if (plan) {
       if (plan.min_only) notes.push(["warn", this._t("note_min_only")]);
       else if (plan.limited) notes.push(["warn", this._t("note_limited")]);
@@ -4967,8 +4965,16 @@ class EvPlannerPanel extends HTMLElement {
       if (!compact && plan.opportunistic && isNum(plan.ceiling)) notes.push(["info", this._t("note_opportunistic", { price: this._money(plan.ceiling) })]);
       if (!compact && plan.joined) notes.push(["info", this._t("note_joined", { extra: this._money(plan.joined_extra || 0) })]);
     }
-    if (!notes.length) return compact ? "" : `<div class="notes"></div>`;
-    return `<div class="notes">${notes
+    // Which prices the plan is made from, when it matters: one button, and what the other would cost.
+    let basis = "";
+    const known = !!v.settings?.known_prices;
+    if (plan && (v.plan_forecast || known)) {
+      const diff = isNum(v.plan_other_cost) && isNum(plan.cost) ? Number(v.plan_other_cost) - Number(plan.cost) : null;
+      const cost = diff === null || Math.abs(diff) < 0.005 ? "" : `<span class="basis-diff ${diff < 0 ? "less" : "more"}">${diff < 0 ? "−" : "+"}${this._money(Math.abs(diff))}</span>`;
+      basis = `<p class="basis"><span>${this._t(known ? "basis_known" : "basis_forecast")}</span><button class="btn ghost small" data-act="${known ? "forecast-prices" : "known-prices"}" data-id="${esc(v.id)}">${this._t(known ? "note_known_do" : "note_forecast_do")}${cost}</button></p>`;
+    }
+    if (!notes.length) return compact && !basis ? "" : `<div class="notes">${basis}</div>`;
+    return `<div class="notes">${basis}${notes
       .map(
         ([kind, text, act, label]) =>
           `<p class="note-line ${kind}">${ICONS[kind === "info" ? "info" : "warn"]}<span>${esc(text)}</span>${
@@ -5908,7 +5914,7 @@ class EvPlannerPanel extends HTMLElement {
     this._renderStatusLine(kind, text);
     const extra = shown.plan && isNum(shown.plan.end_soc) ? [[this._t("target"), this._pct(shown.plan.end_soc)]] : [];
     this._renderFacts(shown.plan, extra);
-    this._patch(root.querySelector(".car-notes"), JSON.stringify([v.problem, v.control_error, v.control_retry, v.car_limit, v.target, v.resumes, this._state.price_issue, this._state.supply, v.supply_amps, v.connected, v.plan_forecast, v.settings?.known_prices, shown.plan && [shown.plan.limited, shown.plan.min_only, shown.plan.short, shown.plan.opportunistic, shown.plan.ceiling], shown.deadline, this._lang]), this._notesHtml(v, shown.plan ? { ...shown.plan, deadline: shown.deadline } : null));
+    this._patch(root.querySelector(".car-notes"), JSON.stringify([v.problem, v.control_error, v.control_retry, v.car_limit, v.target, v.resumes, this._state.price_issue, this._state.supply, v.supply_amps, v.connected, v.plan_forecast, v.plan_other_cost, shown.plan?.cost, v.settings?.known_prices, shown.plan && [shown.plan.limited, shown.plan.min_only, shown.plan.short, shown.plan.opportunistic, shown.plan.ceiling], shown.deadline, this._lang]), this._notesHtml(v, shown.plan ? { ...shown.plan, deadline: shown.deadline } : null));
     const glance = root.querySelector(".car-page .glance");
     if (glance) glance.textContent = this._glanceText(v, shown);
     const why = root.querySelector(".car-page .why");
@@ -8696,6 +8702,11 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 @keyframes nudge { 50% { box-shadow: 0 0 0 6px rgba(163,230,53,.25); } }
 .btn.lookup { white-space: nowrap; }
 .btn.danger { color: var(--evp-bad); }
+.basis { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 14px; color: var(--evp-soft); }
+.basis .btn.small { margin-left: auto; display: inline-flex; gap: 8px; align-items: baseline; }
+.basis-diff { font-variant-numeric: tabular-nums; font-weight: 600; }
+.basis-diff.less { color: var(--evp-good, #0F9D6B); }
+.basis-diff.more { color: var(--evp-soft); }
 .btn.small { padding: 5px 10px; border-radius: 9px; font-size: 13px; margin-left: auto; flex: none; }
 .car-page .glance { margin: 10px 0 0; font-size: 15px; font-weight: 600; letter-spacing: -.005em; font-variant-numeric: tabular-nums; }
 .car-page .why { margin: 6px auto 0; max-width: 46ch; font-size: 14px; line-height: 1.45; color: var(--evp-soft); }

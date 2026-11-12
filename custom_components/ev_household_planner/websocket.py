@@ -332,6 +332,7 @@ def vehicle_state(household: Household, vehicle: Vehicle) -> dict[str, Any]:
         "settings": dict(vehicle.settings),
         "plan": plan_state(vehicle.plan),
         "plan_forecast": household.plan_on_forecast(vehicle, now),
+        "plan_other_cost": _r(vehicle.other_cost),
         "plan_error": vehicle.plan_error,
         "month": vehicle.month(now),
         "months": vehicle.months,

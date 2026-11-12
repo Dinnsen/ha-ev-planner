@@ -362,11 +362,14 @@ async def test_a_plan_on_forecast_prices_says_so_and_can_be_made_from_the_known_
     assert tesla.plan is not None and tesla.plan.segments
     assert tesla.plan.start >= known_end, "the cheapest hours are the forecast's"
     assert household.plan_on_forecast(tesla, now)
+    # The same charge on the published prices alone costs more, and the panel is told what.
+    assert tesla.other_cost is not None and tesla.other_cost > tesla.plan.cost
 
     await household.async_set_vehicle(TESLA, {"known_prices": True})
     await settle(hass, freezer)
     assert tesla.plan is not None and tesla.plan.segments
     assert tesla.plan.end <= known_end, "only hours with a published price"
     assert not household.plan_on_forecast(tesla, dt_util.now())
+    assert tesla.other_cost is not None and tesla.other_cost < tesla.plan.cost
     # The ready-by time is the household's own, as before.
     assert tesla.deadline is not None and tesla.deadline > known_end

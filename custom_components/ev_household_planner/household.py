@@ -133,6 +133,7 @@ from .prices import extract_price_slots
 from .rules import (
     Car,
     Decision,
+    VehiclePlan,
     current_price,
     decide,
     fallback_plan,
@@ -941,27 +942,38 @@ class Household(DataUpdateCoordinator[None]):
             speed=vehicle.charge_speed(power)[0],
             curve=vehicle.learned.speeds(),
         )
-        prices = self.price_slots(now)
-        if vehicle.settings.get(SET_KNOWN_PRICES):
-            # Only the prices that are published: the car is ready by the ready-by time, or by the
-            # end of the prices there are when that comes first. Nothing is bet on a forecast.
-            known = [slot for slot in prices if not slot.forecast]
-            if known:
-                prices = known
-                if aim is not None and known[-1].end < aim:
-                    aim = known[-1].end
-        try:
-            plan = plan_vehicle(
-                prices,
+        every = self.price_slots(now)
+        known = [slot for slot in every if not slot.forecast]
+        # With only the published prices, the car is ready by the ready-by time, or by the end of
+        # the prices there are when that comes first. Nothing is bet on a forecast.
+        short = bool(known) and len(known) < len(every) and (aim is None or known[-1].end < aim)
+        known_aim = known[-1].end if short and aim is not None else aim
+        use_known = bool(vehicle.settings.get(SET_KNOWN_PRICES)) and bool(known)
+        prices, other = (known, every) if use_known else (every, known)
+        aim, other_aim = (known_aim, aim) if use_known else (aim, known_aim)
+
+        def make(slots: list[PriceSlot], deadline: datetime | None) -> VehiclePlan:
+            return plan_vehicle(
+                slots,
                 car,
                 vehicle.rules(),
                 now,
-                deadline=aim,
+                deadline=deadline,
                 earliest=vehicle.earliest_start,
                 continuous=vehicle.plan_continuous,
                 blocked=blocked,
                 reserved=self.reserved_for(vehicle),
             )
+
+        # What the same charge costs on the other prices, for the button that changes between them.
+        vehicle.other_cost = None
+        if short:
+            try:
+                vehicle.other_cost = make(other, other_aim).cost
+            except PlanError:
+                vehicle.other_cost = None
+        try:
+            plan = make(prices, aim)
             if stable:
                 plan = keep_previous(vehicle.plan, plan, prices, now, power=power, deadline=aim, blocked=blocked)
             vehicle.plan = plan

@@ -132,17 +132,18 @@ test("a new household is shown what to set up, until there is a car, a charger a
 test("a plan on the price forecast says so, and a button makes it from the known prices", async () => {
   await withPanel("two-cars", {}, async ({ page, tap, read, calls, waitForCall, push, state }) => {
     const car = state.vehicles.find((v) => v.plan);
-    const note = '.cars-grid .note-line [data-act="known-prices"]';
+    const note = '.cars-grid .basis [data-act="known-prices"]';
     assert.equal(await read(note), null);
-    await push({ ...state, vehicles: state.vehicles.map((v) => (v.id === car.id ? { ...v, plan_forecast: true } : v)) });
+    await push({ ...state, vehicles: state.vehicles.map((v) => (v.id === car.id ? { ...v, plan_forecast: true, plan_other_cost: v.plan.cost + 12.5 } : v)) });
     await page.waitForFunction((s) => window.harness.panel.shadowRoot.querySelector(s), note, { timeout: 5000 });
-    assert.equal(await read(note), "Use known prices");
+    assert.equal(await read(note), "Use known prices+DKK 12.50");
+    assert.equal(await read(".cars-grid .basis span"), "Price forecast");
     await tap(note);
     await waitForCall("vehicle_set");
     assert.deepEqual((await calls("vehicle_set")).at(-1).settings, { known_prices: true });
     // Planned from the known prices: the note says so, and the forecast can be used again.
     await push({ ...state, vehicles: state.vehicles.map((v) => (v.id === car.id ? { ...v, plan_forecast: false, settings: { ...v.settings, known_prices: true } } : v)) });
-    const back = '.cars-grid .note-line [data-act="forecast-prices"]';
+    const back = '.cars-grid .basis [data-act="forecast-prices"]';
     await page.waitForFunction((s) => window.harness.panel.shadowRoot.querySelector(s), back, { timeout: 5000 });
     await tap(back);
     await page.waitForFunction(() => window.harness.calls.filter((c) => c.type.endsWith("vehicle_set")).length >= 2, null, { timeout: 5000 });
