@@ -13,7 +13,7 @@
         },
         "data_description": {
           "name": "Vises som integrationens navn.",
-          "price_entity": "En sensor med priser for i dag og i morgen (timer eller kvarterer), fx Energi Data Service eller Nord Pool.",
+          "price_entity": "En sensor med priser for i dag og i morgen (timer eller kvarterer) fra den elpris-integration, I bruger: Nord Pool, Energi Data Service, Strømligning, ENTSO-e, Tibber og andre. Er der ingen at vælge, så sæt en elpris-integration op først.",
           "country": "Kun til at slå gæstebiler op på nummerpladen, som virker i Danmark. Andre steder: vælg Andet land – alt andet virker ens.",
           "motorapi_api_key": "Valgfri, til at slå gæstebiler op på nummerpladen. Få en gratis nøgle på motorapi.dk.",
           "currency": "Elprisernes valuta."
@@ -28,7 +28,7 @@
           "motorapi_api_key": "MotorAPI-nøgle"
         },
         "data_description": {
-          "price_entity": "En sensor med priser for i dag og i morgen (timer eller kvarterer), fx Energi Data Service eller Nord Pool.",
+          "price_entity": "En sensor med priser for i dag og i morgen (timer eller kvarterer) fra den elpris-integration, I bruger: Nord Pool, Energi Data Service, Strømligning, ENTSO-e, Tibber og andre. Er der ingen at vælge, så sæt en elpris-integration op først.",
           "country": "Kun til at slå gæstebiler op på nummerpladen, som virker i Danmark. Andre steder: vælg Andet land – alt andet virker ens.",
           "motorapi_api_key": "Valgfri, til at slå gæstebiler op på nummerpladen. Få en gratis nøgle på motorapi.dk."
         }
@@ -49,7 +49,7 @@
       }
     },
     "error": {
-      "invalid_price_entity": "Sensoren har ingen priser, EV Planner kan læse.",
+      "invalid_price_entity": "Sensoren har ingen priser, EV Planner kan læse. Vælg prissensoren fra jeres elpris-integration (fx Nord Pool, Energi Data Service eller Strømligning). Har I ingen, så sæt en op først.",
       "invalid_auth": "Ugyldig API-nøgle.",
       "cannot_connect": "Kan ikke forbinde til MotorAPI.",
       "timeout": "MotorAPI svarede ikke i tide.",

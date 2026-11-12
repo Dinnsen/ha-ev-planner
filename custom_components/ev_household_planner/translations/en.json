@@ -13,7 +13,7 @@
         },
         "data_description": {
           "name": "Shown as the name of the integration.",
-          "price_entity": "A sensor with prices for today and tomorrow (hourly or 15-minute), such as Energi Data Service or Nord Pool.",
+          "price_entity": "A sensor with prices for today and tomorrow (hourly or 15-minute) from the price integration you use: Nord Pool, Energi Data Service, Stromligning, ENTSO-e, Tibber and others. If there is none to choose, set up a price integration first.",
           "country": "Only for looking up guest cars by license plate, which works in Denmark. Anywhere else, choose Other country: everything else works the same.",
           "motorapi_api_key": "Optional, for looking up guest cars by license plate. Get a free key at motorapi.dk.",
           "currency": "Currency of the electricity prices."
@@ -28,7 +28,7 @@
           "motorapi_api_key": "MotorAPI API key"
         },
         "data_description": {
-          "price_entity": "A sensor with prices for today and tomorrow (hourly or 15-minute), such as Energi Data Service or Nord Pool.",
+          "price_entity": "A sensor with prices for today and tomorrow (hourly or 15-minute) from the price integration you use: Nord Pool, Energi Data Service, Stromligning, ENTSO-e, Tibber and others. If there is none to choose, set up a price integration first.",
           "country": "Only for looking up guest cars by license plate, which works in Denmark. Anywhere else, choose Other country: everything else works the same.",
           "motorapi_api_key": "Optional, for looking up guest cars by license plate. Get a free key at motorapi.dk."
         }
@@ -49,7 +49,7 @@
       }
     },
     "error": {
-      "invalid_price_entity": "The sensor has no prices EV Planner can read.",
+      "invalid_price_entity": "The sensor has no prices EV Planner can read. Choose the price sensor from your price integration (such as Nord Pool, Energi Data Service or Stromligning). If you have none, set one up first.",
       "invalid_auth": "Invalid API key.",
       "cannot_connect": "Cannot connect to MotorAPI.",
       "timeout": "MotorAPI did not respond in time.",

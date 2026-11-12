@@ -46,10 +46,11 @@ class PlannerNumberDescription(NumberEntityDescription):
 
 
 def _percent(key: str, setting: str, *, config: bool = False) -> PlannerNumberDescription:
+    # A level the household sets, not a battery's charge: with the battery class, cards that list low
+    # batteries show a limit of 0 % as a flat battery.
     return PlannerNumberDescription(
         key=key,
         setting=setting,
-        device_class=NumberDeviceClass.BATTERY,
         native_min_value=0,
         native_max_value=100,
         native_step=1,
@@ -158,7 +159,6 @@ GUEST_NUMBERS: tuple[PlannerNumberDescription, ...] = (
     PlannerNumberDescription(
         key="guest_soc",
         setting=GUEST_SOC,
-        device_class=NumberDeviceClass.BATTERY,
         native_min_value=0,
         native_max_value=100,
         native_step=1,
@@ -168,7 +168,6 @@ GUEST_NUMBERS: tuple[PlannerNumberDescription, ...] = (
     PlannerNumberDescription(
         key="guest_charge_limit",
         setting=GUEST_LIMIT,
-        device_class=NumberDeviceClass.BATTERY,
         native_min_value=0,
         native_max_value=100,
         native_step=1,

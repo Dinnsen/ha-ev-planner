@@ -2,6 +2,17 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.3.0b13] - 2026-11-12
+
+Beta: only those who show beta versions in the Marketplace get it.
+
+### Fixed
+- **Any price integration, and no integration's name filled in.** Setting up EV Planner suggested `sensor.energi_data_service` whether it was there or not, which read as if Energi Data Service was needed. The form now suggests a sensor in your Home Assistant that has prices EV Planner can read (Nord Pool, Energi Data Service, Stromligning, ENTSO-e, Tibber and others), or none, and the error says what to choose.
+- **Where the price sensor is changed** is said where it is shown: under the integration, the three dots by EV Planner → *Reconfigure*.
+- **Get started is not shown to a household that is set up.** It could come back with *Electricity prices* unticked while the prices had a hole or an odd unit. It now only asks for prices when none can be read, and then names the sensor and where to change it.
+- **A limit of 0 % is not a flat battery.** The numbers for a car's levels (target, minimum, *must have by the ready-by time*, ...) and the guest's had the battery class, so cards that list low batteries showed them as one.
+- **Sheets on a wide screen** open in the middle of the screen, not at its bottom edge.
+
 ## [2.3.0b12] - 2026-11-11
 
 Beta: only those who show beta versions in the Marketplace get it.

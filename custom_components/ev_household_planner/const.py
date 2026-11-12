@@ -33,7 +33,6 @@ CONF_MOTORAPI_KEY: Final = "motorapi_api_key"
 CONF_COUNTRY: Final = "country"
 CONF_PLATE_PROVIDER: Final = "plate_provider"
 
-DEFAULT_PRICE_ENTITY: Final = "sensor.energi_data_service"
 DEFAULT_CURRENCY: Final = "DKK"
 CURRENCIES: Final = ["DKK", "EUR", "USD", "SEK", "NOK"]
 COUNTRY_DENMARK: Final = "Denmark"

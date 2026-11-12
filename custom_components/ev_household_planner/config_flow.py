@@ -106,7 +106,6 @@ from .const import (
     DEFAULT_CURRENCY,
     DEFAULT_NAME,
     DEFAULT_PLATE_PROVIDER,
-    DEFAULT_PRICE_ENTITY,
     DEFAULT_SUPPLY_RESERVE,
     DOMAIN,
     ESC_DOMAIN,
@@ -262,11 +261,18 @@ def _notify_selector(hass: HomeAssistant) -> selector.SelectSelector:
     )
 
 
-def _connection_schema(defaults: Mapping[str, Any]) -> dict[vol.Marker, Any]:
+def _price_sensors(hass: HomeAssistant) -> list[str]:
+    """The sensors here with prices EV Planner can read, whichever price integration they come from."""
+    now = dt_util.now()
+    return sorted(state.entity_id for state in hass.states.async_all("sensor") if extract_price_slots(state, now))
+
+
+def _connection_schema(hass: HomeAssistant, defaults: Mapping[str, Any]) -> dict[vol.Marker, Any]:
+    # The price sensor the household has, not one integration's name: only one that is here is filled in.
+    found = _price_sensors(hass)
+    price = defaults.get(CONF_PRICE_ENTITY) or (found[0] if found else None)
     return {
-        vol.Required(CONF_PRICE_ENTITY, default=defaults.get(CONF_PRICE_ENTITY, DEFAULT_PRICE_ENTITY)): (
-            PRICE_ENTITY_SELECTOR
-        ),
+        vol.Required(CONF_PRICE_ENTITY, description={"suggested_value": price}): PRICE_ENTITY_SELECTOR,
         vol.Required(CONF_COUNTRY, default=_country_option(defaults.get(CONF_COUNTRY))): COUNTRY_SELECTOR,
         vol.Optional(CONF_MOTORAPI_KEY, default=defaults.get(CONF_MOTORAPI_KEY, "")): API_KEY_SELECTOR,
     }
@@ -335,7 +341,7 @@ class EVPlannerConfigFlow(ConfigFlow, domain=DOMAIN):
         schema = vol.Schema(
             {
                 vol.Required(CONF_NAME, default=defaults.get(CONF_NAME, DEFAULT_NAME)): str,
-                **_connection_schema(defaults),
+                **_connection_schema(self.hass, defaults),
                 vol.Required(
                     CONF_CURRENCY, default=defaults.get(CONF_CURRENCY, self.hass.config.currency or DEFAULT_CURRENCY)
                 ): (_currency_selector(self.hass)),
@@ -370,7 +376,7 @@ class EVPlannerConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=vol.Schema(_connection_schema(user_input or {**entry.data, **entry.options})),
+            data_schema=vol.Schema(_connection_schema(self.hass, user_input or {**entry.data, **entry.options})),
             errors=errors,
         )
 

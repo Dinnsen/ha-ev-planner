@@ -47,6 +47,27 @@ async def test_user_flow(hass: HomeAssistant, now: datetime) -> None:
     assert result["type"] is FlowResultType.ABORT
 
 
+async def test_the_price_sensor_that_is_here_is_suggested_whatever_it_is_called(
+    hass: HomeAssistant, now: datetime
+) -> None:
+    """No integration's name is filled in: the form suggests a sensor that has prices, or none."""
+
+    def suggested(result: dict) -> str | None:
+        key = next(k for k in result["data_schema"].schema if k == "price_entity")
+        return (key.description or {}).get("suggested_value")
+
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    assert suggested(result) is None
+    hass.config_entries.flow.async_abort(result["flow_id"])
+
+    set_prices(hass, now, NIGHT)
+    state = hass.states.get(PRICE_ENTITY)
+    hass.states.async_set("sensor.nordpool_kwh_dk1", state.state, dict(state.attributes))
+    hass.states.async_remove(PRICE_ENTITY)
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    assert suggested(result) == "sensor.nordpool_kwh_dk1"
+
+
 async def test_user_flow_checks_the_motorapi_key(hass: HomeAssistant, now: datetime) -> None:
     set_prices(hass, now, NIGHT)
     target = "custom_components.ev_household_planner.config_flow.async_validate_plate_provider_credentials"

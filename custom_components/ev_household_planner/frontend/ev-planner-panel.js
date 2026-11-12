@@ -84,7 +84,8 @@ const TEXT = {
     setup_count: "{done} af {all}",
     setup_optional: "Kan vente",
     setup_prices: "Elpriser",
-    setup_prices_text: "En prissensor med timepriser, fx Energi Data Service.",
+    setup_prices_fix: "{sensor} har ingen priser, EV Planner kan læse. Vælg prissensoren fra jeres elpris-integration under integrationen: de tre prikker ud for EV Planner → Omkonfigurer.",
+    setup_prices_text: "Prissensoren fra jeres elpris-integration, fx Nord Pool, Energi Data Service eller Strømligning.",
     setup_car: "En bil",
     setup_car_text: "Tilføj bil: batteriets størrelse, ladeeffekten og bilens sensorer for batteri og stik.",
     setup_charger: "En lader",
@@ -507,7 +508,7 @@ const TEXT = {
     not_set: "Ikke valgt",
     on: "Til",
     off: "Fra",
-    change_in_ha: "Skift under Indstillinger → Enheder og tjenester → EV Planner.",
+    change_in_ha: "Skift under Indstillinger → Enheder og tjenester → EV Planner. Prissensoren: de tre prikker → Omkonfigurer. Enhver elpris-integration med priser for i dag og i morgen kan bruges.",
     open_integration: "Åbn integrationen",
     app_title: "App på hjemmeskærmen",
     app_hint: "Åbn linket på telefonen og vælg Føj til hjemmeskærm.",
@@ -614,7 +615,8 @@ const TEXT = {
     setup_count: "{done} of {all}",
     setup_optional: "Can wait",
     setup_prices: "Electricity prices",
-    setup_prices_text: "A price sensor with hourly prices, such as Energi Data Service.",
+    setup_prices_fix: "{sensor} has no prices EV Planner can read. Choose the price sensor from your price integration under the integration: the three dots by EV Planner → Reconfigure.",
+    setup_prices_text: "The price sensor from your price integration, such as Nord Pool, Energi Data Service or Stromligning.",
     setup_car: "A car",
     setup_car_text: "Add car: the battery's size, the charging power and the car's sensors for battery and plug.",
     setup_charger: "A charger",
@@ -1032,7 +1034,7 @@ const TEXT = {
     not_set: "Not set",
     on: "On",
     off: "Off",
-    change_in_ha: "Change under Settings → Devices & services → EV Planner.",
+    change_in_ha: "Change under Settings → Devices & services → EV Planner. The price sensor: the three dots → Reconfigure. Any price integration with prices for today and tomorrow can be used.",
     open_integration: "Open the integration",
     app_title: "App on the home screen",
     app_hint: "Open the link on your phone and choose Add to Home Screen.",
@@ -4779,7 +4781,8 @@ class EvPlannerPanel extends HTMLElement {
     const sites = state.sites || [];
     const parts = sites.flatMap((site) => site.parts || []);
     return [
-      { key: "prices", need: true, done: !!state.config?.price_entity && !state.price_issue },
+      // Done when prices can be read; a hole or an odd unit is said in the car's notes, not here.
+      { key: "prices", need: true, done: !!state.config?.price_entity && (state.prices || []).length > 0 && state.price_issue !== "stale" },
       { key: "car", need: true, done: this._cars.length > 0 },
       { key: "charger", need: true, done: this._chargers.length > 0 },
       { key: "supply", done: !!state.supply || sites.some((site) => site.supply) },
@@ -4794,7 +4797,7 @@ class EvPlannerPanel extends HTMLElement {
     if (steps.every((step) => step.done || !step.need)) return "";
     const tick = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 12.5 3.6 3.6 7.4-8"/></svg>';
     const rows = steps
-      .map((step, i) => `<li class="${step.done ? "done" : ""} ${step.need ? "" : "later"}" data-step="${step.key}"><span class="setup-mark">${step.done ? tick : i + 1}</span><span class="setup-what"><b>${this._t(`setup_${step.key}`)}${step.need || step.done ? "" : ` <small>${this._t("setup_optional")}</small>`}</b><span>${this._t(`setup_${step.key}_text`)}</span></span></li>`)
+      .map((step, i) => `<li class="${step.done ? "done" : ""} ${step.need ? "" : "later"}" data-step="${step.key}"><span class="setup-mark">${step.done ? tick : i + 1}</span><span class="setup-what"><b>${this._t(`setup_${step.key}`)}${step.need || step.done ? "" : ` <small>${this._t("setup_optional")}</small>`}</b><span>${step.key === "prices" && !step.done && this._state.config?.price_entity ? this._t("setup_prices_fix", { sensor: esc(this._entityName(this._state.config.price_entity)) }) : this._t(`setup_${step.key}_text`)}</span></span></li>`)
       .join("");
     const done = steps.filter((step) => step.done).length;
     return `<section class="panel setup"><div class="panel-head"><h2>${MARK}<span>${this._t("setup_title")}</span></h2><span class="setup-count">${this._t("setup_count", { done, all: steps.length })}</span></div>
@@ -8774,6 +8777,9 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 .sheet { position: fixed; z-index: 21; left: 50%; bottom: 0; transform: translateX(-50%); width: min(520px, 100%); background: var(--evp-solid); border-radius: 22px 22px 0 0;
   padding: 18px 20px calc(22px + var(--evp-safe-bottom)); animation: up .3s cubic-bezier(.2,.8,.2,1); max-height: 90vh; overflow: auto; }
 .sheet header { display: flex; justify-content: space-between; align-items: center; }
+@media (min-width: 861px) {
+  .sheet { bottom: auto; top: 50%; transform: translate(-50%, -50%); border-radius: 22px; max-height: min(86vh, 86dvh); padding-bottom: 22px; animation: fade .2s; box-shadow: 0 24px 80px rgba(0,0,0,.35); }
+}
 .sheet h2 { margin: 0; font-size: 18px; }
 .receipt { margin: 10px 0 16px; padding: 18px; border-radius: 16px; background: color-mix(in srgb, var(--evp-a) 7%, transparent); }
 .receipt .amount { margin: 0; font-size: 36px; font-weight: 650; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
