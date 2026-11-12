@@ -98,6 +98,7 @@ class SolarCar:
     full_kw: float = 11.0  # what it takes when it is on, without a current setting
     charging_kw: float = 0.0  # what it draws now
     priority: int = 1  # 0 comes first
+    raise_every: timedelta = RAISE_EVERY  # its charger may ask for longer between two raises (Zaptec: 15 minutes)
 
 
 @dataclass(slots=True)
@@ -212,7 +213,7 @@ class SurplusController:
             if state.raise_since is None:
                 state.raise_since = now
             waited = elapsed(now, state.raise_since) >= RAISE_DELAY
-            rested = state.changed_at is None or elapsed(now, state.changed_at) >= RAISE_EVERY
+            rested = state.changed_at is None or elapsed(now, state.changed_at) >= max(RAISE_EVERY, car.raise_every)
             if waited and rested:
                 amps, state.raise_since = steady, None
         else:

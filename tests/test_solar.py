@@ -140,3 +140,23 @@ def test_the_state_survives_a_restart() -> None:
     assert again.on and again.phases == 1
     assert SolarState.from_dict(None).on is False
     assert SolarState.from_dict({"phases": 2}).phases is None
+
+
+def test_a_charger_that_asks_for_longer_between_raises_gets_it_on_the_sun_too() -> None:
+    """Zaptec asks for 15 minutes between two raises; down is still at once."""
+    quick, slow = SurplusController(), SurplusController()
+    cars_quick, cars_slow = [car()], [car(raise_every=timedelta(minutes=15))]
+    for ctl, cars in ((quick, cars_quick), (slow, cars_slow)):
+        ctl.step(T0, 5.0, cars)
+        assert ctl.step(T0 + ENABLE_DELAY, 5.0, cars)["a"].amps == 7
+        # A cloud lowers it: that is a change, and the time to the next raise counts from it.
+        assert ctl.step(T0 + ENABLE_DELAY + timedelta(minutes=1), 4.4, cars)["a"].amps == 6
+    t = T0 + ENABLE_DELAY
+    at = {}
+    for minute in range(2, 30):
+        for name, ctl, cars in (("quick", quick, cars_quick), ("slow", slow, cars_slow)):
+            if ctl.step(t + timedelta(minutes=minute), 8.0, cars)["a"].amps > 6:
+                at.setdefault(name, minute)
+    assert at["quick"] < 1 + 15 <= at["slow"]
+    # Down is at once for both.
+    assert slow.step(t + timedelta(minutes=30), 4.4, cars_slow)["a"].amps == 6

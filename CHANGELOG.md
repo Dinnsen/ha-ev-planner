@@ -2,6 +2,16 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.3.0b15] - 2026-11-12
+
+Beta: only those who show beta versions in the Marketplace get it.
+
+### Changed
+- **Zaptec on the sun.** A Zaptec charger's current is raised at most every 15 minutes when it follows the surplus too, as it already was under a shared supply. It is still lowered at once.
+
+### Added
+- **The rules and their times** in the README: what EV Planner does by itself and how long it waits, for the shared supply and the guard, the sun, and starting and pausing, in three tables.
+
 ## [2.3.0b14] - 2026-11-12
 
 Beta: only those who show beta versions in the Marketplace get it.

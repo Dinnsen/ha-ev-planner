@@ -303,6 +303,50 @@ An Easee charger needs no number: pick any sensor of the charger as its charging
 
 Under *Shared supply* you can also pick a weather entity: EV Planner learns how much more the house draws when it is colder and counts on the night's forecast. A heat pump's power is shown in the Home tab; with a switch that holds it back (SG Ready or a blocking contact, on = held back), the guard holds it back for at most 15 minutes, twice a night, before it stops a car.
 
+## The rules and their times
+
+What EV Planner does by itself, and how long it waits. None of these are settings: they are chosen so that a fuse holds, a charger's cloud is not worn out, and a passing cloud does not start and stop a car.
+
+**The cars and the shared supply**
+
+| What | Rule |
+|---|---|
+| The meter | All phases are chosen; the busiest one counts. A meter that has not reported for 5 minutes is not trusted: the cars go to the least current until it is back. |
+| The limit | What you set per phase (for example 23 A on a 25 A fuse). The plan keeps the house and the cars under it hour by hour. |
+| The least current | 6 A for a car with a current setting. A car is never given less: it waits instead. |
+| Sharing an hour there is not room in | *In line*: the car that must be ready first takes what it needs. *By need*: by the kWh each lacks, never under 6 A; used only when it leaves no car worse off. |
+| Down (the guard) | At once when the meter is over the limit, the car last in line first. Then the heat pump is held back (if chosen), and at last a car is paused. The meter is looked at again every minute. |
+| A cut counts as done for | 60 seconds, while the charger and the meter catch up. |
+| Up again after a cut | No sooner than 2 minutes after the guard lowered the car. |
+| Up, how often | At most every 5 minutes. **Zaptec: at most every 15 minutes**, as Zaptec asks. Changes under 1 A are not sent. |
+| Up, how far | To what the meter shows is free now, less 1 A, in one step; never more than the plan gave the car. |
+| A car the guard paused | Waits at least 5 minutes, then until the meter shows room for it. |
+| The heat pump held back | 15 minutes at a time, at most twice a night. |
+| Easee | Easee's own dynamic limit with a 30-minute time limit, renewed every 15 minutes: the charger falls back by itself if Home Assistant stops. |
+
+**The sun**
+
+| What | Rule |
+|---|---|
+| Start on the sun | When there has been enough for 6 A for 1 minute. |
+| Stop | When there has been too little for 4 minutes. |
+| Down | At once when the house would buy. |
+| Up | When there has been room for 2 minutes, at most every 5 minutes (**Zaptec: 15**), and only to what the sun has given most of the last 10 minutes. |
+| One or three phases | Changed at most every 15 minutes. |
+| Kept back | 0.1 kW, so the house does not buy for the car by a small margin. |
+| The forecast | The plan counts on at most half of the sun the forecast promises before the ready-by time. |
+
+**Starting and pausing**
+
+| What | Rule |
+|---|---|
+| A start or a pause is checked | After 6 minutes, and tried again; a car that still does not follow is shown as a problem and you are told. |
+| Commands | At most 12 per car per hour, and not the same one twice within 60 seconds. |
+| Pauses | At most 3 in 10 minutes for a charger that minds (Peblar): a start waits when the next pause would be one too many. |
+| A car that has just been plugged in | Many cars start by themselves: for 3 minutes the pause is sent again if the car charges anyway. |
+| Finding the charger | By the car's location, the plugs and the charger's power. Still unsure after 5 minutes (12 for a car that reports slowly): the phones are asked, and the charger is left alone until then. |
+| Keep the charger on | Only when the car stops at the target by itself: the target is 100 %, or the car's own limit is the target. |
+
 ## The sun and the home battery (beta)
 
 In the options, under *The sun and the home battery*, add a sensor for the power to and from the grid (positive when the house buys). Each car then has a *Solar* setting: *Off*, *Sun and plan* (charge on the surplus when the sun shines; the plan sees to the rest by the ready-by time) or *Only sun*. A car with a current setting follows the surplus; with a phase switch it charges on one phase when the sun is small. With a home battery, the battery comes first up to the level you choose. With a solar forecast in the Energy dashboard, *Sun and plan* buys less at night when the next day looks sunny. The history shows how much of each charge came from the sun. When a kWh is sold for more than a car's plan pays for one, a car on *Sun and plan* leaves the surplus to the grid and charges in its cheap hours instead; set the price you sell for under the place's solar panels.

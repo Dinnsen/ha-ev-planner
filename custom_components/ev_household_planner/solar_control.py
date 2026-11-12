@@ -208,6 +208,7 @@ class SolarControl:
                         full_kw=power,
                         charging_kw=self._car_kw(vehicle) if self.wants(vehicle) else 0.0,
                         priority=0 if vehicle.settings.get(SET_PRIORITY) == PRIORITY_FIRST else 1,
+                        **({"raise_every": supply._raise_every(entity)} if entity else {}),
                     ),
                 )
             )

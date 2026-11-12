@@ -158,6 +158,50 @@ Under *Solen og husbatteriet* kan en bil lade på overskuddet fra solen: *Sol og
 
 **Deling efter behov.** Under *Fælles forsyning* kan *Deling mellem bilerne* sættes til *Efter behov*: når der ikke er plads til alle bilerne i en time, deles de om den efter de kWh, hver mangler, aldrig under 6 A til hver.
 
+## Reglerne og deres tider
+
+Hvad EV Planner gør af sig selv, og hvor længe den venter. Ingen af dem er indstillinger: de er valgt, så sikringen holder, laderens sky ikke slides, og en drivende sky ikke starter og stopper en bil.
+
+**Bilerne og den fælles forsyning**
+
+| Hvad | Regel |
+|---|---|
+| Måleren | Alle faser vælges; den hårdest belastede tæller. En måler, der ikke har meldt i 5 minutter, stoles der ikke på: bilerne sættes til den mindste strøm, til den er tilbage. |
+| Grænsen | Det, I sætter pr. fase (fx 23 A på en 25 A sikring). Planen holder huset og bilerne under den time for time. |
+| Den mindste strøm | 6 A for en bil med strømindstilling. En bil får aldrig mindre: den venter i stedet. |
+| Deling af en time uden plads til alle | *I kø*: bilen, der skal være klar først, tager, hvad den skal bruge. *Efter behov*: efter de kWh, hver mangler, aldrig under 6 A; bruges kun, når ingen bil stilles dårligere. |
+| Ned (vagten) | Med det samme, når måleren er over grænsen, bilen bagerst i køen først. Derefter holdes varmepumpen tilbage (hvis valgt), og til sidst pauses en bil. Måleren ses efter igen hvert minut. |
+| En nedskruning tæller som sket i | 60 sekunder, mens laderen og måleren følger med. |
+| Op igen efter en nedskruning | Tidligst 2 minutter efter, at vagten satte bilen ned. |
+| Op, hvor tit | Højst hvert 5. minut. **Zaptec: højst hvert 15. minut**, som Zaptec beder om. Ændringer under 1 A sendes ikke. |
+| Op, hvor langt | Til det, måleren viser er ledigt nu, minus 1 A, i ét trin; aldrig mere, end planen gav bilen. |
+| En bil, vagten pausede | Venter mindst 5 minutter, og derefter til måleren viser plads til den. |
+| Varmepumpen holdt tilbage | 15 minutter ad gangen, højst to gange på en nat. |
+| Easee | Easees egen dynamiske grænse med 30 minutters udløb, fornyet hvert 15. minut: laderen falder selv tilbage, hvis Home Assistant stopper. |
+
+**Solen**
+
+| Hvad | Regel |
+|---|---|
+| Start på solen | Når der har været nok til 6 A i 1 minut. |
+| Stop | Når der har været for lidt i 4 minutter. |
+| Ned | Med det samme, når huset ellers ville købe. |
+| Op | Når der har været plads i 2 minutter, højst hvert 5. minut (**Zaptec: 15**), og kun til det, solen har givet det meste af de seneste 10 minutter. |
+| En eller tre faser | Skiftes højst hvert 15. minut. |
+| Holdes tilbage | 0,1 kW, så huset ikke køber til bilen med en lille margin. |
+| Prognosen | Planen regner højst med halvdelen af den sol, prognosen lover før klar-tiden. |
+
+**Start og pause**
+
+| Hvad | Regel |
+|---|---|
+| En start eller pause tjekkes | Efter 6 minutter, og prøves igen; en bil, der stadig ikke følger, vises som et problem, og I får besked. |
+| Kommandoer | Højst 12 pr. bil i timen, og ikke den samme to gange inden for 60 sekunder. |
+| Pauser | Højst 3 på 10 minutter for en lader, der tager det ilde op (Peblar): en start venter, når den næste pause ville være én for meget. |
+| En bil, der lige er sat til | Mange biler starter af sig selv: i 3 minutter sendes pausen igen, hvis bilen lader alligevel. |
+| At finde laderen | På bilens position, stikkene og laderens effekt. Stadig i tvivl efter 5 minutter (12 for en bil, der melder langsomt): mobilerne spørges, og laderen lades være indtil da. |
+| Hold laderen tændt | Kun når bilen selv stopper ved målet: målet er 100 %, eller bilens egen grænse er målet. |
+
 ## Sådan passer den på bilen
 
 - Højst tolv kommandoer i timen til en bil eller lader; den sidste er gemt til et stop.
