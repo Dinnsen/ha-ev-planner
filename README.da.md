@@ -124,6 +124,8 @@ Kortene følger jeres tema uden card-mod: Home Assistants egne variabler for kor
 
 ## Panelet
 
+> **Hjem-fanen er i betaen (2.3.0).** Version 2.1.2 har fanerne Biler, Gæst, Historik og Indstillinger. For at få Hjem-fanen, husene, steder, fælles forsyning og ladning på solen: åbn EV Planner i HACS → de tre prikker → *Download igen* → slå *Vis betaversioner* til (eller *Brug for en anden version?*) og vælg den nyeste `2.3.0b`.
+
 **EV Planner** i sidemenuen har fem faner: **Biler** (et kort pr. bil; tryk for bilens side med *Nu*, *Regler* og *Historik*), **Hjem** (huset som lermodel med biler, ladere, sol, batteri og varmepumpe, dag og nat), **Gæst**, **Historik** (dag, uge, måned og år, og *Eksportér CSV* med én linje pr. opladning) og **Indstillinger**.
 
 Under *Indstillinger → Hus* vælger I billedet i Hjem-fanen: det *klassiske* hus, *vinkelhuset* (et vinkelhus set med garagen nærmest) eller et af otte andre: længehus, T-hus, H-hus, funkis, træsommerhus, valmet parcelhus, halvandet plan og rækkehus. Med mere end ét sted har hvert sted sit eget hus, og Hjem-fanen har en knap for hvert sted. En administrator kan trykke *Tilpas* på billedet og flytte laderne, elboksen, husbatteriet og varmepumpen, tegne ledningernes vej, sætte solceller op eller tage dem ned på tagene og flytte mærkaterne, så de ikke er i vejen. Det gemmes for hvert hus og ser ens ud på alle enheder.

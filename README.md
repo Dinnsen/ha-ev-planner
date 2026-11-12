@@ -103,6 +103,8 @@ Run both for a while with **who starts and stops charging** set to *neither* in 
 
 ## The panel
 
+> **The Home tab is in the beta (2.3.0).** Version 2.1.2 has the tabs Cars, Guest, History and Settings. To get the Home tab, the houses, places, a shared supply and charging on the sun: in HACS, open EV Planner → the three dots → *Redownload* → turn on *Show beta versions* (or *Need a different version?*) and choose the newest `2.3.0b`.
+
 **EV Planner** in the sidebar has five tabs:
 
 - **Cars:** a card per car with a small price clock, the charge level and target, the status and the mode. Tap a car for its page in three views: *Now* (the large price clock, the plan, the battery with handles, ready by and the weekday schedule, and the next two days' prices), *Rules* (tiles for price, battery, time, messages and more, each opening as a sheet) and *History* (what EV Planner has learned about the car, and its charges).
