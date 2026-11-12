@@ -45,6 +45,10 @@ EV Planner is built from [EV Guest](https://github.com/Dinnsen/EV-Guest) (the pl
 - **The guest car** exactly as in EV Guest: license plate lookup, price clock, bill and history. A plan in two periods is billed for both, and planning again while the guest charges keeps what was charged.
 - **History per plug-in:** with a plug sensor, a charge goes to the history when the car is unplugged – one entry with its charging periods, not one per pause.
 - **Statistics:** energy, cost and charges per car and month.
+- **Places:** the home, and a summer house with chargers of its own. A car that uses several chargers is found at the one it is plugged in to, by its location, the plugs and the chargers' power, and you are asked when it cannot be told.
+- **A shared supply:** several cars behind one fuse are planned together under a limit per phase, shared in line or by need, with a *guard* that turns the cars down within the minute when the meter shows the house needs more.
+- **The sun and the home battery:** a car can charge on the surplus, amp by amp, with the home battery first; the surplus is sold instead when that pays more than the night costs.
+- **Known prices or the forecast:** a plan for a ready-by time days ahead can use the price forecast, or only the prices that are published, with what the other would cost on the button.
 - **Panel** in the sidebar and as an app on the home screen, in English and Danish, light and dark. Each car's page says at a glance when it is ready, to what, for how much and when it charges, and why it does what it does now; the price graph shows when it really charged. *Simple*, *Smart* and *Expert* show fewer or more choices.
 
 ## Requirements
@@ -93,7 +97,8 @@ Actions are now called `ev_household_planner.*` instead of `ev_planner.*`: chang
 | Who starts and stops charging | **The car** (choose its charge switch), **the charger** (the charger needs a switch), or **neither**. |
 | Calendar, Keyword | Optional. Trips in the calendar set when the car must be ready. |
 
-4. **Configure** (options): the phones and other notify actions to use, and whether to refresh iOS widgets.
+4. **Configure** (options): the phones and other notify actions to use, whether to refresh iOS widgets, and an amount added to every price.
+5. Optional, on the same page: **Add solar panels**, **Add home battery** and **Add heat pump**, and **Add place** for a summer house. Your home is the place *Home*, made for you; open it for its shared supply (the limit, the phases and a meter). With more than one place, each charger has a *Place*.
 
 ## Moving from EV Smart Charging
 
@@ -262,7 +267,9 @@ With a plug sensor (`connected_entity`), a charge goes to the history when the c
 
 - A car with neither control is only planned: it charges whenever it is plugged in unless the car itself waits.
 - Prices for tomorrow usually arrive early in the afternoon; until then a plan for tomorrow morning shows *Waiting for prices*.
-- Two cars on one charger with no *plugged in* sensors cannot be told apart; both are planned.
+- Two cars on one charger with no *plugged in* sensors cannot be told apart; both are planned. With *Found each time*, EV Planner asks on your phones instead.
+- A car whose only way to pause is a charge limit (some Mercedes set up with *max state of charge*) cannot be paused below the lowest limit the car takes, often 50 %.
+- The guard reacts within a minute, not in milliseconds, and is not a fuse: keep your charger's own load balancing on.
 - License plate lookup is Danish (MotorAPI). Elsewhere, choose *Other country* in the setup; the guest's battery and charging power are then entered by hand.
 
 ## Troubleshooting
@@ -287,7 +294,7 @@ Remove EV Planner under **Settings → Devices & services**. Its settings, plans
 - **A charger without a plug sensor** is the car's charger when it is the only such charger at the place, and no charger with a sensor is waiting for its car.
 - A car with a charger of its own keeps it. Nothing changes for a household where every car has one.
 
-**Places.** Your home is a place (*Home*), and a place with chargers besides it, a summer house say, is added under the integration (*Add place*): its zone in Home Assistant, and its own supply limit and meter if you want one. Solar panels, a home battery and a heat pump are parts of their own, added the same way, each at a place. Choose the place in each charger's settings. A car is at the place when its location shows that zone; it is then planned on that place's supply, and a car with a charger of its own at home finds the charger at the place it is at. The picture in the Home tab is of the home.
+**Places.** Your home is a place (*Home*), and a place with chargers besides it, a summer house say, is added under the integration (*Add place*): its zone in Home Assistant, and its own supply limit and meter if you want one. Solar panels, a home battery and a heat pump are parts of their own, added the same way, each at a place. Choose the place in each charger's settings (the field is there once there is more than one place). A car is at the place when its location shows that zone; it is then planned on that place's supply, and a car with a charger of its own at home finds the charger at the place it is at. Each place has its own picture and house in the Home tab.
 
 **The charger starts and pauses, the car is the backup.** A new car is started and paused by its charger when the chargers have a switch, as a charger is more often there to answer than a car; with *The other one is the backup*, the car's own switch steps in when the charger does not answer (and the other way round). What paused the car is what starts it again, since a car paused by one cannot be started by the other.
 
@@ -351,11 +358,11 @@ What EV Planner does by itself, and how long it waits. None of these are setting
 
 ## The sun and the home battery (beta)
 
-In the options, under *The sun and the home battery*, add a sensor for the power to and from the grid (positive when the house buys). Each car then has a *Solar* setting: *Off*, *Sun and plan* (charge on the surplus when the sun shines; the plan sees to the rest by the ready-by time) or *Only sun*. A car with a current setting follows the surplus; with a phase switch it charges on one phase when the sun is small. With a home battery, the battery comes first up to the level you choose. With a solar forecast in the Energy dashboard, *Sun and plan* buys less at night when the next day looks sunny. The history shows how much of each charge came from the sun. When a kWh is sold for more than a car's plan pays for one, a car on *Sun and plan* leaves the surplus to the grid and charges in its cheap hours instead; set the price you sell for under the place's solar panels.
+Under the integration, **Add solar panels** (and **Add home battery**) at the place: a sensor for the power to and from the grid (positive when the house buys), the panels' power, and the price you sell for. Each car then has a *Solar* setting: *Off*, *Sun and plan* (charge on the surplus when the sun shines; the plan sees to the rest by the ready-by time) or *Only sun*. A car with a current setting follows the surplus; with a phase switch it charges on one phase when the sun is small. With a home battery, the battery comes first up to the level you choose. With a solar forecast in the Energy dashboard, *Sun and plan* buys less at night when the next day looks sunny. The history shows how much of each charge came from the sun. When a kWh is sold for more than a car's plan pays for one, a car on *Sun and plan* leaves the surplus to the grid and charges in its cheap hours instead; set the price you sell for under the place's solar panels.
 
 ## Prices
 
-EV Planner reads the prices from one price sensor (Energi Data Service, Nordpool, Stromligning and others with the day's prices as an attribute). If your sensor shows the spot price without tariffs and taxes, set *Added to every price* in the options: an amount per kWh that is added to every hour. With solar panels you can set what you get for a kWh you sell, as a number or a sensor (*The sun and the home battery*): a charge's kWh from the sun are then counted at that price instead of as free, so the history shows what the charge really cost you.
+EV Planner reads the prices from one price sensor (Energi Data Service, Nordpool, Stromligning and others with the day's prices as an attribute). If your sensor shows the spot price without tariffs and taxes, set *Added to every price* in the options: an amount per kWh that is added to every hour. With solar panels you can set what you get for a kWh you sell, as a number or a sensor (under the place's solar panels): a charge's kWh from the sun are then counted at that price instead of as free, so the history shows what the charge really cost you.
 
 ## How careful it is with the car
 

@@ -44,6 +44,10 @@ EV Planner er bygget på [EV Guest](https://github.com/Dinnsen/EV-Guest) (planl�
 - **Historik pr. tilkobling:** med en stik-sensor kommer en ladning i historikken, når bilen tages ud – én linje med dens perioder, ikke én pr. pause.
 - **Billeder** af jeres biler og ladere (tryk på billedet i panelet), og tegninger af ca. 40 kendte ladere.
 - **Statistik:** energi, pris og ladninger per bil og måned.
+- **Steder:** hjemmet og et sommerhus med egne ladere. En bil, der bruger flere ladere, findes ved den, den er sat til, på sin placering, stikkene og ladernes effekt, og I bliver spurgt, når det ikke kan afgøres.
+- **Fælles forsyning:** flere biler bag én sikring planlægges sammen under en grænse pr. fase, i kø eller efter behov, med en *vagt*, der skruer bilerne ned inden for minuttet, når måleren viser, at huset skal bruge mere.
+- **Solen og husbatteriet:** en bil kan lade på overskuddet, ampere for ampere, med husbatteriet først; overskuddet sælges i stedet, når det betaler sig bedre end natten.
+- **Kendte priser eller prognosen:** en plan til en klar-tid flere dage ude kan bruge prisprognosen eller kun de offentliggjorte priser, med hvad det andet ville koste på knappen.
 - **Panel** i sidebjælken og som app på hjemmeskærmen, på dansk og engelsk, lyst og mørkt. Bilens side viser med ét blik, hvornår den er klar, til hvad, for hvor meget og hvornår den lader, og *hvorfor* den gør det, den gør nu; prisgrafen viser, hvornår den faktisk ladede. *Enkel*, *Smart* og *Ekspert* viser færre eller flere valg.
 - **Priser fra** Energi Data Service, Nord Pool, ENTSO-e, GE-Spot eller enhver sensor med en liste af priser med start og pris.
 
@@ -71,7 +75,8 @@ Handlingerne hedder nu `ev_household_planner.*` i stedet for `ev_planner.*`: ret
 1. **Indstillinger → Enheder og tjenester → Tilføj integration → EV Planner.** Vælg prissensor og valuta. MotorAPI-nøglen bruges kun til gæstebiler. Uden for Danmark: vælg *Andet land* – så indtastes gæstens batteri og ladeeffekt i hånden.
 2. **Tilføj ladepunkt** for hvert ladepunkt. Vælg laderens enhed i Home Assistant og/eller mærke og model, så udfylder EV Planner effekt, kontakt, energimåler og *bil tilsluttet*-sensor, som I kan rette.
 3. **Tilføj bil** for hver bil (alle biler sættes op ens). Vælg bilens enhed i Home Assistant, så finder EV Planner ladeniveau, ladegrænse, stik, ladning, placering og ladekontakt: batterikapacitet (et tal eller en sensor fra bilen), bilens sensorer (alle valgfri, også ladeeffekt i kW), ladeeffekt (et udgangspunkt, indtil bilen har vist den), ladepunkt, og hvem der starter og stopper ladningen. Har I EV Smart Charging, kan I starte fra den bil derfra – også med dens ladehastighed i % pr. time.
-4. **Konfigurer**: hvilke mobiler der får beskeder, og om iOS-widgets skal opdateres.
+4. **Konfigurer**: hvilke mobiler der får beskeder, om iOS-widgets skal opdateres, og et beløb, der lægges til hver pris.
+5. Valgfrit, på samme side: **Tilføj solceller**, **Tilføj husbatteri** og **Tilføj varmepumpe**, og **Tilføj sted** til et sommerhus. Hjemmet er stedet *Hjem*, som laves af sig selv; åbn det for fælles forsyning (grænsen, faserne og en måler). Med mere end ét sted har hver lader et *Sted*.
 
 ## Fra EV Smart Charging
 
@@ -134,13 +139,13 @@ Under *Indstillinger → Hus* vælger I billedet i Hjem-fanen: det *klassiske* h
 
 ## Priser
 
-EV Planner læser priserne fra én prissensor. Viser den spotprisen uden tariffer og afgifter, så sæt *Lægges til hver pris* i indstillingerne: et beløb pr. kWh, der lægges til hver time. Med solceller kan I angive, hvad I får for en solgt kWh, som tal eller sensor (*Solen og husbatteriet*): opladningens kWh fra solen regnes så til den pris i stedet for som gratis.
+EV Planner læser priserne fra én prissensor. Viser den spotprisen uden tariffer og afgifter, så sæt *Lægges til hver pris* i indstillingerne: et beløb pr. kWh, der lægges til hver time. Med solceller kan I angive, hvad I får for en solgt kWh, som tal eller sensor (under stedets solceller): opladningens kWh fra solen regnes så til den pris i stedet for som gratis.
 
 ## Fælles forsyning, sol og varmepumpe (beta)
 
 Flere biler bag én sikring: på stedet (integrationen, *Hjem*) under *Fælles forsyning* sættes det, huset højst må trække pr. fase, faserne og en måler. Bilerne planlægges så sammen under grænsen, billigste timer først, og *vagten* skruer bilerne ned med det samme, når huset skal bruge mere. En måler, der ikke har meldt sig i fem minutter, stoles der ikke på: bilerne går til mindste strøm. Med en vejr-entitet regner EV Planner med nattens temperatur, og en varmepumpe kan holdes tilbage i højst 15 minutter, før en bil stoppes. Vagten er ikke en sikring; behold laderens egen lastbalancering.
 
-Under *Solen og husbatteriet* kan en bil lade på overskuddet fra solen: *Sol og plan* eller *Kun sol*. Når en kWh sælges for mere, end bilens plan betaler for en, lader en bil på *Sol og plan* overskuddet gå til nettet og lader i sine billige timer i stedet; salgsprisen sættes under stedets solceller.
+Med solceller (**Tilføj solceller** under integrationen, på stedet: en sensor for strømmen til og fra nettet, solcellernes effekt og salgsprisen) kan en bil lade på overskuddet fra solen: *Sol og plan* eller *Kun sol*. Når en kWh sælges for mere, end bilens plan betaler for en, lader en bil på *Sol og plan* overskuddet gå til nettet og lader i sine billige timer i stedet; salgsprisen sættes under stedets solceller.
 
 ## Flere ladere og et sommerhus (beta)
 
@@ -152,7 +157,7 @@ Under *Solen og husbatteriet* kan en bil lade på overskuddet fra solen: *Sol og
 - **En lader uden sensor for tilsluttet bil** er bilens lader, når den er den eneste af slagsen på stedet.
 - En bil med sin egen lader beholder den. Intet ændrer sig, hvor hver bil har sin lader.
 
-**Steder.** Hjemmet er et sted (*Hjem*), og et sted med ladere ud over det, fx et sommerhus, tilføjes under integrationen (*Tilføj sted*): dets zone i Home Assistant og dets egen grænse og måler, hvis I vil. Solceller, husbatteri og varmepumpe er dele for sig, som tilføjes på samme måde og hører til et sted. Vælg stedet i hver laders indstillinger. Bilen er på stedet, når dens placering viser zonen; den planlægges da på stedets forsyning. Billedet i Hjem-fanen er af hjemmet.
+**Steder.** Hjemmet er et sted (*Hjem*), og et sted med ladere ud over det, fx et sommerhus, tilføjes under integrationen (*Tilføj sted*): dets zone i Home Assistant og dets egen grænse og måler, hvis I vil. Solceller, husbatteri og varmepumpe er dele for sig, som tilføjes på samme måde og hører til et sted. Vælg stedet i hver laders indstillinger (feltet er der, når der er mere end ét sted). Bilen er på stedet, når dens placering viser zonen; den planlægges da på stedets forsyning. Hvert sted har sit eget billede og hus i Hjem-fanen.
 
 **Laderen starter og stopper, bilen er backup.** En ny bil styres af laderen, når laderne har en kontakt, for en lader er oftere til at få fat i end en bil. Med *Den anden er backup* træder bilens egen kontakt til, når laderen ikke svarer (og omvendt). Det, der satte bilen på pause, starter den også igen.
 
@@ -210,6 +215,15 @@ Hvad EV Planner gør af sig selv, og hvor længe den venter. Ingen af dem er ind
 - Efter en pause hviler bilen to minutter, før den startes igen (ikke når I selv beder om det).
 - Når en kommando fejler, venter næste forsøg længere og længere (1, 2, 5, 10 og 15 minutter), og efter tre fejl i træk kommer der en reparation i Home Assistant, som forsvinder af sig selv, når det virker igen. Et stop fra vagten sendes altid med det samme.
 - Det, EV Planner holder tilbage (varmepumpe, laderens strøm, faser), huskes over en genstart og slippes igen.
+
+## Kendte begrænsninger
+
+- En bil uden styring bliver kun planlagt: den lader, når den er sat til, medmindre bilen selv venter.
+- Morgendagens priser kommer som regel først på eftermiddagen; indtil da viser en plan til i morgen tidlig *Venter på priser*, eller bygger på prisprognosen, hvis prissensoren har en.
+- To biler på ét ladepunkt uden *tilsluttet*-sensorer kan ikke skelnes; begge planlægges. Med *Findes hver gang* spørger EV Planner på telefonerne i stedet.
+- En bil, der kun kan pauses med en ladegrænse (fx en Mercedes sat op med *max state of charge*), kan ikke pauses under den laveste grænse, bilen tager, ofte 50 %.
+- Vagten reagerer inden for et minut, ikke i millisekunder, og er ikke en sikring: behold laderens egen lastbalancering.
+- Nummerpladeopslag er dansk (MotorAPI). Uden for Danmark indtastes gæstens batteri og ladeeffekt i hånden.
 
 ## Fejlfinding
 

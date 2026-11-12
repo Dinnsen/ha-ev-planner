@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from freezegun.api import FrozenDateTimeFactory
@@ -286,6 +287,12 @@ async def test_diagnostics(hass: HomeAssistant, init_integration: MockConfigEntr
     assert diagnostics["vehicles"][TESLA]["plan"]["energy"] == 20
     assert diagnostics["guest"]["inputs"]["license_plate"] == "**REDACTED**"
     assert diagnostics["price_slots"] == 11
+    # The places and where each car and charger is, for a support question about a summer house.
+    assert diagnostics["sites"]["home"]["home"] is True
+    assert "supply" in diagnostics["sites"]["home"] and "solar" in diagnostics["sites"]["home"]
+    assert diagnostics["vehicles"][TESLA]["site"] == "home"
+    assert all(c["site"] == "home" for c in diagnostics["chargers"].values())
+    json.dumps(diagnostics, default=str)
 
 
 async def test_phone_names(hass: HomeAssistant) -> None:

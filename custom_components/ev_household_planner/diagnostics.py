@@ -47,6 +47,10 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: EVPlann
                     "joined": vehicle.plan.joined,
                     "joined_extra": vehicle.plan.joined_extra,
                 },
+                "site": household.site_id_of(vehicle),
+                "paused_by": vehicle.paused_by,
+                "control_backup": vehicle.control_backup,
+                "other_cost": vehicle.other_cost,
                 "last_sent": vehicle.last_sent,
                 "control_error": vehicle.control_error,
                 "problem": vehicle.problem,
@@ -58,7 +62,28 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: EVPlann
             for vehicle_id, vehicle in household.vehicles.items()
         },
         "chargers": {
-            cid: {"config": dict(c.config), "connected": c.connected} for cid, c in household.chargers.items()
+            cid: {
+                "config": dict(c.config),
+                "connected": c.connected,
+                "site": household.pairing.site_of(c).site_id,
+                "occupant": c.occupant,
+                "found_by": c.found_by,
+                "plugged_at": c.plugged_at.isoformat() if c.plugged_at else None,
+            }
+            for cid, c in household.chargers.items()
+        },
+        # The places, each with its own supply, sun and house: what the guard and the sun see now.
+        "sites": {
+            site.site_id: {
+                "name": site.name,
+                "home": site.home,
+                "zone": site.zone,
+                "parts": sorted(site.parts),
+                "config": dict(site.data),
+                "supply": household.supplies[site.site_id].state(now),
+                "solar": household.solars[site.site_id].state(now),
+            }
+            for site in household.sites.values()
         },
         "guest": async_redact_data(household.guest.to_store(), REDACT_KEYS),
         "guest_status": household.guest.status(now),
