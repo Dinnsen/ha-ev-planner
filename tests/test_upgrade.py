@@ -20,9 +20,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
-from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
 from custom_components.ev_household_planner.const import DOMAIN
+from custom_components.ev_household_planner.websocket import panel_state
 
 from .conftest import NIGHT, SwitchCalls, set_prices, settle
 
@@ -36,7 +36,6 @@ async def test_a_household_from_the_last_release_starts_as_it_was(
     freezer: FrozenDateTimeFactory,
     switches: SwitchCalls,
     hass_storage: dict[str, Any],
-    hass_ws_client: WebSocketGenerator,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     old = json.loads(Path(str(OLD)).read_text())
@@ -111,12 +110,10 @@ async def test_a_household_from_the_last_release_starts_as_it_was(
     assert len(home) == 1 and home[0].data.get("home") is True
     assert set(was["options"]) >= set(entry.options) - {"price_add"}
 
-    # The panel reads it.
-    client = await hass_ws_client(hass)
-    await client.send_json_auto_id({"type": f"{DOMAIN}/state", "entry_id": entry.entry_id})
-    response = await client.receive_json()
-    assert response["success"], response
-    assert {v["id"] for v in response["result"]["vehicles"]} == set(old["settings"])
+    # The panel reads it, all of it as JSON.
+    state = json.loads(json.dumps(panel_state(hass, household)))
+    assert {v["id"] for v in state["vehicles"]} == set(old["settings"])
+    assert state["sites"][0]["home"] is True
 
     problems = [
         r for r in caplog.records if r.levelno >= logging.WARNING and r.name.startswith(f"custom_components.{DOMAIN}")
