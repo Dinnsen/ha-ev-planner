@@ -310,6 +310,8 @@ CHARGING_BAD = ("cable", "plug", "port", "rate", "power", "time", "energy", "add
 SWITCH_CAR_GOOD = ("charge", "charging", "charger")
 SWITCH_CAR_BAD = ("port", "door", "heater", "climate", "sentry", "valet", "seat", "defrost", "steering")
 CAR_POWER_GOOD = ("charg", "power")
+# A button that makes the car report now ("Refresh", "Update data", "Opdater").
+REFRESH_GOOD = ("refresh", "update", "opdat", "wake", "poll", "sync")
 
 
 def _best(candidates: Iterable[tuple[er.RegistryEntry, int]]) -> str | None:
@@ -348,6 +350,10 @@ def suggest_vehicle_entities(hass: HomeAssistant, device_id: str) -> dict[str, A
     )
     switch = _best((e, _score(_words(e), SWITCH_CAR_GOOD, SWITCH_CAR_BAD)) for e in entries if e.domain == "switch")
     tracker = next((e.entity_id for e in entries if e.domain == "device_tracker"), None)
+    climate = next((e.entity_id for e in entries if e.domain == "climate"), None)
+    refresh = _best(
+        (e, _score(_words(e), REFRESH_GOOD)) for e in entries if e.domain in ("button", "input_button", "script")
+    )
     power = _best(
         (e, _score(_words(e), CAR_POWER_GOOD)) for e in entries if e.domain == "sensor" and device_class(e) == "power"
     )
@@ -359,6 +365,8 @@ def suggest_vehicle_entities(hass: HomeAssistant, device_id: str) -> dict[str, A
         ("home_entity", tracker),
         ("power_entity", power),
         ("control_entity", switch),
+        ("climate_entity", climate),
+        ("refresh_entity", refresh),
     ):
         if value:
             suggested[key] = value

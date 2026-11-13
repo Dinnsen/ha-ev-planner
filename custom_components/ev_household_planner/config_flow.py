@@ -45,6 +45,7 @@ from .const import (
     CONF_CHARGE_POWER,
     CONF_CHARGER,
     CONF_CHARGING_ENTITY,
+    CONF_CLIMATE_ENTITY,
     CONF_CONNECTED_ENTITY,
     CONF_CONTROL,
     CONF_CONTROL_BACKUP,
@@ -180,6 +181,10 @@ LEVEL_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain=["
 ANY_ENTITY_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig())
 HOME_SELECTOR = selector.EntitySelector(
     selector.EntitySelectorConfig(domain=["device_tracker", "person", "binary_sensor"])
+)
+# The car's climate: a climate entity, or a switch, button or script that starts it.
+CLIMATE_SELECTOR = selector.EntitySelector(
+    selector.EntitySelectorConfig(domain=["climate", "switch", "button", "input_button", "script", "input_boolean"])
 )
 SWITCH_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain=["switch", "input_boolean"]))
 # A number, or any entity of an Easee charger: EV Planner then uses Easee's own action for the current.
@@ -620,6 +625,7 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
                         {
                             opt(CONF_CALENDAR_ENTITY): CALENDAR_SELECTOR,
                             opt(CONF_CALENDAR_KEYWORD): str,
+                            opt(CONF_CLIMATE_ENTITY): CLIMATE_SELECTOR,
                         }
                     ),
                     {"collapsed": True},

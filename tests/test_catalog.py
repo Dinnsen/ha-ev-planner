@@ -135,6 +135,9 @@ async def test_suggest_a_cars_entities(hass: HomeAssistant) -> None:
     power = _add(hass, entry, device_id, "sensor", "charging_power", original_device_class="power")
     switch = _add(hass, entry, device_id, "switch", "charging", original_name="Charging")
     _add(hass, entry, device_id, "switch", "preheat", original_name="Climate heater")
+    climate = _add(hass, entry, device_id, "climate", "air_conditioning", original_name="Air conditioning")
+    refresh = _add(hass, entry, device_id, "button", "refresh", original_name="Refresh data")
+    _add(hass, entry, device_id, "button", "honk", original_name="Flash lights")
     assert suggest_vehicle_entities(hass, device_id) == {
         "soc_entity": soc,
         "connected_entity": plug,
@@ -142,6 +145,8 @@ async def test_suggest_a_cars_entities(hass: HomeAssistant) -> None:
         "home_entity": tracker,
         "power_entity": power,
         "control_entity": switch,
+        "climate_entity": climate,
+        "refresh_entity": refresh,
         "control": "car",
     }
     _entry, empty = await _device(hass, "other", "Nobody", "Nothing")

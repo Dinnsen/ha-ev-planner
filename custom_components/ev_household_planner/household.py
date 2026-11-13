@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from functools import partial
 import logging
 import math
@@ -94,12 +94,19 @@ from .const import (
     RECALCULATE_MAX_WAIT,
     REMINDER_MAX_REPEATS,
     SAVE_COUNTERS,
+    SET_AFTERNOON,
     SET_CHARGE_ON_LATE,
+    SET_CLIMATE_AUTO,
+    SET_CLIMATE_BELOW,
+    SET_CLIMATE_MINUTES,
+    SET_CLIMATE_PLUGGED,
+    SET_CLIMATE_TEMP,
     SET_DAY_TARGETS,
     SET_KNOWN_PRICES,
     SET_LIVE,
     SET_MANUAL_SOC,
     SET_MODE,
+    SET_MORNING,
     SET_NOTIFY_DONE,
     SET_NOTIFY_RECEIPT,
     SET_REMINDER,
@@ -112,6 +119,7 @@ from .const import (
     SET_REMINDER_TIME,
     SET_SCHEDULE,
     SET_TARGET_SOC,
+    SET_TRIP,
     SITE_HOME,
     STORAGE_KEY,
     STORAGE_VERSION,
@@ -138,6 +146,7 @@ from .rules import (
     Car,
     Decision,
     VehiclePlan,
+    cheap_ceiling,
     current_price,
     decide,
     fallback_plan,
@@ -146,6 +155,7 @@ from .rules import (
     keep_previous,
     parse_hhmm,
     plan_vehicle,
+    trip_deadline,
 )
 from .solar_control import SolarControl
 from .supply_control import SupplyControl
@@ -169,6 +179,16 @@ SETTINGS_DEFAULTS: dict[str, Any] = {
     "houses": {},
 }
 TRIP_TARGET = re.compile(r"(\d{2,3})\s*%")
+# "fuld", "fuldt opladet", "full": the whole battery.
+TRIP_FULL = re.compile(r"\b(fuld|fuldt|full|fully)\b", re.IGNORECASE)
+# The climate: a word for it, and maybe a temperature ("klima 22°", "forvarm 21 grader", "preheat 20C").
+TRIP_CLIMATE = re.compile(r"\b(klima\w*|climate|forvarm\w*|opvarm\w*|preheat\w*|precondition\w*)\b", re.IGNORECASE)
+TRIP_DEGREES = re.compile(r"(\d{2}(?:[.,]5)?)\s*(?:°|grader|grad|degrees|deg\b|c\b)", re.IGNORECASE)
+# A departure that is not the event's start ("afgang 7:30", "kører kl. 7.15", "leave 07:30").
+TRIP_LEAVE = re.compile(
+    r"\b(?:afgang|afg\.?|kører|køre|kør|leave|leaving|depart\w*)\s*(?:kl\.?|at)?\s*(\d{1,2})[:.](\d{2})\b",
+    re.IGNORECASE,
+)
 TOGGLE_DOMAINS = ("switch", "input_boolean", "light", "fan")
 
 
@@ -256,6 +276,46 @@ def state_float(state: State | None) -> float | None:
 
 # Charging on after the ready-by time is for a car that was plugged in at least this long before it.
 LATE_PLUGGED_BEFORE = timedelta(minutes=30)
+
+
+def climate_temperature(wanted: float, attributes: Mapping[str, Any]) -> float:
+    """The temperature as the climate entity takes it: within its range, in its steps (a Skoda: 16-29.5 in halves)."""
+    low = to_float(attributes.get("min_temp"))
+    high = to_float(attributes.get("max_temp"))
+    step = to_float(attributes.get("target_temp_step")) or 0.5
+    value = round(wanted / step) * step
+    if low is not None:
+        value = max(low, value)
+    if high is not None:
+        value = min(high, value)
+    return round(value, 1)
+
+
+def read_trip(text: str, start: datetime) -> tuple[datetime, float | None, float | bool | None]:
+    """What a calendar event says: when the car leaves, how full, and the climate.
+
+    The event's start is the departure, unless the text names another time ("afgang 7:30").
+    "80 %" is the target, "fuld" or "full" 100 %. A word for the climate ("klima", "forvarm",
+    "preheat") starts it before the departure, at the temperature in the text ("22°") if there is one.
+    """
+    departure = start
+    if leave := TRIP_LEAVE.search(text):
+        hour, minute = int(leave.group(1)), int(leave.group(2))
+        if hour < 24 and minute < 60:
+            departure = start.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    target = None
+    if match := TRIP_TARGET.search(text):
+        target = max(10.0, min(100.0, float(match.group(1))))
+    elif TRIP_FULL.search(text):
+        target = 100.0
+    climate: float | bool | None = None
+    if TRIP_CLIMATE.search(text):
+        climate = True
+        if degrees := TRIP_DEGREES.search(text):
+            value = float(degrees.group(1).replace(",", "."))
+            if 10 <= value <= 32:
+                climate = value
+    return departure, target, climate
 
 
 class Household(DataUpdateCoordinator[None]):
@@ -1005,6 +1065,13 @@ class Household(DataUpdateCoordinator[None]):
         With ``stable`` (a new price or reading, not a changed setting) the plan
         from before is kept when the new one would hardly be cheaper.
         """
+        trip = vehicle.trip
+        if vehicle.settings.get(SET_TRIP) is not None and (trip is None or trip["at"] <= now):
+            # The one-off trip is over: the week plan again.
+            vehicle.settings[SET_TRIP] = None
+            self.events.add(now, "trip_over", vehicle=vehicle.name)
+            trip = None
+            self.async_save()
         vehicle.deadline = vehicle.next_deadline(now)
         vehicle.plan_restored = False
         if vehicle.deadline is None and vehicle.night is not None:
@@ -1041,11 +1108,20 @@ class Household(DataUpdateCoordinator[None]):
         prices, other = (known, every) if use_known else (every, known)
         aim, other_aim = (known_aim, aim) if use_known else (aim, known_aim)
 
+        rules = vehicle.rules()
+        if trip is not None and vehicle.deadline == trip["at"]:
+            # The weekend and a holiday charge only at the cheapest prices.
+            cap = cheap_ceiling(str(trip.get("kind")), every, trip["at"])
+            if cap is not None:
+                rules = replace(
+                    rules, ceiling=cap if rules.ceiling is None else min(rules.ceiling, cap), ceiling_above=None
+                )
+
         def make(slots: list[PriceSlot], deadline: datetime | None) -> VehiclePlan:
             return plan_vehicle(
                 slots,
                 car,
-                vehicle.rules(),
+                rules,
                 now,
                 deadline=deadline,
                 earliest=vehicle.earliest_start,
@@ -1306,6 +1382,8 @@ class Household(DataUpdateCoordinator[None]):
                 replan = True
                 self._check_late(vehicle, now)
             self._count_time(vehicle, now)
+        for vehicle in self.vehicles.values():
+            await self._async_auto_climate(vehicle, now)
         if self.guest.finished_long_ago(now):
             # The guest has driven off and the charge is in the history: the guest page starts empty again.
             self.events.add(now, "guest_cleared")
@@ -2177,15 +2255,25 @@ class Household(DataUpdateCoordinator[None]):
         for vehicle in self.vehicles.values():
             if not vehicle.calendar_entity:
                 continue
-            event, target, summary = await self._async_next_trip(vehicle, now)
+            event, target, summary, climate = await self._async_next_trip(vehicle, now)
             if (event, target) != (vehicle.calendar_event, vehicle.calendar_target):
                 changed = True
+                self.events.add(
+                    now,
+                    "calendar",
+                    vehicle=vehicle.name,
+                    departure=event,
+                    target=target,
+                    climate=climate,
+                    title=summary,
+                )
             vehicle.calendar_event, vehicle.calendar_target, vehicle.calendar_summary = event, target, summary
+            vehicle.calendar_climate = climate
         return changed
 
     async def _async_next_trip(
         self, vehicle: Vehicle, now: datetime
-    ) -> tuple[datetime | None, float | None, str | None]:
+    ) -> tuple[datetime | None, float | None, str | None, float | bool | None]:
         entity_id = vehicle.calendar_entity
         assert entity_id is not None
         try:
@@ -2202,7 +2290,7 @@ class Household(DataUpdateCoordinator[None]):
             )
         except (HomeAssistantError, ServiceNotFound) as err:
             _LOGGER.debug("Could not read %s: %s", entity_id, err)
-            return None, None, None
+            return None, None, None, None
         data = response.get(entity_id) if isinstance(response, dict) else None
         found = data.get("events") if isinstance(data, dict) else None
         events = found if isinstance(found, list) else []
@@ -2215,16 +2303,20 @@ class Household(DataUpdateCoordinator[None]):
             if keyword and keyword not in text.casefold():
                 continue
             start_raw = str(item.get("start") or "")
-            if "T" not in start_raw:
-                continue  # all-day events have no departure time
-            start = dt_util.parse_datetime(start_raw)
-            if start is None or start <= now:
+            if "T" in start_raw:
+                start = dt_util.parse_datetime(start_raw)
+            elif TRIP_LEAVE.search(text) and (day := dt_util.parse_date(start_raw[:10])) is not None:
+                # An all-day event with a departure in it ("afgang 7:30").
+                start = datetime.combine(day, time(0), now.tzinfo)
+            else:
+                continue  # an all-day event has no departure time
+            if start is None:
                 continue
-            target = None
-            if match := TRIP_TARGET.search(text):
-                target = max(10.0, min(100.0, float(match.group(1))))
-            return dt_util.as_local(start), target, summary or None
-        return None, None, None
+            departure, target, climate = read_trip(text, dt_util.as_local(start))
+            if departure <= now:
+                continue
+            return departure, target, summary or None, climate
+        return None, None, None, None
 
     # ------------------------------------------------------------------
     # Changes from entities, actions and the panel
@@ -2261,6 +2353,156 @@ class Household(DataUpdateCoordinator[None]):
                 vehicle.problem = False
         self.async_save()
         await self.async_recalculate(force=True)
+
+    # ------------------------------------------------------------------
+    # The car's climate
+
+    async def async_climate(self, vehicle_id: str, on: bool, temperature: float | None = None) -> None:
+        """Start or stop the car's climate (heating or cooling) now."""
+        vehicle = self.vehicles.get(vehicle_id)
+        if vehicle is None:
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="car_not_found")
+        if not vehicle.climate_entity:
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="no_climate_entity")
+        error = await self._async_climate(vehicle, on, temperature)
+        if error is not None:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN, translation_key="climate_failed", translation_placeholders={"error": error}
+            )
+        self.async_update_listeners()
+
+    async def _async_climate(self, vehicle: Vehicle, on: bool, temperature: float | None = None) -> str | None:
+        """Turn the climate on or off: a climate entity at a temperature, or a switch, button or script."""
+        entity = vehicle.climate_entity
+        if not entity:
+            return "no_climate_entity"
+        domain = entity.split(".", 1)[0]
+        wanted = temperature if temperature is not None else to_float(vehicle.settings.get(SET_CLIMATE_TEMP))
+        calls: list[tuple[str, str, dict[str, Any]]] = []
+        if domain == "climate":
+            state = self.hass.states.get(entity)
+            attributes = state.attributes if state is not None else {}
+            if not on:
+                calls.append(("climate", "set_hvac_mode", {"entity_id": entity, "hvac_mode": "off"}))
+            else:
+                modes = [str(mode) for mode in attributes.get("hvac_modes") or [] if str(mode) != "off"]
+                order = ("heat_cool", "auto", "heat", "cool")
+                mode = next((m for m in order if m in modes), modes[0] if modes else None)
+                if mode is not None:
+                    calls.append(("climate", "set_hvac_mode", {"entity_id": entity, "hvac_mode": mode}))
+                else:
+                    calls.append(("climate", "turn_on", {"entity_id": entity}))
+                if wanted is not None and "temperature" in attributes:
+                    calls.append(
+                        (
+                            "climate",
+                            "set_temperature",
+                            {"entity_id": entity, "temperature": climate_temperature(wanted, attributes)},
+                        )
+                    )
+        elif domain in ("button", "input_button"):
+            if not on:
+                return None  # a button starts the climate; it stops by itself
+            calls.append((domain, "press", {"entity_id": entity}))
+        elif domain == "script":
+            calls.append(("script", "turn_on" if on else "turn_off", {"entity_id": entity}))
+        else:
+            calls.append(("homeassistant", "turn_on" if on else "turn_off", {"entity_id": entity}))
+        now = dt_util.now()
+        for service_domain, service, data in calls:
+            try:
+                async with asyncio.timeout(COMMAND_TIMEOUT):
+                    await self.hass.services.async_call(service_domain, service, data, blocking=True)
+            except (TimeoutError, HomeAssistantError, ServiceNotFound) as err:
+                error = str(err) or type(err).__name__
+                _LOGGER.warning("Could not %s the climate of %s: %s", service, vehicle.name, error)
+                self.events.add(now, "climate", vehicle=vehicle.name, on=on, call=service, error=error)
+                return error
+        vehicle.climate_on_at = now if on else None
+        self.events.add(now, "climate", vehicle=vehicle.name, on=on, entity=entity, temperature=wanted)
+        return None
+
+    def climate_running(self, vehicle: Vehicle) -> bool | None:
+        """Whether the car's climate runs now, as its entity says (None when it cannot tell, e.g. a button)."""
+        entity = vehicle.climate_entity
+        state = self.hass.states.get(entity) if entity else None
+        if state is None or state.state in ("unknown", "unavailable"):
+            return None
+        if state.domain == "climate":
+            return state.state != "off"
+        if state.domain in ("switch", "input_boolean", "script"):
+            return state.state == "on"
+        return None
+
+    def _climate_wanted(self, vehicle: Vehicle, departure: datetime) -> tuple[bool, float | None]:
+        """Whether the climate starts before this departure, and at what temperature.
+
+        A calendar event that asks for it ("klima") always does. Otherwise, with the automatic
+        climate on, before a calendar trip or a preset, when it is cold enough (and the car is
+        plugged in, unless that is turned off).
+        """
+        if departure == vehicle.calendar_event and vehicle.calendar_climate is not None:
+            climate = vehicle.calendar_climate
+            return True, (float(climate) if not isinstance(climate, bool) else None)
+        if not vehicle.settings.get(SET_CLIMATE_AUTO):
+            return False, None
+        trip = vehicle.trip
+        if departure != vehicle.calendar_event and (trip is None or departure != trip["at"]):
+            return False, None
+        if vehicle.settings.get(SET_CLIMATE_PLUGGED, True) and vehicle.connected is not True:
+            return False, None
+        below = to_float(vehicle.settings.get(SET_CLIMATE_BELOW))
+        supply = self.supply_of(vehicle)
+        outside = supply.temperature_at(departure)
+        if outside is None:
+            outside = supply.temperature_now()
+        if below is not None and outside is not None and outside > below:
+            return False, None
+        return True, None
+
+    async def _async_auto_climate(self, vehicle: Vehicle, now: datetime) -> None:
+        """Start the climate before a departure that asks for it, once."""
+        departure = vehicle.deadline
+        if not vehicle.climate_entity or departure is None or departure == vehicle.climate_started_for:
+            return
+        minutes = to_float(vehicle.settings.get(SET_CLIMATE_MINUTES)) or 15.0
+        if not departure - timedelta(minutes=minutes) <= now < departure:
+            return
+        start, temperature = self._climate_wanted(vehicle, departure)
+        if not start:
+            return
+        vehicle.climate_started_for = departure
+        await self._async_climate(vehicle, True, temperature)
+        self.async_update_listeners()
+
+    async def async_set_trip(
+        self, vehicle_id: str, kind: str | None, *, day: date | None = None, target: float | None = None
+    ) -> datetime | None:
+        """A one-off ready-by time from a preset, before the week plan; ``kind`` None: back to the week plan."""
+        vehicle = self.vehicles.get(vehicle_id)
+        if vehicle is None:
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="car_not_found")
+        now = dt_util.now()
+        at = None
+        if kind is not None:
+            at = trip_deadline(
+                kind,
+                now,
+                morning=parse_hhmm(vehicle.settings.get(SET_MORNING)) or time(6),
+                afternoon=parse_hhmm(vehicle.settings.get(SET_AFTERNOON)) or time(15),
+                day=day,
+            )
+            if at is None:
+                raise ServiceValidationError(translation_domain=DOMAIN, translation_key="invalid_trip")
+        vehicle.settings[SET_TRIP] = (
+            None
+            if at is None
+            else {"kind": kind, "at": at.isoformat(), "target": target, "day": day.isoformat() if day else None}
+        )
+        self.events.add(now, "trip", vehicle=vehicle.name, kind=kind, at=at, target=target)
+        self.async_save()
+        await self.async_recalculate(force=True)
+        return at
 
     def car_target_steps(self, vehicle: Vehicle) -> tuple[float, float, float] | None:
         """The car's own charge limit: (least, most, step), when it is a number EV Planner sets."""

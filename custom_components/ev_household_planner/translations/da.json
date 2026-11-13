@@ -137,7 +137,7 @@
                 "home_entity": "Valgfri. Bilens placering (en device tracker). EV Planner handler kun, når bilen er hjemme eller et andet sted, I har tilføjet, og finder bilens lader blandt laderne dér.",
                 "charging_entity": "Valgfri. Viser om bilen lader (on/charging eller en effekt over 0). Bruges til at tjekke, at ladningen startede.",
                 "power_entity": "Valgfri. Bilens egen sensor for ladeeffekt (kW). EV Planner lærer effekten af den og tæller energien med den.",
-                "refresh_entity": "Valgfrit. En knap, et script eller en entitet fra bilens integration. Når en lader får en bil, og det ikke vides hvilken, trykker EV Planner på knappen, kører scriptet eller opdaterer entiteten, så bilen melder sig med det samme i stedet for ved sin næste tur. Højst to gange for én tilslutning."
+                "refresh_entity": "Valgfrit. En knap, et script eller en entitet fra bilens integration. Når en lader får en bil, og bilen ikke selv har sagt det, trykker EV Planner på knappen, kører scriptet eller opdaterer entiteten efter 30 sekunder, to og otte minutter, så bilen melder ind med det samme i stedet for næste gang."
               }
             },
             "charging": {
@@ -163,15 +163,17 @@
               }
             },
             "trips": {
-              "name": "Ture fra en kalender",
-              "description": "Valgfrit.",
+              "name": "Ture og klima",
+              "description": "Valgfrit. En kalender med bilens ture, og bilens klima.",
               "data": {
                 "calendar_entity": "Kalender",
-                "calendar_keyword": "Nøgleord"
+                "calendar_keyword": "Nøgleord",
+                "climate_entity": "Klima"
               },
               "data_description": {
                 "calendar_entity": "Ture i denne kalender bestemmer, hvornår bilen skal være klar.",
-                "calendar_keyword": "Kun begivenheder med dette ord. Skriv fx 90 % i begivenheden for at lade til 90 %."
+                "calendar_keyword": "Kun begivenheder med dette ord. Skriv fx 80 % i begivenheden for at lade til 80 %, \"fuld\" for 100 %, \"afgang 7:30\" for en anden afgang end begivenhedens start, og \"klima 21°\" for at varme bilen op inden afgang. Se vejledningen i dokumentationen.",
+                "climate_entity": "Valgfrit. Bilens klima-entitet (den sættes til at varme eller køle til den temperatur, du vælger), eller en kontakt, knap eller et script, der starter klimaet. Bruges af Klima-knappen på bilens side, før kalenderture der beder om det, og før forvalg når automatisk klima er slået til."
               }
             }
           }
@@ -211,7 +213,7 @@
                 "home_entity": "Valgfri. Bilens placering (en device tracker). EV Planner handler kun, når bilen er hjemme eller et andet sted, I har tilføjet, og finder bilens lader blandt laderne dér.",
                 "charging_entity": "Valgfri. Viser om bilen lader (on/charging eller en effekt over 0). Bruges til at tjekke, at ladningen startede.",
                 "power_entity": "Valgfri. Bilens egen sensor for ladeeffekt (kW). EV Planner lærer effekten af den og tæller energien med den.",
-                "refresh_entity": "Valgfrit. En knap, et script eller en entitet fra bilens integration. Når en lader får en bil, og det ikke vides hvilken, trykker EV Planner på knappen, kører scriptet eller opdaterer entiteten, så bilen melder sig med det samme i stedet for ved sin næste tur. Højst to gange for én tilslutning."
+                "refresh_entity": "Valgfrit. En knap, et script eller en entitet fra bilens integration. Når en lader får en bil, og bilen ikke selv har sagt det, trykker EV Planner på knappen, kører scriptet eller opdaterer entiteten efter 30 sekunder, to og otte minutter, så bilen melder ind med det samme i stedet for næste gang."
               }
             },
             "charging": {
@@ -237,15 +239,17 @@
               }
             },
             "trips": {
-              "name": "Ture fra en kalender",
-              "description": "Valgfrit.",
+              "name": "Ture og klima",
+              "description": "Valgfrit. En kalender med bilens ture, og bilens klima.",
               "data": {
                 "calendar_entity": "Kalender",
-                "calendar_keyword": "Nøgleord"
+                "calendar_keyword": "Nøgleord",
+                "climate_entity": "Klima"
               },
               "data_description": {
                 "calendar_entity": "Ture i denne kalender bestemmer, hvornår bilen skal være klar.",
-                "calendar_keyword": "Kun begivenheder med dette ord. Skriv fx 90 % i begivenheden for at lade til 90 %."
+                "calendar_keyword": "Kun begivenheder med dette ord. Skriv fx 80 % i begivenheden for at lade til 80 %, \"fuld\" for 100 %, \"afgang 7:30\" for en anden afgang end begivenhedens start, og \"klima 21°\" for at varme bilen op inden afgang. Se vejledningen i dokumentationen.",
+                "climate_entity": "Valgfrit. Bilens klima-entitet (den sættes til at varme eller køle til den temperatur, du vælger), eller en kontakt, knap eller et script, der starter klimaet. Bruges af Klima-knappen på bilens side, før kalenderture der beder om det, og før forvalg når automatisk klima er slået til."
               }
             }
           }
@@ -1106,6 +1110,15 @@
     },
     "bad_period": {
       "message": "Perioden er ikke gyldig."
+    },
+    "no_climate_entity": {
+      "message": "Bilen har ikke noget klima sat op. Tilføj det under bilens indstillinger (Ture og klima)."
+    },
+    "climate_failed": {
+      "message": "Bilens klima svarede ikke: {error}"
+    },
+    "invalid_trip": {
+      "message": "Turen kan ikke sættes: vælg den dag, I er hjemme igen."
     }
   },
   "issues": {

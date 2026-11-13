@@ -94,6 +94,8 @@ CONF_POWER_ENTITY: Final = "power_entity"
 CONF_IMPORTED_SPEED: Final = "imported_speed"
 CONF_CALENDAR_ENTITY: Final = "calendar_entity"
 CONF_CALENDAR_KEYWORD: Final = "calendar_keyword"
+# The car's climate: a climate entity (set to heat or cool at a temperature), or a switch, button or script.
+CONF_CLIMATE_ENTITY: Final = "climate_entity"
 
 CONTROL_CAR: Final = "car"
 CONTROL_CHARGER: Final = "charger"
@@ -230,6 +232,26 @@ SET_NOTIFY_RECEIPT: Final = "notify_receipt"
 SET_EARLY_ENABLED: Final = "prefer_early"
 SET_KNOWN_PRICES: Final = "known_prices"
 SET_CHARGE_ON_LATE: Final = "charge_on_late"
+# A one-off ready-by time (a preset: tomorrow morning, this afternoon, the weekend, a holiday), before the week plan.
+SET_TRIP: Final = "trip"
+SET_MORNING: Final = "morning_time"
+SET_AFTERNOON: Final = "afternoon_time"
+TRIP_MORNING: Final = "morning"
+TRIP_AFTERNOON: Final = "afternoon"
+TRIP_TOMORROW_AFTERNOON: Final = "tomorrow_afternoon"
+TRIP_WEEKEND: Final = "weekend"
+TRIP_HOLIDAY: Final = "holiday"
+TRIP_KINDS: Final = (TRIP_MORNING, TRIP_AFTERNOON, TRIP_TOMORROW_AFTERNOON, TRIP_WEEKEND, TRIP_HOLIDAY)
+# The weekend charges only at the cheapest prices: at most this share above the lowest known.
+TRIP_WEEKEND_ABOVE: Final = 0.10
+# A holiday charges only in the cheapest hours: this share of them.
+TRIP_HOLIDAY_SHARE: Final = 0.10
+# The climate: the temperature, how long before leaving, and whether it starts by itself.
+SET_CLIMATE_TEMP: Final = "climate_temperature"
+SET_CLIMATE_MINUTES: Final = "climate_minutes"
+SET_CLIMATE_AUTO: Final = "climate_auto"
+SET_CLIMATE_BELOW: Final = "climate_below"
+SET_CLIMATE_PLUGGED: Final = "climate_plugged_only"
 SET_EARLY_WITHIN: Final = "early_within"
 # Charge to ``topup_level`` at the cheapest prices, and the rest just before the ready-by time.
 SET_TOPUP_ENABLED: Final = "topup"
@@ -315,6 +337,14 @@ DEFAULT_VEHICLE_SETTINGS: Final[dict[str, object]] = {
     SET_EARLY_ENABLED: False,
     SET_KNOWN_PRICES: False,
     SET_CHARGE_ON_LATE: True,
+    SET_TRIP: None,
+    SET_MORNING: "06:00",
+    SET_AFTERNOON: "15:00",
+    SET_CLIMATE_TEMP: 21.0,
+    SET_CLIMATE_MINUTES: 15,
+    SET_CLIMATE_AUTO: False,
+    SET_CLIMATE_BELOW: 5.0,
+    SET_CLIMATE_PLUGGED: True,
     SET_EARLY_WITHIN: 0.02,
     SET_TOPUP_ENABLED: False,
     SET_TOPUP_LEVEL: 80.0,

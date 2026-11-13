@@ -137,7 +137,7 @@
                 "home_entity": "Optional. The car's location (a device tracker). EV Planner only acts while the car is at home, or at another place you have added, and finds the car's charger among the chargers there.",
                 "charging_entity": "Optional. Shows whether the car is charging (on/charging, or a power above 0). Used to check that charging started.",
                 "power_entity": "Optional. The car's own charging power sensor (kW). EV Planner learns the power from it and counts the energy with it.",
-                "refresh_entity": "Optional. A button, a script or an entity of the car's integration. When a charger gets a car and it is not known which, EV Planner presses the button, runs the script or updates the entity, so the car reports at once instead of at its next turn. At most twice for one plug-in."
+                "refresh_entity": "Optional. A button, a script or an entity of the car's integration. When a charger gets a car and the car has not said so itself, EV Planner presses the button, runs the script or updates the entity after 30 seconds, two and eight minutes, so the car reports at once instead of at its next turn."
               }
             },
             "charging": {
@@ -163,15 +163,17 @@
               }
             },
             "trips": {
-              "name": "Trips from a calendar",
-              "description": "Optional.",
+              "name": "Trips and climate",
+              "description": "Optional. A calendar with the car's trips, and the car's climate.",
               "data": {
                 "calendar_entity": "Calendar",
-                "calendar_keyword": "Keyword"
+                "calendar_keyword": "Keyword",
+                "climate_entity": "Climate"
               },
               "data_description": {
                 "calendar_entity": "Trips in this calendar set when the car must be ready.",
-                "calendar_keyword": "Only events with this word. Write e.g. 90 % in the event to charge to 90 %."
+                "calendar_keyword": "Only events with this word. In the event, write e.g. 80 % to charge to 80 %, \"full\" for 100 %, \"leave 7:30\" for another departure than the event's start, and \"climate 21°\" to warm the car before leaving. See the guide in the documentation.",
+                "climate_entity": "Optional. The car's climate entity (it is set to heat or cool at the temperature you choose), or a switch, button or script that starts the climate. Used by the Climate button on the car's page, before calendar trips that ask for it, and before presets when automatic climate is on."
               }
             }
           }
@@ -211,7 +213,7 @@
                 "home_entity": "Optional. The car's location (a device tracker). EV Planner only acts while the car is at home, or at another place you have added, and finds the car's charger among the chargers there.",
                 "charging_entity": "Optional. Shows whether the car is charging (on/charging, or a power above 0). Used to check that charging started.",
                 "power_entity": "Optional. The car's own charging power sensor (kW). EV Planner learns the power from it and counts the energy with it.",
-                "refresh_entity": "Optional. A button, a script or an entity of the car's integration. When a charger gets a car and it is not known which, EV Planner presses the button, runs the script or updates the entity, so the car reports at once instead of at its next turn. At most twice for one plug-in."
+                "refresh_entity": "Optional. A button, a script or an entity of the car's integration. When a charger gets a car and the car has not said so itself, EV Planner presses the button, runs the script or updates the entity after 30 seconds, two and eight minutes, so the car reports at once instead of at its next turn."
               }
             },
             "charging": {
@@ -237,15 +239,17 @@
               }
             },
             "trips": {
-              "name": "Trips from a calendar",
-              "description": "Optional.",
+              "name": "Trips and climate",
+              "description": "Optional. A calendar with the car's trips, and the car's climate.",
               "data": {
                 "calendar_entity": "Calendar",
-                "calendar_keyword": "Keyword"
+                "calendar_keyword": "Keyword",
+                "climate_entity": "Climate"
               },
               "data_description": {
                 "calendar_entity": "Trips in this calendar set when the car must be ready.",
-                "calendar_keyword": "Only events with this word. Write e.g. 90 % in the event to charge to 90 %."
+                "calendar_keyword": "Only events with this word. In the event, write e.g. 80 % to charge to 80 %, \"full\" for 100 %, \"leave 7:30\" for another departure than the event's start, and \"climate 21°\" to warm the car before leaving. See the guide in the documentation.",
+                "climate_entity": "Optional. The car's climate entity (it is set to heat or cool at the temperature you choose), or a switch, button or script that starts the climate. Used by the Climate button on the car's page, before calendar trips that ask for it, and before presets when automatic climate is on."
               }
             }
           }
@@ -1106,6 +1110,15 @@
     },
     "bad_period": {
       "message": "The period is not valid."
+    },
+    "no_climate_entity": {
+      "message": "The car has no climate set up. Add it under the car's settings (Trips and climate)."
+    },
+    "climate_failed": {
+      "message": "The car's climate did not answer: {error}"
+    },
+    "invalid_trip": {
+      "message": "That trip cannot be set: give the day you are home again."
     }
   },
   "issues": {

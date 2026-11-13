@@ -23,6 +23,7 @@ from .const import (
     CONF_CHARGE_POWER,
     CONF_CHARGER,
     CONF_CHARGING_ENTITY,
+    CONF_CLIMATE_ENTITY,
     CONF_CONNECTED_ENTITY,
     CONF_CONTROL,
     CONF_CONTROL_BACKUP,
@@ -80,6 +81,7 @@ from .const import (
     SET_TARGET_SOC,
     SET_TOPUP_ENABLED,
     SET_TOPUP_LEVEL,
+    SET_TRIP,
     SET_USE_EARLIEST_START,
     SET_USE_READY_BY,
     STATUS_CHARGER_BUSY,
@@ -327,6 +329,11 @@ class Vehicle:
     calendar_event: datetime | None = None
     calendar_target: float | None = None
     calendar_summary: str | None = None
+    # What the calendar event asks of the climate: a temperature, True (the car's setting), or None.
+    calendar_climate: float | bool | None = None
+    # The departure the climate was last started for, so it is started once.
+    climate_started_for: datetime | None = None
+    climate_on_at: datetime | None = None
     planned_at: datetime | None = None
     decision: Decision = field(default_factory=lambda: Decision(CONTROL_RELEASED, "off"))
     plan_done: bool = False
@@ -500,6 +507,22 @@ class Vehicle:
         return str(self.config.get(CONF_CALENDAR_KEYWORD) or "").strip()
 
     @property
+    def climate_entity(self) -> str | None:
+        return self.config.get(CONF_CLIMATE_ENTITY) or None
+
+    @property
+    def trip(self) -> dict[str, Any] | None:
+        """The one-off ready-by time (a preset) while it is ahead: kind, at, and a target."""
+        trip = self.settings.get(SET_TRIP)
+        if not isinstance(trip, Mapping):
+            return None
+        at = trip.get("at")
+        moment = datetime.fromisoformat(at) if isinstance(at, str) else None
+        if moment is None:
+            return None
+        return {**trip, "at": moment}
+
+    @property
     def fixed_charger(self) -> str | None:
         """The charger chosen for the car in its setup (None: no charger, or found each time)."""
         value = self.config.get(CONF_CHARGER)
@@ -605,6 +628,9 @@ class Vehicle:
         """The charge level to aim for: a calendar trip, the weekday's, the car's own limit, or the setting."""
         if self.calendar_target is not None:
             return self.calendar_target
+        trip = self.trip
+        if trip is not None and self.deadline == trip["at"] and (wanted := to_float(trip.get("target"))) is not None:
+            return wanted
         if (day := self.day_target) is not None:
             return day
         if self.target_entity and self.target_from_car is not None:
@@ -672,6 +698,11 @@ class Vehicle:
         return self.continuous or self.learned.resumes is False
 
     def next_deadline(self, now: datetime) -> datetime | None:
+        """The ready-by time: a one-off trip (a preset) before the week plan; a calendar trip before both."""
+        trip = self.trip
+        if trip is not None and trip["at"] > now:
+            event = self.calendar_event
+            return event if event is not None and now < event < trip["at"] else trip["at"]
         return next_deadline(
             now,
             default=self.ready_by,

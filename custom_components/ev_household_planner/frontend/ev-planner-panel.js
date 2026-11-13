@@ -1335,6 +1335,78 @@ const CAR_VIEWS = ["now", "rules", "history"];
 const HIST_PERIODS = ["day", "week", "month", "year"];
 
 /* Vehicle status → tone of the pill and the status line. */
+/* 2.4: presets, the climate, the latest charge and the charge level ahead. */
+Object.assign(TEXT.da, {
+  trip: "Næste tur",
+  trip_morning: "I morgen tidlig",
+  trip_afternoon: "I eftermiddag",
+  trip_tomorrow_afternoon: "I morgen eftermiddag",
+  trip_weekend: "Weekend",
+  trip_holiday: "Ferie",
+  trip_week: "Ugeplan",
+  trip_home_day: "Hjem igen",
+  trip_ready: "{when}, én gang – derefter ugeplanen igen.",
+  trip_cheap_weekend: "Lader kun, når prisen højst er 10 % over den laveste kendte. Klar mandag morgen.",
+  trip_cheap_holiday: "Lader kun i de 10 % billigste timer frem til hjemkomsten.",
+  climate_start: "Start klima",
+  climate_stop: "Stop klima",
+  climate_busy: "Et øjeblik …",
+  climate_calendar: "Kalenderen starter klimaet før afgang kl. {time}.",
+  climate_auto_note: "Starter selv {min} min. før en tur fra kalenderen eller et forvalg, når det er koldt.",
+  last_charge: "Seneste ladning",
+  forecast_title: "Ladeniveau frem til afgang",
+  forecast_label: "Forventet {pct} {when}",
+  tile_climate: "Klima",
+  sum_climate_auto: "starter selv",
+  rule_morning_time: "Morgen",
+  rule_morning_time_hint: "Hvornår bilen skal være klar ved I morgen tidlig, Weekend og Ferie.",
+  rule_afternoon_time: "Eftermiddag",
+  rule_afternoon_time_hint: "Hvornår bilen skal være klar ved I eftermiddag og I morgen eftermiddag.",
+  rule_climate_temp: "Temperatur",
+  rule_climate_temp_hint: "Den temperatur, klimaet sættes til. Bilen afrunder til sine egne trin.",
+  rule_climate_minutes: "Før afgang",
+  rule_climate_minutes_hint: "Hvor længe før afgang klimaet starter af sig selv.",
+  rule_climate_auto: "Start klima af sig selv",
+  rule_climate_auto_hint: "Før en tur fra kalenderen eller et forvalg, når det er koldere end grænsen (fra vejret ved stedet). En kalenderbegivenhed med ordet klima starter det altid.",
+  rule_climate_below: "Når det er koldere end",
+  rule_climate_plugged: "Kun når bilen er sat i",
+});
+Object.assign(TEXT.en, {
+  trip: "Next trip",
+  trip_morning: "Tomorrow morning",
+  trip_afternoon: "This afternoon",
+  trip_tomorrow_afternoon: "Tomorrow afternoon",
+  trip_weekend: "Weekend",
+  trip_holiday: "Holiday",
+  trip_week: "Week plan",
+  trip_home_day: "Home again",
+  trip_ready: "{when}, once – then the week plan again.",
+  trip_cheap_weekend: "Charges only when the price is at most 10 % above the lowest known. Ready Monday morning.",
+  trip_cheap_holiday: "Charges only in the cheapest 10 % of the hours until you are home.",
+  climate_start: "Start climate",
+  climate_stop: "Stop climate",
+  climate_busy: "One moment …",
+  climate_calendar: "The calendar starts the climate before leaving at {time}.",
+  climate_auto_note: "Starts by itself {min} min before a calendar trip or a preset, when it is cold.",
+  last_charge: "Latest charge",
+  forecast_title: "Charge level until departure",
+  forecast_label: "Expected {pct} {when}",
+  tile_climate: "Climate",
+  sum_climate_auto: "starts by itself",
+  rule_morning_time: "Morning",
+  rule_morning_time_hint: "When the car must be ready for Tomorrow morning, Weekend and Holiday.",
+  rule_afternoon_time: "Afternoon",
+  rule_afternoon_time_hint: "When the car must be ready for This afternoon and Tomorrow afternoon.",
+  rule_climate_temp: "Temperature",
+  rule_climate_temp_hint: "The temperature the climate is set to. The car rounds it to its own steps.",
+  rule_climate_minutes: "Before leaving",
+  rule_climate_minutes_hint: "How long before leaving the climate starts by itself.",
+  rule_climate_auto: "Start the climate by itself",
+  rule_climate_auto_hint: "Before a calendar trip or a preset, when it is colder than the limit (from the weather at the place). A calendar event with the word climate always starts it.",
+  rule_climate_below: "When it is colder than",
+  rule_climate_plugged: "Only while plugged in",
+});
+
 const STATUS_TONE = {
   planned: "teal",
   charging: "teal",
@@ -1357,6 +1429,7 @@ const STATUS_TONE = {
 const ICONS = {
   charge: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2.5 6 13.2h5.2L10 21.5l7-10.7h-5.2z"/></svg>',
   sun: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.5 1.5M17.2 17.2l1.5 1.5M5.3 18.7l1.5-1.5M17.2 6.8l1.5-1.5"/></svg>',
+  climate: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14.5V5a2 2 0 0 1 4 0v9.5a3.5 3.5 0 1 1-4 0z"/><path d="M12 11v5"/><path d="M17.5 6h2.5M17.5 9.5h2.5"/></svg>',
   history: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
   settings: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>',
   search: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/></svg>',
@@ -4419,6 +4492,7 @@ class EvPlannerPanel extends HTMLElement {
 
   _renderBusy() {
     this._renderToast();
+    if (this._tab === "cars" && this.shadowRoot.querySelector(".car-page.view-now")) this._renderCarPage({ live: false });
     if (this._tab === "guest" && this.shadowRoot.querySelector(".guest-page")) {
       this._renderGuestHead();
       this._renderGuestInputs();
@@ -5845,6 +5919,8 @@ class EvPlannerPanel extends HTMLElement {
         </section>
         <div class="car-notes"></div>
         <section class="panel facts" hidden></section>
+        <section class="panel forecast" hidden></section>
+        <section class="panel last-charge" hidden></section>
       </div>
 
       <div class="col right">
@@ -5852,7 +5928,12 @@ class EvPlannerPanel extends HTMLElement {
           <h2>${ICONS.plan}<span>${this._t("charge")}</span></h2>
           ${this._modesHtml(v, { large: true })}
           ${this._batteryHtml()}
+          <div class="climate-box"></div>
           <div class="fields">
+            <div class="field trip-field">
+              <span>${this._t("trip")}</span>
+              <div class="trip-box"></div>
+            </div>
             <div class="field">
               <span>${this._t("ready_by")}</span>
               ${this._readyChipsHtml("car")}
@@ -5916,6 +5997,22 @@ class EvPlannerPanel extends HTMLElement {
       this._scheduleHtml(s),
     );
     this._patch(
+      root.querySelector(".trip-box"),
+      JSON.stringify([v.trip, s.morning_time, s.afternoon_time, this._holidayOpen, lang]),
+      this._tripHtml(v, s),
+    );
+    this._patch(
+      root.querySelector(".climate-box"),
+      JSON.stringify([v.climate, s.climate_temperature, s.climate_auto, s.climate_minutes, v.calendar?.climate, this._busy, lang]),
+      this._climateHtml(v, s),
+    );
+    const last = root.querySelector(".last-charge");
+    if (last) {
+      const entry = (v.history || [])[0];
+      last.hidden = !entry;
+      this._patch(last, JSON.stringify([entry?.id, lang]), entry ? this._lastChargeHtml(entry) : "");
+    }
+    this._patch(
       root.querySelector(".car-info"),
       JSON.stringify([v.calendar, v.control_source, v.control_backup, v.paused_by, v.finds_charger, v.charger, v.power, v.capacity, v.charge_speed, v.charge_speed_source, v.charge_speed_learned_from, v.charge_power_source, v.curve, v.margin, v.receipt, lang]),
       this._carInfoHtml(v),
@@ -5948,6 +6045,12 @@ class EvPlannerPanel extends HTMLElement {
     this._renderStatusLine(kind, text);
     const extra = shown.plan && isNum(shown.plan.end_soc) ? [[this._t("target"), this._pct(shown.plan.end_soc)]] : [];
     this._renderFacts(shown.plan, extra);
+    const forecast = root.querySelector(".car-page .forecast");
+    if (forecast) {
+      const points = this._socForecast(v, shown);
+      forecast.hidden = !points;
+      this._patch(forecast, JSON.stringify([points, this._lang]), points ? this._forecastHtml(points, shown.deadline) : "");
+    }
     this._patch(root.querySelector(".car-notes"), JSON.stringify([v.problem, v.control_error, v.control_retry, v.car_limit, v.target, v.resumes, this._state.price_issue, this._state.supply, v.supply_amps, v.connected, v.plan_forecast, v.plan_other_cost, shown.plan?.cost, v.settings?.known_prices, shown.plan && [shown.plan.limited, shown.plan.min_only, shown.plan.short, shown.plan.opportunistic, shown.plan.ceiling], shown.deadline, this._lang]), this._notesHtml(v, shown.plan ? { ...shown.plan, deadline: shown.deadline } : null));
     const glance = root.querySelector(".car-page .glance");
     if (glance) glance.textContent = this._glanceText(v, shown);
@@ -5966,6 +6069,140 @@ class EvPlannerPanel extends HTMLElement {
       note.hidden = !faded;
       if (faded) note.textContent = this._t("ceiling_note", { price: this._money(ceiling) });
     }
+  }
+
+  /* The presets: a one-off ready-by time before the week plan. */
+  _tripHtml(v, s) {
+    const trip = v.trip;
+    const kinds = ["morning", "afternoon", "tomorrow_afternoon", "weekend", "holiday"];
+    const time = (key, fallback) => this._hhmm(s[key] || fallback);
+    const label = (kind) =>
+      ({
+        morning: `${this._t("trip_morning")} ${time("morning_time", "06:00")}`,
+        afternoon: `${this._t("trip_afternoon")} ${time("afternoon_time", "15:00")}`,
+        tomorrow_afternoon: `${this._t("trip_tomorrow_afternoon")} ${time("afternoon_time", "15:00")}`,
+        weekend: this._t("trip_weekend"),
+        holiday: this._t("trip_holiday"),
+      })[kind];
+    const chips = kinds
+      .map((kind) => {
+        const on = trip?.kind === kind || (kind === "holiday" && this._holidayOpen && !trip);
+        return `<button data-act="trip" data-kind="${kind}" data-f="trip-${kind}" class="${on ? "on" : ""}" aria-pressed="${on}">${esc(label(kind))}</button>`;
+      })
+      .join("");
+    const week = `<button data-act="trip" data-kind="" data-f="trip-week" class="${trip ? "" : "on"}" aria-pressed="${!trip}">${this._t("trip_week")}</button>`;
+    const today = new Date();
+    const min = new Date(today.getTime() + 86400000).toISOString().slice(0, 10);
+    const dateInput =
+      this._holidayOpen || trip?.kind === "holiday"
+        ? `<label class="chip-input date on"><span>${this._t("trip_home_day")}</span><input type="date" min="${min}" data-trip-date="1" value="${esc(trip?.day || "")}" aria-label="${this._t("trip_home_day")}"></label>`
+        : "";
+    let note = "";
+    if (trip) {
+      note = this._t("trip_ready", { when: this._readyText(trip.at) });
+      if (trip.kind === "weekend") note += ` ${this._t("trip_cheap_weekend")}`;
+      if (trip.kind === "holiday") note += ` ${this._t("trip_cheap_holiday")}`;
+    }
+    return `<div class="chips trips">${chips}${week}</div>${dateInput}${note ? `<small class="hint trip-note">${esc(note)}</small>` : ""}`;
+  }
+
+  async _setTrip(kind, date) {
+    const v = this._currentCar;
+    if (!v) return;
+    if (kind === "holiday" && !date) {
+      this._holidayOpen = true;
+      this._renderCarPage({ live: false });
+      return;
+    }
+    this._holidayOpen = false;
+    await this._run("trip", "ev_household_planner/vehicle_trip", { vehicle_id: v.id, kind: kind || null, date: date || null });
+  }
+
+  /* The climate: a button to start or stop it, and what starts it by itself. */
+  _climateHtml(v, s) {
+    const c = v.climate;
+    if (!c) return "";
+    const on = c.on === true;
+    const busy = this._busy === "climate";
+    const temp = isNum(s.climate_temperature) ? `${String(Number(s.climate_temperature)).replace(".", this._lang === "da" ? "," : ".")}°` : "";
+    const notes = [];
+    if (v.calendar?.climate) notes.push(this._t("climate_calendar", { time: this._time(v.calendar.start) }));
+    else if (s.climate_auto) notes.push(this._t("climate_auto_note", { min: Math.round(Number(s.climate_minutes) || 15) }));
+    return `<div class="climate">
+      <button class="btn ${on ? "primary" : "ghost"} climate-btn" data-act="climate" data-on="${on ? 0 : 1}" data-f="climate"${busy ? " disabled" : ""}>${ICONS.climate}<span>${this._t(busy ? "climate_busy" : on ? "climate_stop" : "climate_start")}</span>${temp ? `<em>${esc(temp)}</em>` : ""}</button>
+      ${notes.length ? `<small class="hint">${esc(notes.join(" "))}</small>` : ""}
+    </div>`;
+  }
+
+  async _climate(on) {
+    const v = this._currentCar;
+    if (!v) return;
+    await this._run("climate", "ev_household_planner/vehicle_climate", { vehicle_id: v.id, on });
+  }
+
+  /* The latest charge: when, how much, what it cost. */
+  _lastChargeHtml(e) {
+    const soc = isNum(e.start_soc) && isNum(e.end_soc) ? `${this._pct(e.start_soc)} → ${this._pct(e.end_soc)}` : "";
+    const price = isNum(e.cost) && Number(e.energy) > 0 ? `${this._money(e.cost / e.energy)}/kWh` : "";
+    return `<h2>${ICONS.history}<span>${this._t("last_charge")}</span></h2>
+      <div class="last-row">
+        <div class="when"><b>${new Date(e.start).getDate()}</b><span>${new Intl.DateTimeFormat(this._locale, { month: "short" }).format(new Date(e.start))}</span></div>
+        <div class="what"><strong>${this._time(e.start)}–${this._time(e.end)}</strong><span>${esc([soc, price].filter(Boolean).join(" · "))}</span></div>
+        <div class="nums"><b>${this._money(e.cost)}</b><span>${this._kwh(e.energy)}</span></div>
+      </div>`;
+  }
+
+  /* The charge level from now to the ready-by time, as the plan has it: flat while waiting, up while charging. */
+  _socForecast(v, shown) {
+    const plan = shown.plan;
+    const start = isNum(v.soc) ? Number(v.soc) : null;
+    if (!plan || start === null || !isNum(plan.end_soc) || !(plan.segments || []).length) return null;
+    const now = Date.now();
+    const segs = plan.segments
+      .map((seg) => [Math.max(now, new Date(seg.start).getTime()), new Date(seg.end).getTime()])
+      .filter(([a, b]) => b > a);
+    if (!segs.length) return null;
+    const end = Math.max(segs.at(-1)[1], shown.deadline ? new Date(shown.deadline).getTime() : 0);
+    const total = segs.reduce((sum, [a, b]) => sum + (b - a), 0);
+    const rise = Math.max(0, Number(plan.end_soc) - start);
+    const points = [[now, start]];
+    let soc = start;
+    for (const [a, b] of segs) {
+      points.push([a, soc]);
+      soc += (rise * (b - a)) / total;
+      points.push([b, soc]);
+    }
+    points.push([end, soc]);
+    return points.map(([t, value]) => [t, Math.round(value * 10) / 10]);
+  }
+
+  _forecastHtml(points, deadline) {
+    const w = 320;
+    const h = 120;
+    const pad = { l: 30, r: 10, t: 10, b: 22 };
+    const t0 = points[0][0];
+    const t1 = points.at(-1)[0];
+    const lo = Math.max(0, Math.floor(Math.min(...points.map((p) => p[1])) / 10) * 10 - 10);
+    const hi = Math.min(100, Math.ceil(Math.max(...points.map((p) => p[1])) / 10) * 10 + 10);
+    const x = (t) => pad.l + ((t - t0) / Math.max(1, t1 - t0)) * (w - pad.l - pad.r);
+    const y = (v) => pad.t + (1 - (v - lo) / Math.max(1, hi - lo)) * (h - pad.t - pad.b);
+    const line = points.map(([t, v], i) => `${i ? "L" : "M"}${x(t).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
+    const area = `${line} L${x(t1).toFixed(1)} ${y(lo).toFixed(1)} L${x(t0).toFixed(1)} ${y(lo).toFixed(1)} Z`;
+    const grid = [lo, Math.round((lo + hi) / 2), hi]
+      .map((v) => `<line x1="${pad.l}" x2="${w - pad.r}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/><text x="${pad.l - 6}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end">${v}%</text>`)
+      .join("");
+    const ticks = [t0, (t0 + t1) / 2, t1]
+      .map((t, i) => `<text x="${x(t).toFixed(1)}" y="${h - 6}" text-anchor="${["start", "middle", "end"][i]}">${esc(this._time(new Date(t).toISOString()))}</text>`)
+      .join("");
+    const lastPoint = points.at(-1);
+    return `<h2>${ICONS.charge}<span>${this._t("forecast_title")}</span></h2>
+      <svg class="soc-forecast" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(this._t("forecast_label", { pct: this._pct(lastPoint[1]), when: this._readyText(deadline) }))}">
+        <g class="grid">${grid}</g>
+        <path class="area" d="${area}"/>
+        <path class="line" d="${line}"/>
+        <circle cx="${x(lastPoint[0]).toFixed(1)}" cy="${y(lastPoint[1]).toFixed(1)}" r="3.5"/>
+        <g class="ticks">${ticks}</g>
+      </svg>`;
   }
 
   /* One line to read at a glance: "Klar kl. 07.00 · 80 % · 34,00 kr. · lader 01.00–04.00". */
@@ -6136,6 +6373,7 @@ class EvPlannerPanel extends HTMLElement {
     return [
       "min_soc", "must_soc", "priority", "price_ceiling_enabled", "price_ceiling", "price_ceiling_relative", "price_ceiling_above", "low_price_charging", "low_price_level", "low_soc_charging", "low_soc_level",
       "opportunistic", "opportunistic_level", "follow_level", "keep_charger_on", "charge_on_late", "use_earliest_start", "earliest_start",
+      "morning_time", "afternoon_time", "climate_temperature", "climate_minutes", "climate_auto", "climate_below", "climate_plugged_only",
       "join_period", "join_within", "continuous", "prefer_early", "early_within", "topup", "topup_level",
       "solar", "body", "paint", "spot",
     ].map((key) => s[key]);
@@ -6162,7 +6400,7 @@ class EvPlannerPanel extends HTMLElement {
   /* The car's rules in groups: each group is a tile with a short summary, and opens as a sheet. */
   _ruleGroups(v, s) {
     const price = `${this._unit}/kWh`;
-    const groups = { time: [], price: [], battery: [], supply: [], sun: [], look: [] };
+    const groups = { time: [], price: [], battery: [], climate: [], supply: [], sun: [], look: [] };
     groups.battery.push(
       this._ruleRow({
         icon: "charge",
@@ -6304,6 +6542,43 @@ class EvPlannerPanel extends HTMLElement {
         control: this._switchHtml("charge_on_late", s.charge_on_late !== false, this._t("rule_late")),
       }),
     );
+    for (const [key, fallback] of [["morning_time", "06:00"], ["afternoon_time", "15:00"]]) {
+      groups.time.push(
+        this._ruleRow({
+          icon: "history",
+          title: this._t(`rule_${key}`),
+          hint: this._t(`rule_${key}_hint`),
+          control: `<label class="chip-input time on"><input type="time" step="900" data-set="${key}" data-type="time" value="${esc(s[key] || fallback)}" aria-label="${this._t(`rule_${key}`)}"></label>`,
+        }),
+      );
+    }
+    if (v.climate) {
+      groups.climate.push(
+        this._ruleRow({
+          icon: "climate",
+          title: this._t("rule_climate_temp"),
+          hint: this._t("rule_climate_temp_hint"),
+          control: this._valueHtml("climate_temperature", s.climate_temperature ?? 21, { unit: "°", step: 0.5, min: 10, max: 32, label: this._t("rule_climate_temp") }),
+        }),
+        this._ruleRow({
+          icon: "history",
+          title: this._t("rule_climate_minutes"),
+          hint: this._t("rule_climate_minutes_hint"),
+          control: this._valueHtml("climate_minutes", s.climate_minutes ?? 15, { unit: this._t("minutes_short"), step: 5, min: 5, max: 60, label: this._t("rule_climate_minutes") }),
+        }),
+        this._ruleRow({
+          icon: "climate",
+          title: this._t("rule_climate_auto"),
+          hint: this._t("rule_climate_auto_hint"),
+          off: !s.climate_auto,
+          control: this._switchHtml("climate_auto", s.climate_auto, this._t("rule_climate_auto")),
+          extra: s.climate_auto
+            ? `<div class="rule-under"><div class="inline-values"><span>${this._t("rule_climate_below")}</span>${this._valueHtml("climate_below", s.climate_below ?? 5, { unit: "°", step: 1, min: -30, max: 40, label: this._t("rule_climate_below") })}</div>
+               <div class="inline-values"><span>${this._t("rule_climate_plugged")}</span>${this._switchHtml("climate_plugged_only", s.climate_plugged_only !== false, this._t("rule_climate_plugged"))}</div></div>`
+            : "",
+        }),
+      );
+    }
     groups.time.unshift(
       this._ruleRow({
         icon: "history",
@@ -6331,11 +6606,12 @@ class EvPlannerPanel extends HTMLElement {
       ]),
       supply: on([Number(s.must_soc) > 0 && this._t("sum_must", { pct: pct(s.must_soc) }), s.priority === "first" && this._t("sum_first")]),
       sun: ["surplus", "only"].includes(s.solar) ? this._t(`solar_${s.solar}`) : "",
+      climate: on([`${s.climate_temperature ?? 21}°`, s.climate_auto && this._t("sum_climate_auto")]),
       look: this._t(`body_${ClayScene.BODIES.includes(s.body) || s.body === "photo" ? s.body : "sedan"}`),
       notify: on([s.reminder && this._t("sum_reminder", { time: this._hhmm(s.reminder_time || "16:00") }), s.notify_receipt !== false && this._t("sum_receipt"), s.live_notification && this._t("sum_live")]),
     };
-    const icons = { time: "history", price: "lowprice", battery: "charge", supply: "rules", sun: "sun", look: "car", notify: "bell" };
-    const list = ["price", "battery", "time", "notify", "supply", "sun", "look"]
+    const icons = { time: "history", price: "lowprice", battery: "charge", climate: "climate", supply: "rules", sun: "sun", look: "car", notify: "bell" };
+    const list = ["price", "battery", "time", "climate", "notify", "supply", "sun", "look"]
       .map((key) => ({ key, icon: icons[key], title: this._t(`tile_${key}`), summary: summary[key], rows: key === "notify" ? null : groups[key] }))
       .filter((g) => g.rows === null || g.rows.length);
     return list;
@@ -8034,6 +8310,12 @@ class EvPlannerPanel extends HTMLElement {
       case "hist-export":
         this._exportHistory();
         break;
+      case "trip":
+        this._setTrip(button.dataset.kind || null);
+        break;
+      case "climate":
+        this._climate(button.dataset.on === "1");
+        break;
       case "support-export":
         this._exportSupport();
         break;
@@ -8263,6 +8545,8 @@ class EvPlannerPanel extends HTMLElement {
         const value = clamp(Math.round(Number(el.value)), 10, 100);
         this._vchange({ day_targets: { ...(this._vs(v).day_targets || {}), [el.dataset.daytarget]: value } });
       }
+    } else if (el.dataset.tripDate) {
+      if (el.value) this._setTrip("holiday", el.value);
     } else if (el.dataset.set) {
       this._setFromInput(el, true);
     } else if (el.id === "bill-rate") {
@@ -8707,6 +8991,21 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .chip-input { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; }
 .chip-input input { width: 54px; border: 0; background: transparent; outline: 0; padding: 3px 0; text-align: right; }
 .chip-input.time input { width: auto; text-align: left; }
+.chip-input.date { margin-top: 8px; gap: 8px; }
+.chip-input.date span { color: var(--evp-soft); font-size: 13px; }
+.chip-input.date input { width: auto; text-align: left; }
+.trip-note { display: block; margin-top: 6px; }
+.climate-box:empty { display: none; }
+.climate { display: grid; gap: 6px; margin: 4px 0 14px; }
+.climate-btn { justify-self: start; }
+.climate-btn em { font-style: normal; font-variant-numeric: tabular-nums; opacity: .75; margin-left: 2px; }
+.last-row { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; }
+.soc-forecast { width: 100%; height: auto; display: block; }
+.soc-forecast .grid line { stroke: color-mix(in srgb, var(--evp-ink) 10%, transparent); stroke-width: 1; }
+.soc-forecast text { fill: var(--evp-soft); font-size: 10px; font-variant-numeric: tabular-nums; }
+.soc-forecast .area { fill: color-mix(in srgb, var(--evp-a) 16%, transparent); }
+.soc-forecast .line { fill: none; stroke: var(--evp-a); stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
+.soc-forecast circle { fill: var(--evp-a); }
 .chip-input.kw input:placeholder-shown { width: 52px; text-align: center; }
 .chip-input.kw input:placeholder-shown + span { display: none; }
 .chip-input:focus-within { outline: 2px solid var(--evp-accent); outline-offset: 2px; }

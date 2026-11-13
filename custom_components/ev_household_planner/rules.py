@@ -314,6 +314,55 @@ def next_deadline(
     return found
 
 
+def trip_deadline(
+    kind: str, now: datetime, *, morning: time, afternoon: time, day: date | None = None
+) -> datetime | None:
+    """When a preset trip must be ready.
+
+    ``morning``: the next morning (this morning, before it has come); ``afternoon``: this
+    afternoon, or tomorrow's once it has passed; ``tomorrow_afternoon``: tomorrow afternoon;
+    ``weekend``: Monday morning; ``holiday``: the morning of ``day``, the day home again.
+    """
+    today = now.date()
+
+    def first(moment: time, *days: date) -> datetime | None:
+        return next((at for day in days if (at := at_time(day, moment, now)) > now), None)
+
+    if kind == "morning":
+        return first(morning, today, today + timedelta(days=1))
+    if kind == "afternoon":
+        return first(afternoon, today, today + timedelta(days=1))
+    if kind == "tomorrow_afternoon":
+        return at_time(today + timedelta(days=1), afternoon, now)
+    if kind == "weekend":
+        monday = today + timedelta(days=(7 - today.weekday()) % 7)
+        return first(morning, monday, monday + timedelta(days=7))
+    if kind == "holiday" and day is not None:
+        return first(morning, day)
+    return None
+
+
+def cheap_ceiling(kind: str, prices: Sequence[PriceSlot], until: datetime | None) -> float | None:
+    """The highest price a weekend or holiday charges at (None for other trips).
+
+    The weekend: at most 10 % above the lowest published price. A holiday: the cheapest
+    tenth of the hours up to the day home again.
+    """
+    window = [slot for slot in prices if until is None or slot.start < until]
+    if kind == "weekend":
+        known = [slot.price for slot in window if not slot.forecast]
+        if not known:
+            return None
+        low = min(known)
+        return low + abs(low) * 0.10
+    if kind == "holiday":
+        if not window:
+            return None
+        ranked = sorted(slot.price for slot in window)
+        return ranked[max(0, ceil(len(ranked) * 0.10) - 1)]
+    return None
+
+
 def window_start(now: datetime, earliest: time | None, deadline: datetime | None) -> datetime:
     """When charging may start: now, or the next earliest start.
 

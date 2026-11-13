@@ -35,12 +35,18 @@ from .const import (
     PRIORITY_OPTIONS,
     SCHEDULE_DEFAULT,
     SCHEDULE_NONE,
+    SET_AFTERNOON,
     SET_BODY,
     SET_CEILING,
     SET_CEILING_ABOVE,
     SET_CEILING_ENABLED,
     SET_CEILING_RELATIVE,
     SET_CHARGE_ON_LATE,
+    SET_CLIMATE_AUTO,
+    SET_CLIMATE_BELOW,
+    SET_CLIMATE_MINUTES,
+    SET_CLIMATE_PLUGGED,
+    SET_CLIMATE_TEMP,
     SET_CONTINUOUS,
     SET_DAY_TARGETS,
     SET_EARLIEST_START,
@@ -59,6 +65,7 @@ from .const import (
     SET_MANUAL_SOC,
     SET_MIN_SOC,
     SET_MODE,
+    SET_MORNING,
     SET_MUST_SOC,
     SET_NOTIFY_DONE,
     SET_NOTIFY_RECEIPT,
@@ -86,6 +93,7 @@ from .const import (
     SET_USE_READY_BY,
     SOLAR_OPTIONS,
     SPOT_OPTIONS,
+    TRIP_KINDS,
     WEEKDAYS,
 )
 from .guest import GuestSession, serialize_segments
@@ -156,6 +164,13 @@ VEHICLE_SCHEMA = vol.Schema(
         vol.Optional(SET_EARLY_ENABLED): cv.boolean,
         vol.Optional(SET_KNOWN_PRICES): cv.boolean,
         vol.Optional(SET_CHARGE_ON_LATE): cv.boolean,
+        vol.Optional(SET_MORNING): _hhmm,
+        vol.Optional(SET_AFTERNOON): _hhmm,
+        vol.Optional(SET_CLIMATE_TEMP): vol.All(vol.Coerce(float), vol.Range(min=10, max=32)),
+        vol.Optional(SET_CLIMATE_MINUTES): vol.All(vol.Coerce(int), vol.Range(min=5, max=60)),
+        vol.Optional(SET_CLIMATE_AUTO): cv.boolean,
+        vol.Optional(SET_CLIMATE_BELOW): vol.All(vol.Coerce(float), vol.Range(min=-30, max=40)),
+        vol.Optional(SET_CLIMATE_PLUGGED): cv.boolean,
         vol.Optional(SET_EARLY_WITHIN): vol.All(vol.Coerce(float), vol.Range(min=0, max=2)),
         vol.Optional(SET_TOPUP_ENABLED): cv.boolean,
         vol.Optional(SET_TOPUP_LEVEL): vol.All(vol.Coerce(float), vol.Range(min=10, max=100)),
@@ -332,6 +347,23 @@ def vehicle_state(household: Household, vehicle: Vehicle) -> dict[str, Any]:
             "summary": vehicle.calendar_summary,
             "start": vehicle.calendar_event.isoformat(),
             "target": vehicle.calendar_target,
+            "climate": vehicle.calendar_climate,
+        },
+        # A preset trip, while it is ahead: what it is, when, and its target.
+        "trip": None
+        if (trip := vehicle.trip) is None
+        else {
+            "kind": trip.get("kind"),
+            "at": trip["at"].isoformat(),
+            "target": trip.get("target"),
+            "day": trip.get("day"),
+        },
+        "climate": None
+        if not vehicle.climate_entity
+        else {
+            "entity": vehicle.climate_entity,
+            "on": household.climate_running(vehicle),
+            "started_at": vehicle.climate_on_at.isoformat() if vehicle.climate_on_at else None,
         },
         "settings": dict(vehicle.settings),
         "plan": plan_state(vehicle.plan),
@@ -799,12 +831,57 @@ async def ws_layout(hass: HomeAssistant, connection: websocket_api.ActiveConnect
     connection.send_result(msg["id"], {"layout": household.layout})
 
 
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/vehicle_trip",
+        ENTRY: str,
+        vol.Required("vehicle_id"): str,
+        vol.Optional("kind"): vol.Any(None, vol.In(TRIP_KINDS)),
+        vol.Optional("date"): vol.Any(None, cv.date),
+        vol.Optional("target"): vol.Any(None, PERCENT),
+    }
+)
+@websocket_api.async_response
+@_errors
+async def ws_vehicle_trip(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """A preset (tomorrow morning, this afternoon, the weekend, a holiday), or back to the week plan."""
+    household = _household(hass, msg)
+    _vehicle(household, msg["vehicle_id"])
+    at = await household.async_set_trip(
+        msg["vehicle_id"], msg.get("kind"), day=msg.get("date"), target=msg.get("target")
+    )
+    connection.send_result(msg["id"], {"at": at.isoformat() if at else None})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/vehicle_climate",
+        ENTRY: str,
+        vol.Required("vehicle_id"): str,
+        vol.Required("on"): cv.boolean,
+        vol.Optional("temperature"): vol.Any(None, vol.All(vol.Coerce(float), vol.Range(min=10, max=32))),
+    }
+)
+@websocket_api.async_response
+@_errors
+async def ws_vehicle_climate(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Start or stop the car's climate now."""
+    household = _household(hass, msg)
+    _vehicle(household, msg["vehicle_id"])
+    await household.async_climate(msg["vehicle_id"], msg["on"], msg.get("temperature"))
+    connection.send_result(msg["id"])
+
+
 @callback
 def async_register_websocket(hass: HomeAssistant) -> None:
     for command in (
         ws_subscribe,
         ws_state,
         ws_vehicle_set,
+        ws_vehicle_trip,
+        ws_vehicle_climate,
         ws_vehicle_preview,
         ws_guest_set,
         ws_guest_preview,
