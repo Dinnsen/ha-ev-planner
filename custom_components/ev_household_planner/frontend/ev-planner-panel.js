@@ -1377,6 +1377,21 @@ Object.assign(TEXT.da, {
   rule_evening_time: "Aften",
   rule_evening_time_hint: "Klar-tiden for Aften.",
   avg_price: "Pris pr. kWh",
+  src_calendar: "Kalender",
+  src_trip: "Forvalg",
+  src_week: "Ugeplan",
+  next_title: "Næste afgang",
+  next_in: "om {time}",
+  next_charges: "Lader",
+  next_nothing: "ingen ladning planlagt",
+  back_to_week: "Tilbage til ugeplanen",
+  now: "Nu",
+  climate_running: "Kører",
+  climate_off: "Slukket",
+  climate_inside: "Inde {t}°",
+  climate_if_cold: "når det er under {below}°",
+  climate_car_temp: "Bilen bruger sin egen temperatur",
+  climate_next: "Starter {day} kl. {time} til {temp}° ({why})",
   err_3: "Forbindelsen til Home Assistant blev afbrudt et øjeblik. Prøv igen.",
   sched_make_default: "Sæt som standard",
   sched_default_set: "Standard er nu {time}",
@@ -1438,6 +1453,21 @@ Object.assign(TEXT.en, {
   rule_evening_time: "Evening",
   rule_evening_time_hint: "The ready-by time for Evening.",
   avg_price: "Price per kWh",
+  src_calendar: "Calendar",
+  src_trip: "Preset",
+  src_week: "Week plan",
+  next_title: "Next departure",
+  next_in: "in {time}",
+  next_charges: "Charges",
+  next_nothing: "no charging planned",
+  back_to_week: "Back to the week plan",
+  now: "Now",
+  climate_running: "Running",
+  climate_off: "Off",
+  climate_inside: "Inside {t}°",
+  climate_if_cold: "when it is below {below}°",
+  climate_car_temp: "The car uses its own temperature",
+  climate_next: "Starts {day} at {time} at {temp}° ({why})",
   err_3: "The connection to Home Assistant was lost for a moment. Try again.",
   sched_make_default: "Make it the default",
   sched_default_set: "The usual time is now {time}",
@@ -1462,6 +1492,22 @@ Object.assign(TEXT.en, {
   rule_climate_below: "When it is colder than",
   rule_climate_plugged: "Only while plugged in",
 });
+
+/* The climate dial: an arc of 270° from the bottom left round to the bottom right, in a 240×220 box. */
+function dialGeometry(min, max, temp) {
+  const r = 92;
+  const cx = 120;
+  const cy = 118;
+  const angle = (t) => (135 + ((t - min) / Math.max(0.1, max - min)) * 270) * (Math.PI / 180);
+  const pt = (t) => [cx + r * Math.cos(angle(t)), cy + r * Math.sin(angle(t))];
+  const arc = (from, to) => {
+    const [x1, y1] = pt(from);
+    const [x2, y2] = pt(Math.max(to, from + 0.001));
+    const large = ((to - from) / Math.max(0.1, max - min)) * 270 > 180 ? 1 : 0;
+    return `M${x1.toFixed(1)} ${y1.toFixed(1)} A${r} ${r} 0 ${large} 1 ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+  };
+  return { rail: arc(min, max), fill: arc(min, temp), knob: pt(temp) };
+}
 
 const STATUS_TONE = {
   planned: "teal",
@@ -4556,6 +4602,7 @@ class EvPlannerPanel extends HTMLElement {
 
   _renderBusy() {
     this._renderToast();
+    if (this._popup) this._renderPopup();
     if (this._tab === "cars" && this.shadowRoot.querySelector(".car-page.view-now")) this._renderCarPage({ live: false });
     if (this._tab === "guest" && this.shadowRoot.querySelector(".guest-page")) {
       this._renderGuestHead();
@@ -6026,6 +6073,7 @@ class EvPlannerPanel extends HTMLElement {
     if (!v || !root.querySelector(".car-page")) return;
     const s = this._vs(v);
     const lang = this._lang;
+    if (this._popup) this._renderPopup();
 
     const sub = this._carSubline(v);
     const tone = this._statusTone(v);
@@ -6157,16 +6205,22 @@ class EvPlannerPanel extends HTMLElement {
       const on = c.on === true;
       const temp = isNum(s.climate_temperature) ? `${String(Number(s.climate_temperature)).replace(".", this._lang === "da" ? "," : ".")}°` : "";
       const label = this._t(on ? "climate_stop" : "climate_start");
-      climate = `<button class="climate-btn${on ? " on" : ""}" data-act="climate" data-on="${on ? 0 : 1}" data-f="climate" aria-pressed="${on}" aria-label="${esc(label)}" title="${esc(label)}"${this._busy === "climate" ? " disabled" : ""}>${ICONS.climate}<span>${esc(temp || this._t("climate_label"))}</span></button>`;
+      climate = `<button class="climate-btn${on ? " on" : ""}" data-act="climate-open" data-f="climate" aria-pressed="${on}" aria-haspopup="dialog" aria-label="${esc(`${this._t("climate_label")}: ${label}`)}">${ICONS.climate}<span>${esc(temp || this._t("climate_label"))}</span></button>`;
     }
     const when = v.deadline ? this._readyText(v.deadline) : this._t("no_deadline_short");
     const cheap = trip?.kind === "weekend" || trip?.kind === "holiday" ? ` · ${this._t("go_cheap")}` : "";
+    const source = this._nextSource(v);
+    const sourceIcon = { calendar: ICONS.calendar, trip: ICONS.history, week: ICONS.calendar, none: ICONS.history }[source.kind];
     return `<div class="go-row">
         <label class="go-pick">${ICONS.history}<select data-trip-select="1" aria-label="${esc(this._t("trip"))}">${options}</select>${ICONS.back}</label>
         ${climate}
       </div>
       ${date}
-      <p class="go-when">${esc(when.charAt(0).toUpperCase() + when.slice(1) + cheap)}</p>`;
+      ${
+        v.deadline
+          ? `<button class="go-when as-link" data-act="next-open" aria-haspopup="dialog">${sourceIcon}<span>${esc(when.charAt(0).toUpperCase() + when.slice(1) + cheap)}</span><em>${esc(source.label)}</em>${ICONS.back}</button>`
+          : `<p class="go-when">${esc(when.charAt(0).toUpperCase() + when.slice(1))}</p>`
+      }`;
   }
 
   /* The week plan, in a few words: "07.00 · fri: lø sø". */
@@ -6200,6 +6254,279 @@ class EvPlannerPanel extends HTMLElement {
     this._renderCarPage({ live: false });
     if (kind === "holiday" && !date) return;
     await this._run("trip", "ev_household_planner/vehicle_trip", { vehicle_id: v.id, kind: kind || null, date: date || null });
+  }
+
+  /* Where the next ready-by time comes from: the calendar, a preset or the week plan. */
+  _nextSource(v) {
+    const at = v.deadline ? new Date(v.deadline).getTime() : null;
+    const same = (iso) => iso && at !== null && Math.abs(new Date(iso).getTime() - at) < 60000;
+    if (same(v.calendar?.start)) return { kind: "calendar", label: this._t("src_calendar") };
+    if (v.trip && same(v.trip.at)) return { kind: "trip", label: this._t(`trip_${v.trip.kind}`) === `trip_${v.trip.kind}` ? this._t("src_trip") : this._t(`trip_${v.trip.kind}`) };
+    if (at !== null) return { kind: "week", label: this._t("src_week") };
+    return { kind: "none", label: "" };
+  }
+
+  /* The climate before the next departure, if any: when it starts and at what. */
+  _nextClimate(v, s) {
+    if (!v.climate || !v.deadline) return null;
+    const at = new Date(v.deadline);
+    const minutes = Number(s.climate_minutes) || 15;
+    const start = new Date(at.getTime() - minutes * 60000);
+    const source = this._nextSource(v).kind;
+    const usual = Number(s.climate_temperature) || 21;
+    if (source === "calendar" && v.calendar?.climate) {
+      return { start, temp: typeof v.calendar.climate === "number" ? v.calendar.climate : usual, why: this._t("src_calendar") };
+    }
+    const day = WEEKDAYS[(at.getDay() + 6) % 7];
+    if (source === "week" && isNum((s.day_climate || {})[day])) return { start, temp: Number(s.day_climate[day]), why: this._t("src_week") };
+    if (s.climate_auto && (source === "calendar" || source === "trip")) return { start, temp: usual, why: this._t("climate_if_cold", { below: s.climate_below ?? 5 }) };
+    return null;
+  }
+
+  /* Popups over the car's page: the next departure, and the climate. Drawn again with new state while open. */
+  _openPopup(kind) {
+    this._popup = { kind, car: this._carId, opener: this.shadowRoot.activeElement };
+    this._popTemp = null;
+    this._renderPopup();
+  }
+
+  _closePopup() {
+    const opener = this._popup?.opener;
+    this._popup = null;
+    const root = this.shadowRoot.querySelector(".sheet-root");
+    if (root) root.innerHTML = "";
+    opener?.focus?.();
+  }
+
+  _renderPopup() {
+    const popup = this._popup;
+    const root = this.shadowRoot.querySelector(".sheet-root");
+    if (!popup || !root) return;
+    const v = this._cars.find((car) => car.id === popup.car);
+    if (!v) return this._closePopup();
+    const s = this._vs(v);
+    const html = popup.kind === "climate" ? this._climatePopupHtml(v, s) : this._nextPopupHtml(v, s);
+    const key = JSON.stringify([popup.kind, html.length, html]);
+    if (root.dataset.key === key && root.firstChild) return;
+    if (this._dialDragging) return; // not while a finger is on the dial
+    const hadFocus = root.contains(this.shadowRoot.activeElement) ? this.shadowRoot.activeElement?.dataset?.f : null;
+    root.dataset.key = key;
+    root.innerHTML = `<div class="scrim" data-pop="close"></div>
+      <div class="sheet pop-${popup.kind}" role="dialog" aria-modal="true" aria-label="${esc(popup.kind === "climate" ? this._t("climate_label") : this._t("next_title"))}">
+        <header><h2>${popup.kind === "climate" ? `${ICONS.climate}<span>${esc(v.name)}</span>` : `${ICONS.calendar}<span>${this._t("next_title")}</span>`}</h2>
+          <button class="icon close" data-pop="close" data-f="pop-close" aria-label="${this._t("close")}">${ICONS.close}</button></header>
+        ${html}
+      </div>`;
+    root.onclick = (ev) => this._onPopupClick(ev, v);
+    root.onkeydown = (ev) => ev.key === "Escape" && this._closePopup();
+    if (popup.kind === "climate") this._wireDial(root, v);
+    root.querySelector(hadFocus ? `[data-f="${cssId(hadFocus)}"]` : ".close")?.focus();
+  }
+
+  _nextPopupHtml(v, s) {
+    const source = this._nextSource(v);
+    const at = new Date(v.deadline);
+    const now = Date.now();
+    const left = Math.max(0, Math.round((at.getTime() - now) / 60000));
+    const plan = v.plan;
+    const target = plan && isNum(plan.end_soc) ? plan.end_soc : v.target;
+    const climate = this._nextClimate(v, s);
+    const what = {
+      calendar: v.calendar?.summary ? `“${v.calendar.summary}”` : this._t("src_calendar"),
+      trip: source.label,
+      week: this._weekdayName(WEEKDAYS[(at.getDay() + 6) % 7]),
+    }[source.kind] || "";
+    // A timeline from now to the departure: when it charges, and when the climate starts.
+    const span = Math.max(1, at.getTime() - now);
+    const pos = (t) => clamp(((t - now) / span) * 100, 0, 100);
+    const segs = (plan?.segments || [])
+      .map((seg) => [pos(new Date(seg.start).getTime()), pos(new Date(seg.end).getTime())])
+      .filter(([a, b]) => b > a)
+      .map(([a, b]) => `<i class="seg" style="left:${a.toFixed(2)}%;width:${(b - a).toFixed(2)}%"></i>`)
+      .join("");
+    const clim = climate ? `<i class="clim" style="left:${pos(climate.start.getTime()).toFixed(2)}%;width:${(100 - pos(climate.start.getTime())).toFixed(2)}%"></i>` : "";
+    const chips = [
+      [ICONS.charge, this._pct(target)],
+      plan && isNum(plan.cost) && !plan.fallback ? [ICONS.receipt, this._money(plan.cost)] : null,
+      plan && isNum(plan.energy) ? [ICONS.plan, this._kwh(plan.energy)] : null,
+      climate ? [ICONS.climate, `${String(climate.temp).replace(".", this._lang === "da" ? "," : ".")}° · ${this._time(climate.start.toISOString())}`] : null,
+    ].filter(Boolean);
+    return `<div class="next-hero">
+        <span class="src src-${source.kind}">${source.kind === "trip" ? ICONS.history : ICONS.calendar}${esc(source.label)}</span>
+        <p class="next-when">${esc(this._weekdayName(WEEKDAYS[(at.getDay() + 6) % 7]))} ${esc(this._time(v.deadline))}</p>
+        <p class="next-left">${esc(this._t("next_in", { time: this._duration(left) }))}</p>
+        ${what && source.kind !== "trip" ? `<p class="next-what">${esc(what)}</p>` : ""}
+      </div>
+      <div class="next-chips">${chips.map(([icon, text]) => `<span class="g-chip">${icon}<b>${esc(text)}</b></span>`).join("")}</div>
+      <div class="next-line" aria-hidden="true">
+        <div class="track">${segs}${clim}</div>
+        <div class="ends"><span>${this._t("now")}</span><span>${esc(this._time(v.deadline))}</span></div>
+      </div>
+      <p class="next-legend"><i class="dot seg"></i>${this._t("next_charges")}${plan?.segments?.length ? ` ${esc(this._windows(plan.segments))}` : ` – ${this._t("next_nothing")}`}${climate ? ` &nbsp; <i class="dot clim"></i>${this._t("climate_label")} (${esc(climate.why)})` : ""}</p>
+      ${source.kind === "trip" ? `<div class="actions"><button class="btn ghost" data-pop="week">${ICONS.calendar}<span>${this._t("back_to_week")}</span></button></div>` : ""}`;
+  }
+
+  /* The climate: a dial for the temperature, a big start/stop, and when it starts by itself. */
+  _climatePopupHtml(v, s) {
+    const c = v.climate;
+    const state = c?.entity ? this._hass?.states?.[c.entity] : null;
+    const a = state?.attributes || {};
+    const isClimate = c?.entity?.startsWith("climate.");
+    const min = isClimate && isNum(a.min_temp) ? Number(a.min_temp) : 16;
+    const max = isClimate && isNum(a.max_temp) ? Number(a.max_temp) : 30;
+    const step = isClimate && isNum(a.target_temp_step) ? Number(a.target_temp_step) : 0.5;
+    const temp = clamp(this._popTemp ?? (Number(s.climate_temperature) || 21), min, max);
+    const on = c?.on === true;
+    const inside = isNum(a.current_temperature) ? Number(a.current_temperature) : null;
+    const fmt = (t) => String(Math.round(t * 10) / 10).replace(".", this._lang === "da" ? "," : ".");
+    const g = dialGeometry(min, max, temp);
+    const cx = 120;
+    const cy = 118;
+    if (!isClimate) {
+      // A switch, button or script starts the car's climate at the car's own temperature.
+      return `<div class="dial plain${on ? " on" : ""}">
+        <div class="plain-state">${ICONS.climate}<b>${esc(this._t(on ? "climate_running" : c?.on === false ? "climate_off" : "climate_label"))}</b><small>${esc(this._t("climate_car_temp"))}</small></div>
+        <div class="dial-steps">
+          <button class="power${on ? " on" : ""}" data-pop="power" data-f="pop-power" aria-pressed="${on}"${this._busy === "climate" ? " disabled" : ""}>${ICONS.climate}<span>${this._t(on ? "climate_stop" : "climate_start")}</span></button>
+        </div>
+      </div>${this._climateAutoHtml(v, s, fmt)}`;
+    }
+    return `<div class="dial${on ? " on" : ""}" data-min="${min}" data-max="${max}" data-step="${step}">
+        <svg viewBox="0 0 240 220" role="slider" tabindex="0" aria-label="${this._t("rule_climate_temp")}" aria-valuemin="${min}" aria-valuemax="${max}" aria-valuenow="${temp}" data-f="dial">
+          <defs><linearGradient id="clim-g" x1="0" x2="1"><stop offset="0" stop-color="#3B82F6"/><stop offset=".5" stop-color="#F59E0B"/><stop offset="1" stop-color="#EF4444"/></linearGradient></defs>
+          <path class="rail" d="${g.rail}"/>
+          <path class="fill" d="${g.fill}"/>
+          <circle class="knob" cx="${g.knob[0].toFixed(1)}" cy="${g.knob[1].toFixed(1)}" r="13"/>
+          <text class="t" x="${cx}" y="${cy + 6}" text-anchor="middle">${fmt(temp)}°</text>
+          <text class="sub" x="${cx}" y="${cy + 34}" text-anchor="middle">${esc(on ? this._t("climate_running") : inside !== null ? this._t("climate_inside", { t: fmt(inside) }) : this._t("climate_off"))}</text>
+        </svg>
+        <div class="dial-steps">
+          <button class="round" data-pop="minus" data-f="pop-minus" aria-label="−">−</button>
+          <button class="power${on ? " on" : ""}" data-pop="power" data-f="pop-power" aria-pressed="${on}"${this._busy === "climate" ? " disabled" : ""}>${ICONS.climate}<span>${this._t(on ? "climate_stop" : "climate_start")}</span></button>
+          <button class="round" data-pop="plus" data-f="pop-plus" aria-label="+">+</button>
+        </div>
+      </div>${this._climateAutoHtml(v, s, fmt)}`;
+  }
+
+  _climateAutoHtml(v, s, fmt) {
+    const next = this._nextClimate(v, s);
+    const minutes = Number(s.climate_minutes) || 15;
+    return `<div class="clim-auto">
+        <div class="row"><span>${this._t("rule_climate_auto")}</span><button class="switch" role="switch" data-pop="auto" data-f="pop-auto" aria-checked="${Boolean(s.climate_auto)}" aria-label="${esc(this._t("rule_climate_auto"))}"><i></i></button></div>
+        <div class="row"><span>${this._t("rule_climate_minutes")}</span><div class="segmented">${[5, 10, 15, 30]
+          .map((m) => `<button data-pop="minutes" data-m="${m}" class="${m === minutes ? "on" : ""}" aria-pressed="${m === minutes}">${m}</button>`)
+          .join("")}</div></div>
+        ${next ? `<p class="clim-next">${ICONS.history}<span>${esc(this._t("climate_next", { day: this._day(next.start.toISOString()).toLowerCase(), time: this._time(next.start.toISOString()), temp: fmt(next.temp), why: next.why }))}</span></p>` : ""}
+      </div>`;
+  }
+
+  _wireDial(root, v) {
+    const dial = root.querySelector(".dial");
+    const svg = dial?.querySelector("svg");
+    if (!svg) return;
+    const min = Number(dial.dataset.min);
+    const max = Number(dial.dataset.max);
+    const step = Number(dial.dataset.step) || 0.5;
+    const fmt = (t) => String(Math.round(t * 10) / 10).replace(".", this._lang === "da" ? "," : ".");
+    const fromPoint = (ev) => {
+      const box = svg.getBoundingClientRect();
+      const x = ((ev.clientX - box.left) / box.width) * 240 - 120;
+      const y = ((ev.clientY - box.top) / box.height) * 220 - 118;
+      let deg = ((Math.atan2(y, x) * 180) / Math.PI - 135 + 720) % 360;
+      if (deg > 270) deg = deg > 315 ? 0 : 270;
+      return clamp(Math.round((min + (deg / 270) * (max - min)) / step) * step, min, max);
+    };
+    // While a finger is on the dial only the arc, the knob and the number move.
+    const update = (t) => {
+      this._popTemp = t;
+      const g = dialGeometry(min, max, t);
+      svg.querySelector(".fill").setAttribute("d", g.fill);
+      svg.querySelector(".knob").setAttribute("cx", g.knob[0].toFixed(1));
+      svg.querySelector(".knob").setAttribute("cy", g.knob[1].toFixed(1));
+      svg.querySelector(".t").textContent = `${fmt(t)}°`;
+      svg.setAttribute("aria-valuenow", String(t));
+    };
+    svg.onpointerdown = (ev) => {
+      ev.preventDefault();
+      svg.setPointerCapture(ev.pointerId);
+      this._dialDragging = true;
+      update(fromPoint(ev));
+    };
+    svg.onpointermove = (ev) => {
+      if (this._dialDragging) update(fromPoint(ev));
+    };
+    const end = () => {
+      if (!this._dialDragging) return;
+      this._dialDragging = false;
+      this._saveClimateTemp(v, this._popTemp);
+    };
+    svg.onpointerup = end;
+    svg.onpointercancel = end;
+    svg.onkeydown = (ev) => {
+      const delta = ev.key === "ArrowUp" || ev.key === "ArrowRight" ? step : ev.key === "ArrowDown" || ev.key === "ArrowLeft" ? -step : 0;
+      if (!delta) return;
+      ev.preventDefault();
+      update(clamp((this._popTemp ?? (Number(this._vs(v).climate_temperature) || 21)) + delta, min, max));
+      this._saveClimateTemp(v, this._popTemp);
+    };
+  }
+
+  _saveClimateTemp(v, temp) {
+    clearTimeout(this._popTempTimer);
+    this._popTempTimer = setTimeout(() => {
+      this._vchange({ climate_temperature: temp });
+      // A climate that runs gets the new temperature at once.
+      if (v.climate?.on === true && v.climate.entity?.startsWith("climate.")) {
+        this._run("climate", "ev_household_planner/vehicle_climate", { vehicle_id: v.id, on: true, temperature: temp });
+      }
+      setTimeout(() => {
+        if (!this._dialDragging) this._popTemp = null;
+      }, 3000);
+    }, 400);
+  }
+
+  _onPopupClick(ev, v) {
+    const target = ev.target.closest("[data-pop]");
+    if (!target) return;
+    const s = this._vs(v);
+    const dial = this.shadowRoot.querySelector(".sheet-root .dial");
+    const step = Number(dial?.dataset.step) || 0.5;
+    const nudge = (d) => {
+      const t = clamp((this._popTemp ?? (Number(s.climate_temperature) || 21)) + d, Number(dial?.dataset.min) || 10, Number(dial?.dataset.max) || 32);
+      this._popTemp = t;
+      this._renderPopup();
+      this._saveClimateTemp(v, t);
+    };
+    switch (target.dataset.pop) {
+      case "close":
+        this._closePopup();
+        break;
+      case "minus":
+        nudge(-step);
+        break;
+      case "plus":
+        nudge(step);
+        break;
+      case "power": {
+        const on = v.climate?.on !== true;
+        this._run("climate", "ev_household_planner/vehicle_climate", {
+          vehicle_id: v.id,
+          on,
+          temperature: on ? this._popTemp ?? (Number(s.climate_temperature) || 21) : null,
+        });
+        break;
+      }
+      case "auto":
+        this._vchange({ climate_auto: !s.climate_auto });
+        break;
+      case "minutes":
+        this._vchange({ climate_minutes: Number(target.dataset.m) });
+        break;
+      case "week":
+        this._closePopup();
+        this._setTrip(null);
+        break;
+    }
   }
 
   async _climate(on) {
@@ -8441,6 +8768,12 @@ class EvPlannerPanel extends HTMLElement {
       case "climate":
         this._climate(button.dataset.on === "1");
         break;
+      case "climate-open":
+        this._openPopup("climate");
+        break;
+      case "next-open":
+        this._openPopup("next");
+        break;
       case "hh-toggle": {
         const key = button.dataset.key;
         const settings = this._state.settings || {};
@@ -8903,7 +9236,8 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .note-line.warn svg { stroke: #C98A00; }
 .note-line.info { color: var(--evp-soft); background: color-mix(in srgb, var(--evp-a) 8%, transparent); }
 .note-line a { color: inherit; font-weight: 600; }
-.info-line { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; color: var(--evp-soft); font-size: 14px; line-height: 1.4; }
+.info-line { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; color: var(--evp-soft); font-size: 14px; line-height: 1.4; min-width: 0; }
+.info-line span { min-width: 0; overflow-wrap: anywhere; }
 .info-line svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .info-line b { color: var(--evp-ink); font-weight: 600; }
 .info-line span { min-width: 0; overflow-wrap: anywhere; }
@@ -9177,6 +9511,54 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .go-date span { color: var(--evp-soft); font-size: 14px; }
 .go-date input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--evp-ink); font: inherit; font-size: 15px; font-weight: 600; outline: 0; }
 .go-when { margin: 6px 4px 0; color: var(--evp-soft); font-size: 13px; }
+.go-when.as-link { display: flex; align-items: center; gap: 8px; width: 100%; margin: 8px 0 0; padding: 9px 12px; border: 0; border-radius: 12px; background: color-mix(in srgb, var(--evp-a) 9%, transparent); color: var(--evp-ink); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+.go-when.as-link svg { width: 17px; height: 17px; flex: none; fill: none; stroke: var(--evp-a); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.go-when.as-link span { flex: 1; min-width: 0; font-weight: 600; }
+.go-when.as-link em { font-style: normal; color: var(--evp-soft); font-size: 12px; }
+.go-when.as-link svg:last-child { width: 13px; height: 13px; stroke: var(--evp-soft); transform: rotate(180deg); }
+.sheet header h2 { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sheet header h2 svg { width: 20px; height: 20px; fill: none; stroke: var(--evp-a); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.next-hero { text-align: center; margin: 14px 0 6px; }
+.next-hero .src { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; font-size: 13px; font-weight: 600; background: color-mix(in srgb, var(--evp-a) 14%, transparent); color: var(--evp-ink); }
+.next-hero .src svg { width: 15px; height: 15px; fill: none; stroke: var(--evp-a); stroke-width: 2; }
+.next-when { margin: 10px 0 0; font-size: 30px; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.next-left { margin: 2px 0 0; color: var(--evp-soft); }
+.next-what { margin: 10px auto 0; max-width: 34ch; font-size: 15px; overflow-wrap: anywhere; }
+.next-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 14px 0; }
+.next-line .track { position: relative; height: 14px; border-radius: 999px; background: color-mix(in srgb, var(--evp-ink) 8%, transparent); overflow: hidden; }
+.next-line .seg, .next-legend .dot.seg { background: var(--evp-a); }
+.next-line .clim, .next-legend .dot.clim { background: #E8590C; }
+.next-line .track i { position: absolute; top: 0; bottom: 0; border-radius: 999px; }
+.next-line .ends { display: flex; justify-content: space-between; margin-top: 6px; font-size: 12px; color: var(--evp-soft); font-variant-numeric: tabular-nums; }
+.next-legend { margin: 10px 0 0; font-size: 13px; color: var(--evp-soft); }
+.next-legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: 0; }
+.sheet .actions { margin-top: 16px; display: flex; gap: 8px; }
+.dial { display: grid; justify-items: center; margin-top: 4px; user-select: none; -webkit-user-select: none; }
+.dial svg { width: min(300px, 80vw); height: auto; touch-action: none; cursor: pointer; outline: 0; }
+.dial .rail { fill: none; stroke: color-mix(in srgb, var(--evp-ink) 10%, transparent); stroke-width: 18; stroke-linecap: round; }
+.dial .fill { fill: none; stroke: url(#clim-g); stroke-width: 18; stroke-linecap: round; }
+.dial .knob { fill: #fff; stroke: var(--evp-ink); stroke-width: 3; filter: drop-shadow(0 2px 4px rgba(0,0,0,.25)); }
+.dial .t { font-size: 46px; font-weight: 650; fill: var(--evp-ink); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.dial .sub { font-size: 14px; fill: var(--evp-soft); }
+.dial.on .sub { fill: #E8590C; font-weight: 600; }
+.dial.on .fill { filter: drop-shadow(0 0 8px rgba(232, 89, 12, .45)); }
+.dial.plain { padding: 18px 0 6px; gap: 18px; }
+.plain-state { display: grid; justify-items: center; gap: 4px; }
+.plain-state svg { width: 64px; height: 64px; fill: none; stroke: var(--evp-soft); stroke-width: 1.4; }
+.dial.plain.on .plain-state svg { stroke: #E8590C; }
+.plain-state b { font-size: 22px; }
+.plain-state small { color: var(--evp-soft); }
+.dial.plain .dial-steps { margin-top: 0; }
+.dial-steps { display: flex; align-items: center; gap: 14px; margin-top: -8px; }
+.dial-steps .round { width: 48px; height: 48px; border-radius: 50%; border: 0; background: color-mix(in srgb, var(--evp-ink) 7%, transparent); color: var(--evp-ink); font-size: 24px; font-weight: 500; cursor: pointer; }
+.dial-steps .power { display: inline-flex; align-items: center; gap: 8px; height: 52px; padding: 0 24px; border-radius: 999px; border: 0; background: var(--evp-a); color: #fff; font: inherit; font-size: 16px; font-weight: 650; cursor: pointer; }
+.dial-steps .power svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; }
+.dial-steps .power.on { background: #E8590C; color: #fff; box-shadow: 0 6px 20px rgba(232, 89, 12, .35); }
+.clim-auto { margin-top: 18px; display: grid; gap: 12px; border-top: 1px solid color-mix(in srgb, var(--evp-ink) 9%, transparent); padding-top: 14px; }
+.clim-auto .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.clim-auto .segmented button { padding: 6px 12px; }
+.clim-next { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; color: var(--evp-soft); }
+.clim-next svg { width: 16px; height: 16px; flex: none; fill: none; stroke: var(--evp-a); stroke-width: 1.9; }
 .week .day { position: relative; padding: 7px 0 14px; }
 .week .day .marks { position: absolute; bottom: 2px; left: 0; right: 0; display: flex; justify-content: center; align-items: center; gap: 2px; font-style: normal; font-size: 9px; line-height: 1; height: 10px; }
 .week .day .marks em { font-style: normal; font-weight: 600; }

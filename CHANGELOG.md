@@ -2,6 +2,17 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.4.0b6] - 2026-11-13
+
+### New
+
+- **The next departure, at a glance.** Under the departure list, the ready-by time shows where it comes from (calendar, preset or week plan); a tap opens it: the day and time, how long until then, the calendar event, the target, the cost, the climate, and a line from now to the departure with when the car charges and when the climate starts.
+- **A climate control.** The climate button opens it instead of starting the climate: a dial for the temperature (drag it, or − and +), a big *Start/Stop*, the temperature inside when the car tells it, and when the climate starts by itself. A car whose climate is a button or a switch (Mercedes) gets the big button and its own temperature.
+
+### Fixed
+
+- A long calendar title no longer runs out of the car's details.
+
 ## [2.4.0b5] - 2026-11-13
 
 ### New
