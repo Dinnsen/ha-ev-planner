@@ -164,6 +164,7 @@ async def test_guest_commands(
         "language": "auto",
         "house": "classic",
         "houses": {},
+        "calendars": [],
         "notify_enabled": True,
         "quiet_enabled": False,
         "quiet_from": "22:00",
