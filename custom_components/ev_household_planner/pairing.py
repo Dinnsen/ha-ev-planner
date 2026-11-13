@@ -473,11 +473,11 @@ class Pairing:
         if charger.connected is not True or charger.plugged_at is None:
             return
         cid = charger.charger_id
-        site = self.site_of(charger)
         cars = [
             vehicle
             for vehicle in self.household.vehicles.values()
-            if vehicle.charger_id == cid or (vehicle in free and self.here(vehicle, site) is not False)
+            # A car that may be anywhere is asked too: its location may be as old as its plug.
+            if vehicle.charger_id == cid or vehicle.fixed_charger == cid or (vehicle in free and self.unknown(charger))
         ]
         if any(vehicle.connected_car is True for vehicle in cars):
             return  # the car at it has reported

@@ -12,7 +12,7 @@ import pytest
 
 from custom_components.ev_household_planner.planner import PriceSlot
 from custom_components.ev_household_planner.supply import HouseForecast
-from custom_components.ev_household_planner.supply_control import HOLD_HEAT_PUMP, HOLDS_PER_NIGHT
+from custom_components.ev_household_planner.supply_control import HEADROOM_MARGIN, HOLD_HEAT_PUMP, HOLDS_PER_NIGHT
 
 from .conftest import CHARGE_SWITCH, NIGHT, TESLA, SwitchCalls, set_prices, set_tesla
 from .test_supply_ha import AMPS, METER, _entry, _setup, _skoda
@@ -145,7 +145,12 @@ async def test_the_guard_holds_the_heat_pump_back_before_it_stops_a_car(
     state = supply.heat_pump_state(dt_util.now())
     assert state is not None and state["held"] and state["kw"] == 2.0 and state["holds_tonight"] == 1
     # Room is counted as if the heat pump ran.
-    assert supply._room_reading() == pytest.approx(35 + 2000 / 690, abs=0.01)
+    held = supply._held_amps
+    assert held == pytest.approx(2000 / 690, abs=0.01)
+    room = supply.room_for_cars(dt_util.now())
+    peak = supply.house_peak(dt_util.now())
+    assert room is not None and peak is not None
+    assert room == pytest.approx(supply.limit - peak - held - HEADROOM_MARGIN, abs=0.01)
     # Not before its time, then it runs again.
     await supply.async_release_heat_pump(dt_util.now())
     assert ("turn_off", BLOCK) not in switches.calls

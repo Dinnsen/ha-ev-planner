@@ -193,17 +193,18 @@ class SupplyControl:
     # The house
 
     def cars_amps(self) -> float:
-        """What the cars charging now draw per phase, from their power readings or the plan."""
+        """What the cars charging now draw per phase: their power readings, the current they were given, or the plan."""
         total = 0.0
         for vehicle in self.cars():
             if not self.household.is_charging(vehicle):
                 continue
             reading = self.household.power_reading(vehicle)
-            if reading is None:
-                reading = (
-                    kw(self.plan.amps_at(vehicle.vehicle_id, self._now()) or 0.0, self.phases) if self.plan else 0.0
-                )
-            total += amps_for(reading, self.phases)
+            if reading is not None:
+                total += amps_for(reading, self.phases)
+            elif (sent := self._sent.get(vehicle.vehicle_id)) is not None:
+                total += sent[0]
+            elif self.plan is not None:
+                total += self.plan.amps_at(vehicle.vehicle_id, self._now()) or 0.0
         return total
 
     def _amps(self, entity: str) -> float | None:

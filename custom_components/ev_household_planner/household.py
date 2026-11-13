@@ -1388,7 +1388,8 @@ class Household(DataUpdateCoordinator[None]):
                 for other in self.vehicles.values()
             )
         )
-        value = self.meter_kwh(charger.energy_entity) if usable and charger is not None else None
+        energy = charger.energy_entity if usable and charger is not None else None
+        value = self.meter_kwh(energy) if energy else None
         previous, since = vehicle.meter_kwh, vehicle.meter_at
         if value is None or previous is None or since is None or value < previous:
             # Without a meter, its first reading, or a meter that was reset: the power counts this minute.

@@ -111,9 +111,19 @@ def own_entities(hass: HomeAssistant, household: Household) -> list[str]:
     )
 
 
+# Entities whose state itself is private: a number plate, a VIN, an address or a position.
+SECRET_ENTITY = re.compile(r"(plate|vin\b|_vin|license|registration|address|latitude|longitude|position|gps)")
+
+
+def secret_entity(entity_id: str) -> bool:
+    return bool(SECRET_ENTITY.search(entity_id.split(".", 1)[-1]))
+
+
 def _state(state: State | None) -> dict[str, Any] | None:
     if state is None:
         return None
+    if secret_entity(state.entity_id):
+        return {"state": REDACTED, "last_changed": state.last_changed.isoformat()}
     attributes = dict(state.attributes)
     if state.domain in ("device_tracker", "person", "zone"):
         attributes = {key: value for key, value in attributes.items() if key in ("source_type", "friendly_name")}
@@ -177,7 +187,7 @@ async def async_history(
                 value = item.get("state", item.get("s"))
                 if isinstance(moment, datetime) and value is not None:
                     rows.append((moment, str(value)))
-        out[entity_id] = _thin(rows)
+        out[entity_id] = [[at, REDACTED] for at, _value in _thin(rows)] if secret_entity(entity_id) else _thin(rows)
     return out
 
 
@@ -195,7 +205,8 @@ def _system_log(hass: HomeAssistant) -> list[dict[str, Any]]:
                 out.append(data)
     except Exception:
         return []
-    return redact(out)
+    cleaned: list[dict[str, Any]] = redact(out)
+    return cleaned
 
 
 async def async_bundle(hass: HomeAssistant, household: Household, hours: int = HISTORY_HOURS) -> dict[str, Any]:

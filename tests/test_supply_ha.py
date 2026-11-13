@@ -18,6 +18,7 @@ from custom_components.ev_household_planner.supply_control import (
     GUARD_HOLD,
     GUARD_PAUSE,
     GUARD_SETTLE,
+    HEADROOM_WINDOW,
 )
 
 from .conftest import (
@@ -302,7 +303,9 @@ async def test_the_guard_stops_a_car_when_even_the_least_is_too_much(
     hass.states.async_set(METER, "20", {"unit_of_measurement": "A"})
     assert supply.holds_off(tesla, later)
     hass.states.async_set(METER, "8", {"unit_of_measurement": "A"})
-    assert not supply.holds_off(tesla, later)
+    # The 40 A of a moment ago still counts: room is what was free all the last quarter of an hour.
+    assert supply.holds_off(tesla, later)
+    assert not supply.holds_off(tesla, later + HEADROOM_WINDOW)
 
 
 async def test_the_plan_raises_a_watched_car_only_into_free_room(
@@ -321,11 +324,13 @@ async def test_the_plan_raises_a_watched_car_only_into_free_room(
     moment = max(start, dt_util.now()) + timedelta(minutes=1)
     supply._sent[TESLA] = (6.0, moment - timedelta(hours=1))
     supply._held.clear()
+    supply._house_peaks.clear()
     calls.clear()
-    # 23 A limit, 19 A on the meter: 3 A free after the margin, so 6 becomes 9, not the plan's share.
+    # 23 A limit, 19 A on the meter with the car's 6: 4 A free after the 2 A margin, so 6 becomes 8,
+    # not the plan's share.
     await supply.async_apply(moment)
-    if round(amps) > 9:
-        assert [c.data["value"] for c in calls] == [9]
+    if round(amps) > 8:
+        assert [c.data["value"] for c in calls] == [8]
     # No room at all: it stays.
     hass.states.async_set(METER, "23", {"unit_of_measurement": "A"})
     supply._sent[TESLA] = (6.0, moment - timedelta(hours=1))
