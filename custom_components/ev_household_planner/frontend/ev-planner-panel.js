@@ -6086,7 +6086,7 @@ class EvPlannerPanel extends HTMLElement {
       })[kind];
     const chips = kinds
       .map((kind) => {
-        const on = trip?.kind === kind || (kind === "holiday" && this._holidayOpen && !trip);
+        const on = trip?.kind === kind || Boolean(kind === "holiday" && this._holidayOpen && !trip);
         return `<button data-act="trip" data-kind="${kind}" data-f="trip-${kind}" class="${on ? "on" : ""}" aria-pressed="${on}">${esc(label(kind))}</button>`;
       })
       .join("");
