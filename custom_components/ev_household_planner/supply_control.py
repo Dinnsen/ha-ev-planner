@@ -80,9 +80,7 @@ GUARD_PAUSE = timedelta(minutes=5)
 HEADROOM_MARGIN = 2.0
 # ... and what has been free all the time this long: a dishwasher or a dryer that heats in bursts
 # every ten minutes is not given to a car in the gap between two of them.
-HEADROOM_WINDOW = timedelta(minutes=15)
-# What the plan leaves out for the peaks the guard waits out, on top of the margin (A).
-PEAK_ALLOWANCE = 1.0
+HEADROOM_WINDOW = timedelta(minutes=10)
 # The weather forecast is fetched again after this long.
 WEATHER_EVERY = timedelta(minutes=55)
 # A plan is made again when the forecast moves this much (°C) in the hours ahead.
@@ -408,9 +406,8 @@ class SupplyControl:
         horizon = max(deadlines) if len(deadlines) == len(cars) else now + timedelta(hours=24)
         slots = [slot for slot in self.household.price_slots(now) if slot.start < horizon]
         cheap = cheap_hours(slots)
-        # With the guard, the cars never get its margin, nor the room a passing peak takes for a quarter
-        # of an hour: the plan leaves them out, so it is long enough.
-        limit = self.limit - (HEADROOM_MARGIN + PEAK_ALLOWANCE if self.guard else 0.0)
+        # With the guard, the cars never get its margin: the plan leaves it out, so it is long enough.
+        limit = self.limit - (HEADROOM_MARGIN if self.guard else 0.0)
         self.plan = plan_supply(
             slots, cars, now, limit=limit, house=lambda slot: self.house_at(slot, cheap), share=self.share
         )
@@ -637,7 +634,7 @@ class SupplyControl:
             if held is not None and now < held and (last is None or value > last[0]):
                 continue  # the guard lowered it a moment ago
             if self.guard and last is not None and value > last[0]:
-                # Up only into what has been free on the meter all the last quarter of an hour.
+                # Up only into what has been free on the meter all the last ten minutes.
                 room = self.room_for_cars(now)
                 allowed = 0.0 if room is None else room - self._others_amps(vehicle, last[0])
                 value = min(value, float(int(max(last[0], allowed))))
