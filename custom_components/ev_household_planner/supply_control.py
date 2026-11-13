@@ -82,7 +82,7 @@ HEADROOM_MARGIN = 2.0
 # every ten minutes is not given to a car in the gap between two of them.
 HEADROOM_WINDOW = timedelta(minutes=15)
 # What the plan leaves out for the peaks the guard waits out, on top of the margin (A).
-PEAK_ALLOWANCE = 1.0
+PEAK_ALLOWANCE = 0.25
 # The weather forecast is fetched again after this long.
 WEATHER_EVERY = timedelta(minutes=55)
 # A plan is made again when the forecast moves this much (°C) in the hours ahead.
