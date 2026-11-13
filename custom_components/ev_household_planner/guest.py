@@ -625,7 +625,8 @@ class GuestSession:
         """The guest unplugged after the charge a while ago, and has not come back: time to forget them."""
         if self._release is None or self._release.get("reason") != RELEASE_UNPLUGGED or self.car_connected is True:
             return False
-        released = dt_util.parse_datetime(str(self._release.get("at") or ""))
+        # From when the car was found gone, not from when it left (that can be long before, in a pause).
+        released = dt_util.parse_datetime(str(self._release.get("seen") or self._release.get("at") or ""))
         return released is not None and now - released >= GUEST_CLEAR_AFTER
 
     async def async_new_guest(self) -> None:
@@ -805,7 +806,7 @@ class GuestSession:
             if self.measured_energy is None:
                 # No meter: the bill is the share of the plan that was charged.
                 self._set_plan(self._scale_to(gone) or self.segments)
-            self._release = {"at": gone.isoformat(), "reason": RELEASE_UNPLUGGED}
+            self._release = {"at": gone.isoformat(), "reason": RELEASE_UNPLUGGED, "seen": now.isoformat()}
             self._auto_recalculate = False
             self._maybe_record(gone, released=True)
             self._stop_tick()
