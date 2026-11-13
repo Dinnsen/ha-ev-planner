@@ -31,7 +31,9 @@ EV Planner is built from [EV Guest](https://github.com/Dinnsen/EV-Guest) (the pl
 - **You choose who starts and stops charging, per car:** the car (its charge switch), the charger (its switch), or neither – then EV Planner plans, reminds and publishes a *Charger control* sensor for your own automations.
 - **The cheapest plan** from 15-minute or hourly prices: in whole quarters of an hour (like EV Smart Charging), one period or the cheapest periods, with cost and savings. A car stops by itself at its limit, so the quarter it does not need in full costs nothing.
 - **Learns how fast each car charges.** Plans are made from the charging speed in % per hour that the car itself shows, so a car that draws less than its setting, or a battery that is not the size you expected, still gets a plan that is long enough. Nothing to set: no efficiency, no guessing.
-- **Ready by** a time, per weekday (with its own target if you like, e.g. Friday 100 %), or by a trip in a calendar ("Aarhus 90 %" charges to 90 %).
+- **Ready by** a time, per weekday (with its own target if you like, e.g. Friday 100 %), or by a trip in a calendar ("Aarhus 90 %" charges to 90 %, "klima 21°" warms the car before it leaves – see [Trips from a calendar](#trips-from-a-calendar)).
+- **Presets** on the car's page: *Tomorrow morning*, *This afternoon*, *Tomorrow afternoon*, *Weekend* (only at the cheapest prices, ready Monday morning) and *Holiday* (only the cheapest hours, ready the day you are home) – once, then the week plan again.
+- **The car's climate:** a button on the car's page, and by itself before a calendar trip or a preset when it is cold (opt-in).
 - **Learns the car's charging curve:** many cars charge slower near the top, so the speed is learned per band of the charge level (0–50, 50–80, 80–90, 90–100 %), and a plan to 100 % gives the last per cent the time they take. A morning the car was not quite ready makes the next plans finish a little earlier (in quarters, at most an hour); three mornings on time bring it back.
 - **Prefer early:** the plan that is done soonest while it costs at most a few øre per kWh more than the cheapest – prices that are almost the same do not push the charge late into the night.
 - **Top up before departure:** charge to e.g. 80 % at the cheapest prices and the rest just before the ready-by time, so the car does not stand at 100 % all night.
@@ -95,7 +97,8 @@ Actions are now called `ev_household_planner.*` instead of `ev_planner.*`: chang
 | Charging power (sensor) | Optional. The car's own charging power sensor in kW (W is converted), e.g. `sensor.model3_charger_power`. EV Planner learns the power from it and counts the energy with it. |
 | Charging power, Charger | What the car draws at home – a starting point until the car has shown it – and the charger it uses. |
 | Who starts and stops charging | **The car** (choose its charge switch), **the charger** (the charger needs a switch), or **neither**. |
-| Calendar, Keyword | Optional. Trips in the calendar set when the car must be ready. |
+| Calendar, Keyword | Optional. Trips in the calendar set when the car must be ready, how full and whether to warm it – see [Trips from a calendar](#trips-from-a-calendar). |
+| Climate | Optional. The car's climate entity (set to heat or cool at the temperature under *Rules → Climate*), or a switch, button or script that starts it. |
 
 4. **Configure** (options): the phones and other notify actions to use, whether to refresh iOS widgets, and an amount added to every price.
 5. Optional, on the same page: **Add solar panels**, **Add home battery** and **Add heat pump**, and **Add place** for a summer house. Your home is the place *Home*, made for you; open it for its shared supply (the limit, the phases and a meter). With more than one place, each charger has a *Place*.
@@ -261,6 +264,37 @@ The energy and cost are the charging time at the charging power – what the car
 
 With a plug sensor (`connected_entity`), a charge goes to the history when the car has been unplugged for two minutes (or has left home): one entry from the first charging to the unplug, with its charging periods and charging time. A plan in two periods, and the few minutes a car charges by itself when it is plugged in, are part of the same entry. Without a plug sensor, an entry ends when charging stops; a blip of less than 0.5 kWh without a rise in the level is joined to the next charge within six hours, or left out. Energy is counted for the seconds the car charged.
 
+## Trips from a calendar
+
+Give the car a calendar under its settings (*Trips and climate*): any calendar in Home Assistant – Google, Outlook/Office 365, iCloud (CalDAV), a local calendar. EV Planner reads the next 36 hours every 15 minutes.
+
+**Where:** write in the event's **title** or its **description**. With a *Keyword* (e.g. `Elroq`), only events with that word count – useful in a shared family calendar. Without one, every event with a time counts.
+
+**What you can write:**
+
+| You write | It means |
+| --- | --- |
+| *(the event's start)* | The car must be ready then. |
+| `80 %` or `80%` | Charge to 80 % for this trip (10–100). |
+| `fuld`, `full` | Charge to 100 %. |
+| `afgang 7:30`, `kører kl. 7.15`, `leave 07:30`, `depart 7:30` | Ready at 7.30 on the event's day, instead of its start (a meeting at 9, leaving at 7.30). Works in an all-day event too. |
+| `klima`, `forvarm`, `climate`, `preheat` | Start the car's climate before leaving, at the temperature under *Rules → Climate*. |
+| `klima 22°`, `forvarm 21 grader`, `preheat 20.5C` | … at that temperature (rounded to the car's steps, e.g. halves from 16 to 29.5). |
+
+**Examples:**
+
+- `Elroq Aarhus 90 %` at 06:00 – ready at 06:00 with 90 %.
+- `Møde i Odense – Elroq afgang 7:15, fuld, klima 21°` at 09:00 – ready at 07:15 with 100 %, the car warmed to 21° from 07:00.
+- An all-day event `Elroq kør 6:30 80%` – ready at 06:30 that day with 80 %.
+
+**Good to know:** an all-day event without a time is ignored. The trip comes before the week plan and a preset when it is earlier. The climate starts *Before leaving* minutes ahead (default 15) and once for each trip; the calendar's word starts it whatever the weather, while the automatic climate (*Rules → Climate*) needs it to be cold and, unless you turn it off, the car plugged in. The calendar does not set the climate's temperature on the car for good – only for that start.
+
+## Presets and the climate
+
+**Presets** on the car's page set a one-off ready-by time; when it has passed, the week plan is used again. *Tomorrow morning*, *Weekend* and *Holiday* use the morning time, *This afternoon* and *Tomorrow afternoon* the afternoon time (both under *Rules → Time*, 06:00 and 15:00 unless you change them). *Weekend* charges only when the price is at most 10 % above the lowest published price, and is ready Monday morning; *Holiday* asks for the day you are home and charges only in the cheapest tenth of the hours until then. The minimum level still applies, and a calendar trip that comes first still wins. *Week plan* goes back at once.
+
+**The climate:** with a climate entity under the car's settings, the car's page has a *Start climate* button. A climate entity is set to its heating mode (e.g. *heat_cool*) at the temperature under *Rules → Climate*; a switch, button or script is just started. Under *Rules → Climate*, *Start the climate by itself* starts it before a calendar trip or a preset when the weather at the place says it is colder than your limit (default 5°), and by default only while the car is plugged in, so it runs on the grid.
+
 ## Known limitations
 
 - A car with neither control is only planned: it charges whenever it is plugged in unless the car itself waits.
@@ -276,7 +310,7 @@ With a plug sensor (`connected_entity`), a charge goes to the history when the c
 - **The car does not start:** `binary_sensor.<car>_charging_problem` and the status attribute `control_error` say why. Check that the charge switch works in Home Assistant.
 - **A repair says the car cannot be controlled:** three commands in a row failed. EV Planner keeps trying, with longer and longer waits (1, 2, 5, 10 and 15 minutes), so a car maker's cloud that is down is not hammered; the repair goes away by itself at the first command that works. A stop from the guard is always sent at once.
 - **A charger shows *Unknown car*:** EV Planner cannot tell which car is plugged in. Say which on the charger's page, and give the car an *Ask the car now* entity if it reports slowly.
-- **Download diagnostics** from the integration's page for a bug report; the license plate and API key are removed.
+- **Export the log** under *Settings → Log and support* (or *Download diagnostics* on the integration's page – the same file) for a question or a bug report: the settings, plans, what was learned, a week of events, the log and every entity EV Planner uses with 48 hours of history. Locations, number plates, VINs and keys are left out.
 
 ## Removing the integration
 

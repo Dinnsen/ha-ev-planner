@@ -29,7 +29,9 @@ EV Planner er bygget på [EV Guest](https://github.com/Dinnsen/EV-Guest) (planl�
 - **I vælger per bil, hvem der starter og stopper ladningen:** bilen (dens ladekontakt), laderen (dens kontakt) eller ingen – så planlægger EV Planner, minder jer om stikket og udsender en *Ladestyring*-sensor til egne automationer.
 - **Den billigste plan** ud fra kvarter- eller timepriser: i hele kvarterer (som EV Smart Charging), én periode eller de billigste perioder, med pris og besparelse. Bilen stopper selv ved sin grænse, så det kvarter, den ikke bruger helt, koster ingenting.
 - **Lærer hvor hurtigt hver bil lader.** Planen regnes ud fra den ladehastighed i % pr. time, bilen selv viser. En bil, der trækker mindre end indstillet, eller et batteri, der ikke har den størrelse, I troede, får stadig en plan, der er lang nok. Intet at indstille: ingen effektivitet, intet gætteri. En ladning tæller, når niveauet er steget mindst 30 %, og under ladningen følger planen den hastighed, bilen viser. Med bilens sensor for ladeeffekt lærer EV Planner også effekten og tæller energien med den.
-- **Klar kl.** et tidspunkt, per ugedag (gerne med sit eget mål, fx fredag 100 %), eller efter en tur i kalenderen ("Aarhus 90 %" lader til 90 %).
+- **Klar kl.** et tidspunkt, per ugedag (gerne med sit eget mål, fx fredag 100 %), eller efter en tur i kalenderen ("Aarhus 90 %" lader til 90 %, "klima 21°" varmer bilen op inden afgang – se [Ture fra en kalender](#ture-fra-en-kalender)).
+- **Forvalg** på bilens side: *I morgen tidlig*, *I eftermiddag*, *I morgen eftermiddag*, *Weekend* (kun til de billigste priser, klar mandag morgen) og *Ferie* (kun de billigste timer, klar den dag I er hjemme) – én gang, derefter ugeplanen igen.
+- **Bilens klima:** en knap på bilens side, og af sig selv før en kalendertur eller et forvalg, når det er koldt (slås til).
 - **Lærer bilens ladekurve:** mange biler lader langsommere til sidst, så hastigheden læres i hvert bånd af ladeniveauet (0–50, 50–80, 80–90, 90–100 %), og en plan til 100 % giver de sidste procent den tid, de tager. En morgen, hvor bilen ikke helt nåede det, får de næste planer til at slutte lidt før (i kvarterer, højst en time); tre morgener til tiden flytter det tilbage.
 - **Hellere tidligt:** den plan, der er færdig først, når den højst koster et par øre mere pr. kWh end den billigste – næsten ens priser skubber ikke ladningen langt ud på natten.
 - **Top op før afgang:** lad fx til 80 % når det er billigst og resten lige før klar-tiden, så bilen ikke står på 100 % hele natten.
@@ -213,6 +215,37 @@ Hvad EV Planner gør af sig selv, og hvor længe den venter. Ingen af dem er ind
 - Efter en pause hviler bilen to minutter, før den startes igen (ikke når I selv beder om det).
 - Når en kommando fejler, venter næste forsøg længere og længere (1, 2, 5, 10 og 15 minutter), og efter tre fejl i træk kommer der en reparation i Home Assistant, som forsvinder af sig selv, når det virker igen. Et stop fra vagten sendes altid med det samme.
 - Det, EV Planner holder tilbage (varmepumpe, laderens strøm, faser), huskes over en genstart og slippes igen.
+
+## Ture fra en kalender
+
+Giv bilen en kalender under dens indstillinger (*Ture og klima*): enhver kalender i Home Assistant – Google, Outlook/Office 365, iCloud (CalDAV), en lokal kalender. EV Planner læser de næste 36 timer hvert kvarter.
+
+**Hvor:** skriv i begivenhedens **titel** eller **beskrivelse**. Med et *Nøgleord* (fx `Elroq`) tæller kun begivenheder med det ord – smart i en fælles familiekalender. Uden nøgleord tæller alle begivenheder med et klokkeslæt.
+
+**Hvad du kan skrive:**
+
+| Du skriver | Det betyder |
+| --- | --- |
+| *(begivenhedens start)* | Bilen skal være klar der. |
+| `80 %` eller `80%` | Lad til 80 % til denne tur (10–100). |
+| `fuld`, `full` | Lad til 100 %. |
+| `afgang 7:30`, `kører kl. 7.15`, `kør 6:30`, `leave 07:30` | Klar kl. 7.30 på begivenhedens dag i stedet for dens start (møde kl. 9, afgang 7.30). Virker også i en heldagsbegivenhed. |
+| `klima`, `forvarm`, `opvarm`, `climate`, `preheat` | Start bilens klima inden afgang, til temperaturen under *Regler → Klima*. |
+| `klima 22°`, `forvarm 21 grader`, `preheat 20,5C` | … til den temperatur (afrundet til bilens trin, fx halve grader fra 16 til 29,5). |
+
+**Eksempler:**
+
+- `Elroq Aarhus 90 %` kl. 06.00 – klar kl. 06.00 med 90 %.
+- `Møde i Odense – Elroq afgang 7:15, fuld, klima 21°` kl. 09.00 – klar kl. 07.15 med 100 %, og bilen varmet op til 21° fra kl. 07.00.
+- En heldagsbegivenhed `Elroq kør 6:30 80%` – klar kl. 06.30 den dag med 80 %.
+
+**Godt at vide:** en heldagsbegivenhed uden klokkeslæt ignoreres. Turen går før ugeplanen og et forvalg, når den kommer først. Klimaet starter *Før afgang* minutter før (standard 15) og én gang pr. tur; ordet i kalenderen starter det uanset vejret, mens det automatiske klima (*Regler → Klima*) kræver, at det er koldt, og – medmindre du slår det fra – at bilen er sat i. Kalenderen ændrer ikke bilens temperatur fast – kun til den start.
+
+## Forvalg og klima
+
+**Forvalg** på bilens side sætter en klar-tid én gang; når den er gået, bruges ugeplanen igen. *I morgen tidlig*, *Weekend* og *Ferie* bruger morgentiden, *I eftermiddag* og *I morgen eftermiddag* eftermiddagstiden (begge under *Regler → Tid*, 06.00 og 15.00, hvis du ikke ændrer dem). *Weekend* lader kun, når prisen højst er 10 % over den laveste kendte pris, og er klar mandag morgen; *Ferie* spørger om dagen, I er hjemme, og lader kun i den billigste tiendedel af timerne frem til da. Minimumsniveauet gælder stadig, og en kalendertur, der kommer først, vinder stadig. *Ugeplan* går tilbage med det samme.
+
+**Klimaet:** med en klima-entitet under bilens indstillinger har bilens side en *Start klima*-knap. En klima-entitet sættes til sin varmetilstand (fx *heat_cool*) og temperaturen under *Regler → Klima*; en kontakt, knap eller et script startes bare. Under *Regler → Klima* starter *Start klima af sig selv* det før en kalendertur eller et forvalg, når vejret ved stedet siger, at det er koldere end din grænse (standard 5°), og som standard kun mens bilen er sat i, så det kører på nettet.
 
 ## Kendte begrænsninger
 

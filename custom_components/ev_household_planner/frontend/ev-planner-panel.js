@@ -6099,7 +6099,8 @@ class EvPlannerPanel extends HTMLElement {
         : "";
     let note = "";
     if (trip) {
-      note = this._t("trip_ready", { when: this._readyText(trip.at) });
+      const when = this._readyText(trip.at);
+      note = this._t("trip_ready", { when: when.charAt(0).toUpperCase() + when.slice(1) });
       if (trip.kind === "weekend") note += ` ${this._t("trip_cheap_weekend")}`;
       if (trip.kind === "holiday") note += ` ${this._t("trip_cheap_holiday")}`;
     }
@@ -6179,7 +6180,7 @@ class EvPlannerPanel extends HTMLElement {
   _forecastHtml(points, deadline) {
     const w = 320;
     const h = 120;
-    const pad = { l: 30, r: 10, t: 10, b: 22 };
+    const pad = { l: 38, r: 10, t: 10, b: 22 };
     const t0 = points[0][0];
     const t1 = points.at(-1)[0];
     const lo = Math.max(0, Math.floor(Math.min(...points.map((p) => p[1])) / 10) * 10 - 10);

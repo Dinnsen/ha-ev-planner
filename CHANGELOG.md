@@ -2,6 +2,16 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.4.0b1] - 2026-11-13
+
+### New
+
+- **Presets** on the car's page: *Tomorrow morning*, *This afternoon*, *Tomorrow afternoon*, *Weekend* and *Holiday*, once, then the week plan again. *Weekend* charges only when the price is at most 10 % above the lowest published, ready Monday morning; *Holiday* only in the cheapest tenth of the hours, ready the morning you are home. The morning and afternoon times are under *Rules → Time* (06:00 and 15:00). The minimum level still applies, and an earlier calendar trip still wins.
+- **The car's climate.** Give the car a climate entity (or a switch, button or script) under its settings: the car's page gets a *Start climate* button, at the temperature under *Rules → Climate*. A climate entity is set to its heating mode (e.g. *heat_cool*) and the temperature in the car's own steps. *Start the climate by itself* (off by default) starts it before a calendar trip or a preset when it is colder than a limit, and by default only while the car is plugged in.
+- **More words in a calendar event:** `fuld`/`full` charges to 100 %, `afgang 7:30`/`leave 7:30` is the departure when it is not the event's start (also in an all-day event), and `klima`/`forvarm`/`preheat` with an optional temperature (`klima 22°`) warms the car before it leaves. The README has a guide with examples, in English and Danish.
+- **The latest charge** and **the charge level until departure**, as a graph, on the car's page.
+- Setting up a car from its device also finds its climate and its *refresh* button.
+
 ## [2.3.1b1] - 2026-11-13
 
 ### Fixed
