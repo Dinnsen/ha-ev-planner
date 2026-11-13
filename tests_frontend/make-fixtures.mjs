@@ -257,8 +257,8 @@ const FIXTURES = {
       charger("cabin", "Skur", { site: "summer", connected: false }),
     ],
     sites: [
-      { id: "home", name: "Hjem", home: true, zone: "zone.home", parts: [], supply: null, solar: null, energy: null, price_entity: "sensor.energi_data_service", own_price: false, guard: false, wait: 10, share: "queue", has_meter: false },
-      { id: "summer", name: "Sommerhus", home: false, zone: "zone.sommerhus", parts: ["solar"], supply: null, solar: null, energy: { grid_kw: -0.6, house_kw: 0.4, solar_kw: 1.0 }, price_entity: "sensor.energi_data_service_dk1", own_price: true, guard: true, wait: 15, share: "need", has_meter: true },
+      { id: "home", name: "Hjem", home: true, zone: "zone.home", parts: [], supply: null, solar: null, energy: null, price_entity: "sensor.energi_data_service", own_price: false, guard: false, wait: 10, share: "queue", has_meter: false, open: false },
+      { id: "summer", name: "Sommerhus", home: false, zone: "zone.sommerhus", parts: ["solar"], supply: null, solar: null, energy: { grid_kw: -0.6, house_kw: 0.4, solar_kw: 1.0 }, price_entity: "sensor.energi_data_service_dk1", own_price: true, guard: true, wait: 15, share: "need", has_meter: true, open: true },
     ],
   }),
 

@@ -701,3 +701,30 @@ async def test_the_chargers_meter_counts_its_own_cars_charge(
     assert session.sources.get("meter", 0) > 0
     # Counted by the meter, not by the charging power (11 kW would be 0.18 kWh a minute too, but labelled power).
     assert session.energy == pytest.approx(0.18 * 4, abs=0.2)
+
+
+async def test_at_an_open_place_a_car_nobody_knows_charges_at_once_and_nobody_is_asked(
+    hass: HomeAssistant,
+    home: MockConfigEntry,
+    freezer: FrozenDateTimeFactory,
+    notify: NotifyCalls,
+    switches: SwitchCalls,
+) -> None:
+    """A summer house let out: the renter's car charges when it is plugged in."""
+    household = home.runtime_data
+    await household.async_update_settings({"places": {"home": {"open_charging": True}}})
+    # The household's car paused the charger before it left.
+    hass.states.async_set("switch.garage", "off")
+    await settle(hass, freezer)
+    assert ("turn_on", "switch.garage") in switches.calls, "the charger is handed back when no car has it"
+    switches.calls.clear()
+    # A renter plugs in.
+    hass.states.async_set("binary_sensor.garage_car", "on")
+    await settle(hass, freezer)
+    for _minute in range(6):
+        await move(hass, freezer, dt_util.now() + timedelta(minutes=1))
+    assert not [call for call in notify.calls if "Garage" in str(call.get("title"))], "nobody is asked"
+    assert hass.states.get("switch.garage").state == "on"
+    assert "open_charger" in [event["kind"] for event in household.events.items]
+    state = panel_state(hass, household)
+    assert state["sites"][0]["open"] is True

@@ -1622,6 +1622,9 @@ Object.assign(TEXT.da, {
   climate_entity_none: "Ingen klima fundet på bilens enhed. Vælg det, der starter bilens klima (en klima-entitet, en knap eller et script).",
   climate_auto_found: "Bilens egen",
   climate_auto_pick: "Automatisk (ingen fundet)",
+  place_open: "Fremmede biler lader med det samme",
+  place_open_short: "åben for lejere",
+  place_open_hint: "Til et sommerhus, I lejer ud: laderen står tændt, så en bil, der ikke er jeres, lader, så snart den sættes i, og I bliver ikke spurgt, hvilken bil det er. Jeres egne biler kendes stadig og følger deres plan. Kræver at laderen har en kontakt.",
 });
 Object.assign(TEXT.en, {
   settings_notifications: "Messages",
@@ -1697,6 +1700,9 @@ Object.assign(TEXT.en, {
   climate_entity_none: "No climate found on the car's device. Choose what starts the car's climate (a climate entity, a button or a script).",
   climate_auto_found: "The car's own",
   climate_auto_pick: "Automatic (none found)",
+  place_open: "Other cars charge at once",
+  place_open_short: "open to renters",
+  place_open_hint: "For a summer house you let out: the charger is left on, so a car that is not yours charges as soon as it is plugged in, and you are not asked which car it is. Your own cars are still found and follow their plans. Needs a switch on the charger.",
 });
 const STATUS_TONE = {
   planned: "teal",
@@ -9100,6 +9106,13 @@ class EvPlannerPanel extends HTMLElement {
             <div><dt>${this._t("price_sensor")}</dt><dd>${esc(this._entityName(site.price_entity || this._state.config?.price_entity))}${site.own_price ? ` <span class="tag">${this._t("place_own_price")}</span>` : ""}</dd></div>
             <div><dt>${this._t("tile_supply")}</dt><dd>${supply ? `${Math.round(supply.limit)} A · ${supply.phases} ${this._lang === "da" ? "faser" : "phases"}` : this._t("off")}</dd></div>
           </dl>
+          ${this._ruleRow({
+            icon: "charger",
+            title: this._t("place_open"),
+            hint: this._t("place_open_hint"),
+            off: !site.open,
+            control: `<button class="switch" role="switch" data-act="place-set" data-site="${esc(site.id)}" data-key="open_charging" data-value="${site.open ? "" : "1"}" data-f="po-${esc(site.id)}" aria-checked="${Boolean(site.open)}" aria-label="${esc(this._t("place_open"))}"><i></i></button>`,
+          })}
           ${guard}
           <div class="field col"><span>${this._t("house_look")}</span><div class="chips">${house}</div></div>
         </div>`;
@@ -9109,7 +9122,7 @@ class EvPlannerPanel extends HTMLElement {
       icon: "home",
       title: this._t("places_title"),
       summary: sites
-        .map((site) => [site.name || this._t("place_home"), site.guard && this._t("place_guard_short")].filter(Boolean).join(" "))
+        .map((site) => [site.name || this._t("place_home"), site.guard && this._t("place_guard_short"), site.open && this._t("place_open_short")].filter(Boolean).join(" "))
         .join(" · "),
       body: `${body}
         <p class="hint">${this._t("places_hint")} <a href="/config/integrations/integration/ev_household_planner" target="_top">${this._t("open_integration")}</a></p>`,
@@ -9305,10 +9318,10 @@ class EvPlannerPanel extends HTMLElement {
         const site = button.dataset.site;
         const key = button.dataset.key;
         const raw = button.dataset.value;
-        const value = key === "supply_guard" ? raw === "1" : key === "supply_wait" ? Number(raw) : raw;
+        const value = key === "supply_guard" || key === "open_charging" ? raw === "1" : key === "supply_wait" ? Number(raw) : raw;
         const places = { ...(this._state.settings?.places || {}) };
         places[site] = { ...(places[site] || {}), [key]: value };
-        const field = { supply_guard: "guard", supply_wait: "wait", supply_share: "share" }[key];
+        const field = { supply_guard: "guard", supply_wait: "wait", supply_share: "share", open_charging: "open" }[key];
         this._state = { ...this._state, sites: (this._state.sites || []).map((x) => (x.id === site ? { ...x, [field]: value } : x)) };
         this._setHousehold({ places });
         break;

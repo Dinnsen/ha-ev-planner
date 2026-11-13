@@ -860,7 +860,8 @@
       "guard": false,
       "wait": 10,
       "share": "queue",
-      "has_meter": false
+      "has_meter": false,
+      "open": false
     },
     {
       "id": "summer",
@@ -882,7 +883,8 @@
       "guard": true,
       "wait": 15,
       "share": "need",
-      "has_meter": true
+      "has_meter": true,
+      "open": true
     }
   ],
   "guest": {

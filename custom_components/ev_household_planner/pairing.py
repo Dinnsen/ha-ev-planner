@@ -441,6 +441,9 @@ class Pairing:
             if charger.plugged_at is None:
                 # Plugged in before EV Planner saw it: shown in the panel, where the car can be chosen.
                 continue
+            if household.charger_open(charger):
+                # An open place (a summer house let out): a car nobody knows charges, and nobody is asked.
+                continue
             cars = self._candidates(charger, free)
             log = self._refreshed.get(cid, {})
             sure = [car for car in possible(cars, charger.plugged_at) if car.plugged is True]

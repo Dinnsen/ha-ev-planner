@@ -19,7 +19,7 @@ import re
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN, UnitOfEnergy, UnitOfPower
+from homeassistant.const import STATE_OFF, STATE_UNAVAILABLE, STATE_UNKNOWN, UnitOfEnergy, UnitOfPower
 from homeassistant.core import CALLBACK_TYPE, Event, EventStateChangedData, HomeAssistant, State, callback
 from homeassistant.exceptions import HomeAssistantError, ServiceNotFound, ServiceValidationError
 from homeassistant.helpers import entity_registry as er, issue_registry as ir
@@ -90,6 +90,7 @@ from .const import (
     MODE_SMART,
     MODES,
     MOVED_KEYS,
+    OCCUPANT_GUEST,
     PAIR_ASK_CAR_AT,
     PART_KEYS,
     PART_TYPES,
@@ -213,7 +214,11 @@ SETTINGS_DEFAULTS: dict[str, Any] = {
     # Each place's guard and sharing: {the place's id: {supply_guard, supply_wait, supply_share}}.
     "places": {},
 }
-PLACE_SETTINGS = (CONF_SUPPLY_GUARD, CONF_SUPPLY_WAIT, CONF_SUPPLY_SHARE)
+# A place where a car that is not the household's charges as soon as it is plugged in (a summer house let out).
+PLACE_OPEN = "open_charging"
+PLACE_SETTINGS = (CONF_SUPPLY_GUARD, CONF_SUPPLY_WAIT, CONF_SUPPLY_SHARE, PLACE_OPEN)
+# How long an open charger's switch is left after it was turned on, before it is tried again.
+OPEN_RETRY = timedelta(minutes=2)
 TRIP_TARGET = re.compile(r"(\d{2,3})\s*%")
 # "fuld", "fuldt opladet", "full": the whole battery.
 TRIP_FULL = re.compile(r"\b(fuld|fuldt|full|fully)\b", re.IGNORECASE)
@@ -253,6 +258,8 @@ class Charger:
     plugged_at: datetime | None = None
     # The household has a question about this charger on its phones.
     asked: bool = False
+    # When the charger was last turned on for a car that is not the household's (an open place).
+    opened_at: datetime | None = None
 
     @property
     def power(self) -> float:
@@ -507,6 +514,14 @@ class Household(DataUpdateCoordinator[None]):
     def update_widgets(self) -> bool:
         value = self.settings.get("update_widgets")
         return bool(value if value is not None else self.config.get("update_widgets"))
+
+    def open_place(self, site_id: str | None) -> bool:
+        """At this place a car that is not the household's charges at once (a summer house let out)."""
+        return bool(self.place_settings(site_id or SITE_HOME).get(PLACE_OPEN))
+
+    def charger_open(self, charger: Charger) -> bool:
+        site = self.pairing.site_of(charger)
+        return self.open_place(site.site_id if site else SITE_HOME)
 
     def place_settings(self, site_id: str) -> dict[str, Any]:
         """A place's guard and sharing as set in the panel (none: as in its setup before 2.5)."""
@@ -1849,6 +1864,7 @@ class Household(DataUpdateCoordinator[None]):
             for solar in self.solars.values():
                 await solar.async_apply(now)
             await self._async_apply_guest(now)
+            await self._async_apply_open(now)
             self._maybe_refresh_widgets(now)
         self.async_update_listeners()
 
@@ -2047,6 +2063,27 @@ class Household(DataUpdateCoordinator[None]):
         if await self._async_switch(charger.switch_entity, desired == CONTROL_CHARGE) is None:
             charger.guest_last_sent = desired
             self.async_save()
+
+    async def _async_apply_open(self, now: datetime) -> None:
+        """At an open place, a charger no car of the household has is left on, so any car charges at once.
+
+        A renter cannot use Home Assistant: their car charges when it is plugged in, and nobody is
+        asked which car it is. A car of the household is still found and follows its own plan.
+        """
+        for charger in self.chargers.values():
+            entity = charger.switch_entity
+            if not entity or not self.charger_open(charger):
+                continue
+            control, _who = self.charger_control(charger.charger_id)
+            if control != CONTROL_RELEASED or self.pairing.occupant(charger) not in (None, OCCUPANT_GUEST):
+                continue  # a car of the household (or a guest's session) has it
+            if self._state(entity) != STATE_OFF:
+                continue
+            if charger.opened_at is not None and elapsed(now, charger.opened_at) < OPEN_RETRY:
+                continue
+            charger.opened_at = now
+            self.events.add(now, "open_charger", charger=charger.name, connected=charger.connected)
+            await self._async_switch(entity, True)
 
     # ------------------------------------------------------------------
     # Checking that charging started

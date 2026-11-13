@@ -251,6 +251,7 @@ SETTINGS_SCHEMA = vol.Schema(
                     vol.Optional(CONF_SUPPLY_GUARD): cv.boolean,
                     vol.Optional(CONF_SUPPLY_WAIT): vol.All(vol.Coerce(int), vol.Range(min=5, max=30)),
                     vol.Optional(CONF_SUPPLY_SHARE): vol.In(SHARE_OPTIONS),
+                    vol.Optional("open_charging"): cv.boolean,
                 }
             )
         },
@@ -567,6 +568,8 @@ def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
                 ),
                 "share": household.supplies[site.site_id].share,
                 "has_meter": bool(household.supplies[site.site_id].meters),
+                # Cars that are not the household's charge at once (a summer house let out).
+                "open": household.open_place(site.site_id),
             }
             for site in household.sites.values()
         ],

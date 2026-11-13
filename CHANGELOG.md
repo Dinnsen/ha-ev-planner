@@ -2,6 +2,12 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b2] - 2026-11-13
+
+### Added
+
+- **A place you let out** (*Settings → Places → Other cars charge at once*): the charger is left on whenever no car of the household has it, so a renter's car charges as soon as it is plugged in, and the household is not asked which car it is. A household car that paused the charger before it left hands it back on. The household's own cars are still found and follow their plans.
+
 ## [2.5.0b1] - 2026-11-13
 
 Every setting has one place: Home Assistant for what is connected, the panel for how it behaves.
