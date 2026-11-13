@@ -1000,6 +1000,8 @@
     "trip": {
       "options": {
         "morning": "I morgen tidlig",
+        "midday": "Middag",
+        "evening": "Aften",
         "afternoon": "I eftermiddag",
         "tomorrow_afternoon": "I morgen eftermiddag",
         "weekend": "Weekend",

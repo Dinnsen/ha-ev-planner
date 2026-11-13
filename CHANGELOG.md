@@ -11,6 +11,9 @@ All notable changes to EV Planner. The version is the one in `custom_components/
 
 ### Changed
 
+- **A calmer car page.** At a glance: the dial, when it is ready and to what. The departure is one dropdown (*Week plan*, *Morning*, *Midday*, *Evening*, *Weekend*, *Holiday*) next to the climate button; the week plan and the details fold away. Time, energy and price per kWh, the charge level ahead and the latest charge follow below. Informational notes are gone; warnings stay.
+- **Morning, Midday and Evening** (06:00, 12:00 and 17:00 under *Rules → Time*) are the next of that time; *This afternoon* and *Tomorrow afternoon* are only left for the action.
+- The holiday's date field is readable in every theme.
 - **A simpler calendar:** `Elroq 7:15 80% klima 21,5` – a time in the event is the departure, and the number after `klima` the temperature; no `°` or `afgang` needed (they still work).
 
 ## [2.4.0b1] - 2026-11-13

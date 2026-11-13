@@ -1367,7 +1367,19 @@ Object.assign(TEXT.da, {
   tile_climate: "Klima",
   sum_climate_auto: "starter selv",
   rule_morning_time: "Morgen",
-  rule_morning_time_hint: "Hvornår bilen skal være klar ved I morgen tidlig, Weekend og Ferie.",
+  rule_morning_time_hint: "Klar-tiden for Morgen, Weekend og Ferie.",
+  rule_midday_time: "Middag",
+  rule_midday_time_hint: "Klar-tiden for Middag.",
+  rule_evening_time: "Aften",
+  rule_evening_time_hint: "Klar-tiden for Aften.",
+  avg_price: "Pris pr. kWh",
+  go_morning: "Morgen",
+  go_midday: "Middag",
+  go_evening: "Aften",
+  go_cheap: "kun de billigste timer",
+  week_off: "fri: {days}",
+  details: "Detaljer",
+  climate_label: "Klima",
   rule_afternoon_time: "Eftermiddag",
   rule_afternoon_time_hint: "Hvornår bilen skal være klar ved I eftermiddag og I morgen eftermiddag.",
   rule_climate_temp: "Temperatur",
@@ -1410,7 +1422,19 @@ Object.assign(TEXT.en, {
   tile_climate: "Climate",
   sum_climate_auto: "starts by itself",
   rule_morning_time: "Morning",
-  rule_morning_time_hint: "When the car must be ready for Tomorrow morning, Weekend and Holiday.",
+  rule_morning_time_hint: "The ready-by time for Morning, Weekend and Holiday.",
+  rule_midday_time: "Midday",
+  rule_midday_time_hint: "The ready-by time for Midday.",
+  rule_evening_time: "Evening",
+  rule_evening_time_hint: "The ready-by time for Evening.",
+  avg_price: "Price per kWh",
+  go_morning: "Morning",
+  go_midday: "Midday",
+  go_evening: "Evening",
+  go_cheap: "cheapest hours only",
+  week_off: "off: {days}",
+  details: "Details",
+  climate_label: "Climate",
   rule_afternoon_time: "Afternoon",
   rule_afternoon_time_hint: "When the car must be ready for This afternoon and Tomorrow afternoon.",
   rule_climate_temp: "Temperature",
@@ -5509,20 +5533,30 @@ class EvPlannerPanel extends HTMLElement {
       return;
     }
     box.hidden = false;
-    const items = [
-      [this._t("start"), `${this._day(plan.segments[0].start)} ${this._time(plan.segments[0].start)}`],
-      [this._t("end"), `${this._day(plan.segments.at(-1).end)} ${this._time(plan.segments.at(-1).end)}`],
-      [this._t("duration"), this._duration(plan.minutes)],
-      [this._t("energy"), this._kwh(plan.energy)],
-      [this._t("cost"), this._money(plan.cost)],
-      [this._t("savings"), isNum(plan.savings) ? this._money(plan.savings) : "–"],
-      [this._t("speed"), `${this._num(plan.speed)} %/${this._t("hours_short")}`],
-      ...extra,
-    ];
-    box.innerHTML = `<dl class="${plan.preview ? "is-preview" : ""}">${items
+    // Three numbers on the car's page; the guest's page shows them all.
+    const compact = this._tab === "cars";
+    const items = compact
+      ? [
+          [this._t("duration"), this._duration(plan.minutes)],
+          [this._t("energy"), this._kwh(plan.energy)],
+          [this._t("avg_price"), Number(plan.energy) > 0 && isNum(plan.cost) ? `${this._money(plan.cost / plan.energy)}/kWh` : "–"],
+        ]
+      : [
+          [this._t("start"), `${this._day(plan.segments[0].start)} ${this._time(plan.segments[0].start)}`],
+          [this._t("end"), `${this._day(plan.segments.at(-1).end)} ${this._time(plan.segments.at(-1).end)}`],
+          [this._t("duration"), this._duration(plan.minutes)],
+          [this._t("energy"), this._kwh(plan.energy)],
+          [this._t("cost"), this._money(plan.cost)],
+          [this._t("savings"), isNum(plan.savings) ? this._money(plan.savings) : "–"],
+          [this._t("speed"), `${this._num(plan.speed)} %/${this._t("hours_short")}`],
+          ...extra,
+        ];
+    box.innerHTML = `<dl class="${plan.preview ? "is-preview" : ""}${compact ? " three" : ""}">${items
       .map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`)
       .join("")}</dl>${
-      plan.savings > 0.005 && !plan.preview ? `<p class="save-note">${this._t("save", { amount: this._money(plan.savings) })} ${this._t("save_vs")}</p>` : ""
+      plan.savings > 0.005 && !plan.preview && !compact
+        ? `<p class="save-note">${this._t("save", { amount: this._money(plan.savings) })}${compact ? "" : ` ${this._t("save_vs")}`}</p>`
+        : ""
     }`;
   }
 
@@ -5774,7 +5808,7 @@ class EvPlannerPanel extends HTMLElement {
     const hint = root.querySelector(".battery-hint");
     if (hint) {
       const lines = [];
-      if (this._tab !== "guest" && !model.canNow && known) lines.push(this._t("soc_from_car"));
+      if (this._tab !== "guest" && !model.canNow && !known) lines.push(this._t("soc_from_car"));
       if (this._tab !== "guest" && !model.canTarget) lines.push(this._t("target_from_car"));
       hint.textContent = lines.join(" · ");
     }
@@ -5929,14 +5963,9 @@ class EvPlannerPanel extends HTMLElement {
             <div class="dial-center big"></div>
           </div>
           <div class="status-line"></div>
-          <p class="glance"></p>
-          <p class="why"></p>
-          <p class="ceil-note" hidden></p>
+          <div class="glance"></div>
         </section>
         <div class="car-notes"></div>
-        <section class="panel facts" hidden></section>
-        <section class="panel forecast" hidden></section>
-        <section class="panel last-charge" hidden></section>
       </div>
 
       <div class="col right">
@@ -5944,27 +5973,34 @@ class EvPlannerPanel extends HTMLElement {
           <h2>${ICONS.plan}<span>${this._t("charge")}</span></h2>
           ${this._modesHtml(v, { large: true })}
           ${this._batteryHtml()}
-          <div class="climate-box"></div>
-          <div class="fields">
-            <div class="field trip-field">
-              <span>${this._t("trip")}</span>
-              <div class="trip-box"></div>
+          <div class="go-box"></div>
+          <details class="more week-more">
+            <summary>${ICONS.calendar}<span>${this._t("schedule")}</span><small class="week-sum"></small></summary>
+            <div class="fields">
+              <div class="field">
+                <span>${this._t("ready_by")}</span>
+                ${this._readyChipsHtml("car")}
+              </div>
+              <div class="field schedule-field">
+                <div class="schedule-box"></div>
+              </div>
+              <div class="field">
+                <span>${this._t("mode")}</span>
+                ${this._planTypeHtml("car")}
+              </div>
             </div>
-            <div class="field">
-              <span>${this._t("ready_by")}</span>
-              ${this._readyChipsHtml("car")}
-            </div>
-            <div class="field schedule-field">
-              <span>${this._t("schedule")}</span>
-              <div class="schedule-box"></div>
-            </div>
-            <div class="field">
-              <span>${this._t("mode")}</span>
-              ${this._planTypeHtml("car")}
-            </div>
-          </div>
-          <div class="car-info"></div>
+          </details>
+          <details class="more info-more">
+            <summary>${ICONS.info}<span>${this._t("details")}</span></summary>
+            <div class="car-info"></div>
+          </details>
         </section>
+      </div>
+
+      <div class="car-stats">
+        <section class="panel facts" hidden></section>
+        <section class="panel forecast" hidden></section>
+        <section class="panel last-charge" hidden></section>
       </div>
 
       ${this._pricesHtml({ ceiling: true })}
@@ -6013,15 +6049,12 @@ class EvPlannerPanel extends HTMLElement {
       this._scheduleHtml(s),
     );
     this._patch(
-      root.querySelector(".trip-box"),
-      JSON.stringify([v.trip, s.morning_time, s.afternoon_time, this._holidayOpen, lang]),
-      this._tripHtml(v, s),
+      root.querySelector(".go-box"),
+      JSON.stringify([v.trip, v.deadline, s.morning_time, s.midday_time, s.evening_time, this._holidayOpen, v.climate, s.climate_temperature, this._busy, lang]),
+      this._goHtml(v, s),
     );
-    this._patch(
-      root.querySelector(".climate-box"),
-      JSON.stringify([v.climate, s.climate_temperature, s.climate_auto, s.climate_minutes, v.calendar?.climate, this._busy, lang]),
-      this._climateHtml(v, s),
-    );
+    const weekSum = root.querySelector(".week-sum");
+    if (weekSum) weekSum.textContent = this._weekSummary(s);
     const last = root.querySelector(".last-charge");
     if (last) {
       const entry = (v.history || [])[0];
@@ -6067,15 +6100,9 @@ class EvPlannerPanel extends HTMLElement {
       forecast.hidden = !points;
       this._patch(forecast, JSON.stringify([points, this._lang]), points ? this._forecastHtml(points, shown.deadline) : "");
     }
-    this._patch(root.querySelector(".car-notes"), JSON.stringify([v.problem, v.control_error, v.control_retry, v.car_limit, v.target, v.resumes, this._state.price_issue, this._state.supply, v.supply_amps, v.connected, v.plan_forecast, v.plan_other_cost, shown.plan?.cost, v.settings?.known_prices, shown.plan && [shown.plan.limited, shown.plan.min_only, shown.plan.short, shown.plan.opportunistic, shown.plan.ceiling], shown.deadline, this._lang]), this._notesHtml(v, shown.plan ? { ...shown.plan, deadline: shown.deadline } : null));
+    this._patch(root.querySelector(".car-notes"), JSON.stringify([v.problem, v.control_error, v.control_retry, v.car_limit, v.target, v.resumes, this._state.price_issue, this._state.supply, v.supply_amps, v.connected, v.plan_forecast, v.plan_other_cost, shown.plan?.cost, v.settings?.known_prices, shown.plan && [shown.plan.limited, shown.plan.min_only, shown.plan.short, shown.plan.opportunistic, shown.plan.ceiling], shown.deadline, this._lang]), this._notesHtml(v, shown.plan ? { ...shown.plan, deadline: shown.deadline } : null, { compact: true }));
     const glance = root.querySelector(".car-page .glance");
-    if (glance) glance.textContent = this._glanceText(v, shown);
-    const why = root.querySelector(".car-page .why");
-    if (why) {
-      const text = shown.preview ? "" : this._whyText(v, shown.plan);
-      why.textContent = text;
-      why.hidden = !text;
-    }
+    if (glance) this._patch(glance, JSON.stringify([shown.deadline, shown.plan?.end_soc, v.target, shown.plan?.cost, shown.plan?.segments, this._lang]), this._glanceHtml(v, shown));
     this._renderTimeline(shown.plan, { deadline: shown.deadline, ceiling: s.price_ceiling_enabled || shown.plan?.opportunistic ? ceiling : null, actual: this._chargedPeriods(v) });
     root.querySelector(".ceiling-key")?.toggleAttribute("hidden", !(s.price_ceiling_enabled || shown.plan?.opportunistic));
     const note = root.querySelector(".car-page .ceil-note");
@@ -6087,40 +6114,67 @@ class EvPlannerPanel extends HTMLElement {
     }
   }
 
-  /* The presets: a one-off ready-by time before the week plan. */
-  _tripHtml(v, s) {
+  /* Departure: one dropdown (the week plan, or once: morning, midday, evening, weekend, holiday), and the climate. */
+  _goHtml(v, s) {
     const trip = v.trip;
-    const kinds = ["morning", "afternoon", "tomorrow_afternoon", "weekend", "holiday"];
+    const kinds = ["morning", "midday", "evening", "weekend", "holiday"];
     const time = (key, fallback) => this._hhmm(s[key] || fallback);
-    const label = (kind) =>
-      ({
-        morning: `${this._t("trip_morning")} ${time("morning_time", "06:00")}`,
-        afternoon: `${this._t("trip_afternoon")} ${time("afternoon_time", "15:00")}`,
-        tomorrow_afternoon: `${this._t("trip_tomorrow_afternoon")} ${time("afternoon_time", "15:00")}`,
-        weekend: this._t("trip_weekend"),
-        holiday: this._t("trip_holiday"),
-      })[kind];
-    const chips = kinds
-      .map((kind) => {
-        const on = trip?.kind === kind || Boolean(kind === "holiday" && this._holidayOpen && !trip);
-        return `<button data-act="trip" data-kind="${kind}" data-f="trip-${kind}" class="${on ? "on" : ""}" aria-pressed="${on}">${esc(label(kind))}</button>`;
-      })
-      .join("");
-    const week = `<button data-act="trip" data-kind="" data-f="trip-week" class="${trip ? "" : "on"}" aria-pressed="${!trip}">${this._t("trip_week")}</button>`;
-    const today = new Date();
-    const min = new Date(today.getTime() + 86400000).toISOString().slice(0, 10);
-    const dateInput =
-      this._holidayOpen || trip?.kind === "holiday"
-        ? `<label class="chip-input date on"><span>${this._t("trip_home_day")}</span><input type="date" min="${min}" data-trip-date="1" value="${esc(trip?.day || "")}" aria-label="${this._t("trip_home_day")}"></label>`
+    const labels = {
+      morning: `${this._t("go_morning")} ${time("morning_time", "06:00")}`,
+      midday: `${this._t("go_midday")} ${time("midday_time", "12:00")}`,
+      evening: `${this._t("go_evening")} ${time("evening_time", "17:00")}`,
+      weekend: this._t("trip_weekend"),
+      holiday: this._t("trip_holiday"),
+    };
+    const current = trip?.kind || (this._holidayOpen ? "holiday" : "");
+    const options = [
+      `<option value=""${current ? "" : " selected"}>${esc(this._t("trip_week"))}</option>`,
+      ...kinds.map((kind) => `<option value="${kind}"${kind === current ? " selected" : ""}>${esc(labels[kind])}</option>`),
+      // A trip set by an action with a kind the list does not have.
+      trip && !kinds.includes(trip.kind) ? `<option value="${esc(trip.kind)}" selected>${esc(this._t(`trip_${trip.kind}`))}</option>` : "",
+    ].join("");
+    const min = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const date =
+      current === "holiday"
+        ? `<label class="go-date"><span>${this._t("trip_home_day")}</span><input type="date" min="${min}" data-trip-date="1" value="${esc(trip?.day || "")}"></label>`
         : "";
-    let note = "";
-    if (trip) {
-      const when = this._readyText(trip.at);
-      note = this._t("trip_ready", { when: when.charAt(0).toUpperCase() + when.slice(1) });
-      if (trip.kind === "weekend") note += ` ${this._t("trip_cheap_weekend")}`;
-      if (trip.kind === "holiday") note += ` ${this._t("trip_cheap_holiday")}`;
+    const c = v.climate;
+    let climate = "";
+    if (c) {
+      const on = c.on === true;
+      const temp = isNum(s.climate_temperature) ? `${String(Number(s.climate_temperature)).replace(".", this._lang === "da" ? "," : ".")}°` : "";
+      const label = this._t(on ? "climate_stop" : "climate_start");
+      climate = `<button class="climate-btn${on ? " on" : ""}" data-act="climate" data-on="${on ? 0 : 1}" data-f="climate" aria-pressed="${on}" aria-label="${esc(label)}" title="${esc(label)}"${this._busy === "climate" ? " disabled" : ""}>${ICONS.climate}<span>${esc(temp || this._t("climate_label"))}</span></button>`;
     }
-    return `<div class="chips trips">${chips}${week}</div>${dateInput}${note ? `<small class="hint trip-note">${esc(note)}</small>` : ""}`;
+    const when = v.deadline ? this._readyText(v.deadline) : this._t("no_deadline_short");
+    const cheap = trip?.kind === "weekend" || trip?.kind === "holiday" ? ` · ${this._t("go_cheap")}` : "";
+    return `<div class="go-row">
+        <label class="go-pick">${ICONS.history}<select data-trip-select="1" aria-label="${esc(this._t("trip"))}">${options}</select>${ICONS.back}</label>
+        ${climate}
+      </div>
+      ${date}
+      <p class="go-when">${esc(when.charAt(0).toUpperCase() + when.slice(1) + cheap)}</p>`;
+  }
+
+  /* The week plan, in a few words: "07.00 · fri: lø sø". */
+  _weekSummary(s) {
+    if (s.use_ready_by === false) return this._t("no_deadline_short");
+    const schedule = s.schedule || {};
+    const off = WEEKDAYS.filter((day) => schedule[day] === "none");
+    const time = this._hhmm(s.ready_by || "07:00");
+    return off.length ? `${time} · ${this._t("week_off", { days: off.map((day) => this._t(`day_${day}`)).join(" ") })}` : time;
+  }
+
+  /* At a glance, as chips: ready by, to what, for how much, and when it charges. */
+  _glanceHtml(v, shown) {
+    const plan = shown.plan;
+    const target = plan && isNum(plan.end_soc) ? plan.end_soc : v.target;
+    const ready = this._readyText(shown.deadline);
+    const chips = [
+      [ICONS.history, ready.charAt(0).toUpperCase() + ready.slice(1)],
+      isNum(target) && [ICONS.charge, this._pct(target)],
+    ].filter(Boolean);
+    return chips.map(([icon, text]) => `<span class="g-chip">${icon}<b>${esc(text)}</b></span>`).join("");
   }
 
   async _setTrip(kind, date) {
@@ -6133,22 +6187,6 @@ class EvPlannerPanel extends HTMLElement {
     }
     this._holidayOpen = false;
     await this._run("trip", "ev_household_planner/vehicle_trip", { vehicle_id: v.id, kind: kind || null, date: date || null });
-  }
-
-  /* The climate: a button to start or stop it, and what starts it by itself. */
-  _climateHtml(v, s) {
-    const c = v.climate;
-    if (!c) return "";
-    const on = c.on === true;
-    const busy = this._busy === "climate";
-    const temp = isNum(s.climate_temperature) ? `${String(Number(s.climate_temperature)).replace(".", this._lang === "da" ? "," : ".")}°` : "";
-    const notes = [];
-    if (v.calendar?.climate) notes.push(this._t("climate_calendar", { time: this._time(v.calendar.start) }));
-    else if (s.climate_auto) notes.push(this._t("climate_auto_note", { min: Math.round(Number(s.climate_minutes) || 15) }));
-    return `<div class="climate">
-      <button class="btn ${on ? "primary" : "ghost"} climate-btn" data-act="climate" data-on="${on ? 0 : 1}" data-f="climate"${busy ? " disabled" : ""}>${ICONS.climate}<span>${this._t(busy ? "climate_busy" : on ? "climate_stop" : "climate_start")}</span>${temp ? `<em>${esc(temp)}</em>` : ""}</button>
-      ${notes.length ? `<small class="hint">${esc(notes.join(" "))}</small>` : ""}
-    </div>`;
   }
 
   async _climate(on) {
@@ -6390,7 +6428,7 @@ class EvPlannerPanel extends HTMLElement {
     return [
       "min_soc", "must_soc", "priority", "price_ceiling_enabled", "price_ceiling", "price_ceiling_relative", "price_ceiling_above", "low_price_charging", "low_price_level", "low_soc_charging", "low_soc_level",
       "opportunistic", "opportunistic_level", "follow_level", "keep_charger_on", "charge_on_late", "use_earliest_start", "earliest_start",
-      "morning_time", "afternoon_time", "climate_temperature", "climate_minutes", "climate_auto", "climate_below", "climate_plugged_only",
+      "morning_time", "midday_time", "evening_time", "climate_temperature", "climate_minutes", "climate_auto", "climate_below", "climate_plugged_only",
       "join_period", "join_within", "continuous", "prefer_early", "early_within", "topup", "topup_level",
       "solar", "body", "paint", "spot",
     ].map((key) => s[key]);
@@ -6559,7 +6597,7 @@ class EvPlannerPanel extends HTMLElement {
         control: this._switchHtml("charge_on_late", s.charge_on_late !== false, this._t("rule_late")),
       }),
     );
-    for (const [key, fallback] of [["morning_time", "06:00"], ["afternoon_time", "15:00"]]) {
+    for (const [key, fallback] of [["morning_time", "06:00"], ["midday_time", "12:00"], ["evening_time", "17:00"]]) {
       groups.time.push(
         this._ruleRow({
           icon: "history",
@@ -8581,6 +8619,8 @@ class EvPlannerPanel extends HTMLElement {
         const value = clamp(Math.round(Number(el.value)), 10, 100);
         this._vchange({ day_targets: { ...(this._vs(v).day_targets || {}), [el.dataset.daytarget]: value } });
       }
+    } else if (el.dataset.tripSelect) {
+      this._setTrip(el.value || null);
     } else if (el.dataset.tripDate) {
       if (el.value) this._setTrip("holiday", el.value);
     } else if (el.dataset.set) {
@@ -9029,6 +9069,30 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .chip-input { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; }
 .chip-input input { width: 54px; border: 0; background: transparent; outline: 0; padding: 3px 0; text-align: right; }
 .chip-input.time input { width: auto; text-align: left; }
+.glance { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 14px 0 4px; }
+.g-chip { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; background: color-mix(in srgb, var(--evp-ink) 6%, transparent); font-size: 14px; font-variant-numeric: tabular-nums; }
+.g-chip b { font-weight: 600; }
+.g-chip svg { width: 16px; height: 16px; fill: none; stroke: var(--evp-a); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.go-row { display: flex; gap: 8px; align-items: stretch; margin-top: 14px; }
+.go-pick { flex: 1 1 auto; min-width: 0; position: relative; display: flex; align-items: center; gap: 10px; padding: 0 12px; border-radius: 14px; background: color-mix(in srgb, var(--evp-ink) 6%, transparent); }
+.go-pick > svg { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--evp-a); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.go-pick > svg:last-child { width: 14px; height: 14px; stroke: var(--evp-soft); transform: rotate(-90deg); pointer-events: none; }
+.go-pick select { flex: 1; min-width: 0; appearance: none; -webkit-appearance: none; border: 0; background: transparent; color: var(--evp-ink); font: inherit; font-size: 16px; font-weight: 600; padding: 12px 0; outline: 0; cursor: pointer; }
+.climate-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 14px; border: 0; background: color-mix(in srgb, var(--evp-ink) 6%, transparent); color: var(--evp-ink); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; font-variant-numeric: tabular-nums; }
+.climate-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.climate-btn.on { background: #E8590C; color: #fff; }
+.go-date { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 6px 12px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--evp-ink) 14%, transparent); background: var(--evp-card); color: var(--evp-ink); }
+.go-date span { color: var(--evp-soft); font-size: 14px; }
+.go-date input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--evp-ink); font: inherit; font-size: 15px; font-weight: 600; outline: 0; }
+.go-when { margin: 6px 4px 0; color: var(--evp-soft); font-size: 13px; }
+details.more { margin-top: 14px; border-top: 1px solid color-mix(in srgb, var(--evp-ink) 9%, transparent); }
+details.more > summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 12px 2px 4px; cursor: pointer; font-weight: 600; }
+details.more > summary::-webkit-details-marker { display: none; }
+details.more > summary::after { content: ""; margin-left: auto; width: 8px; height: 8px; border-right: 2px solid var(--evp-soft); border-bottom: 2px solid var(--evp-soft); transform: rotate(45deg); transition: transform .2s; }
+details.more[open] > summary::after { transform: rotate(225deg); }
+details.more > summary svg { width: 18px; height: 18px; fill: none; stroke: var(--evp-a); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+details.more > summary small { color: var(--evp-soft); font-weight: 400; font-size: 13px; }
+details.more .fields { margin-top: 8px; }
 .chip-input.date { margin-top: 8px; gap: 8px; }
 .chip-input.date span { color: var(--evp-soft); font-size: 13px; }
 .chip-input.date input { width: auto; text-align: left; }
@@ -9140,7 +9204,7 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 .basis-diff.less { color: var(--evp-good, #0F9D6B); }
 .basis-diff.more { color: var(--evp-soft); }
 .btn.small { padding: 5px 10px; border-radius: 9px; font-size: 13px; margin-left: auto; flex: none; }
-.car-page .glance { margin: 10px 0 0; font-size: 15px; font-weight: 600; letter-spacing: -.005em; font-variant-numeric: tabular-nums; }
+.car-page .glance { margin: 12px 0 0; }
 .car-page .why { margin: 6px auto 0; max-width: 46ch; font-size: 14px; line-height: 1.45; color: var(--evp-soft); }
 .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
 .panel-head h2 { margin: 0; }
@@ -9158,6 +9222,10 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 .facts dd { margin: 2px 0 0; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
 .facts dl.is-preview dd { color: var(--evp-soft); }
 .save-note { margin: 14px 0 0; color: var(--evp-good); font-weight: 500; }
+.facts dl.three { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.facts dl.three dd { font-size: 17px; }
+.car-stats { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); align-items: start; }
+.car-stats .panel[hidden] { display: none; }
 
 /* ---------- timeline */
 .timeline-wrap { position: relative; }

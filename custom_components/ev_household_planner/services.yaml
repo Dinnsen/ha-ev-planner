@@ -35,6 +35,8 @@ set_trip:
           translation_key: trip
           options:
             - morning
+            - midday
+            - evening
             - afternoon
             - tomorrow_afternoon
             - weekend

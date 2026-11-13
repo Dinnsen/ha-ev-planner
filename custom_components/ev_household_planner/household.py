@@ -102,9 +102,11 @@ from .const import (
     SET_CLIMATE_PLUGGED,
     SET_CLIMATE_TEMP,
     SET_DAY_TARGETS,
+    SET_EVENING,
     SET_KNOWN_PRICES,
     SET_LIVE,
     SET_MANUAL_SOC,
+    SET_MIDDAY,
     SET_MODE,
     SET_MORNING,
     SET_NOTIFY_DONE,
@@ -2505,6 +2507,8 @@ class Household(DataUpdateCoordinator[None]):
                 now,
                 morning=parse_hhmm(vehicle.settings.get(SET_MORNING)) or time(6),
                 afternoon=parse_hhmm(vehicle.settings.get(SET_AFTERNOON)) or time(15),
+                midday=parse_hhmm(vehicle.settings.get(SET_MIDDAY)) or time(12),
+                evening=parse_hhmm(vehicle.settings.get(SET_EVENING)) or time(17),
                 day=day,
             )
             if at is None:

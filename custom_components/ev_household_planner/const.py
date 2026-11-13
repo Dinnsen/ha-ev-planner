@@ -236,12 +236,24 @@ SET_CHARGE_ON_LATE: Final = "charge_on_late"
 SET_TRIP: Final = "trip"
 SET_MORNING: Final = "morning_time"
 SET_AFTERNOON: Final = "afternoon_time"
+SET_MIDDAY: Final = "midday_time"
+SET_EVENING: Final = "evening_time"
 TRIP_MORNING: Final = "morning"
 TRIP_AFTERNOON: Final = "afternoon"
 TRIP_TOMORROW_AFTERNOON: Final = "tomorrow_afternoon"
+TRIP_MIDDAY: Final = "midday"
+TRIP_EVENING: Final = "evening"
 TRIP_WEEKEND: Final = "weekend"
 TRIP_HOLIDAY: Final = "holiday"
-TRIP_KINDS: Final = (TRIP_MORNING, TRIP_AFTERNOON, TRIP_TOMORROW_AFTERNOON, TRIP_WEEKEND, TRIP_HOLIDAY)
+TRIP_KINDS: Final = (
+    TRIP_MORNING,
+    TRIP_MIDDAY,
+    TRIP_EVENING,
+    TRIP_AFTERNOON,
+    TRIP_TOMORROW_AFTERNOON,
+    TRIP_WEEKEND,
+    TRIP_HOLIDAY,
+)
 # The weekend charges only at the cheapest prices: at most this share above the lowest known.
 TRIP_WEEKEND_ABOVE: Final = 0.10
 # A holiday charges only in the cheapest hours: this share of them.
@@ -340,6 +352,8 @@ DEFAULT_VEHICLE_SETTINGS: Final[dict[str, object]] = {
     SET_TRIP: None,
     SET_MORNING: "06:00",
     SET_AFTERNOON: "15:00",
+    SET_MIDDAY: "12:00",
+    SET_EVENING: "17:00",
     SET_CLIMATE_TEMP: 21.0,
     SET_CLIMATE_MINUTES: 15,
     SET_CLIMATE_AUTO: False,

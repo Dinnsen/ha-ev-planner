@@ -315,11 +315,18 @@ def next_deadline(
 
 
 def trip_deadline(
-    kind: str, now: datetime, *, morning: time, afternoon: time, day: date | None = None
+    kind: str,
+    now: datetime,
+    *,
+    morning: time,
+    afternoon: time,
+    midday: time = time(12),
+    evening: time = time(17),
+    day: date | None = None,
 ) -> datetime | None:
     """When a preset trip must be ready.
 
-    ``morning``: the next morning (this morning, before it has come); ``afternoon``: this
+    ``morning``, ``midday``, ``evening``: the next time of that (today's, before it has come); ``afternoon``: this
     afternoon, or tomorrow's once it has passed; ``tomorrow_afternoon``: tomorrow afternoon;
     ``weekend``: Monday morning; ``holiday``: the morning of ``day``, the day home again.
     """
@@ -332,6 +339,10 @@ def trip_deadline(
         return first(morning, today, today + timedelta(days=1))
     if kind == "afternoon":
         return first(afternoon, today, today + timedelta(days=1))
+    if kind == "midday":
+        return first(midday, today, today + timedelta(days=1))
+    if kind == "evening":
+        return first(evening, today, today + timedelta(days=1))
     if kind == "tomorrow_afternoon":
         return at_time(today + timedelta(days=1), afternoon, now)
     if kind == "weekend":

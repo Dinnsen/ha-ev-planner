@@ -1000,6 +1000,8 @@
     "trip": {
       "options": {
         "morning": "Tomorrow morning",
+        "midday": "Midday",
+        "evening": "Evening",
         "afternoon": "This afternoon",
         "tomorrow_afternoon": "Tomorrow afternoon",
         "weekend": "Weekend",
