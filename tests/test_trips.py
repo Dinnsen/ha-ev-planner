@@ -187,8 +187,11 @@ async def test_the_actions_set_a_trip_and_go_back_to_the_week_plan(
 
     household = init_integration.runtime_data
     tesla = household.vehicles[TESLA]
-    device = dr.async_get(hass).async_get_device(identifiers={("ev_household_planner", TESLA)})
-    assert device is not None
+    device = next(
+        device
+        for device in dr.async_entries_for_config_entry(dr.async_get(hass), init_integration.entry_id)
+        if ("ev_household_planner", TESLA) in device.identifiers
+    )
     await hass.services.async_call(
         "ev_household_planner", "set_trip", {"vehicle": device.id, "trip": "weekend"}, blocking=True
     )
