@@ -981,6 +981,16 @@
         "queue": "I kø: den første tager, hvad den skal bruge",
         "need": "Efter behov: jo flere kWh en bil mangler, jo flere ampere"
       }
+    },
+    "trip": {
+      "options": {
+        "morning": "I morgen tidlig",
+        "afternoon": "I eftermiddag",
+        "tomorrow_afternoon": "I morgen eftermiddag",
+        "weekend": "Weekend",
+        "holiday": "Ferie",
+        "week": "Ugeplan"
+      }
     }
   },
   "services": {
@@ -1055,6 +1065,46 @@
         "config_entry_id": {
           "name": "Husstand",
           "description": "Den EV Planner, der skal bruges."
+        }
+      }
+    },
+    "set_trip": {
+      "name": "Sæt en tur",
+      "description": "En klar-tid én gang for en bil: i morgen tidlig, i eftermiddag, i morgen eftermiddag, weekend eller ferie – eller tilbage til ugeplanen.",
+      "fields": {
+        "vehicle": {
+          "name": "Bil",
+          "description": "Bilens EV Planner-enhed."
+        },
+        "trip": {
+          "name": "Tur",
+          "description": "Hvilket forvalg."
+        },
+        "date": {
+          "name": "Hjem igen",
+          "description": "Til ferie: dagen I er hjemme igen."
+        },
+        "target": {
+          "name": "Mål",
+          "description": "Valgfrit. Ladeniveauet til denne tur."
+        }
+      }
+    },
+    "climate": {
+      "name": "Bilens klima",
+      "description": "Start eller stop bilens klima nu.",
+      "fields": {
+        "vehicle": {
+          "name": "Bil",
+          "description": "Bilens EV Planner-enhed."
+        },
+        "on": {
+          "name": "Til",
+          "description": "Til starter klimaet, fra stopper det."
+        },
+        "temperature": {
+          "name": "Temperatur",
+          "description": "Valgfrit. Ellers bilens indstilling i EV Planner."
         }
       }
     }

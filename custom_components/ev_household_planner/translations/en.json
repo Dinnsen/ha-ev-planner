@@ -981,6 +981,16 @@
         "queue": "In line: the first takes what it needs",
         "need": "By need: the more kWh a car lacks, the more amps"
       }
+    },
+    "trip": {
+      "options": {
+        "morning": "Tomorrow morning",
+        "afternoon": "This afternoon",
+        "tomorrow_afternoon": "Tomorrow afternoon",
+        "weekend": "Weekend",
+        "holiday": "Holiday",
+        "week": "Week plan"
+      }
     }
   },
   "services": {
@@ -1055,6 +1065,46 @@
         "config_entry_id": {
           "name": "Household",
           "description": "The EV Planner to use."
+        }
+      }
+    },
+    "set_trip": {
+      "name": "Set a trip",
+      "description": "A one-off ready-by time for a car: tomorrow morning, this afternoon, tomorrow afternoon, the weekend or a holiday – or back to the week plan.",
+      "fields": {
+        "vehicle": {
+          "name": "Car",
+          "description": "The car's EV Planner device."
+        },
+        "trip": {
+          "name": "Trip",
+          "description": "Which preset."
+        },
+        "date": {
+          "name": "Home again",
+          "description": "For a holiday: the day you are home again."
+        },
+        "target": {
+          "name": "Target",
+          "description": "Optional. The charge level for this trip."
+        }
+      }
+    },
+    "climate": {
+      "name": "Car climate",
+      "description": "Start or stop the car's climate now.",
+      "fields": {
+        "vehicle": {
+          "name": "Car",
+          "description": "The car's EV Planner device."
+        },
+        "on": {
+          "name": "On",
+          "description": "On starts the climate, off stops it."
+        },
+        "temperature": {
+          "name": "Temperature",
+          "description": "Optional. Otherwise the car's setting in EV Planner."
         }
       }
     }

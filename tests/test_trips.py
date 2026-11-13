@@ -178,3 +178,25 @@ def dt_now(hass: HomeAssistant) -> datetime:
     from homeassistant.util import dt as dt_util
 
     return dt_util.now()
+
+
+async def test_the_actions_set_a_trip_and_go_back_to_the_week_plan(
+    hass: HomeAssistant, init_integration: MockConfigEntry, freezer: FrozenDateTimeFactory
+) -> None:
+    from homeassistant.helpers import device_registry as dr
+
+    household = init_integration.runtime_data
+    tesla = household.vehicles[TESLA]
+    device = dr.async_get(hass).async_get_device(identifiers={("ev_household_planner", TESLA)})
+    assert device is not None
+    await hass.services.async_call(
+        "ev_household_planner", "set_trip", {"vehicle": device.id, "trip": "weekend"}, blocking=True
+    )
+    await settle(hass, freezer)
+    assert tesla.trip is not None and tesla.trip["kind"] == "weekend"
+    assert tesla.deadline is not None and tesla.deadline.weekday() == 0 and tesla.deadline.hour == 6
+    await hass.services.async_call(
+        "ev_household_planner", "set_trip", {"vehicle": device.id, "trip": "week"}, blocking=True
+    )
+    await settle(hass, freezer)
+    assert tesla.trip is None

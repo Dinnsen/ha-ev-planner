@@ -303,6 +303,12 @@
     },
     "guest_stop": {
       "service": "mdi:stop-circle-outline"
+    },
+    "set_trip": {
+      "service": "mdi:calendar-clock"
+    },
+    "climate": {
+      "service": "mdi:car-defrost-front"
     }
   }
 }

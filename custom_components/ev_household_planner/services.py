@@ -12,6 +12,7 @@ from .const import (
     ATTR_VEHICLE,
     DOMAIN,
     MODES,
+    SERVICE_CLIMATE,
     SERVICE_GUEST_CHARGE_NOW,
     SERVICE_GUEST_LOOKUP,
     SERVICE_GUEST_PLAN,
@@ -19,13 +20,30 @@ from .const import (
     SERVICE_NEW_GUEST,
     SERVICE_RECALCULATE,
     SERVICE_SET_MODE,
+    SERVICE_SET_TRIP,
     SET_MODE,
+    TRIP_KINDS,
 )
 from .household import EVPlannerConfigEntry, Household
 from .schema import vol
 
 ENTRY_SCHEMA = vol.Schema({vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string})
 MODE_SCHEMA = vol.Schema({vol.Required(ATTR_VEHICLE): cv.string, vol.Required(ATTR_MODE): vol.In(MODES)})
+TRIP_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_VEHICLE): cv.string,
+        vol.Required("trip"): vol.In([*TRIP_KINDS, "week"]),
+        vol.Optional("date"): cv.date,
+        vol.Optional("target"): vol.All(vol.Coerce(float), vol.Range(min=10, max=100)),
+    }
+)
+CLIMATE_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_VEHICLE): cv.string,
+        vol.Optional("on", default=True): cv.boolean,
+        vol.Optional("temperature"): vol.All(vol.Coerce(float), vol.Range(min=10, max=32)),
+    }
+)
 
 
 def _household(call: ServiceCall) -> Household:
@@ -54,6 +72,19 @@ async def _async_set_mode(call: ServiceCall) -> None:
     await household.async_set_vehicle(vehicle_id, {SET_MODE: call.data[ATTR_MODE]})
 
 
+async def _async_set_trip(call: ServiceCall) -> None:
+    household, vehicle_id = _vehicle(call)
+    kind = call.data["trip"]
+    await household.async_set_trip(
+        vehicle_id, None if kind == "week" else kind, day=call.data.get("date"), target=call.data.get("target")
+    )
+
+
+async def _async_climate(call: ServiceCall) -> None:
+    household, vehicle_id = _vehicle(call)
+    await household.async_climate(vehicle_id, call.data["on"], call.data.get("temperature"))
+
+
 async def _async_guest_lookup(call: ServiceCall) -> None:
     await _household(call).guest.async_lookup()
 
@@ -78,6 +109,8 @@ async def _async_new_guest(call: ServiceCall) -> None:
 def async_setup_services(hass: HomeAssistant) -> None:
     hass.services.async_register(DOMAIN, SERVICE_RECALCULATE, _async_recalculate, schema=ENTRY_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_SET_MODE, _async_set_mode, schema=MODE_SCHEMA)
+    hass.services.async_register(DOMAIN, SERVICE_SET_TRIP, _async_set_trip, schema=TRIP_SCHEMA)
+    hass.services.async_register(DOMAIN, SERVICE_CLIMATE, _async_climate, schema=CLIMATE_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_GUEST_LOOKUP, _async_guest_lookup, schema=ENTRY_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_GUEST_PLAN, _async_guest_plan, schema=ENTRY_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_GUEST_CHARGE_NOW, _async_guest_charge_now, schema=ENTRY_SCHEMA)

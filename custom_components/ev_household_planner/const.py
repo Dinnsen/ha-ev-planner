@@ -528,6 +528,8 @@ HISTORY_LIMIT: Final = 200
 
 SERVICE_RECALCULATE: Final = "recalculate"
 SERVICE_SET_MODE: Final = "set_mode"
+SERVICE_SET_TRIP: Final = "set_trip"
+SERVICE_CLIMATE: Final = "climate"
 SERVICE_GUEST_LOOKUP: Final = "guest_lookup"
 SERVICE_GUEST_PLAN: Final = "guest_plan"
 SERVICE_GUEST_CHARGE_NOW: Final = "guest_charge_now"
