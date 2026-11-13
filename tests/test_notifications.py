@@ -345,3 +345,31 @@ async def test_the_pause_message_goes_when_the_car_charges_again(
     await settle(hass, freezer)
     assert clear in notify.calls
     assert tesla.pause_notice is False
+
+
+async def test_quiet_hours_and_the_switch_hold_notifications_back(
+    hass: HomeAssistant, household: MockConfigEntry, notify: NotifyCalls
+) -> None:
+    planner = household.runtime_data
+    at = dt_util.now().replace(hour=23, minute=0)
+    assert not planner.notifications_held(at)
+    await planner.async_update_settings({"quiet_enabled": True, "quiet_from": "22:00", "quiet_to": "06:00"})
+    assert planner.notifications_held(at)
+    assert planner.notifications_held(at.replace(hour=5, minute=59))
+    assert not planner.notifications_held(at.replace(hour=6, minute=0))
+    assert not planner.notifications_held(at.replace(hour=21, minute=59))
+    # The switch turns them all off, whatever the time.
+    await planner.async_update_settings({"quiet_enabled": False})
+    switch = next(
+        state.entity_id for state in hass.states.async_all("switch") if state.entity_id.endswith("_notifications")
+    )
+    await _switch(hass, switch, on=False)
+    assert planner.settings["notify_enabled"] is False
+    notify.calls.clear()
+    await planner.notifier.send(title="Test", message="Nothing", tag="t", icon="mdi:car")
+    assert not notify.calls
+    kinds = [event["kind"] for event in planner.events.items]
+    assert "notification_held" in kinds
+    await _switch(hass, switch, on=True)
+    await planner.notifier.send(title="Test", message="Now", tag="t", icon="mdi:car")
+    assert notify.calls
