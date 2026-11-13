@@ -127,7 +127,6 @@ async def test_the_home_is_changed_as_a_place(hass: HomeAssistant, init_integrat
         "supply_limit": 25,
         "supply_phases": "3",
         "supply_reserve": 0,
-        "supply_share": "queue",
         "grid_power": "sensor.grid",
         "export_price": 0.3,
     }
@@ -210,3 +209,23 @@ async def test_a_summer_house_has_its_own_sun(
     assert summer["name"] == "Sommerhus" and summer["parts"] == ["solar"]
     assert summer["energy"]["grid_kw"] == -3.0 and summer["energy"]["solar_kw"] == 4.0
     assert panel_state(hass, household)["sites"][0]["energy"] is None
+
+
+async def test_a_place_has_its_own_prices_and_its_guard_is_set_in_the_panel(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    from custom_components.ev_household_planner.const import CONF_SITE_PRICE_ENTITY
+
+    household = init_integration.runtime_data
+    home = household.sites[SITE_HOME]
+    assert household.site_price_entity(SITE_HOME) == household.price_entity
+    hass.states.async_set("sensor.dk1_prices", "1.0", dict(hass.states.get(household.price_entity).attributes))
+    home.data[CONF_SITE_PRICE_ENTITY] = "sensor.dk1_prices"
+    assert household.site_price_entity(SITE_HOME) == "sensor.dk1_prices"
+    assert household.price_slots(None, SITE_HOME)
+    await household.async_update_settings({"places": {SITE_HOME: {"supply_guard": True, "supply_wait": 15}}})
+    assert household.supply.config["supply_guard"] is True
+    assert household.supply.headroom_window.total_seconds() == 15 * 60
+    state = panel_state(hass, household)
+    assert state["sites"][0]["wait"] == 15
+    assert state["settings"]["departures"][0]["id"] == "morning"

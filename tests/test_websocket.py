@@ -169,6 +169,11 @@ async def test_guest_commands(
         "quiet_enabled": False,
         "quiet_from": "22:00",
         "quiet_to": "06:00",
+        "departures": None,
+        "phones": None,
+        "price_add": None,
+        "update_widgets": None,
+        "places": {},
     }
     msg = await _ws(client, 90, type="ev_household_planner/settings", settings={"language": "da"})
     assert msg["success"] and init_integration.runtime_data.settings["language"] == "da"

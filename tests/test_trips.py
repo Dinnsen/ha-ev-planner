@@ -236,3 +236,58 @@ async def test_a_week_day_with_climate_starts_it_and_a_start_button_has_its_stop
     assert pressed == ["button.car_preclimate_start"]
     await household.async_climate(TESLA, False)
     assert pressed[-1] == "button.car_preclimate_stop"
+
+
+# ----------------------------------------------------------------------
+# The household's departures (2.5)
+
+
+def test_departures_are_the_defaults_with_the_holiday_always_there() -> None:
+    from custom_components.ev_household_planner.departures import departures, from_cars
+
+    ids = [item["id"] for item in departures(None)]
+    assert ids == ["morning", "midday", "evening", "tomorrow_afternoon", "weekend", "holiday"]
+    # Your own list, and the holiday comes back if it was left out.
+    own = departures([{"id": "x", "name": "Fodbold", "day": "sat", "time": "9:30"}])
+    assert [item["id"] for item in own] == ["x", "holiday"]
+    assert own[0]["time"] == "09:30" and own[0]["name"] == "Fodbold"
+    # A car's own times from before become the household's.
+    moved = from_cars([{"morning_time": "06:00"}, {"morning_time": "05:30", "evening_time": "18:00"}])
+    times = {item["id"]: item["time"] for item in moved}
+    assert times["morning"] == "05:30" and times["evening"] == "18:00" and times["weekend"] == "05:30"
+
+
+def test_a_departure_is_ready_on_its_day_and_charges_as_cheap_as_it_says() -> None:
+    from custom_components.ev_household_planner.departures import ceiling, deadline
+
+    evening = _at(19, 20)  # a Monday evening
+    assert deadline({"day": "next", "time": "17:00"}, evening) == _at(20, 17)
+    assert deadline({"day": "tomorrow", "time": "17:00"}, _at(20, 1)) == _at(21, 17)
+    assert deadline({"day": "today", "time": "17:00"}, evening) is None
+    assert deadline({"day": "sat", "time": "09:30"}, evening) == _at(24, 9, 30)
+    assert deadline({"day": "mon", "time": "06:00"}, evening) == _at(26, 6)
+    assert deadline({"day": "date", "time": "06:00"}, evening, date(2026, 10, 30)) == _at(30, 6)
+    slots = _slots([1.0, 0.5, 0.6, 2.0, 0.4, 0.3], forecast_from=4)
+    assert ceiling({"price": "lowest", "pct": 20}, slots, None) == pytest.approx(0.6)
+    assert ceiling({"price": "cheapest", "pct": 50}, slots, None) == pytest.approx(0.5)
+    assert ceiling({"price": "normal"}, slots, None) is None
+
+
+async def test_your_own_departure_is_set_with_its_target(
+    hass: HomeAssistant, init_integration: MockConfigEntry, freezer: FrozenDateTimeFactory
+) -> None:
+    household = init_integration.runtime_data
+    tesla = household.vehicles[TESLA]
+    await household.async_update_settings(
+        {
+            "departures": [
+                {"id": "away", "name": "Sommerhus", "day": "tomorrow", "time": "17:00", "target": 90},
+                {"id": "holiday", "day": "date", "time": "06:00", "price": "cheapest", "pct": 10},
+            ]
+        }
+    )
+    at = await household.async_set_trip(TESLA, "away")
+    await settle(hass, freezer)
+    assert at is not None and at.hour == 17 and at.date() == (dt_now(hass) + timedelta(days=1)).date()
+    assert tesla.trip is not None and tesla.trip["target"] == 90
+    assert tesla.deadline == at

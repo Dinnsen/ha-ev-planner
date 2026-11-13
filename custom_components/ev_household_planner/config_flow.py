@@ -70,10 +70,10 @@ from .const import (
     CONF_PLATE_PROVIDER,
     CONF_POWER,
     CONF_POWER_ENTITY,
-    CONF_PRICE_ADD,
     CONF_PRICE_ENTITY,
     CONF_REFRESH_ENTITY,
     CONF_SITE,
+    CONF_SITE_PRICE_ENTITY,
     CONF_SOC_ENTITY,
     CONF_SOLAR_FORECAST,
     CONF_SOLAR_POWER,
@@ -107,7 +107,6 @@ from .const import (
     DEFAULT_NAME,
     DEFAULT_PLATE_PROVIDER,
     DEFAULT_SUPPLY_RESERVE,
-    DEFAULT_SUPPLY_WAIT,
     DOMAIN,
     ESC_DOMAIN,
     NO_CHARGER,
@@ -132,8 +131,6 @@ from .const import (
     SET_READY_BY,
     SET_USE_EARLIEST_START,
     SET_USE_READY_BY,
-    SHARE_OPTIONS,
-    SHARE_QUEUE,
     SITE_HOME,
     SITE_KEYS,
     SOURCE_MANUAL,
@@ -182,10 +179,6 @@ ANY_ENTITY_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig())
 HOME_SELECTOR = selector.EntitySelector(
     selector.EntitySelectorConfig(domain=["device_tracker", "person", "binary_sensor"])
 )
-# The car's climate: a climate entity, or a switch, button or script that starts it.
-CLIMATE_SELECTOR = selector.EntitySelector(
-    selector.EntitySelectorConfig(domain=["climate", "switch", "button", "input_button", "script", "input_boolean"])
-)
 SWITCH_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain=["switch", "input_boolean"]))
 # A number, or any entity of an Easee charger: EV Planner then uses Easee's own action for the current.
 CURRENT_SELECTOR = selector.EntitySelector(
@@ -214,12 +207,6 @@ PERCENT_SELECTOR = selector.NumberSelector(
 AMPS_SELECTOR = selector.NumberSelector(
     selector.NumberSelectorConfig(min=0, max=200, step=1, unit_of_measurement="A", mode=selector.NumberSelectorMode.BOX)
 )
-# How long the guard waits after a peak in the house before it turns the cars up again.
-WAIT_SELECTOR = selector.NumberSelector(
-    selector.NumberSelectorConfig(
-        min=5, max=30, step=5, unit_of_measurement="min", mode=selector.NumberSelectorMode.SLIDER
-    )
-)
 PHASES_SELECTOR = selector.SelectSelector(
     selector.SelectSelectorConfig(options=["1", "3"], mode=selector.SelectSelectorMode.LIST, translation_key="phases")
 )
@@ -236,11 +223,6 @@ CONTROL_SELECTOR = selector.SelectSelector(
     )
 )
 STATES_SELECTOR = selector.TextSelector(selector.TextSelectorConfig(multiple=True))
-SHARE_SELECTOR = selector.SelectSelector(
-    selector.SelectSelectorConfig(
-        options=SHARE_OPTIONS, mode=selector.SelectSelectorMode.LIST, translation_key="supply_share"
-    )
-)
 ZONE_SELECTOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="zone"))
 CAPACITY_SELECTOR = selector.NumberSelector(
     selector.NumberSelectorConfig(
@@ -260,15 +242,6 @@ def _currency_selector(hass: HomeAssistant) -> selector.SelectSelector:
         options.append(hass.config.currency)
     return selector.SelectSelector(
         selector.SelectSelectorConfig(options=options, mode=selector.SelectSelectorMode.DROPDOWN)
-    )
-
-
-def _notify_selector(hass: HomeAssistant) -> selector.SelectSelector:
-    services = sorted(f"notify.{name}" for name in hass.services.async_services_for_domain("notify"))
-    return selector.SelectSelector(
-        selector.SelectSelectorConfig(
-            options=services, multiple=True, custom_value=True, mode=selector.SelectSelectorMode.DROPDOWN
-        )
     )
 
 
@@ -427,24 +400,21 @@ class EVPlannerConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class EVPlannerOptionsFlow(OptionsFlow):
-    """What is the whole household's: currency, notifications and what is added to every price.
+    """The household's currency.
 
-    The supply, the sun, the home battery and the heat pump belong to a place
-    and are parts of their own, added under the integration.
+    The phones, what is added to every price and the widgets are set in the panel (Settings) since
+    2.5; what was chosen here before is kept until it is changed there.
     """
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        if user_input is not None:
-            return self.async_create_entry(data=user_input)
         options = self.config_entry.options
+        if user_input is not None:
+            return self.async_create_entry(data={**options, **user_input})
         schema = vol.Schema(
             {
                 vol.Required(CONF_CURRENCY, default=options.get(CONF_CURRENCY) or DEFAULT_CURRENCY): _currency_selector(
                     self.hass
                 ),
-                vol.Optional(CONF_NOTIFY, default=list(options.get(CONF_NOTIFY) or [])): _notify_selector(self.hass),
-                vol.Optional("update_widgets", default=bool(options.get("update_widgets", False))): bool,
-                vol.Optional(CONF_PRICE_ADD, default=options.get(CONF_PRICE_ADD) or 0): PRICE_SELECTOR,
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)
@@ -626,14 +596,6 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
                     ),
                     {"collapsed": False},
                 ),
-                vol.Required(SECTION_TRIPS): section(
-                    vol.Schema(
-                        {
-                            opt(CONF_CLIMATE_ENTITY): CLIMATE_SELECTOR,
-                        }
-                    ),
-                    {"collapsed": True},
-                ),
             }
         )
 
@@ -747,7 +709,7 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
             errors = self._validate(data)
             if not errors:
                 stored = self._clean(data)
-                for key in (CONF_IMPORTED_FROM, CONF_IMPORTED_SETTINGS):
+                for key in (CONF_IMPORTED_FROM, CONF_IMPORTED_SETTINGS, CONF_CLIMATE_ENTITY):
                     if key in subentry.data:
                         stored[key] = subentry.data[key]
                 # EV Smart Charging's speed goes with the capacity and power it came with.
@@ -924,6 +886,8 @@ class SiteSubentryFlow(ConfigSubentryFlow):
         if not home:
             # The home is where a car's location says "home".
             fields[opt(CONF_ZONE)] = ZONE_SELECTOR
+        # Its own prices (a summer house in another price area); none: the household's.
+        fields[opt(CONF_SITE_PRICE_ENTITY)] = PRICE_ENTITY_SELECTOR
         fields[vol.Required(SECTION_SUPPLY)] = section(
             vol.Schema(
                 {
@@ -935,13 +899,6 @@ class SiteSubentryFlow(ConfigSubentryFlow):
                     vol.Optional(
                         CONF_SUPPLY_RESERVE, default=values.get(CONF_SUPPLY_RESERVE, DEFAULT_SUPPLY_RESERVE)
                     ): AMPS_SELECTOR,
-                    vol.Optional(CONF_SUPPLY_GUARD, default=bool(values.get(CONF_SUPPLY_GUARD, False))): bool,
-                    vol.Optional(
-                        CONF_SUPPLY_WAIT, default=values.get(CONF_SUPPLY_WAIT, DEFAULT_SUPPLY_WAIT)
-                    ): WAIT_SELECTOR,
-                    vol.Optional(
-                        CONF_SUPPLY_SHARE, default=values.get(CONF_SUPPLY_SHARE) or SHARE_QUEUE
-                    ): SHARE_SELECTOR,
                     vol.Optional(
                         CONF_WEATHER_ENTITY,
                         description={"suggested_value": values.get(CONF_WEATHER_ENTITY, only_weather)},
@@ -969,8 +926,6 @@ class SiteSubentryFlow(ConfigSubentryFlow):
         result = {key: flat[key] for key in SITE_KEYS if flat.get(key) not in (None, "", [], 0, False)}
         if CONF_SUPPLY_RESERVE in flat and flat[CONF_SUPPLY_RESERVE] is not None:
             result[CONF_SUPPLY_RESERVE] = flat[CONF_SUPPLY_RESERVE]
-        if result.get(CONF_SUPPLY_WAIT) == DEFAULT_SUPPLY_WAIT:
-            result.pop(CONF_SUPPLY_WAIT)  # the default is not stored, so a later default follows
         if home:
             result = {CONF_HOME: True, **{key: value for key, value in result.items() if key != CONF_ZONE}}
         return result

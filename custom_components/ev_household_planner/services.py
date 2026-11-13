@@ -22,7 +22,6 @@ from .const import (
     SERVICE_SET_MODE,
     SERVICE_SET_TRIP,
     SET_MODE,
-    TRIP_KINDS,
 )
 from .household import EVPlannerConfigEntry, Household
 from .schema import vol
@@ -32,7 +31,8 @@ MODE_SCHEMA = vol.Schema({vol.Required(ATTR_VEHICLE): cv.string, vol.Required(AT
 TRIP_SCHEMA = vol.Schema(
     {
         vol.Required(ATTR_VEHICLE): cv.string,
-        vol.Required("trip"): vol.In([*TRIP_KINDS, "week"]),
+        # A departure's id from Settings → Departures (also one of your own), or "week".
+        vol.Required("trip"): vol.All(cv.string, vol.Length(min=1, max=40)),
         vol.Optional("date"): cv.date,
         vol.Optional("target"): vol.All(vol.Coerce(float), vol.Range(min=10, max=100)),
     }

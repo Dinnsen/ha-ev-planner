@@ -59,7 +59,8 @@ class Notifier:
         quiet: Callable[[], bool] | None = None,
     ) -> None:
         self.hass = hass
-        self.services = [service_name(service) for service in services if service]
+        self.services: list[str] = []
+        self.set_services(services)
         # Whether notifications are held back now (turned off, or the quiet hours).
         self._quiet = quiet
         # Live notifications taken away for the quiet hours, so it is done once.
@@ -188,6 +189,10 @@ class Notifier:
         for service in self.targets(to):
             if is_mobile_app(service):
                 await self._call(service, {"message": "clear_notification", "data": {"tag": tag}})
+
+    def set_services(self, services: Iterable[str]) -> None:
+        """The phones to send to (chosen in the panel since 2.5)."""
+        self.services = [service_name(service) for service in services if service]
 
     async def update_widgets(self) -> None:
         """Ask the iOS companion app to refresh its widgets."""

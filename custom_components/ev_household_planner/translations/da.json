@@ -68,18 +68,12 @@
       "init": {
         "title": "EV Planner",
         "data": {
-          "currency": "Valuta",
-          "notify_services": "Mobiler og andre notify-handlinger",
-          "update_widgets": "Opdater iOS-widgets",
-          "price_add": "Lægges til hver pris"
+          "currency": "Valuta"
         },
         "data_description": {
-          "currency": "Elprisernes valuta.",
-          "notify_services": "Hvor påmindelser, live-notifikationer og beskeder sendes hen, fx notify.mobile_app_min_iphone. Live-notifikationer kræver companion-appen.",
-          "update_widgets": "Bed iOS companion-appen om at opdatere sine widgets, når en bils status ændres (højst hvert 15. minut).",
-          "price_add": "Et beløb pr. kWh, der lægges til prissensorens priser, fx tariffer og afgifter når sensoren kun har spotprisen. 0 når sensoren har den fulde pris."
+          "currency": "Elprisernes valuta."
         },
-        "description": "Det, der er hele husstandens. Forsyning, sol, husbatteri og varmepumpe hører til et sted: ret stedet, eller tilføj dem som dele, under integrationen."
+        "description": "Husstandens valuta. Telefoner, tillæg til prisen og widgets sættes i EV Planner-panelet under Indstillinger. Forsyning, sol, hjemmebatteri og varmepumpe hører til et sted: ret stedet, eller tilføj dem som dele, under integrationen."
       }
     }
   },
@@ -161,16 +155,6 @@
                 "phase_entity": "Valgfri: en kontakt, der sætter laderen til tre faser (til) eller én (fra). På solen kan bilen så lade fra ca. 1,4 kW i stedet for 4,1 kW.",
                 "control_backup": "Når den første ikke svarer, træder den anden til: bilens egen kontakt, når laderen starter og stopper, og laderens, når bilen gør. Det, der satte bilen på pause, er også det, der starter den igen."
               }
-            },
-            "trips": {
-              "name": "Klima",
-              "description": "Valgfrit. Bilens klima.",
-              "data": {
-                "climate_entity": "Klima"
-              },
-              "data_description": {
-                "climate_entity": "Valgfrit. Bilens klima-entitet (den sættes til at varme eller køle til den temperatur, du vælger), eller en kontakt, knap eller et script, der starter klimaet. Bruges af Klima-knappen på bilens side, før kalenderture der beder om det, og før forvalg når automatisk klima er slået til."
-              }
             }
           }
         },
@@ -232,16 +216,6 @@
                 "current_entity": "Et tal, der sætter ladestrømmen (A), fx bilens ladeampere eller laderens strømgrænse, eller en vilkårlig sensor fra en Easee-lader (så bruger EV Planner Easees egen handling). Med det deler bilerne på en fælles forsyning strømmen; uden det lader de efter tur.",
                 "phase_entity": "Valgfri: en kontakt, der sætter laderen til tre faser (til) eller én (fra). På solen kan bilen så lade fra ca. 1,4 kW i stedet for 4,1 kW.",
                 "control_backup": "Når den første ikke svarer, træder den anden til: bilens egen kontakt, når laderen starter og stopper, og laderens, når bilen gør. Det, der satte bilen på pause, er også det, der starter den igen."
-              }
-            },
-            "trips": {
-              "name": "Klima",
-              "description": "Valgfrit. Bilens klima.",
-              "data": {
-                "climate_entity": "Klima"
-              },
-              "data_description": {
-                "climate_entity": "Valgfrit. Bilens klima-entitet (den sættes til at varme eller køle til den temperatur, du vælger), eller en kontakt, knap eller et script, der starter klimaet. Bruges af Klima-knappen på bilens side, før kalenderture der beder om det, og før forvalg når automatisk klima er slået til."
               }
             }
           }
@@ -345,11 +319,13 @@
           "description": "Et sted med ladere ud over hjemmet, fx et sommerhus. Det har sin egen forsyning, så en bil, der lader dér, ikke tæller med på forsyningen derhjemme. Vælg bagefter stedet i hver laders indstillinger, og tilføj stedets solceller, husbatteri og varmepumpe som dele for sig.",
           "data": {
             "name": "Navn",
-            "zone": "Zone"
+            "zone": "Zone",
+            "site_price_entity": "Pris-sensor for dette sted"
           },
           "data_description": {
             "name": "Fx Sommerhus.",
-            "zone": "Zonen i Home Assistant, som bilerne er i, når de er her. En bil er på dette sted, når dens placering viser denne zone."
+            "zone": "Zonen i Home Assistant, som bilerne er i, når de er her. En bil er på dette sted, når dens placering viser denne zone.",
+            "site_price_entity": "Kun for et sted i et andet prisområde end hjemmet (et sommerhus langt væk). Tom: husstandens pris-sensor. Vagten og hvordan bilerne deler forsyningen sættes i panelet under Indstillinger → Steder."
           },
           "sections": {
             "supply": {
@@ -359,9 +335,6 @@
                 "supply_phases": "Faser",
                 "supply_meter": "Måler: strøm pr. fase",
                 "supply_reserve": "Huset uden måler",
-                "supply_guard": "Vagt: skru bilerne ned med det samme",
-                "supply_wait": "Vagten: vent efter en spids",
-                "supply_share": "Deling mellem bilerne",
                 "weather_entity": "Vejret"
               },
               "data_description": {
@@ -369,9 +342,6 @@
                 "supply_phases": "Hvor mange faser forsyningen og bilerne lader på.",
                 "supply_meter": "Strømsensorer (A) for faserne, fx fra en HAN/P1-læser, en Shelly EM eller en Equalizer. EV Planner lærer, hvad huset trækker time for time.",
                 "supply_reserve": "Uden måler: hvad huset forventes at trække pr. fase.",
-                "supply_guard": "Når måleren viser mere end grænsen, sætter EV Planner bilerne ned med det samme (den bagerste i køen først) og op igen efter et par minutter. Ikke en sikring: lad den være slået fra, hvis en Equalizer eller laderen selv fordeler strømmen.",
-                "supply_wait": "Hvor langt vagten ser tilbage efter husets spidser, før den skruer op for bilerne igen (5–30 min, standard 10). Længere er roligere, når apparater tænder og slukker med få minutters mellemrum; kortere lader bilerne bruge pladsen før, så de oftere er klar til tiden. Der skrues altid ned med det samme.",
-                "supply_share": "Når der ikke er plads til alle bilerne i en time. I kø: bilen, der skal være klar først, tager, hvad den skal bruge, og den næste får resten. Efter behov: de deles efter de kWh, hver mangler, aldrig under 6 A til hver.",
                 "weather_entity": "En vejr-enhed med timeprognose. EV Planner lærer, hvor meget mere huset bruger, når det er koldt, og regner med nattens temperatur."
               }
             },
@@ -398,11 +368,13 @@
           "description": "Stedets forsyning og dets måler mod nettet. Solceller, husbatteri og varmepumpe er dele for sig: tilføj dem under integrationen, og vælg dette sted.",
           "data": {
             "name": "Navn",
-            "zone": "Zone"
+            "zone": "Zone",
+            "site_price_entity": "Pris-sensor for dette sted"
           },
           "data_description": {
             "name": "Fx Sommerhus.",
-            "zone": "Zonen i Home Assistant, som bilerne er i, når de er her. En bil er på dette sted, når dens placering viser denne zone."
+            "zone": "Zonen i Home Assistant, som bilerne er i, når de er her. En bil er på dette sted, når dens placering viser denne zone.",
+            "site_price_entity": "Kun for et sted i et andet prisområde end hjemmet (et sommerhus langt væk). Tom: husstandens pris-sensor. Vagten og hvordan bilerne deler forsyningen sættes i panelet under Indstillinger → Steder."
           },
           "sections": {
             "supply": {
@@ -412,9 +384,6 @@
                 "supply_phases": "Faser",
                 "supply_meter": "Måler: strøm pr. fase",
                 "supply_reserve": "Huset uden måler",
-                "supply_guard": "Vagt: skru bilerne ned med det samme",
-                "supply_wait": "Vagten: vent efter en spids",
-                "supply_share": "Deling mellem bilerne",
                 "weather_entity": "Vejret"
               },
               "data_description": {
@@ -422,9 +391,6 @@
                 "supply_phases": "Hvor mange faser forsyningen og bilerne lader på.",
                 "supply_meter": "Strømsensorer (A) for faserne, fx fra en HAN/P1-læser, en Shelly EM eller en Equalizer. EV Planner lærer, hvad huset trækker time for time.",
                 "supply_reserve": "Uden måler: hvad huset forventes at trække pr. fase.",
-                "supply_guard": "Når måleren viser mere end grænsen, sætter EV Planner bilerne ned med det samme (den bagerste i køen først) og op igen efter et par minutter. Ikke en sikring: lad den være slået fra, hvis en Equalizer eller laderen selv fordeler strømmen.",
-                "supply_wait": "Hvor langt vagten ser tilbage efter husets spidser, før den skruer op for bilerne igen (5–30 min, standard 10). Længere er roligere, når apparater tænder og slukker med få minutters mellemrum; kortere lader bilerne bruge pladsen før, så de oftere er klar til tiden. Der skrues altid ned med det samme.",
-                "supply_share": "Når der ikke er plads til alle bilerne i en time. I kø: bilen, der skal være klar først, tager, hvad den skal bruge, og den næste får resten. Efter behov: de deles efter de kWh, hver mangler, aldrig under 6 A til hver.",
                 "weather_entity": "En vejr-enhed med timeprognose. EV Planner lærer, hvor meget mere huset bruger, når det er koldt, og regner med nattens temperatur."
               }
             },

@@ -153,6 +153,8 @@ CONF_SUPPLY_METER: Final = "supply_meter"
 CONF_SUPPLY_RESERVE: Final = "supply_reserve"
 # Shared supply: lower the cars at once when the house draws more than planned (needs a meter and a current setting).
 CONF_SUPPLY_GUARD: Final = "supply_guard"
+# A place's own price sensor (a summer house in another price area); none: the household's.
+CONF_SITE_PRICE_ENTITY: Final = "site_price_entity"
 # How long the guard looks back for the house's peaks before it turns the cars up (minutes).
 CONF_SUPPLY_WAIT: Final = "supply_wait"
 DEFAULT_SUPPLY_WAIT: Final = 10
@@ -271,6 +273,8 @@ SET_CLIMATE_PLUGGED: Final = "climate_plugged_only"
 SET_DAY_CLIMATE: Final = "day_climate"
 # The word that marks a car's trips in the household's calendars (the first word of its name by default).
 SET_CALENDAR_KEYWORD: Final = "calendar_keyword"
+# The car's climate, chosen in the panel (before 2.5 in its setup; none: found on the car's device).
+SET_CLIMATE_ENTITY: Final = "climate_entity"
 SET_EARLY_WITHIN: Final = "early_within"
 # Charge to ``topup_level`` at the cheapest prices, and the rest just before the ready-by time.
 SET_TOPUP_ENABLED: Final = "topup"
@@ -368,6 +372,7 @@ DEFAULT_VEHICLE_SETTINGS: Final[dict[str, object]] = {
     SET_CLIMATE_PLUGGED: True,
     SET_DAY_CLIMATE: {},
     SET_CALENDAR_KEYWORD: "",
+    SET_CLIMATE_ENTITY: "",
     SET_EARLY_WITHIN: 0.02,
     SET_TOPUP_ENABLED: False,
     SET_TOPUP_LEVEL: 80.0,
@@ -585,6 +590,7 @@ ESC_DOMAIN: Final = "ev_smart_charging"
 # to a part at a place. Read from the old settings as long as they are still there.
 SITE_KEYS: Final = (
     CONF_ZONE,
+    CONF_SITE_PRICE_ENTITY,
     CONF_SUPPLY_LIMIT,
     CONF_SUPPLY_PHASES,
     CONF_SUPPLY_METER,

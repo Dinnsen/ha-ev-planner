@@ -135,7 +135,7 @@ class SupplyControl:
         """The place's settings."""
         if self.site is None:
             return self.household.config
-        return self.site.data
+        return {**self.site.data, **self.household.place_settings(self.site.site_id)}
 
     def cars(self) -> list[Vehicle]:
         """The cars at this place."""
@@ -275,7 +275,7 @@ class SupplyControl:
         hour = now.replace(minute=0, second=0, microsecond=0)
         saved = False
         if self._hour is not None and hour != self._hour and self._readings:
-            slots = self.household.price_slots(self._hour)
+            slots = self.household.price_slots(self._hour, self.site.site_id if self.site else None)
             cheap = any(start == self._hour for start in cheap_hours(slots))
             temperature = sum(self._temps) / len(self._temps) if self._temps else None
             self.forecast.add(self._hour.hour, cheap, sum(self._readings) / len(self._readings), temperature)
@@ -413,7 +413,11 @@ class SupplyControl:
             return
         deadlines = [car.deadline for car in cars if car.deadline is not None]
         horizon = max(deadlines) if len(deadlines) == len(cars) else now + timedelta(hours=24)
-        slots = [slot for slot in self.household.price_slots(now) if slot.start < horizon]
+        slots = [
+            slot
+            for slot in self.household.price_slots(now, self.site.site_id if self.site else None)
+            if slot.start < horizon
+        ]
         cheap = cheap_hours(slots)
         # With the guard, the cars never get its margin: the plan leaves it out, so it is long enough.
         limit = self.limit - (HEADROOM_MARGIN if self.guard else 0.0)

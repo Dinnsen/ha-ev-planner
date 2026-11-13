@@ -58,6 +58,7 @@ from .const import (
     SET_CEILING_ABOVE,
     SET_CEILING_ENABLED,
     SET_CEILING_RELATIVE,
+    SET_CLIMATE_ENTITY,
     SET_CONTINUOUS,
     SET_DAY_TARGETS,
     SET_EARLIEST_START,
@@ -530,7 +531,11 @@ class Vehicle:
 
     @property
     def climate_entity(self) -> str | None:
-        return self.config.get(CONF_CLIMATE_ENTITY) or self.found_climate
+        return (
+            str(self.settings.get(SET_CLIMATE_ENTITY) or "")
+            or self.config.get(CONF_CLIMATE_ENTITY)
+            or self.found_climate
+        )
 
     @property
     def trip(self) -> dict[str, Any] | None:

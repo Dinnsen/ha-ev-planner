@@ -1547,6 +1547,157 @@ function dialGeometry(min, max, temp) {
   return { rail: arc(min, max), fill: arc(min, temp), knob: pt(temp) };
 }
 
+// 2.5: departures, messages and places in the household's settings.
+Object.assign(TEXT.da, {
+  settings_notifications: "Beskeder",
+  notify_household_link: "Telefoner, stille timer og sprog gælder alle biler · Indstillinger → Beskeder",
+  notify_missing: "Vælg telefoner under Indstillinger → Beskeder.",
+  dep_title: "Afgange",
+  dep_intro: "Det, bilerne kan vælge i dropdown på bilens side, ud over ugeplanen. Gælder alle biler. Ret, slet, flyt eller lav dine egne.",
+  dep_week_hint: "Bilens egen plan pr. dag · fast",
+  dep_add: "Ny afgang",
+  dep_new: "Ny afgang",
+  dep_name: "Navn",
+  dep_time: "Klokken",
+  dep_day: "Hvilken dag",
+  dep_day_next: "Næste gang",
+  dep_day_today: "I dag",
+  dep_day_tomorrow: "I morgen",
+  dep_day_date_short: "Dato vælges på bilen · {time}",
+  dep_day_date_hint: "Hjem-datoen vælges på bilen, når Ferie vælges.",
+  dep_price: "Pris",
+  dep_price_normal: "Billigst før afgang",
+  dep_price_lowest: "Kun laveste pris",
+  dep_price_cheapest: "Kun billigste timer",
+  dep_price_normal_short: "normal pris",
+  dep_price_lowest_short: "laveste + {pct}",
+  dep_price_cheapest_short: "billigste {pct} af timerne",
+  dep_pct_lowest: "Op til over laveste kendte pris",
+  dep_pct_cheapest: "Andel af timerne frem til afgang",
+  dep_price_normal_hint: "Som enhver klar-tid: de billigste timer, så bilen når målet.",
+  dep_price_lowest_hint: "Lader kun, når prisen er højst så meget over den laveste kendte pris. Bilen når måske ikke målet.",
+  dep_price_cheapest_hint: "Lader kun i de billigste timer frem til afgang. Godt til lange perioder som en ferie.",
+  dep_target: "Mål",
+  dep_target_car: "Bilens eget",
+  dep_target_fixed: "Fast",
+  dep_up: "Flyt op",
+  dep_down: "Flyt ned",
+  dep_delete: "Slet",
+  dep_done: "Færdig",
+  wdn_mon: "Mandag",
+  wdn_tue: "Tirsdag",
+  wdn_wed: "Onsdag",
+  wdn_thu: "Torsdag",
+  wdn_fri: "Fredag",
+  wdn_sat: "Lørdag",
+  wdn_sun: "Søndag",
+  notify_common: "For alle biler",
+  notify_per_car: "Pr. bil",
+  phones_none: "Home Assistant har ingen telefoner at sende til. Installer Home Assistant-appen på telefonen.",
+  phones_hint: "Beskederne går til de valgte telefoner. Hver bil kan sende til færre.",
+  sum_done: "når ladet",
+  no_cars: "Ingen biler endnu.",
+  places_title: "Steder",
+  places_hint: "Sikring, målere og pris-sensor for et sted ændres under integrationen.",
+  place_guard: "Vagt",
+  place_guard_short: "med vagt",
+  place_guard_hint: "Holder øje med måleren og skruer bilerne ned med det samme, hvis huset pludselig skal bruge mere.",
+  place_guard_no_meter: "Kræver en strømmåler for stedet (vælges under integrationen).",
+  place_wait: "Vent efter en spids",
+  place_wait_hint: "Så længe vagten venter, før bilerne får mere igen. Sæt den lidt længere end tiden mellem husets spidser.",
+  place_share: "Når der ikke er plads til alle",
+  place_share_queue: "I kø",
+  place_share_need: "Efter behov",
+  place_share_queue_hint: "Den første bil får det, den skal bruge, så den næste.",
+  place_share_need_hint: "Hver bil får en del efter, hvor meget den mangler.",
+  place_no_supply: "Ingen fælles forsyning sat op for stedet.",
+  place_own_price: "eget prisområde",
+  price_add: "Lægges til hver pris",
+  price_add_hint: "Fx afgifter og nettarif, når pris-sensoren kun har spotprisen. 0 når sensoren har den fulde pris.",
+  price_add_sum: "+{price}/kWh",
+  widgets_refresh_on: "opdaterer widgets",
+  widgets_refresh_hint: "Beder iOS-appen opdatere sine widgets, når en bils status ændres (højst hvert 15. minut).",
+  climate_entity: "Klima",
+  climate_entity_hint: "Det, der starter bilens klima. Findes selv på bilens enhed; vælg et andet her.",
+  climate_entity_none: "Ingen klima fundet på bilens enhed. Vælg det, der starter bilens klima (en klima-entitet, en knap eller et script).",
+  climate_auto_found: "Bilens egen",
+  climate_auto_pick: "Automatisk (ingen fundet)",
+});
+Object.assign(TEXT.en, {
+  settings_notifications: "Messages",
+  notify_household_link: "Phones, quiet hours and language are for all cars · Settings → Messages",
+  notify_missing: "Choose phones under Settings → Messages.",
+  dep_title: "Departures",
+  dep_intro: "What the cars can pick in the dropdown on a car's page, besides the week plan. For all cars. Change, delete, move or make your own.",
+  dep_week_hint: "The car's own plan per day · fixed",
+  dep_add: "New departure",
+  dep_new: "New departure",
+  dep_name: "Name",
+  dep_time: "Time",
+  dep_day: "Which day",
+  dep_day_next: "Next time",
+  dep_day_today: "Today",
+  dep_day_tomorrow: "Tomorrow",
+  dep_day_date_short: "Date chosen on the car · {time}",
+  dep_day_date_hint: "The day home is chosen on the car when Holiday is picked.",
+  dep_price: "Price",
+  dep_price_normal: "Cheapest before leaving",
+  dep_price_lowest: "Lowest price only",
+  dep_price_cheapest: "Cheapest hours only",
+  dep_price_normal_short: "normal price",
+  dep_price_lowest_short: "lowest + {pct}",
+  dep_price_cheapest_short: "cheapest {pct} of hours",
+  dep_pct_lowest: "Up to above the lowest known price",
+  dep_pct_cheapest: "Share of the hours until leaving",
+  dep_price_normal_hint: "As any ready-by time: the cheapest hours, so the car reaches its target.",
+  dep_price_lowest_hint: "Charges only when the price is at most this much above the lowest known price. The car may not reach its target.",
+  dep_price_cheapest_hint: "Charges only in the cheapest hours until leaving. Good for long stretches like a holiday.",
+  dep_target: "Target",
+  dep_target_car: "The car's own",
+  dep_target_fixed: "Fixed",
+  dep_up: "Move up",
+  dep_down: "Move down",
+  dep_delete: "Delete",
+  dep_done: "Done",
+  wdn_mon: "Monday",
+  wdn_tue: "Tuesday",
+  wdn_wed: "Wednesday",
+  wdn_thu: "Thursday",
+  wdn_fri: "Friday",
+  wdn_sat: "Saturday",
+  wdn_sun: "Sunday",
+  notify_common: "For all cars",
+  notify_per_car: "Per car",
+  phones_none: "Home Assistant has no phones to send to. Install the Home Assistant app on the phone.",
+  phones_hint: "Messages go to the phones chosen. Each car can send to fewer.",
+  sum_done: "when charged",
+  no_cars: "No cars yet.",
+  places_title: "Places",
+  places_hint: "A place's fuse, meters and price sensor are changed under the integration.",
+  place_guard: "Guard",
+  place_guard_short: "guarded",
+  place_guard_hint: "Watches the meter and turns the cars down at once if the house suddenly needs more.",
+  place_guard_no_meter: "Needs a current meter for the place (chosen under the integration).",
+  place_wait: "Wait after a peak",
+  place_wait_hint: "How long the guard waits before the cars get more again. Set it a little longer than the time between the house's peaks.",
+  place_share: "When there is not room for all",
+  place_share_queue: "In line",
+  place_share_need: "By need",
+  place_share_queue_hint: "The first car gets what it needs, then the next.",
+  place_share_need_hint: "Each car gets a share by how much it lacks.",
+  place_no_supply: "No shared supply set up for the place.",
+  place_own_price: "own price area",
+  price_add: "Added to every price",
+  price_add_hint: "E.g. taxes and grid tariffs when the price sensor has the spot price only. 0 when the sensor has the full price.",
+  price_add_sum: "+{price}/kWh",
+  widgets_refresh_on: "refreshes widgets",
+  widgets_refresh_hint: "Asks the iOS app to refresh its widgets when a car's status changes (at most every 15 minutes).",
+  climate_entity: "Climate",
+  climate_entity_hint: "What starts the car's climate. Found on the car's own device; choose another here.",
+  climate_entity_none: "No climate found on the car's device. Choose what starts the car's climate (a climate entity, a button or a script).",
+  climate_auto_found: "The car's own",
+  climate_auto_pick: "Automatic (none found)",
+});
 const STATUS_TONE = {
   planned: "teal",
   charging: "teal",
@@ -4580,6 +4731,8 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   get _currentCar() {
+    // A car's messages in Settings work on that car as its own page does.
+    if (this._tab === "settings") return this._ncar ? this._car(this._ncar) : null;
     return this._tab === "cars" && this._carId ? this._car(this._carId) : null;
   }
 
@@ -4750,7 +4903,8 @@ class EvPlannerPanel extends HTMLElement {
       this._vdraftId = v.id;
     }
     Object.assign(this._vdraft, changes);
-    this._renderCarPage({ live: false });
+    if (this._tab === "settings") this._render();
+    else this._renderCarPage({ live: false });
     clearTimeout(this._vpreviewTimer);
     this._vpreviewTimer = setTimeout(() => this._loadCarPreview(), PREVIEW_DELAY);
     if (commit) {
@@ -4777,7 +4931,8 @@ class EvPlannerPanel extends HTMLElement {
       if (JSON.stringify(this._vdraft[key]) === JSON.stringify(value)) delete this._vdraft[key];
     }
     if (!Object.keys(this._vdraft).length) this._vpreview = null;
-    this._renderCarPage();
+    if (this._tab === "settings") this._render();
+    else this._renderCarPage();
   }
 
   async _loadCarPreview() {
@@ -4794,6 +4949,20 @@ class EvPlannerPanel extends HTMLElement {
       if (this._vpreviewAsk === ask) this._vpreview = null;
     }
     if (this._drafting({ id })) this._renderCarPage();
+  }
+
+  /* A household setting shown at once, and stored (without a "saved" note, for many small changes). */
+  _setHousehold(settings) {
+    this._state = { ...this._state, settings: { ...(this._state.settings || {}), ...settings } };
+    this._render();
+    this._run("settings", "ev_household_planner/settings", { settings });
+  }
+
+  /* The departures, with one changed by ``fn`` (or the list by ``fn`` when no id is given). */
+  _changeDeps(id, fn) {
+    const list = (this._state.settings?.departures || []).map((d) => ({ ...d }));
+    const next = id === null ? fn(list) : list.map((d) => (d.id === id ? fn(d) : d));
+    this._setHousehold({ departures: next.map(({ name, ...d }) => (name ? { ...d, name } : d)) });
   }
 
   async _saveSettings(settings) {
@@ -5465,10 +5634,15 @@ class EvPlannerPanel extends HTMLElement {
   // ------------------------------------------------------------------ the price clock (shared)
 
   /* Prices from now and one day ahead: the ring of the clock. */
+  /* The prices where the open car is (a place of its own may have its own), else the household's. */
+  _prices() {
+    return this._currentCar?.prices || this._state?.prices || [];
+  }
+
   _dayPrices() {
     const now = Date.now();
     const end = now + 24 * 3600 * 1000;
-    return (this._state?.prices || []).filter((p) => new Date(p.end).getTime() > now && new Date(p.start).getTime() < end);
+    return this._prices().filter((p) => new Date(p.end).getTime() > now && new Date(p.start).getTime() < end);
   }
 
   /* The ceiling to draw: the one the plan used (after opportunistic charging), or the setting. */
@@ -5674,7 +5848,7 @@ class EvPlannerPanel extends HTMLElement {
   _renderTimeline(plan, { deadline = null, ceiling = null, actual = [] } = {}) {
     const svg = this.shadowRoot.querySelector(".timeline");
     if (!svg) return;
-    const prices = this._state.prices || [];
+    const prices = this._prices();
     const empty = this.shadowRoot.querySelector(".prices .empty-note");
     if (empty) empty.hidden = prices.length > 0;
     svg.closest(".timeline-wrap")?.toggleAttribute("hidden", !prices.length);
@@ -6149,7 +6323,7 @@ class EvPlannerPanel extends HTMLElement {
     );
     this._patch(
       root.querySelector(".go-box"),
-      JSON.stringify([v.trip, v.deadline, s.morning_time, s.midday_time, s.evening_time, this._tripPick, v.climate, s.climate_temperature, this._busy, lang]),
+      JSON.stringify([v.trip, v.deadline, this._state.settings?.departures, this._weekSummary(s), this._tripPick, v.climate, s.climate_temperature, this._busy, lang]),
       this._goHtml(v, s),
     );
     const weekSum = root.querySelector(".week-sum");
@@ -6213,25 +6387,19 @@ class EvPlannerPanel extends HTMLElement {
     }
   }
 
-  /* Departure: one dropdown (the week plan, or once: morning, midday, evening, weekend, holiday), and the climate. */
+  /* Departure: one dropdown (the week plan, or once: the household's departures), and the climate. */
   _goHtml(v, s) {
     const trip = v.trip;
-    const kinds = ["morning", "midday", "evening", "weekend", "holiday"];
-    const time = (key, fallback) => this._hhmm(s[key] || fallback);
-    const labels = {
-      morning: `${this._t("go_morning")} ${time("morning_time", "06:00")}`,
-      midday: `${this._t("go_midday")} ${time("midday_time", "12:00")}`,
-      evening: `${this._t("go_evening")} ${time("evening_time", "17:00")}`,
-      weekend: this._t("trip_weekend"),
-      holiday: this._t("trip_holiday"),
-    };
+    const deps = this._state.settings?.departures || [];
+    const kinds = deps.map((d) => d.id);
+    const label = (d) => (d.id === "holiday" ? this._depName(d) : `${this._depName(d)} · ${this._depWhen(d)}`);
     if (this._tripPick !== undefined && (trip?.kind || "") === this._tripPick && (this._tripPick !== "holiday" || trip)) this._tripPick = undefined;
     const current = this._tripPick !== undefined ? this._tripPick : trip?.kind || "";
     const options = [
-      `<option value=""${current ? "" : " selected"}>${esc(this._t("trip_week"))}</option>`,
-      ...kinds.map((kind) => `<option value="${kind}"${kind === current ? " selected" : ""}>${esc(labels[kind])}</option>`),
-      // A trip set by an action with a kind the list does not have.
-      trip && !kinds.includes(trip.kind) ? `<option value="${esc(trip.kind)}" selected>${esc(this._t(`trip_${trip.kind}`))}</option>` : "",
+      `<option value=""${current ? "" : " selected"}>${esc(`${this._t("trip_week")} · ${this._weekSummary(s)}`)}</option>`,
+      ...deps.map((d) => `<option value="${esc(d.id)}"${d.id === current ? " selected" : ""}>${esc(label(d))}</option>`),
+      // A trip set before its departure was removed, or by an action with a kind the list does not have.
+      trip && !kinds.includes(trip.kind) ? `<option value="${esc(trip.kind)}" selected>${esc(this._depName({ id: trip.kind }))}</option>` : "",
     ].join("");
     const min = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
     const date =
@@ -6296,7 +6464,10 @@ class EvPlannerPanel extends HTMLElement {
     const at = v.deadline ? new Date(v.deadline).getTime() : null;
     const same = (iso) => iso && at !== null && Math.abs(new Date(iso).getTime() - at) < 60000;
     if (same(v.calendar?.start)) return { kind: "calendar", label: this._t("src_calendar") };
-    if (v.trip && same(v.trip.at)) return { kind: "trip", label: this._t(`trip_${v.trip.kind}`) === `trip_${v.trip.kind}` ? this._t("src_trip") : this._t(`trip_${v.trip.kind}`) };
+    if (v.trip && same(v.trip.at)) {
+      const dep = (this._state.settings?.departures || []).find((d) => d.id === v.trip.kind) || { id: v.trip.kind };
+      return { kind: "trip", label: this._depName(dep) || this._t("src_trip") };
+    }
     if (at !== null) return { kind: "week", label: this._t("src_week") };
     return { kind: "none", label: "" };
   }
@@ -7018,16 +7189,7 @@ class EvPlannerPanel extends HTMLElement {
           .join("")}</div>`,
       }),
     );
-    for (const [key, fallback] of [["morning_time", "06:00"], ["midday_time", "12:00"], ["evening_time", "17:00"]]) {
-      groups.time.push(
-        this._ruleRow({
-          icon: "history",
-          title: this._t(`rule_${key}`),
-          hint: this._t(`rule_${key}_hint`),
-          control: `<label class="chip-input time on"><input type="time" step="900" data-set="${key}" data-type="time" value="${esc(s[key] || fallback)}" aria-label="${this._t(`rule_${key}`)}"></label>`,
-        }),
-      );
-    }
+    groups.climate.push(this._climateEntityRow(v, s));
     if (v.climate) {
       groups.climate.push(
         this._ruleRow({
@@ -7082,15 +7244,40 @@ class EvPlannerPanel extends HTMLElement {
       ]),
       supply: on([Number(s.must_soc) > 0 && this._t("sum_must", { pct: pct(s.must_soc) }), s.priority === "first" && this._t("sum_first")]),
       sun: ["surplus", "only"].includes(s.solar) ? this._t(`solar_${s.solar}`) : "",
-      climate: on([`${s.climate_temperature ?? 21}°`, s.climate_auto && this._t("sum_climate_auto")]),
+      climate: v.climate ? on([`${s.climate_temperature ?? 21}°`, s.climate_auto && this._t("sum_climate_auto")]) : "",
       look: this._t(`body_${ClayScene.BODIES.includes(s.body) || s.body === "photo" ? s.body : "sedan"}`),
-      notify: on([s.reminder && this._t("sum_reminder", { time: this._hhmm(s.reminder_time || "16:00") }), s.notify_receipt !== false && this._t("sum_receipt"), s.live_notification && this._t("sum_live")]),
+      notify: on([
+        s.reminder && this._t("sum_reminder", { time: this._hhmm(s.reminder_time || "16:00") }),
+        s.notify_receipt !== false && this._t("sum_receipt"),
+        s.live_notification && this._t("sum_live"),
+        this._state.settings?.quiet_enabled && this._t("quiet_summary", { from: this._hhmm(this._state.settings.quiet_from || "22:00"), to: this._hhmm(this._state.settings.quiet_to || "06:00") }),
+      ]),
     };
     const icons = { time: "history", price: "lowprice", battery: "charge", climate: "climate", supply: "rules", sun: "sun", look: "car", notify: "bell" };
     const list = ["price", "battery", "time", "climate", "notify", "supply", "sun", "look"]
       .map((key) => ({ key, icon: icons[key], title: this._t(`tile_${key}`), summary: summary[key], rows: key === "notify" ? null : groups[key] }))
       .filter((g) => g.rows === null || g.rows.length);
     return list;
+  }
+
+  /* Which entity starts the car's climate: found on the car's own device, or one chosen here. */
+  _climateEntityRow(v, s) {
+    const states = this._hass?.states || {};
+    const chosen = String(s.climate_entity || "");
+    const now = v.climate?.entity || "";
+    const fits = (id) => id.startsWith("climate.") || (/^(button|input_button|switch|script|input_boolean)\./.test(id) && /climat|klima|hvac|preheat|precondition|heat|air_condition|defrost|_ac\b/.test(id));
+    const list = [...new Set([...Object.keys(states).filter(fits), ...(chosen ? [chosen] : [])])].sort();
+    const name = (id) => states[id]?.attributes?.friendly_name || id;
+    const auto = !chosen && now ? `${this._t("climate_auto_found")}: ${name(now)}` : this._t("climate_auto_pick");
+    const options = [`<option value=""${chosen ? "" : " selected"}>${esc(auto)}</option>`, ...list.map((id) => `<option value="${esc(id)}"${id === chosen ? " selected" : ""}>${esc(name(id))}</option>`)].join("");
+    return this._ruleRow({
+      icon: "climate",
+      title: this._t("climate_entity"),
+      hint: now ? this._t("climate_entity_hint") : this._t("climate_entity_none"),
+      off: !now,
+      control: "",
+      extra: `<div class="rule-under"><label class="select-wrap"><select data-climate-entity="${esc(v.id)}" aria-label="${esc(this._t("climate_entity"))}">${options}</select></label></div>`,
+    });
   }
 
   /* The rules view: tiles, and the open one as a sheet over the page. */
@@ -7103,15 +7290,15 @@ class EvPlannerPanel extends HTMLElement {
       JSON.stringify([groups.map((g) => [g.key, g.summary]), lang, this._sheet]),
       `<div class="tile-grid">${groups
         .map(
-          (g) => `<button class="tile${g.summary ? "" : " off"}" data-act="tile" data-tile="${g.key}" data-f="tile-${g.key}" aria-haspopup="dialog">
+          (g) => `<button class="tile${g.summary ? "" : " off"}" ${g.key === "notify" ? `data-act="goto-settings" data-tile="notifications" data-car="${esc(v.id)}"` : `data-act="tile" data-tile="${g.key}" aria-haspopup="dialog"`} data-f="tile-${g.key}">
             <span class="tile-icon">${ICONS[g.icon] || ""}</span>
             <span class="tile-text"><strong>${esc(g.title)}</strong><small>${esc(g.summary || this._t("tile_off"))}</small></span>
             <span class="tile-go">${ICONS.back}</span></button>`,
         )
         .join("")}</div>`,
     );
-    const open = groups.find((g) => g.key === this._sheet);
-    const body = !open ? "" : open.key === "notify" ? this._notifyHtml(s) : open.rows.join("");
+    const open = groups.find((g) => g.key === this._sheet && g.key !== "notify");
+    const body = !open || open.key === "notify" ? "" : open.rows.join("");
     this._patch(
       root.querySelector(".car-page .sheet-slot"),
       JSON.stringify([this._sheet, this._ruleValues(s), s.reminder, s.reminder_time, s.reminder_soc, s.reminder_price_enabled, s.reminder_price, s.reminder_days, s.reminder_repeat, s.reminder_horizon, s.notify_targets, s.live_notification, s.notify_done, s.notify_receipt, this._state.config?.notify, this._currency, lang]),
@@ -7145,8 +7332,8 @@ class EvPlannerPanel extends HTMLElement {
     </div>`;
   }
 
-  _notifyHtml(s) {
-    const missing = !(this._state.config?.notify || []).length;
+  _notifyHtml(s, { inSettings = false } = {}) {
+    const missing = !inSettings && !(this._state.config?.notify || []).length;
     const reminderExtra = s.reminder
       ? `<div class="inline-values">
           <span>${this._t("reminder_time")}</span><label class="chip-input time on"><input type="time" step="900" data-set="reminder_time" data-type="time" value="${esc(s.reminder_time || "16:00")}" aria-label="${this._t("reminder_time")}"></label>
@@ -7182,7 +7369,7 @@ class EvPlannerPanel extends HTMLElement {
             })
             .join("")}</div><small class="hint">${this._t("notify_to_hint")}</small></div>`
         : "";
-    return `${missing ? `<p class="note-line warn">${ICONS.info}<span>${this._t("notify_missing")} <a href="/config/integrations/integration/ev_household_planner" target="_top">${this._t("open_integration")}</a></span></p>` : ""}
+    return `${missing ? `<p class="note-line warn">${ICONS.info}<span>${this._t("notify_missing")}</span></p>` : ""}
       ${this._ruleRow({
         icon: "bell",
         title: this._t("reminder"),
@@ -7195,7 +7382,7 @@ class EvPlannerPanel extends HTMLElement {
       ${this._ruleRow({ icon: "charge", title: this._t("live"), off: !s.live_notification, control: this._switchHtml("live_notification", s.live_notification, this._t("live")) })}
       ${this._ruleRow({ icon: "depart", title: this._t("notify_done"), off: !s.notify_done, control: this._switchHtml("notify_done", s.notify_done, this._t("notify_done")) })}
       ${targets}
-      ${this._householdNotifyLink()}`;
+      ${inSettings ? "" : this._householdNotifyLink()}`;
   }
 
   /* In a car's messages: what the household decides for all of them (all on/off, quiet hours), and where. */
@@ -8657,96 +8844,42 @@ class EvPlannerPanel extends HTMLElement {
     const s = this._state;
     const settings = s.settings || {};
     const config = s.config || {};
-    const notify = config.notify || [];
     const appUrl = `${location.origin}${this._panel?.config?.app_url || "/ev_planner_app"}/app.html`;
-    const supply = s.supply;
-    const home = s.home;
     const lines = (list) => list.filter(Boolean).join(" · ");
     const sections = {
+      departures: this._departuresTile(settings),
+      calendar: this._calendarTile(settings),
+      notifications: this._notifyTile(settings, config),
+      places: this._placesTile(settings),
       billing: {
         icon: "receipt",
         title: this._t("settings_billing"),
-        summary: lines([isNum(settings.bill_price) && `${this._money(settings.bill_price)}/kWh`, settings.payment_text && this._t("payment_text")]),
-        body: `<label class="field col"><span>${this._t("bill_rate")}</span>
+        summary: lines([
+          isNum(settings.bill_price) && `${this._money(settings.bill_price)}/kWh`,
+          Number(settings.price_add) ? this._t("price_add_sum", { price: this._money(settings.price_add) }) : "",
+          settings.payment_text && this._t("payment_text"),
+        ]),
+        body: `<label class="field col"><span>${this._t("price_add")}</span>
+          <div class="unit-input"><input id="price-add" type="number" min="-100" max="100" step="0.01" inputmode="decimal" value="${esc(settings.price_add ?? 0)}"><span>${esc(this._unit)}/kWh</span></div>
+          <small>${this._t("price_add_hint")}</small></label>
+        <label class="field col"><span>${this._t("bill_rate")}</span>
           <div class="unit-input"><input id="bill-rate" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(settings.bill_price ?? "")}"><span>${esc(this._unit)}/kWh</span></div>
           <small>${this._t("bill_rate_hint")}</small></label>
         <label class="field col"><span>${this._t("payment_text")}</span>
           <input id="payment-text" type="text" maxlength="200" value="${esc(settings.payment_text || "")}">
-          <small>${this._t("payment_hint")}</small></label>`,
-      },
-      calendar: this._calendarTile(settings),
-      notifications: {
-        icon: "bell",
-        title: this._t("settings_notifications"),
-        summary: lines([
-          settings.notify_enabled === false ? this._t("notify_all_off") : this._t(`lang_${settings.language || "auto"}`),
-          settings.notify_enabled !== false && settings.quiet_enabled && this._t("quiet_summary", { from: this._hhmm(settings.quiet_from || "22:00"), to: this._hhmm(settings.quiet_to || "06:00") }),
-          notify.length ? notify.map((n) => config.notify_names?.[n] || n).join(", ") : this._t("not_set"),
-        ]),
-        body: `${this._ruleRow({ icon: "bell", title: this._t("notify_all"), hint: this._t("notify_all_hint"), off: settings.notify_enabled === false, control: `<button class="switch" role="switch" data-act="hh-toggle" data-key="notify_enabled" data-f="hh-notify_enabled" aria-checked="${settings.notify_enabled !== false}" aria-label="${esc(this._t("notify_all"))}"><i></i></button>` })}
-          ${this._ruleRow({
-            icon: "history",
-            title: this._t("quiet_hours"),
-            hint: this._t("quiet_hours_hint"),
-            off: !settings.quiet_enabled,
-            control: `${settings.quiet_enabled ? `<label class="chip-input time on"><input type="time" step="900" id="quiet-from" value="${esc(settings.quiet_from || "22:00")}" aria-label="${this._t("quiet_from")}"></label><span class="dash">–</span><label class="chip-input time on"><input type="time" step="900" id="quiet-to" value="${esc(settings.quiet_to || "06:00")}" aria-label="${this._t("quiet_to")}"></label>` : ""}<button class="switch" role="switch" data-act="hh-toggle" data-key="quiet_enabled" data-f="hh-quiet_enabled" aria-checked="${Boolean(settings.quiet_enabled)}" aria-label="${esc(this._t("quiet_hours"))}"><i></i></button>`,
-          })}
-          <div class="field col"><span>${this._t("notify_language")}</span>
-          <div class="chips">${["auto", "da", "en"]
-            .map((code) => {
-              const on = (settings.language || "auto") === code;
-              return `<button data-act="notify-lang" data-lang="${code}" data-f="nl-${code}" class="${on ? "on" : ""}" aria-pressed="${on}">${this._t(`lang_${code}`)}</button>`;
-            })
-            .join("")}</div>
-          <small>${this._t("notify_language_hint")}</small></div>
-          <dl class="sources"><div><dt>${this._t("notify_phones")}</dt><dd>${notify.length ? notify.map((n) => `<code>${esc(config.notify_names?.[n] || n)}</code>`).join(" ") : this._t("not_set")}</dd></div></dl>`,
-      },
-      house: {
-        icon: "home",
-        title: this._t("settings_house"),
-        summary: lines([
-          supply && `${this._t("tile_supply")} ${Math.round(supply.limit)} A`,
-          s.solar && this._t("home_solar"),
-          supply?.weather && this._t("learn_weather"),
-          s.heat_pump && this._t("home_heat"),
-          home && this._t("settings_from_energy"),
-        ]) || this._t("tile_off"),
-        body: `<div class="field col"><span>${this._t("house_look")}</span>
-          ${(this._state.sites?.length ? this._state.sites : [{ id: "home", home: true, name: "" }])
-            .map((site, _i, all) => {
-              const now = this._houseOf(site);
-              const chips = ClayScene.HOUSES.map((code) => `<button data-act="house-look" data-site="${esc(site.id)}" data-house="${code}" data-f="hl-${esc(site.id)}-${code}" class="${now === code ? "on" : ""}" aria-pressed="${now === code}">${this._t(`house_${code}`)}</button>`).join("");
-              return `${all.length > 1 ? `<small class="place-name">${esc(site.name || this._t("place_home"))}</small>` : ""}<div class="chips">${chips}</div>`;
-            })
-            .join("")}
-          <small>${this._t("house_look_hint")}</small></div>
-          <dl class="sources">
-            <div><dt>${this._t("tile_supply")}</dt><dd>${supply ? `${Math.round(supply.limit)} A · ${supply.phases} ${this._lang === "da" ? "faser" : "phases"}${supply.guard ? ` · ${this._t("home_guard")}` : ""}` : this._t("off")}</dd></div>
-            <div><dt>${this._t("home_solar")}</dt><dd>${s.solar ? this._t("on") : this._t("off")}</dd></div>
-            <div><dt>${this._t("learn_weather")}</dt><dd>${supply?.weather ? this._t("on") : this._t("off")}</dd></div>
-            <div><dt>${this._t("home_heat")}</dt><dd>${s.heat_pump ? this._t("on") : home?.heat_pump_kw != null ? this._t("settings_from_energy") : this._t("off")}</dd></div>
-            ${home ? `<div><dt>${this._t("settings_from_energy")}</dt><dd>${[isNum(home.grid_kw) && this._t("home_grid_now"), isNum(home.solar_kw) && this._t("home_sun_now"), ...(home.devices || []).map((d) => d.name)].filter(Boolean).map((n) => `<code>${esc(n)}</code>`).join(" ")}</dd></div>` : ""}
-          </dl>
-          <p class="hint">${this._t("settings_house_hint")} <a href="/config/integrations/integration/ev_household_planner" target="_top">${this._t("open_integration")}</a></p>`,
-      },
-      sources: {
-        icon: "settings",
-        title: this._t("settings_sources"),
-        summary: this._entityName(config.price_entity),
-        body: `<dl class="sources">
-          <div><dt>${this._t("price_sensor")}</dt><dd>${esc(this._entityName(config.price_entity))}</dd></div>
-          <div><dt>${this._t("widgets_refresh")}</dt><dd>${config.update_widgets ? this._t("on") : this._t("off")}</dd></div>
-        </dl>
+          <small>${this._t("payment_hint")}</small></label>
+        <dl class="sources"><div><dt>${this._t("price_sensor")}</dt><dd>${esc(this._entityName(config.price_entity))}</dd></div></dl>
         <p class="hint">${this._t("change_in_ha")} <a href="/config/integrations/integration/ev_household_planner" target="_top">${this._t("open_integration")}</a></p>`,
       },
       app: {
         icon: "share",
         title: this._t("app_title"),
-        summary: this._t("widgets_title"),
+        summary: lines([this._t("widgets_title"), settings.update_widgets && this._t("widgets_refresh_on")]),
         body: `<p class="hint">${this._t("app_hint")}</p>
         <a class="btn ghost" href="${esc(appUrl)}" target="_blank" rel="noopener">${ICONS.share}<span>${this._t("open_app")}</span></a>
         <h3>${this._t("widgets_title")}</h3>
-        <p class="hint">${esc(this._t("widgets_text"))}</p>`,
+        <p class="hint">${esc(this._t("widgets_text"))}</p>
+        ${this._ruleRow({ icon: "history", title: this._t("widgets_refresh"), hint: this._t("widgets_refresh_hint"), off: !settings.update_widgets, control: `<button class="switch" role="switch" data-act="hh-toggle" data-key="update_widgets" data-f="hh-update_widgets" aria-checked="${Boolean(settings.update_widgets)}" aria-label="${esc(this._t("widgets_refresh"))}"><i></i></button>` })}`,
       },
       support: {
         icon: "download",
@@ -8775,6 +8908,211 @@ class EvPlannerPanel extends HTMLElement {
         </div>`
       : "";
     return `<div class="page settings-page"><div class="tile-grid">${tiles}</div>${sheet}</div>`;
+  }
+
+  /* A departure's name: its own, or the default's in the panel's language. */
+  _depName(d) {
+    if (d?.name) return d.name;
+    const own = { morning: "go_morning", midday: "go_midday", evening: "go_evening" }[d?.id];
+    if (own) return this._t(own);
+    const key = `trip_${d?.id}`;
+    return TEXT[this._lang]?.[key] || TEXT.en[key] ? this._t(key) : String(d?.id || "");
+  }
+
+  /* When a departure is: "next time 06.00", "tomorrow 17.00", "Monday 06.00", "on the day chosen". */
+  _depWhen(d) {
+    const time = this._hhmm(d.time || "06:00");
+    if (d.day === "date") return this._t("dep_day_date_short", { time });
+    if (WEEKDAYS.includes(d.day)) return `${this._t(`wdn_${d.day}`)} ${time}`;
+    return `${this._t(`dep_day_${d.day || "next"}`)} ${time}`;
+  }
+
+  _depPrice(d) {
+    if (d.price === "lowest") return this._t("dep_price_lowest_short", { pct: this._pct(d.pct ?? 10) });
+    if (d.price === "cheapest") return this._t("dep_price_cheapest_short", { pct: this._pct(d.pct ?? 10) });
+    return this._t("dep_price_normal_short");
+  }
+
+  /* Settings → Departures: the household's list for every car's dropdown; the week plan and the holiday stay. */
+  _departuresTile(settings) {
+    const list = settings.departures || [];
+    const open = this._depOpen;
+    const seg = (field, values, current, label) => `<div class="segmented opp" role="radiogroup" aria-label="${esc(label)}">${values
+      .map(([value, text]) => `<button role="radio" data-act="dep-set" data-dep-id="${esc(open)}" data-field="${field}" data-value="${esc(value)}" data-f="dep-${field}-${esc(value)}" aria-checked="${value === current}" class="${value === current ? "on" : ""}">${esc(text)}</button>`)
+      .join("")}</div>`;
+    const form = (d, i) => {
+      const holiday = d.id === "holiday";
+      const day = d.day || "next";
+      const days = holiday
+        ? `<small class="hint">${this._t("dep_day_date_hint")}</small>`
+        : `${seg("day", [["next", this._t("dep_day_next")], ["today", this._t("dep_day_today")], ["tomorrow", this._t("dep_day_tomorrow")]], day, this._t("dep_day"))}
+          <div class="chips days">${WEEKDAYS.map((w) => `<button data-act="dep-set" data-dep-id="${esc(d.id)}" data-field="day" data-value="${w}" data-f="dep-day-${w}" class="${day === w ? "on" : ""}" aria-pressed="${day === w}" aria-label="${esc(this._t(`wdn_${w}`))}">${this._t(`day_${w}`)}</button>`).join("")}</div>`;
+      const price = d.price || "normal";
+      const fixed = isNum(d.target);
+      return `<div class="dep-form">
+        <div class="dep-two">
+          <label class="field col"><span>${this._t("dep_name")}</span><input type="text" maxlength="40" data-dep="name" data-dep-id="${esc(d.id)}" value="${esc(this._depName(d))}"></label>
+          <label class="field col"><span>${this._t("dep_time")}</span><input type="time" step="900" data-dep="time" data-dep-id="${esc(d.id)}" value="${esc(d.time || "06:00")}"></label>
+        </div>
+        <div class="field col"><span>${this._t("dep_day")}</span>${days}</div>
+        <div class="field col"><span>${this._t("dep_price")}</span>
+          ${seg("price", [["normal", this._t("dep_price_normal")], ["lowest", this._t("dep_price_lowest")], ["cheapest", this._t("dep_price_cheapest")]], price, this._t("dep_price"))}
+          ${price === "normal" ? "" : `<div class="inline-values"><span>${this._t(price === "lowest" ? "dep_pct_lowest" : "dep_pct_cheapest")}</span><label class="unit-input small"><input type="number" min="1" max="100" step="1" data-dep="pct" data-dep-id="${esc(d.id)}" value="${esc(d.pct ?? 10)}" aria-label="${esc(this._t("dep_price"))}"><span>%</span></label></div>`}
+          <small class="hint">${this._t(`dep_price_${price}_hint`)}</small></div>
+        <div class="field col"><span>${this._t("dep_target")}</span>
+          ${seg("target", [["car", this._t("dep_target_car")], ["fixed", this._t("dep_target_fixed")]], fixed ? "fixed" : "car", this._t("dep_target"))}
+          ${fixed ? `<div class="inline-values"><label class="unit-input small"><input type="number" min="10" max="100" step="5" data-dep="target" data-dep-id="${esc(d.id)}" value="${esc(d.target)}" aria-label="${esc(this._t("dep_target"))}"><span>%</span></label></div>` : ""}</div>
+        <div class="dep-actions">
+          <button class="btn ghost small" data-act="dep-move" data-dep-id="${esc(d.id)}" data-dir="-1" data-f="dep-up"${i === 0 ? " disabled" : ""} aria-label="${esc(this._t("dep_up"))}">↑</button>
+          <button class="btn ghost small" data-act="dep-move" data-dep-id="${esc(d.id)}" data-dir="1" data-f="dep-down"${i === list.length - 1 ? " disabled" : ""} aria-label="${esc(this._t("dep_down"))}">↓</button>
+          <span class="grow"></span>
+          ${holiday ? "" : `<button class="btn ghost small danger" data-act="dep-del" data-dep-id="${esc(d.id)}" data-f="dep-del">${this._t("dep_delete")}</button>`}
+          <button class="btn small" data-act="dep-open" data-dep-id="" data-f="dep-done">${this._t("dep_done")}</button>
+        </div>
+      </div>`;
+    };
+    const rows = list
+      .map((d, i) => {
+        const on = d.id === open;
+        return `<div class="dep-row${on ? " open" : ""}">
+          <button class="dep-head" data-act="dep-open" data-dep-id="${on ? "" : esc(d.id)}" data-f="dep-${esc(d.id)}" aria-expanded="${on}">
+            <span class="dep-text"><strong>${esc(this._depName(d))}</strong><small>${esc([this._depWhen(d), this._depPrice(d), isNum(d.target) ? this._pct(d.target) : ""].filter(Boolean).join(" · "))}</small></span>
+            ${d.id === "holiday" ? "" : `<span class="dep-time">${esc(this._hhmm(d.time || "06:00"))}</span>`}
+          </button>
+          ${on ? form(d, i) : ""}
+        </div>`;
+      })
+      .join("");
+    return {
+      icon: "history",
+      title: this._t("dep_title"),
+      summary: list.filter((d) => d.id !== "holiday").map((d) => this._depName(d)).join(", "),
+      body: `<p class="hint">${this._t("dep_intro")}</p>
+        <div class="dep-list">
+          <div class="dep-row locked"><div class="dep-head static"><span class="dep-text"><strong>${this._t("trip_week")}</strong><small>${this._t("dep_week_hint")}</small></span></div></div>
+          ${rows}
+        </div>
+        <button class="btn ghost" data-act="dep-add" data-f="dep-add">${ICONS.plus || "+"}<span>${this._t("dep_add")}</span></button>`,
+    };
+  }
+
+  /* Settings → Messages: what is for all cars at the top, then each car's own. */
+  _notifyTile(settings, config) {
+    const lines = (list) => list.filter(Boolean).join(" · ");
+    const phones = config.notify || [];
+    const all = [...new Set([...(config.notify_all || []), ...phones])];
+    const names = config.notify_names || {};
+    const phoneChips = all.length
+      ? `<div class="chips">${all
+          .map((phone) => {
+            const on = phones.includes(phone);
+            return `<button data-act="phone-toggle" data-phone="${esc(phone)}" data-f="ph-${esc(phone)}" class="${on ? "on" : ""}" aria-pressed="${on}">${esc(names[phone] || phone)}</button>`;
+          })
+          .join("")}</div>`
+      : `<p class="hint">${this._t("phones_none")}</p>`;
+    const cars = this._cars
+      .map((v) => {
+        const s = this._vs(v);
+        const on = this._ncarOpen === v.id;
+        const summary = lines([
+          s.reminder && this._t("sum_reminder", { time: this._hhmm(s.reminder_time || "16:00") }),
+          s.notify_receipt !== false && this._t("sum_receipt"),
+          s.live_notification && this._t("sum_live"),
+          s.notify_done && this._t("sum_done"),
+        ]) || this._t("tile_off");
+        return `<div class="ncar${on ? " open" : ""}">
+          <button class="dep-head" data-act="ncar-open" data-car="${on ? "" : esc(v.id)}" data-f="ncar-${esc(v.id)}" aria-expanded="${on}">
+            <span class="dep-text"><strong>${esc(v.name)}</strong><small>${esc(summary)}</small></span><span class="tile-go">${ICONS.back}</span>
+          </button>
+          ${on ? `<div class="ncar-body" data-ncar="${esc(v.id)}">${this._notifyHtml(s, { inSettings: true })}</div>` : ""}
+        </div>`;
+      })
+      .join("");
+    return {
+      icon: "bell",
+      title: this._t("settings_notifications"),
+      summary: lines([
+        settings.notify_enabled === false ? this._t("notify_all_off") : "",
+        settings.notify_enabled !== false && settings.quiet_enabled && this._t("quiet_summary", { from: this._hhmm(settings.quiet_from || "22:00"), to: this._hhmm(settings.quiet_to || "06:00") }),
+        phones.length ? phones.map((n) => names[n] || n).join(", ") : this._t("not_set"),
+      ]),
+      body: `<h3 class="sheet-sub">${this._t("notify_common")}</h3>
+        ${this._ruleRow({ icon: "bell", title: this._t("notify_all"), hint: this._t("notify_all_hint"), off: settings.notify_enabled === false, control: `<button class="switch" role="switch" data-act="hh-toggle" data-key="notify_enabled" data-f="hh-notify_enabled" aria-checked="${settings.notify_enabled !== false}" aria-label="${esc(this._t("notify_all"))}"><i></i></button>` })}
+        ${this._ruleRow({
+          icon: "history",
+          title: this._t("quiet_hours"),
+          hint: this._t("quiet_hours_hint"),
+          off: !settings.quiet_enabled,
+          control: `${settings.quiet_enabled ? `<label class="chip-input time on"><input type="time" step="900" id="quiet-from" value="${esc(settings.quiet_from || "22:00")}" aria-label="${this._t("quiet_from")}"></label><span class="dash">–</span><label class="chip-input time on"><input type="time" step="900" id="quiet-to" value="${esc(settings.quiet_to || "06:00")}" aria-label="${this._t("quiet_to")}"></label>` : ""}<button class="switch" role="switch" data-act="hh-toggle" data-key="quiet_enabled" data-f="hh-quiet_enabled" aria-checked="${Boolean(settings.quiet_enabled)}" aria-label="${esc(this._t("quiet_hours"))}"><i></i></button>`,
+        })}
+        <div class="field col"><span>${this._t("notify_phones")}</span>${phoneChips}<small>${this._t("phones_hint")}</small></div>
+        <div class="field col"><span>${this._t("notify_language")}</span>
+          <div class="chips">${["auto", "da", "en"]
+            .map((code) => {
+              const on = (settings.language || "auto") === code;
+              return `<button data-act="notify-lang" data-lang="${code}" data-f="nl-${code}" class="${on ? "on" : ""}" aria-pressed="${on}">${this._t(`lang_${code}`)}</button>`;
+            })
+            .join("")}</div>
+          <small>${this._t("notify_language_hint")}</small></div>
+        <h3 class="sheet-sub">${this._t("notify_per_car")}</h3>
+        <div class="dep-list">${cars || `<p class="hint">${this._t("no_cars")}</p>`}</div>`,
+    };
+  }
+
+  /* Settings → Places: each place's prices, guard, how the cars share it, and its house. */
+  _placesTile(settings) {
+    const sites = this._state.sites?.length ? this._state.sites : [{ id: "home", home: true, name: "", supply: this._state.supply }];
+    const many = sites.length > 1;
+    const body = sites
+      .map((site) => {
+        const now = this._houseOf(site);
+        const house = ClayScene.HOUSES.map((code) => `<button data-act="house-look" data-site="${esc(site.id)}" data-house="${code}" data-f="hl-${esc(site.id)}-${code}" class="${now === code ? "on" : ""}" aria-pressed="${now === code}">${this._t(`house_${code}`)}</button>`).join("");
+        const supply = site.supply;
+        const wait = Number(site.wait) || 10;
+        const share = site.share === "need" ? "need" : "queue";
+        const guard = supply
+          ? `${this._ruleRow({
+              icon: "rules",
+              title: this._t("place_guard"),
+              hint: site.has_meter ? this._t("place_guard_hint") : this._t("place_guard_no_meter"),
+              off: !site.guard,
+              control: site.has_meter ? `<button class="switch" role="switch" data-act="place-set" data-site="${esc(site.id)}" data-key="supply_guard" data-value="${site.guard ? "" : "1"}" data-f="pg-${esc(site.id)}" aria-checked="${Boolean(site.guard)}" aria-label="${esc(this._t("place_guard"))}"><i></i></button>` : "",
+              extra: site.guard
+                ? `<div class="rule-under"><div class="inline-values"><span>${this._t("place_wait")}</span><div class="chips">${[5, 10, 15, 20, 30]
+                    .map((m) => `<button data-act="place-set" data-site="${esc(site.id)}" data-key="supply_wait" data-value="${m}" data-f="pw-${esc(site.id)}-${m}" class="${wait === m ? "on" : ""}" aria-pressed="${wait === m}">${m} ${this._t("minutes_short")}</button>`)
+                    .join("")}</div></div><small class="hint">${this._t("place_wait_hint")}</small></div>`
+                : "",
+            })}
+            ${this._ruleRow({
+              icon: "plan",
+              title: this._t("place_share"),
+              hint: this._t(`place_share_${share}_hint`),
+              control: "",
+              extra: `<div class="rule-under"><div class="segmented opp" role="radiogroup" aria-label="${esc(this._t("place_share"))}">${["queue", "need"]
+                .map((v) => `<button role="radio" data-act="place-set" data-site="${esc(site.id)}" data-key="supply_share" data-value="${v}" data-f="ps-${esc(site.id)}-${v}" aria-checked="${v === share}" class="${v === share ? "on" : ""}">${this._t(`place_share_${v}`)}</button>`)
+                .join("")}</div></div>`,
+            })}`
+          : `<p class="hint">${this._t("place_no_supply")}</p>`;
+        return `<div class="place-card">
+          ${many ? `<h3 class="sheet-sub">${esc(site.name || this._t("place_home"))}</h3>` : ""}
+          <dl class="sources">
+            <div><dt>${this._t("price_sensor")}</dt><dd>${esc(this._entityName(site.price_entity || this._state.config?.price_entity))}${site.own_price ? ` <span class="tag">${this._t("place_own_price")}</span>` : ""}</dd></div>
+            <div><dt>${this._t("tile_supply")}</dt><dd>${supply ? `${Math.round(supply.limit)} A · ${supply.phases} ${this._lang === "da" ? "faser" : "phases"}` : this._t("off")}</dd></div>
+          </dl>
+          ${guard}
+          <div class="field col"><span>${this._t("house_look")}</span><div class="chips">${house}</div></div>
+        </div>`;
+      })
+      .join("");
+    return {
+      icon: "home",
+      title: this._t("places_title"),
+      summary: sites
+        .map((site) => [site.name || this._t("place_home"), site.guard && this._t("place_guard_short")].filter(Boolean).join(" "))
+        .join(" · "),
+      body: `${body}
+        <p class="hint">${this._t("places_hint")} <a href="/config/integrations/integration/ev_household_planner" target="_top">${this._t("open_integration")}</a></p>`,
+    };
   }
 
   /* The household's calendars, and the word that marks each car's trips in them. */
@@ -8827,6 +9165,7 @@ class EvPlannerPanel extends HTMLElement {
     if (!button || button.disabled) return;
     const act = button.dataset.act;
     const id = button.dataset.id;
+    this._ncar = this._tab === "settings" ? button.closest("[data-ncar]")?.dataset.ncar || null : null;
     const v = this._currentCar;
     const s = v ? this._vs(v) : null;
     switch (act) {
@@ -8853,6 +9192,7 @@ class EvPlannerPanel extends HTMLElement {
         this.shadowRoot.querySelector(`[data-f="cv-${this._carView}"]`)?.focus({ preventScroll: true });
         break;
       case "goto-settings":
+        if (button.dataset.car) this._ncarOpen = button.dataset.car;
         this._setTab("settings");
         this._sheet = button.dataset.tile;
         this._render();
@@ -8909,6 +9249,67 @@ class EvPlannerPanel extends HTMLElement {
         const settings = this._state.settings || {};
         const now = key === "notify_enabled" ? settings.notify_enabled !== false : Boolean(settings[key]);
         this._saveSettings({ [key]: !now });
+        break;
+      }
+      case "dep-open":
+        this._depOpen = button.dataset.depId || null;
+        this._render();
+        this.shadowRoot.querySelector(`[data-f="dep-${this._depOpen || button.closest(".dep-row")?.querySelector(".dep-head")?.dataset.f?.slice(4) || ""}"]`)?.focus();
+        break;
+      case "dep-add": {
+        const id = `d${Date.now().toString(36)}`;
+        this._depOpen = id;
+        this._changeDeps(null, (list) => {
+          const at = list.findIndex((d) => d.id === "holiday");
+          const item = { id, name: this._t("dep_new"), day: "tomorrow", time: "17:00", price: "normal", pct: 10 };
+          return at < 0 ? [...list, item] : [...list.slice(0, at), item, ...list.slice(at)];
+        });
+        break;
+      }
+      case "dep-del":
+        this._depOpen = null;
+        this._changeDeps(null, (list) => list.filter((d) => d.id !== button.dataset.depId));
+        break;
+      case "dep-move":
+        this._changeDeps(null, (list) => {
+          const i = list.findIndex((d) => d.id === button.dataset.depId);
+          const j = i + Number(button.dataset.dir);
+          if (i < 0 || j < 0 || j >= list.length) return list;
+          [list[i], list[j]] = [list[j], list[i]];
+          return list;
+        });
+        break;
+      case "dep-set": {
+        const field = button.dataset.field;
+        const value = button.dataset.value;
+        this._changeDeps(button.dataset.depId, (d) => {
+          if (field === "target") return value === "fixed" ? { ...d, target: isNum(d.target) ? d.target : 80 } : { ...d, target: null };
+          return { ...d, [field]: value };
+        });
+        break;
+      }
+      case "ncar-open":
+        this._ncarOpen = button.dataset.car || null;
+        this._render();
+        break;
+      case "phone-toggle": {
+        const phones = new Set(this._state.config?.notify || []);
+        if (phones.has(button.dataset.phone)) phones.delete(button.dataset.phone);
+        else phones.add(button.dataset.phone);
+        this._state = { ...this._state, config: { ...(this._state.config || {}), notify: [...phones] } };
+        this._setHousehold({ phones: [...phones] });
+        break;
+      }
+      case "place-set": {
+        const site = button.dataset.site;
+        const key = button.dataset.key;
+        const raw = button.dataset.value;
+        const value = key === "supply_guard" ? raw === "1" : key === "supply_wait" ? Number(raw) : raw;
+        const places = { ...(this._state.settings?.places || {}) };
+        places[site] = { ...(places[site] || {}), [key]: value };
+        const field = { supply_guard: "guard", supply_wait: "wait", supply_share: "share" }[key];
+        this._state = { ...this._state, sites: (this._state.sites || []).map((x) => (x.id === site ? { ...x, [field]: value } : x)) };
+        this._setHousehold({ places });
         break;
       }
       case "cal-toggle": {
@@ -9158,6 +9559,26 @@ class EvPlannerPanel extends HTMLElement {
 
   _onChange(ev) {
     const el = ev.target;
+    this._ncar = this._tab === "settings" ? el.closest("[data-ncar]")?.dataset.ncar || null : null;
+    if (el.dataset.dep) {
+      const field = el.dataset.dep;
+      const raw = el.value;
+      if (field === "time" && !/^\d{2}:\d{2}/.test(raw)) return;
+      if ((field === "pct" || field === "target") && !isNum(raw)) return;
+      const value = field === "time" ? raw.slice(0, 5) : field === "pct" ? clamp(Number(raw), 1, 100) : field === "target" ? clamp(Number(raw), 10, 100) : raw.trim().slice(0, 40);
+      this._changeDeps(el.dataset.depId, (d) => ({ ...d, [field]: value }));
+      return;
+    }
+    if (el.dataset.climateEntity) {
+      this._run("settings", "ev_household_planner/vehicle_set", { vehicle_id: el.dataset.climateEntity, settings: { climate_entity: el.value } }).then(
+        (ok) => ok && this._toast(this._t("saved")),
+      );
+      return;
+    }
+    if (el.id === "price-add") {
+      if (isNum(el.value)) this._setHousehold({ price_add: clamp(Number(el.value), -100, 100) });
+      return;
+    }
     if (el.id === "plate") {
       this._gcommit({ license_plate: el.value });
     } else if (el.dataset.gpower) {
@@ -9203,6 +9624,7 @@ class EvPlannerPanel extends HTMLElement {
 
   _onInput(ev) {
     const el = ev.target;
+    this._ncar = this._tab === "settings" ? el.closest("[data-ncar]")?.dataset.ncar || null : null;
     if (el.id === "plate") {
       el.value = el.value.toUpperCase();
     } else if (el.type === "range") {
@@ -9670,6 +10092,33 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .g-actions .calc { grid-column: 1 / -1; }
 .g-actions .btn { justify-content: center; }
 .guest-page .g-more { margin-top: 12px; }
+/* ---------- settings: departures, a car's messages, places */
+.dep-list { display: grid; gap: 8px; }
+.dep-row, .ncar { border: 1px solid var(--evp-line); border-radius: 14px; background: color-mix(in srgb, var(--evp-ink) 2%, transparent); overflow: hidden; }
+.dep-row.locked { border-style: dashed; background: transparent; }
+.dep-row.open, .ncar.open { border-color: color-mix(in srgb, var(--evp-a) 55%, var(--evp-line)); background: var(--evp-card); }
+.dep-head { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 14px; border: 0; background: none; text-align: left; cursor: pointer; }
+.dep-head.static { cursor: default; }
+.dep-head:focus-visible { outline: 2px solid var(--evp-accent); outline-offset: -2px; border-radius: 14px; }
+.dep-text { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.dep-text strong { font-weight: 600; overflow-wrap: anywhere; }
+.dep-text small { color: var(--evp-soft); font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
+.dep-time { flex: none; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 14px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--evp-line); background: var(--evp-card); }
+.ncar .tile-go svg { transition: transform .15s; }
+.ncar.open .tile-go svg { transform: rotate(90deg); }
+.dep-form, .ncar-body { display: grid; gap: 14px; padding: 4px 14px 14px; }
+.dep-two { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 10px; }
+.dep-two input, .dep-form .field input[type="text"], .dep-form .field input[type="time"] { width: 100%; min-width: 0; padding: 9px 12px; border: 1px solid var(--evp-line); border-radius: 10px; background: var(--evp-card); }
+.dep-form .chips.days { margin-top: 6px; }
+.dep-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dep-actions .grow { flex: 1; }
+.sheet-sub { margin: 6px 0 0; font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--evp-soft); }
+.place-card { display: grid; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid color-mix(in srgb, var(--evp-ink) 7%, transparent); }
+.place-card:last-of-type { border-bottom: 0; }
+.tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--evp-a) 16%, transparent); color: var(--evp-ink); }
+.select-wrap { display: block; }
+.select-wrap select { width: 100%; max-width: 100%; padding: 9px 12px; border: 1px solid var(--evp-line); border-radius: 10px; background: var(--evp-card); }
+@media (max-width: 520px) { .dep-two { grid-template-columns: minmax(0, 1fr); } }
 .cal-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid color-mix(in srgb, var(--evp-ink) 7%, transparent); }
 .cal-row > span { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .cal-row > span b { font-weight: 500; overflow-wrap: anywhere; }

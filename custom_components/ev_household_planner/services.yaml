@@ -33,6 +33,7 @@ set_trip:
       selector:
         select:
           translation_key: trip
+          custom_value: true
           options:
             - morning
             - midday

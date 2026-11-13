@@ -16,7 +16,11 @@ from homeassistant.util import dt as dt_util, slugify
 from .catalog import panel_info
 from .const import (
     BODY_OPTIONS,
+    CONF_SUPPLY_GUARD,
+    CONF_SUPPLY_SHARE,
+    CONF_SUPPLY_WAIT,
     CONTROL_FAILS_ISSUE,
+    DEFAULT_SUPPLY_WAIT,
     DOMAIN,
     FORGET_RESUME,
     GUEST_BATTERY,
@@ -45,6 +49,7 @@ from .const import (
     SET_CHARGE_ON_LATE,
     SET_CLIMATE_AUTO,
     SET_CLIMATE_BELOW,
+    SET_CLIMATE_ENTITY,
     SET_CLIMATE_MINUTES,
     SET_CLIMATE_PLUGGED,
     SET_CLIMATE_TEMP,
@@ -95,11 +100,12 @@ from .const import (
     SET_TOPUP_LEVEL,
     SET_USE_EARLIEST_START,
     SET_USE_READY_BY,
+    SHARE_OPTIONS,
     SOLAR_OPTIONS,
     SPOT_OPTIONS,
-    TRIP_KINDS,
     WEEKDAYS,
 )
+from .departures import DAYS as DEPARTURE_DAYS, PRICES as DEPARTURE_PRICES, departures as household_departures
 from .guest import GuestSession, serialize_segments
 from .household import EVPlannerConfigEntry, Household
 from .layout import HOUSES
@@ -107,7 +113,7 @@ from .planner import PlanError
 from .prices import price_issue
 from .rules import VehiclePlan, parse_hhmm
 from .schema import vol
-from .vehicle import Vehicle
+from .vehicle import Vehicle, to_float
 
 ENTRY = vol.Optional("entry_id")
 PERCENT = vol.All(vol.Coerce(float), vol.Range(min=0, max=100))
@@ -178,6 +184,7 @@ VEHICLE_SCHEMA = vol.Schema(
         vol.Optional(SET_CLIMATE_BELOW): vol.All(vol.Coerce(float), vol.Range(min=-30, max=40)),
         vol.Optional(SET_CLIMATE_PLUGGED): cv.boolean,
         vol.Optional(SET_CALENDAR_KEYWORD): vol.All(cv.string, vol.Length(max=40)),
+        vol.Optional(SET_CLIMATE_ENTITY): vol.Any("", cv.entity_id),
         vol.Optional(SET_DAY_CLIMATE): {vol.In(WEEKDAYS): vol.All(vol.Coerce(float), vol.Range(min=10, max=32))},
         vol.Optional(SET_EARLY_WITHIN): vol.All(vol.Coerce(float), vol.Range(min=0, max=2)),
         vol.Optional(SET_TOPUP_ENABLED): cv.boolean,
@@ -218,10 +225,46 @@ SETTINGS_SCHEMA = vol.Schema(
         vol.Optional("quiet_enabled"): cv.boolean,
         vol.Optional("quiet_from"): _hhmm,
         vol.Optional("quiet_to"): _hhmm,
+        vol.Optional("departures"): vol.All(
+            cv.ensure_list,
+            vol.Length(max=20),
+            [
+                vol.Schema(
+                    {
+                        vol.Required("id"): vol.All(cv.string, vol.Length(min=1, max=40)),
+                        vol.Optional("name"): vol.Any(None, vol.All(cv.string, vol.Length(max=40))),
+                        vol.Required("day"): vol.In(DEPARTURE_DAYS),
+                        vol.Required("time"): _hhmm,
+                        vol.Optional("price"): vol.In(DEPARTURE_PRICES),
+                        vol.Optional("pct"): vol.All(vol.Coerce(float), vol.Range(min=1, max=100)),
+                        vol.Optional("target"): vol.Any(None, PERCENT),
+                    }
+                )
+            ],
+        ),
+        vol.Optional("phones"): vol.Any(None, [cv.string]),
+        vol.Optional("price_add"): vol.Any(None, vol.All(vol.Coerce(float), vol.Range(min=-100, max=100))),
+        vol.Optional("update_widgets"): vol.Any(None, cv.boolean),
+        vol.Optional("places"): {
+            cv.string: vol.Schema(
+                {
+                    vol.Optional(CONF_SUPPLY_GUARD): cv.boolean,
+                    vol.Optional(CONF_SUPPLY_WAIT): vol.All(vol.Coerce(int), vol.Range(min=5, max=30)),
+                    vol.Optional(CONF_SUPPLY_SHARE): vol.In(SHARE_OPTIONS),
+                }
+            )
+        },
     }
 )
 
 type _Handler = Callable[[HomeAssistant, websocket_api.ActiveConnection, dict[str, Any]], Awaitable[None]]
+
+
+def _notify_all(hass: HomeAssistant) -> list[str]:
+    """The phones and other notify services there are."""
+    skip = {"notify", "persistent_notification", "send_message"}
+    names = [name for name in hass.services.async_services_for_domain("notify") if name not in skip]
+    return sorted(f"notify.{name}" for name in names)
 
 
 def _household(hass: HomeAssistant, msg: Mapping[str, Any]) -> Household:
@@ -371,6 +414,13 @@ def vehicle_state(household: Household, vehicle: Vehicle) -> dict[str, Any]:
             "target": trip.get("target"),
             "day": trip.get("day"),
         },
+        # The prices where the car is, when that place has its own (a summer house in another price area).
+        "prices": None
+        if household.site_price_entity(household.site_id_of(vehicle)) == household.price_entity
+        else [
+            {"start": s.start.isoformat(), "end": s.end.isoformat(), "price": s.price}
+            for s in household.visible_slots(household.vehicle_prices(vehicle, now))
+        ],
         "climate": None
         if not vehicle.climate_entity
         else {
@@ -509,6 +559,14 @@ def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
                 "supply": household.supplies[site.site_id].state(now),
                 "solar": household.solars[site.site_id].state(now),
                 "energy": household.homes[site.site_id].state(now),
+                "price_entity": household.site_price_entity(site.site_id),
+                "own_price": household.site_price_entity(site.site_id) != household.price_entity,
+                "guard": bool(household.supplies[site.site_id].config.get(CONF_SUPPLY_GUARD)),
+                "wait": int(
+                    to_float(household.supplies[site.site_id].config.get(CONF_SUPPLY_WAIT)) or DEFAULT_SUPPLY_WAIT
+                ),
+                "share": household.supplies[site.site_id].share,
+                "has_meter": bool(household.supplies[site.site_id].meters),
             }
             for site in household.sites.values()
         ],
@@ -518,13 +576,22 @@ def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
         "vehicles": [vehicle_state(household, vehicle) for vehicle in vehicles],
         "chargers": chargers,
         "guest": guest_state(household, household.guest),
-        "settings": dict(household.settings),
+        "settings": {
+            **household.settings,
+            "departures": household_departures(household.settings.get("departures")),
+            "price_add": household.price_add,
+            "update_widgets": household.update_widgets,
+        },
         "layout": household.layout,
         "config": {
             "price_entity": household.price_entity,
             "notify": household.notify_services,
-            "notify_names": {service: _notify_name(hass, service) for service in household.notify_services},
-            "update_widgets": bool(household.config.get("update_widgets")),
+            "notify_names": {
+                service: _notify_name(hass, service) for service in {*household.notify_services, *_notify_all(hass)}
+            },
+            # Every phone Home Assistant can send to, to choose from in the panel.
+            "notify_all": _notify_all(hass),
+            "update_widgets": household.update_widgets,
         },
     }
 
@@ -849,7 +916,7 @@ async def ws_layout(hass: HomeAssistant, connection: websocket_api.ActiveConnect
         vol.Required("type"): f"{DOMAIN}/vehicle_trip",
         ENTRY: str,
         vol.Required("vehicle_id"): str,
-        vol.Optional("kind"): vol.Any(None, vol.In(TRIP_KINDS)),
+        vol.Optional("kind"): vol.Any(None, vol.All(cv.string, vol.Length(min=1, max=40))),
         vol.Optional("date"): vol.Any(None, cv.date),
         vol.Optional("target"): vol.Any(None, PERCENT),
     }

@@ -56,6 +56,10 @@ from .const import (
     CONF_PRICE_ADD,
     CONF_PRICE_ENTITY,
     CONF_SITE,
+    CONF_SITE_PRICE_ENTITY,
+    CONF_SUPPLY_GUARD,
+    CONF_SUPPLY_SHARE,
+    CONF_SUPPLY_WAIT,
     CONF_SWITCH_ENTITY,
     CONF_TARGET_ENTITY,
     CONF_UNPLUGGED_STATES,
@@ -102,6 +106,7 @@ from .const import (
     SET_CHARGE_ON_LATE,
     SET_CLIMATE_AUTO,
     SET_CLIMATE_BELOW,
+    SET_CLIMATE_ENTITY,
     SET_CLIMATE_MINUTES,
     SET_CLIMATE_PLUGGED,
     SET_CLIMATE_TEMP,
@@ -139,6 +144,13 @@ from .const import (
     VERIFY_UNKNOWN_TRIES,
     WEEKDAYS,
     WIDGET_MIN_INTERVAL,
+)
+from .departures import (
+    ceiling as departure_ceiling,
+    deadline as departure_deadline,
+    departures as household_departures,
+    find as find_departure,
+    from_cars as departures_from_cars,
 )
 from .events import EventLog
 from .guest import GuestSession
@@ -191,7 +203,17 @@ SETTINGS_DEFAULTS: dict[str, Any] = {
     "quiet_enabled": False,
     "quiet_from": "22:00",
     "quiet_to": "06:00",
+    # The departures a car can be set to (None: the defaults; see departures.py).
+    "departures": None,
+    # The phones messages go to (None: those chosen in the integration's options before 2.5).
+    "phones": None,
+    # Added to every price (None: the integration's options before 2.5), and the widgets' refresh.
+    "price_add": None,
+    "update_widgets": None,
+    # Each place's guard and sharing: {the place's id: {supply_guard, supply_wait, supply_share}}.
+    "places": {},
 }
+PLACE_SETTINGS = (CONF_SUPPLY_GUARD, CONF_SUPPLY_WAIT, CONF_SUPPLY_SHARE)
 TRIP_TARGET = re.compile(r"(\d{2,3})\s*%")
 # "fuld", "fuldt opladet", "full": the whole battery.
 TRIP_FULL = re.compile(r"\b(fuld|fuldt|full|fully)\b", re.IGNORECASE)
@@ -434,7 +456,7 @@ class Household(DataUpdateCoordinator[None]):
         # One evaluation at a time: two at once would send the same command twice.
         self._control_lock = asyncio.Lock()
         self._save_due: float | None = None
-        self._slots_cache: tuple[State | None, date, float, list[PriceSlot]] | None = None
+        self._slots_cache: dict[str, tuple[State | None, date, float, list[PriceSlot]]] = {}
         self._verify_unknown: dict[str, int] = {}
         self._verify_timers: dict[str, CALLBACK_TYPE] = {}
         self._unplug_timers: dict[str, CALLBACK_TYPE] = {}
@@ -470,6 +492,28 @@ class Household(DataUpdateCoordinator[None]):
     def price_entity(self) -> str:
         return str(self.config[CONF_PRICE_ENTITY])
 
+    def site_price_entity(self, site_id: str | None) -> str:
+        """The price sensor of a place: its own, or the household's."""
+        site = self.sites.get(site_id or SITE_HOME)
+        own = site.data.get(CONF_SITE_PRICE_ENTITY) if site is not None else None
+        return str(own) if own else self.price_entity
+
+    @property
+    def price_add(self) -> float:
+        value = self.settings.get("price_add")
+        return to_float(value if value is not None else self.config.get(CONF_PRICE_ADD)) or 0.0
+
+    @property
+    def update_widgets(self) -> bool:
+        value = self.settings.get("update_widgets")
+        return bool(value if value is not None else self.config.get("update_widgets"))
+
+    def place_settings(self, site_id: str) -> dict[str, Any]:
+        """A place's guard and sharing as set in the panel (none: as in its setup before 2.5)."""
+        places = self.settings.get("places") or {}
+        own = places.get(site_id) if isinstance(places, dict) else None
+        return {key: own[key] for key in PLACE_SETTINGS if isinstance(own, dict) and key in own}
+
     @property
     def currency(self) -> str:
         return str(self.config.get(CONF_CURRENCY) or self.hass.config.currency or DEFAULT_CURRENCY)
@@ -491,7 +535,8 @@ class Household(DataUpdateCoordinator[None]):
 
     @property
     def notify_services(self) -> list[str]:
-        value = self.config.get(CONF_NOTIFY) or []
+        phones = self.settings.get("phones")
+        value = phones if isinstance(phones, list) else self.config.get(CONF_NOTIFY) or []
         return [str(item) for item in value] if isinstance(value, list) else [str(value)]
 
     # ------------------------------------------------------------------
@@ -639,6 +684,8 @@ class Household(DataUpdateCoordinator[None]):
         self.solar.load(stored.get("solar"))
         self.settings = {**SETTINGS_DEFAULTS, **(stored.get("settings") or {})}
         self._adopt_car_calendars()
+        self._adopt_25()
+        self.notifier.set_services(self.notify_services)
         self.images = self._known_images(stored.get("images"))
         self.layout = clean_layouts(stored.get("layout"))
         self.originals = {
@@ -662,6 +709,32 @@ class Household(DataUpdateCoordinator[None]):
                 vehicle.settings[SET_CALENDAR_KEYWORD] = legacy or "*"
         if calendars != self.settings.get("calendars"):
             self.settings["calendars"] = calendars
+            self._store.async_delay_save(self._data_to_store, 5)
+
+    def _adopt_25(self) -> None:
+        """What moved into the panel in 2.5 is taken from where it was, once.
+
+        The departures from the cars' own morning, midday and evening times; each place's guard and
+        sharing from its setup; a car's climate from its setup.
+        """
+        changed = False
+        if not isinstance(self.settings.get("departures"), list):
+            self.settings["departures"] = departures_from_cars([v.settings for v in self.vehicles.values()])
+            changed = True
+        places = dict(self.settings.get("places") or {})
+        for site_id, site in self.sites.items():
+            if site_id in places:
+                continue
+            own = {key: site.data[key] for key in PLACE_SETTINGS if key in site.data}
+            if own:
+                places[site_id] = own
+                changed = True
+        self.settings["places"] = places
+        for vehicle in self.vehicles.values():
+            if not vehicle.settings.get(SET_CLIMATE_ENTITY) and (entity := vehicle.config.get(CONF_CLIMATE_ENTITY)):
+                vehicle.settings[SET_CLIMATE_ENTITY] = entity
+                changed = True
+        if changed:
             self._store.async_delay_save(self._data_to_store, 5)
 
     def _known_images(self, images: Any) -> dict[str, str]:
@@ -721,18 +794,23 @@ class Household(DataUpdateCoordinator[None]):
     # ------------------------------------------------------------------
     # Prices
 
-    def price_slots(self, now: datetime | None = None) -> list[PriceSlot]:
-        """The prices, read from the sensor once for each time it changes (and each day)."""
-        state = self.hass.states.get(self.price_entity)
+    def price_slots(self, now: datetime | None = None, site: str | None = None) -> list[PriceSlot]:
+        """The prices at a place (the home's by default), read once for each time the sensor changes."""
+        entity = self.site_price_entity(site)
+        state = self.hass.states.get(entity)
         day = dt_util.as_local(now or dt_util.now()).date()
-        add = to_float(self.config.get(CONF_PRICE_ADD)) or 0.0
-        cache = self._slots_cache
+        add = self.price_add
+        cache = self._slots_cache.get(entity)
         if cache is None or cache[0] is not state or cache[1] != day or cache[2] != add:
             slots = extract_price_slots(state, now or dt_util.now())
             if add:
                 slots = [replace(slot, price=slot.price + add) for slot in slots]
-            cache = self._slots_cache = (state, day, add, slots)
+            cache = self._slots_cache[entity] = (state, day, add, slots)
         return list(cache[3])
+
+    def vehicle_prices(self, vehicle: Vehicle, now: datetime | None = None) -> list[PriceSlot]:
+        """The prices where the car is (or charges): the place's own sensor, or the household's."""
+        return self.price_slots(now, self.site_id_of(vehicle))
 
     def plan_on_forecast(self, vehicle: Vehicle, now: datetime) -> bool:
         """Whether a car's plan has hours whose price is a forecast, not a published price."""
@@ -1011,7 +1089,7 @@ class Household(DataUpdateCoordinator[None]):
             vehicle.start_session(now, vehicle.decision.reason)
             # A car that reports its power has its energy counted by that, every minute.
             if not self._power_counted(vehicle, now):
-                vehicle.add_energy(now, kwh, current_price(self.price_slots(now), now), "soc")
+                vehicle.add_energy(now, kwh, current_price(self.vehicle_prices(vehicle, now), now), "soc")
             self.async_save()
 
     @callback
@@ -1198,7 +1276,7 @@ class Household(DataUpdateCoordinator[None]):
             speed=vehicle.charge_speed(power)[0],
             curve=vehicle.learned.speeds(),
         )
-        every = self.price_slots(now)
+        every = self.vehicle_prices(vehicle, now)
         known = [slot for slot in every if not slot.forecast]
         # With only the published prices, the car is ready by the ready-by time, or by the end of
         # the prices there are when that comes first. Nothing is bet on a forecast.
@@ -1211,7 +1289,13 @@ class Household(DataUpdateCoordinator[None]):
         rules = vehicle.rules()
         if trip is not None and vehicle.deadline == trip["at"]:
             # The weekend and a holiday charge only at the cheapest prices.
-            cap = cheap_ceiling(str(trip.get("kind")), every, trip["at"])
+            kind = str(trip.get("kind"))
+            departure = find_departure(self.settings.get("departures"), kind)
+            cap = (
+                departure_ceiling(departure, every, trip["at"])
+                if departure is not None
+                else cheap_ceiling(kind, every, trip["at"])
+            )
             if cap is not None:
                 rules = replace(
                     rules, ceiling=cap if rules.ceiling is None else min(rules.ceiling, cap), ceiling_above=None
@@ -1650,7 +1734,7 @@ class Household(DataUpdateCoordinator[None]):
         vehicle.add_energy(
             now,
             kwh,
-            current_price(self.price_slots(now), now),
+            current_price(self.vehicle_prices(vehicle, now), now),
             source,
             solar=kwh * self.solar_of(vehicle).share_now(vehicle),
             solar_price=self.export_price(self.site_id_of(vehicle)),
@@ -1749,7 +1833,7 @@ class Household(DataUpdateCoordinator[None]):
                 home=vehicle.at_home,
                 charging=vehicle.charging,
                 charger=vehicle.charger_id,
-                price=current_price(self.price_slots(now), now),
+                price=current_price(self.vehicle_prices(vehicle, now), now),
             )
             if apply and self._started:
                 await self._async_apply(vehicle, force=False)
@@ -2213,7 +2297,7 @@ class Household(DataUpdateCoordinator[None]):
             return
         first_run = not self._last_status
         self._last_status = statuses
-        if first_run or not self.config.get("update_widgets") or not self.notifier.enabled:
+        if first_run or not self.update_widgets or not self.notifier.enabled:
             return
         if self._widgets_sent is not None and elapsed(now, self._widgets_sent) < WIDGET_MIN_INTERVAL:
             if self._widgets_timer is None:
@@ -2623,15 +2707,22 @@ class Household(DataUpdateCoordinator[None]):
         now = dt_util.now()
         at = None
         if kind is not None:
-            at = trip_deadline(
-                kind,
-                now,
-                morning=parse_hhmm(vehicle.settings.get(SET_MORNING)) or time(6),
-                afternoon=parse_hhmm(vehicle.settings.get(SET_AFTERNOON)) or time(15),
-                midday=parse_hhmm(vehicle.settings.get(SET_MIDDAY)) or time(12),
-                evening=parse_hhmm(vehicle.settings.get(SET_EVENING)) or time(17),
-                day=day,
-            )
+            departure = find_departure(self.settings.get("departures"), kind)
+            if departure is not None:
+                at = departure_deadline(departure, now, day)
+                if target is None and isinstance(departure.get("target"), float):
+                    target = departure["target"]
+            else:
+                # A kind from before 2.5 (an action may still name one).
+                at = trip_deadline(
+                    kind,
+                    now,
+                    morning=parse_hhmm(vehicle.settings.get(SET_MORNING)) or time(6),
+                    afternoon=parse_hhmm(vehicle.settings.get(SET_AFTERNOON)) or time(15),
+                    midday=parse_hhmm(vehicle.settings.get(SET_MIDDAY)) or time(12),
+                    evening=parse_hhmm(vehicle.settings.get(SET_EVENING)) or time(17),
+                    day=day,
+                )
             if at is None:
                 raise ServiceValidationError(translation_domain=DOMAIN, translation_key="invalid_trip")
         vehicle.settings[SET_TRIP] = (
@@ -2711,6 +2802,19 @@ class Household(DataUpdateCoordinator[None]):
     async def async_update_settings(self, changes: Mapping[str, Any]) -> None:
         self.events.add(dt_util.now(), "settings", changes=dict(changes))
         self.settings.update({key: value for key, value in changes.items() if key in SETTINGS_DEFAULTS})
+        if "departures" in changes:
+            self.settings["departures"] = household_departures(changes["departures"])
+        if "places" in changes:
+            self.settings["places"] = {
+                str(site): {key: value for key, value in own.items() if key in PLACE_SETTINGS}
+                for site, own in (changes.get("places") or {}).items()
+                if isinstance(own, Mapping)
+            }
+        self.notifier.set_services(self.notify_services)
+        if "price_add" in changes:
+            self._slots_cache.clear()
+        if changes.keys() & {"places", "price_add"}:
+            self.schedule_recalculate(force=True)
         self.async_save()
         self.async_update_listeners()
 

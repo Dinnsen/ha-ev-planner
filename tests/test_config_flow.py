@@ -118,14 +118,15 @@ async def test_options(hass: HomeAssistant, init_integration: MockConfigEntry) -
     hass.services.async_register("notify", "mobile_app_phone", AsyncMock())
     result = await hass.config_entries.options.async_init(init_integration.entry_id)
     assert result["type"] is FlowResultType.FORM
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        {"currency": "EUR", "notify_services": ["notify.mobile_app_phone"], "update_widgets": True},
-    )
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {"currency": "EUR"})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
     assert init_integration.options["currency"] == "EUR"
-    assert init_integration.runtime_data.notify_services == ["notify.mobile_app_phone"]
+    # The phones are chosen in the panel since 2.5.
+    household = init_integration.runtime_data
+    await household.async_update_settings({"phones": ["notify.mobile_app_phone"]})
+    assert household.notify_services == ["notify.mobile_app_phone"]
+    assert household.notifier.services == ["mobile_app_phone"]
 
 
 async def _start_vehicle_flow(hass: HomeAssistant, entry: MockConfigEntry) -> dict:
@@ -145,7 +146,6 @@ async def test_add_a_car(hass: HomeAssistant, init_integration: MockConfigEntry)
         "battery_capacity": 52,
         "sensors": {"soc_entity": SOC},
         "charging": {"charge_power": 7.4, "charger": "none", "control": "car"},
-        "trips": {},
     }
     result = await hass.config_entries.subentries.async_configure(result["flow_id"], user_input)
     assert result["errors"] == {"base": "control_entity_required"}
@@ -184,7 +184,6 @@ async def test_change_a_car(hass: HomeAssistant, init_integration: MockConfigEnt
             "battery_capacity": 75,
             "sensors": {"soc_entity": SOC},
             "charging": {"charge_power": 11, "charger": CARPORT, "control": "car"},
-            "trips": {},
         },
     )
     assert result["errors"] == {"base": "control_entity_required"}
@@ -195,7 +194,6 @@ async def test_change_a_car(hass: HomeAssistant, init_integration: MockConfigEnt
             "battery_capacity": 75,
             "sensors": {"soc_entity": SOC},
             "charging": {"charge_power": 11, "charger": CARPORT, "control": "none"},
-            "trips": {},
         },
     )
     assert result["type"] is FlowResultType.ABORT
@@ -340,7 +338,6 @@ async def test_add_a_car_from_ev_smart_charging(hass: HomeAssistant, init_integr
             "battery_capacity": 75,
             "sensors": {"soc_entity": SOC, "target_entity": "number.tesla_charge_limit"},
             "charging": {"charge_power": 12, "charger": CARPORT, "control": "car", "control_entity": CHARGE_SWITCH},
-            "trips": {},
         },
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
@@ -366,7 +363,6 @@ async def test_add_a_car_from_ev_smart_charging(hass: HomeAssistant, init_integr
                     "control": "car",
                     "control_entity": CHARGE_SWITCH,
                 },
-                "trips": {},
             },
         )
         assert result["type"] is FlowResultType.ABORT
