@@ -6162,7 +6162,7 @@ class EvPlannerPanel extends HTMLElement {
     }
     this._patch(root.querySelector(".car-notes"), JSON.stringify([v.problem, v.control_error, v.control_retry, v.car_limit, v.target, v.resumes, this._state.price_issue, this._state.supply, v.supply_amps, v.connected, v.plan_forecast, v.plan_other_cost, shown.plan?.cost, v.settings?.known_prices, shown.plan && [shown.plan.limited, shown.plan.min_only, shown.plan.short, shown.plan.opportunistic, shown.plan.ceiling], shown.deadline, this._lang]), this._notesHtml(v, shown.plan ? { ...shown.plan, deadline: shown.deadline } : null, { compact: true }));
     const glance = root.querySelector(".car-page .glance");
-    if (glance) this._patch(glance, JSON.stringify([shown.deadline, shown.plan?.end_soc, v.target, shown.plan?.cost, shown.plan?.segments, this._lang]), this._glanceHtml(v, shown));
+    if (glance) this._patch(glance, JSON.stringify([shown.deadline, shown.preview, shown.plan?.end_soc, v.target, v.calendar?.start, v.trip, this._lang]), this._glanceHtml(v, shown));
     this._renderTimeline(shown.plan, { deadline: shown.deadline, ceiling: s.price_ceiling_enabled || shown.plan?.opportunistic ? ceiling : null, actual: this._chargedPeriods(v) });
     root.querySelector(".ceiling-key")?.toggleAttribute("hidden", !(s.price_ceiling_enabled || shown.plan?.opportunistic));
     const note = root.querySelector(".car-page .ceil-note");
@@ -6207,20 +6207,13 @@ class EvPlannerPanel extends HTMLElement {
       const label = this._t(on ? "climate_stop" : "climate_start");
       climate = `<button class="climate-btn${on ? " on" : ""}" data-act="climate-open" data-f="climate" aria-pressed="${on}" aria-haspopup="dialog" aria-label="${esc(`${this._t("climate_label")}: ${label}`)}">${ICONS.climate}<span>${esc(temp || this._t("climate_label"))}</span></button>`;
     }
-    const when = v.deadline ? this._readyText(v.deadline) : this._t("no_deadline_short");
-    const cheap = trip?.kind === "weekend" || trip?.kind === "holiday" ? ` · ${this._t("go_cheap")}` : "";
-    const source = this._nextSource(v);
-    const sourceIcon = { calendar: ICONS.calendar, trip: ICONS.history, week: ICONS.calendar, none: ICONS.history }[source.kind];
+
     return `<div class="go-row">
         <label class="go-pick">${ICONS.history}<select data-trip-select="1" aria-label="${esc(this._t("trip"))}">${options}</select>${ICONS.back}</label>
         ${climate}
       </div>
       ${date}
-      ${
-        v.deadline
-          ? `<button class="go-when as-link" data-act="next-open" aria-haspopup="dialog">${sourceIcon}<span>${esc(when.charAt(0).toUpperCase() + when.slice(1) + cheap)}</span><em>${esc(source.label)}</em>${ICONS.back}</button>`
-          : `<p class="go-when">${esc(when.charAt(0).toUpperCase() + when.slice(1))}</p>`
-      }`;
+`;
   }
 
   /* The week plan, in a few words: "07.00 · fri: lø sø". */
@@ -6237,11 +6230,14 @@ class EvPlannerPanel extends HTMLElement {
     const plan = shown.plan;
     const target = plan && isNum(plan.end_soc) ? plan.end_soc : v.target;
     const ready = this._readyText(shown.deadline);
-    const chips = [
-      [ICONS.history, ready.charAt(0).toUpperCase() + ready.slice(1)],
-      isNum(target) && [ICONS.charge, this._pct(target)],
-    ].filter(Boolean);
-    return chips.map(([icon, text]) => `<span class="g-chip">${icon}<b>${esc(text)}</b></span>`).join("");
+    const text = ready.charAt(0).toUpperCase() + ready.slice(1);
+    // The ready-by time says where it comes from, and opens the next departure.
+    const source = this._nextSource(v);
+    const icon = source.kind === "calendar" || source.kind === "week" ? ICONS.calendar : ICONS.history;
+    const when = shown.deadline && !shown.preview
+      ? `<button class="g-chip g-next" data-act="next-open" aria-haspopup="dialog">${icon}<b>${esc(text)}</b>${source.label ? `<em>${esc(source.label)}</em>` : ""}${ICONS.back}</button>`
+      : `<span class="g-chip">${ICONS.history}<b>${esc(text)}</b></span>`;
+    return `${when}${isNum(target) ? `<span class="g-chip">${ICONS.charge}<b>${esc(this._pct(target))}</b></span>` : ""}`;
   }
 
   async _setTrip(kind, date) {
@@ -6356,6 +6352,7 @@ class EvPlannerPanel extends HTMLElement {
         <p class="next-when">${esc(this._weekdayName(WEEKDAYS[(at.getDay() + 6) % 7]))} ${esc(this._time(v.deadline))}</p>
         <p class="next-left">${esc(this._t("next_in", { time: this._duration(left) }))}</p>
         ${what && source.kind !== "trip" ? `<p class="next-what">${esc(what)}</p>` : ""}
+        ${source.kind === "trip" && ["weekend", "holiday"].includes(v.trip?.kind) ? `<p class="next-what">${esc(this._t(`trip_cheap_${v.trip.kind}`))}</p>` : ""}
       </div>
       <div class="next-chips">${chips.map(([icon, text]) => `<span class="g-chip">${icon}<b>${esc(text)}</b></span>`).join("")}</div>
       <div class="next-line" aria-hidden="true">
@@ -9498,6 +9495,9 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .glance { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 14px 0 4px; }
 .g-chip { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; background: color-mix(in srgb, var(--evp-ink) 6%, transparent); font-size: 14px; font-variant-numeric: tabular-nums; }
 .g-chip b { font-weight: 600; }
+.g-next { border: 0; color: var(--evp-ink); font: inherit; font-size: 14px; cursor: pointer; background: color-mix(in srgb, var(--evp-a) 14%, transparent); }
+.g-next em { font-style: normal; font-size: 12px; color: var(--evp-soft); }
+.g-chip.g-next svg:last-child { width: 12px; height: 12px; stroke: var(--evp-soft); transform: rotate(180deg); }
 .g-chip svg { width: 16px; height: 16px; fill: none; stroke: var(--evp-a); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .go-row { display: flex; gap: 8px; align-items: stretch; margin-top: 14px; }
 .go-pick { flex: 1 1 auto; min-width: 0; position: relative; display: flex; align-items: center; gap: 10px; padding: 0 12px; border-radius: 14px; background: color-mix(in srgb, var(--evp-ink) 6%, transparent); }

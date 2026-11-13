@@ -2,6 +2,12 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.4.0b7] - 2026-11-13
+
+### Changed
+
+- The ready-by time at the top of the car's page is the one that shows where it comes from (calendar, preset or week plan) and opens the next departure; the second line under the departure list is gone.
+
 ## [2.4.0b6] - 2026-11-13
 
 ### New
