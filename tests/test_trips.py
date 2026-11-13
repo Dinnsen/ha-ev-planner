@@ -81,6 +81,9 @@ def test_a_calendar_event_gives_departure_target_and_climate() -> None:
     assert read_trip("Møde i Odense, afgang 7:30, 90%, klima 22°", start) == (_at(20, 7, 30), 90.0, 22.0)
     assert read_trip("Kører kl. 6.45, forvarm", start) == (_at(20, 6, 45), None, True)
     assert read_trip("Leave 07:15 preheat 21.5C full", start) == (_at(20, 7, 15), 100.0, 21.5)
+    # The short form: a time, a level and the climate with its temperature.
+    assert read_trip("Elroq 7:15 80% klima 21,5", start) == (_at(20, 7, 15), 80.0, 21.5)
+    assert read_trip("Elroq 6.30 klima 20", start) == (_at(20, 6, 30), None, 20.0)
     # A temperature without the word for the climate is not a climate.
     assert read_trip("Strand 25 grader", start) == (start, None, None)
 

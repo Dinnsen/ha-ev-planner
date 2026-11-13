@@ -177,13 +177,25 @@ SETTINGS_DEFAULTS: dict[str, Any] = {
     "language": "auto",
     "house": "classic",
     "houses": {},
+    # Notifications: all on or off (a switch), and quiet hours with none (e.g. 22:00-06:00).
+    "notify_enabled": True,
+    "quiet_enabled": False,
+    "quiet_from": "22:00",
+    "quiet_to": "06:00",
 }
 TRIP_TARGET = re.compile(r"(\d{2,3})\s*%")
 # "fuld", "fuldt opladet", "full": the whole battery.
 TRIP_FULL = re.compile(r"\b(fuld|fuldt|full|fully)\b", re.IGNORECASE)
 # The climate: a word for it, and maybe a temperature ("klima 22°", "forvarm 21 grader", "preheat 20C").
 TRIP_CLIMATE = re.compile(r"\b(klima\w*|climate|forvarm\w*|opvarm\w*|preheat\w*|precondition\w*)\b", re.IGNORECASE)
-TRIP_DEGREES = re.compile(r"(\d{2}(?:[.,]5)?)\s*(?:°|grader|grad|degrees|deg\b|c\b)", re.IGNORECASE)
+TRIP_DEGREES = re.compile(r"(\d{2}(?:[.,]\d)?)\s*(?:°|grader|grad|degrees|deg\b|c\b)", re.IGNORECASE)
+# The temperature right after the word for the climate: "klima 21,5".
+TRIP_CLIMATE_AT = re.compile(
+    r"\b(?:klima\w*|climate|forvarm\w*|opvarm\w*|preheat\w*|precondition\w*)\s*(\d{2}(?:[.,]\d)?)(?![\d:])",
+    re.IGNORECASE,
+)
+# A time in the text is the departure: "Elroq 7:15", "kl. 6.45" (not "21,5" or "80 %").
+TRIP_TIME = re.compile(r"(?<![\d.,:])(\d{1,2})[:.](\d{2})(?![\d%])")
 # A departure that is not the event's start ("afgang 7:30", "kører kl. 7.15", "leave 07:30").
 TRIP_LEAVE = re.compile(
     r"\b(?:afgang|afg\.?|kører|køre|kør|leave|leaving|depart\w*)\s*(?:kl\.?|at)?\s*(\d{1,2})[:.](\d{2})\b",
@@ -294,12 +306,12 @@ def climate_temperature(wanted: float, attributes: Mapping[str, Any]) -> float:
 def read_trip(text: str, start: datetime) -> tuple[datetime, float | None, float | bool | None]:
     """What a calendar event says: when the car leaves, how full, and the climate.
 
-    The event's start is the departure, unless the text names another time ("afgang 7:30").
+    The event's start is the departure, unless the text has a time ("Elroq 7:15", "afgang 7:30").
     "80 %" is the target, "fuld" or "full" 100 %. A word for the climate ("klima", "forvarm",
-    "preheat") starts it before the departure, at the temperature in the text ("22°") if there is one.
+    "preheat") starts it before the departure, at the number after it ("klima 21,5") if there is one.
     """
     departure = start
-    if leave := TRIP_LEAVE.search(text):
+    if leave := TRIP_LEAVE.search(text) or TRIP_TIME.search(text):
         hour, minute = int(leave.group(1)), int(leave.group(2))
         if hour < 24 and minute < 60:
             departure = start.replace(hour=hour, minute=minute, second=0, microsecond=0)
@@ -311,7 +323,7 @@ def read_trip(text: str, start: datetime) -> tuple[datetime, float | None, float
     climate: float | bool | None = None
     if TRIP_CLIMATE.search(text):
         climate = True
-        if degrees := TRIP_DEGREES.search(text):
+        if degrees := TRIP_CLIMATE_AT.search(text) or TRIP_DEGREES.search(text):
             value = float(degrees.group(1).replace(",", "."))
             if 10 <= value <= 32:
                 climate = value
@@ -370,7 +382,10 @@ class Household(DataUpdateCoordinator[None]):
         # What happened and why, for the support export.
         self.events = EventLog(hass, entry.entry_id)
         self.notifier = Notifier(
-            hass, self.notify_services, lambda kind, **data: self.events.add(dt_util.now(), kind, **data)
+            hass,
+            self.notify_services,
+            lambda kind, **data: self.events.add(dt_util.now(), kind, **data),
+            quiet=self.notifications_held,
         )
         self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY.format(entry_id=entry.entry_id))
         self._unsub: list[CALLBACK_TYPE] = []
@@ -2305,7 +2320,7 @@ class Household(DataUpdateCoordinator[None]):
             start_raw = str(item.get("start") or "")
             if "T" in start_raw:
                 start = dt_util.parse_datetime(start_raw)
-            elif TRIP_LEAVE.search(text) and (day := dt_util.parse_date(start_raw[:10])) is not None:
+            elif TRIP_TIME.search(text) and (day := dt_util.parse_date(start_raw[:10])) is not None:
                 # An all-day event with a departure in it ("afgang 7:30").
                 start = datetime.combine(day, time(0), now.tzinfo)
             else:
@@ -2554,6 +2569,19 @@ class Household(DataUpdateCoordinator[None]):
         self.layout = clean_layouts(layout)
         self.async_save()
         self.async_update_listeners()
+
+    def notifications_held(self, now: datetime | None = None) -> bool:
+        """No notifications now: turned off, or in the quiet hours."""
+        if not self.settings.get("notify_enabled", True):
+            return True
+        if not self.settings.get("quiet_enabled"):
+            return False
+        start = parse_hhmm(self.settings.get("quiet_from")) or time(22)
+        end = parse_hhmm(self.settings.get("quiet_to")) or time(6)
+        moment = (now or dt_util.now()).time()
+        if start == end:
+            return False
+        return start <= moment < end if start < end else (moment >= start or moment < end)
 
     async def async_update_settings(self, changes: Mapping[str, Any]) -> None:
         self.events.add(dt_util.now(), "settings", changes=dict(changes))

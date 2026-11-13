@@ -23,6 +23,23 @@ class EVPlannerEntity(CoordinatorEntity[Household]):
         self._attr_translation_key = key
 
 
+class HouseholdEntity(EVPlannerEntity):
+    """An entity of the whole household (its notifications)."""
+
+    def __init__(self, household: Household, key: str) -> None:
+        super().__init__(household, key)
+        entry_id = household.config_entry.entry_id
+        self._attr_unique_id = f"{entry_id}_{key}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry_id)},
+            translation_key="household",
+            manufacturer=MANUFACTURER,
+            model="EV Planner",
+            entry_type=DeviceEntryType.SERVICE,
+            configuration_url=DOCS_URL,
+        )
+
+
 class VehicleEntity(EVPlannerEntity):
     """An entity of one of the household's cars."""
 

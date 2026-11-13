@@ -172,7 +172,7 @@
               },
               "data_description": {
                 "calendar_entity": "Ture i denne kalender bestemmer, hvornår bilen skal være klar.",
-                "calendar_keyword": "Kun begivenheder med dette ord. Skriv fx 80 % i begivenheden for at lade til 80 %, \"fuld\" for 100 %, \"afgang 7:30\" for en anden afgang end begivenhedens start, og \"klima 21°\" for at varme bilen op inden afgang. Se vejledningen i dokumentationen.",
+                "calendar_keyword": "Kun begivenheder med dette ord. Kort form i begivenheden: \"Elroq 7:15 80% klima 21,5\" – klar kl. 7.15 med 80 %, varmet op til 21,5°. Hver del kan undværes. Se vejledningen i dokumentationen.",
                 "climate_entity": "Valgfrit. Bilens klima-entitet (den sættes til at varme eller køle til den temperatur, du vælger), eller en kontakt, knap eller et script, der starter klimaet. Bruges af Klima-knappen på bilens side, før kalenderture der beder om det, og før forvalg når automatisk klima er slået til."
               }
             }
@@ -248,7 +248,7 @@
               },
               "data_description": {
                 "calendar_entity": "Ture i denne kalender bestemmer, hvornår bilen skal være klar.",
-                "calendar_keyword": "Kun begivenheder med dette ord. Skriv fx 80 % i begivenheden for at lade til 80 %, \"fuld\" for 100 %, \"afgang 7:30\" for en anden afgang end begivenhedens start, og \"klima 21°\" for at varme bilen op inden afgang. Se vejledningen i dokumentationen.",
+                "calendar_keyword": "Kun begivenheder med dette ord. Kort form i begivenheden: \"Elroq 7:15 80% klima 21,5\" – klar kl. 7.15 med 80 %, varmet op til 21,5°. Hver del kan undværes. Se vejledningen i dokumentationen.",
                 "climate_entity": "Valgfrit. Bilens klima-entitet (den sættes til at varme eller køle til den temperatur, du vælger), eller en kontakt, knap eller et script, der starter klimaet. Bruges af Klima-knappen på bilens side, før kalenderture der beder om det, og før forvalg når automatisk klima er slået til."
               }
             }
@@ -900,6 +900,12 @@
       },
       "price_ceiling_relative": {
         "name": "Prisloft: gennemsnit + %"
+      },
+      "notifications": {
+        "name": "Notifikationer"
+      },
+      "quiet_hours": {
+        "name": "Stille timer"
       }
     },
     "text": {
@@ -919,12 +925,21 @@
       },
       "guest_ready_by": {
         "name": "Klar kl."
+      },
+      "quiet_from": {
+        "name": "Stille fra"
+      },
+      "quiet_to": {
+        "name": "Stille til"
       }
     }
   },
   "device": {
     "guest": {
       "name": "Gæstebil"
+    },
+    "household": {
+      "name": "EV Planner"
     }
   },
   "selector": {

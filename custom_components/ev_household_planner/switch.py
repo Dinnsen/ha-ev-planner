@@ -30,7 +30,7 @@ from .const import (
     SET_USE_EARLIEST_START,
     SET_USE_READY_BY,
 )
-from .entity import GuestEntity, VehicleEntity
+from .entity import GuestEntity, HouseholdEntity, VehicleEntity
 from .household import EVPlannerConfigEntry, Household
 
 PARALLEL_UPDATES = 0
@@ -81,6 +81,7 @@ async def async_setup_entry(
             config_subentry_id=vehicle_id,
         )
     async_add_entities(GuestSwitch(household, description) for description in GUEST_SWITCHES)
+    async_add_entities(HouseholdSwitch(household, key) for key in HOUSEHOLD_SWITCHES)
 
 
 class VehicleSwitch(VehicleEntity, SwitchEntity):
@@ -99,6 +100,26 @@ class VehicleSwitch(VehicleEntity, SwitchEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         await self.coordinator.async_set_vehicle(self.vehicle_id, {self.entity_description.setting: False})
+
+
+# The household's notifications: all of them on or off, and the quiet hours.
+HOUSEHOLD_SWITCHES = {"notifications": ("notify_enabled", True), "quiet_hours": ("quiet_enabled", False)}
+
+
+class HouseholdSwitch(HouseholdEntity, SwitchEntity):
+    def __init__(self, household: Household, key: str) -> None:
+        super().__init__(household, key)
+        self._setting, self._default = HOUSEHOLD_SWITCHES[key]
+
+    @property
+    def is_on(self) -> bool:
+        return bool(self.coordinator.settings.get(self._setting, self._default))
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        await self.coordinator.async_update_settings({self._setting: True})
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        await self.coordinator.async_update_settings({self._setting: False})
 
 
 class GuestSwitch(GuestEntity, SwitchEntity):

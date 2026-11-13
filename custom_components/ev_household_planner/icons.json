@@ -260,6 +260,15 @@
       },
       "reminder_price_enabled": {
         "default": "mdi:cash-check"
+      },
+      "notifications": {
+        "default": "mdi:bell",
+        "state": {
+          "off": "mdi:bell-off"
+        }
+      },
+      "quiet_hours": {
+        "default": "mdi:bell-sleep"
       }
     },
     "text": {
@@ -279,6 +288,12 @@
       },
       "guest_ready_by": {
         "default": "mdi:flag-checkered"
+      },
+      "quiet_from": {
+        "default": "mdi:bell-sleep"
+      },
+      "quiet_to": {
+        "default": "mdi:bell-ring"
       }
     }
   },

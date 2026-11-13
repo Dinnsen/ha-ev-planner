@@ -31,7 +31,7 @@ EV Planner is built from [EV Guest](https://github.com/Dinnsen/EV-Guest) (the pl
 - **You choose who starts and stops charging, per car:** the car (its charge switch), the charger (its switch), or neither – then EV Planner plans, reminds and publishes a *Charger control* sensor for your own automations.
 - **The cheapest plan** from 15-minute or hourly prices: in whole quarters of an hour (like EV Smart Charging), one period or the cheapest periods, with cost and savings. A car stops by itself at its limit, so the quarter it does not need in full costs nothing.
 - **Learns how fast each car charges.** Plans are made from the charging speed in % per hour that the car itself shows, so a car that draws less than its setting, or a battery that is not the size you expected, still gets a plan that is long enough. Nothing to set: no efficiency, no guessing.
-- **Ready by** a time, per weekday (with its own target if you like, e.g. Friday 100 %), or by a trip in a calendar ("Aarhus 90 %" charges to 90 %, "klima 21°" warms the car before it leaves – see [Trips from a calendar](#trips-from-a-calendar)).
+- **Ready by** a time, per weekday (with its own target if you like, e.g. Friday 100 %), or by a trip in a calendar ("Elroq 7:15 80% klima 21,5": ready at 7.15 with 80 %, the car warmed to 21.5° – see [Trips from a calendar](#trips-from-a-calendar)).
 - **Presets** on the car's page: *Tomorrow morning*, *This afternoon*, *Tomorrow afternoon*, *Weekend* (only at the cheapest prices, ready Monday morning) and *Holiday* (only the cheapest hours, ready the day you are home) – once, then the week plan again.
 - **The car's climate:** a button on the car's page, and by itself before a calendar trip or a preset when it is cold (opt-in).
 - **Learns the car's charging curve:** many cars charge slower near the top, so the speed is learned per band of the charge level (0–50, 50–80, 80–90, 90–100 %), and a plan to 100 % gives the last per cent the time they take. A morning the car was not quite ready makes the next plans finish a little earlier (in quarters, at most an hour); three mornings on time bring it back.
@@ -270,22 +270,21 @@ Give the car a calendar under its settings (*Trips and climate*): any calendar i
 
 **Where:** write in the event's **title** or its **description**. With a *Keyword* (e.g. `Elroq`), only events with that word count – useful in a shared family calendar. Without one, every event with a time counts.
 
-**What you can write:**
+**The short way:** `Elroq 7:15 80% klima 21,5` – ready at 7.15 with 80 %, the car warmed to 21.5°. Each part is optional, in any order:
 
 | You write | It means |
 | --- | --- |
-| *(the event's start)* | The car must be ready then. |
-| `80 %` or `80%` | Charge to 80 % for this trip (10–100). |
-| `fuld`, `full` | Charge to 100 %. |
-| `afgang 7:30`, `kører kl. 7.15`, `leave 07:30`, `depart 7:30` | Ready at 7.30 on the event's day, instead of its start (a meeting at 9, leaving at 7.30). Works in an all-day event too. |
-| `klima`, `forvarm`, `climate`, `preheat` | Start the car's climate before leaving, at the temperature under *Rules → Climate*. |
-| `klima 22°`, `forvarm 21 grader`, `preheat 20.5C` | … at that temperature (rounded to the car's steps, e.g. halves from 16 to 29.5). |
+| *(nothing)* | The car must be ready at the event's start. |
+| `7:15` or `7.15` | Ready at 7.15 on the event's day instead (a meeting at 9, leaving at 7.15). Works in an all-day event too. |
+| `80%` | Charge to 80 % for this trip (10–100). `fuld` or `full` is 100 %. |
+| `klima` | Warm (or cool) the car before leaving, at the temperature under *Rules → Climate*. `forvarm`, `climate` and `preheat` work too. |
+| `klima 21,5` | … at 21.5° (rounded to the car's own steps, e.g. halves from 16 to 29.5). |
 
 **Examples:**
 
-- `Elroq Aarhus 90 %` at 06:00 – ready at 06:00 with 90 %.
-- `Møde i Odense – Elroq afgang 7:15, fuld, klima 21°` at 09:00 – ready at 07:15 with 100 %, the car warmed to 21° from 07:00.
-- An all-day event `Elroq kør 6:30 80%` – ready at 06:30 that day with 80 %.
+- `Elroq Aarhus 90%` at 06:00 – ready at 06:00 with 90 %.
+- `Møde Odense – Elroq 7:15 fuld klima 21` at 09:00 – ready at 07:15 with 100 %, the car warmed to 21° from 07:00.
+- An all-day event `Elroq 6:30 80%` – ready at 06:30 that day with 80 %.
 
 **Good to know:** an all-day event without a time is ignored. The trip comes before the week plan and a preset when it is earlier. The climate starts *Before leaving* minutes ahead (default 15) and once for each trip; the calendar's word starts it whatever the weather, while the automatic climate (*Rules → Climate*) needs it to be cold and, unless you turn it off, the car plugged in. The calendar does not set the climate's temperature on the car for good – only for that start.
 

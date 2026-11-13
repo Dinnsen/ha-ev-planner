@@ -50,9 +50,20 @@ def tag_for(kind: str, key: str) -> str:
 class Notifier:
     """Send EV Planner notifications to the chosen notify actions."""
 
-    def __init__(self, hass: HomeAssistant, services: Iterable[str], note: Callable[..., None] | None = None) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        services: Iterable[str],
+        note: Callable[..., None] | None = None,
+        *,
+        quiet: Callable[[], bool] | None = None,
+    ) -> None:
         self.hass = hass
         self.services = [service_name(service) for service in services if service]
+        # Whether notifications are held back now (turned off, or the quiet hours).
+        self._quiet = quiet
+        # Live notifications taken away for the quiet hours, so it is done once.
+        self._hushed: set[str] = set()
         # Writes each notification in the event log (the support export).
         self._note = note
 
@@ -88,6 +99,10 @@ class Notifier:
         to: Iterable[str] | None = None,
     ) -> None:
         """A normal notification with an icon (the companion app shows it)."""
+        if self.held:
+            if self._note is not None:
+                self._note("notification_held", title=title, message=message, tag=tag)
+            return
         if self._note is not None:
             self._note("notification", title=title, message=message, tag=tag, to=list(self.targets(to)))
         for service in self.targets(to):
@@ -122,7 +137,18 @@ class Notifier:
         first: bool,
         to: Iterable[str] | None = None,
     ) -> None:
-        """Start or update a live notification (only to companion apps)."""
+        """Start or update a live notification (only to companion apps).
+
+        In the quiet hours it is taken away once and not updated; after them it comes back silently.
+        """
+        if self.held:
+            if tag not in self._hushed:
+                self._hushed.add(tag)
+                await self.clear(tag, to)
+            return
+        if tag in self._hushed:
+            self._hushed.discard(tag)
+            first = False
         for service in self.targets(to):
             if not is_mobile_app(service):
                 if first:
@@ -152,6 +178,10 @@ class Notifier:
                 extra["silent"] = True
                 extra["alert_once"] = True
             await self._call(service, {"title": title, "message": message, "data": extra})
+
+    @property
+    def held(self) -> bool:
+        return self._quiet is not None and self._quiet()
 
     async def clear(self, tag: str, to: Iterable[str] | None = None) -> None:
         """End a live notification, or remove a delivered one."""

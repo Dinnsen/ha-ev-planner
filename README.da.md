@@ -29,7 +29,7 @@ EV Planner er bygget på [EV Guest](https://github.com/Dinnsen/EV-Guest) (planl�
 - **I vælger per bil, hvem der starter og stopper ladningen:** bilen (dens ladekontakt), laderen (dens kontakt) eller ingen – så planlægger EV Planner, minder jer om stikket og udsender en *Ladestyring*-sensor til egne automationer.
 - **Den billigste plan** ud fra kvarter- eller timepriser: i hele kvarterer (som EV Smart Charging), én periode eller de billigste perioder, med pris og besparelse. Bilen stopper selv ved sin grænse, så det kvarter, den ikke bruger helt, koster ingenting.
 - **Lærer hvor hurtigt hver bil lader.** Planen regnes ud fra den ladehastighed i % pr. time, bilen selv viser. En bil, der trækker mindre end indstillet, eller et batteri, der ikke har den størrelse, I troede, får stadig en plan, der er lang nok. Intet at indstille: ingen effektivitet, intet gætteri. En ladning tæller, når niveauet er steget mindst 30 %, og under ladningen følger planen den hastighed, bilen viser. Med bilens sensor for ladeeffekt lærer EV Planner også effekten og tæller energien med den.
-- **Klar kl.** et tidspunkt, per ugedag (gerne med sit eget mål, fx fredag 100 %), eller efter en tur i kalenderen ("Aarhus 90 %" lader til 90 %, "klima 21°" varmer bilen op inden afgang – se [Ture fra en kalender](#ture-fra-en-kalender)).
+- **Klar kl.** et tidspunkt, per ugedag (gerne med sit eget mål, fx fredag 100 %), eller efter en tur i kalenderen ("Elroq 7:15 80% klima 21,5": klar kl. 7.15 med 80 %, bilen varmet op til 21,5° – se [Ture fra en kalender](#ture-fra-en-kalender)).
 - **Forvalg** på bilens side: *I morgen tidlig*, *I eftermiddag*, *I morgen eftermiddag*, *Weekend* (kun til de billigste priser, klar mandag morgen) og *Ferie* (kun de billigste timer, klar den dag I er hjemme) – én gang, derefter ugeplanen igen.
 - **Bilens klima:** en knap på bilens side, og af sig selv før en kalendertur eller et forvalg, når det er koldt (slås til).
 - **Lærer bilens ladekurve:** mange biler lader langsommere til sidst, så hastigheden læres i hvert bånd af ladeniveauet (0–50, 50–80, 80–90, 90–100 %), og en plan til 100 % giver de sidste procent den tid, de tager. En morgen, hvor bilen ikke helt nåede det, får de næste planer til at slutte lidt før (i kvarterer, højst en time); tre morgener til tiden flytter det tilbage.
@@ -222,22 +222,21 @@ Giv bilen en kalender under dens indstillinger (*Ture og klima*): enhver kalende
 
 **Hvor:** skriv i begivenhedens **titel** eller **beskrivelse**. Med et *Nøgleord* (fx `Elroq`) tæller kun begivenheder med det ord – smart i en fælles familiekalender. Uden nøgleord tæller alle begivenheder med et klokkeslæt.
 
-**Hvad du kan skrive:**
+**Den korte måde:** `Elroq 7:15 80% klima 21,5` – klar kl. 7.15 med 80 %, og bilen varmet op til 21,5°. Hver del kan undværes, i vilkårlig rækkefølge:
 
 | Du skriver | Det betyder |
 | --- | --- |
-| *(begivenhedens start)* | Bilen skal være klar der. |
-| `80 %` eller `80%` | Lad til 80 % til denne tur (10–100). |
-| `fuld`, `full` | Lad til 100 %. |
-| `afgang 7:30`, `kører kl. 7.15`, `kør 6:30`, `leave 07:30` | Klar kl. 7.30 på begivenhedens dag i stedet for dens start (møde kl. 9, afgang 7.30). Virker også i en heldagsbegivenhed. |
-| `klima`, `forvarm`, `opvarm`, `climate`, `preheat` | Start bilens klima inden afgang, til temperaturen under *Regler → Klima*. |
-| `klima 22°`, `forvarm 21 grader`, `preheat 20,5C` | … til den temperatur (afrundet til bilens trin, fx halve grader fra 16 til 29,5). |
+| *(ingenting)* | Bilen skal være klar ved begivenhedens start. |
+| `7:15` eller `7.15` | Klar kl. 7.15 på begivenhedens dag i stedet (møde kl. 9, afgang 7.15). Virker også i en heldagsbegivenhed. |
+| `80%` | Lad til 80 % til denne tur (10–100). `fuld` er 100 %. |
+| `klima` | Varm (eller køl) bilen inden afgang, til temperaturen under *Regler → Klima*. `forvarm`, `climate` og `preheat` virker også. |
+| `klima 21,5` | … til 21,5° (afrundet til bilens egne trin, fx halve grader fra 16 til 29,5). |
 
 **Eksempler:**
 
-- `Elroq Aarhus 90 %` kl. 06.00 – klar kl. 06.00 med 90 %.
-- `Møde i Odense – Elroq afgang 7:15, fuld, klima 21°` kl. 09.00 – klar kl. 07.15 med 100 %, og bilen varmet op til 21° fra kl. 07.00.
-- En heldagsbegivenhed `Elroq kør 6:30 80%` – klar kl. 06.30 den dag med 80 %.
+- `Elroq Aarhus 90%` kl. 06.00 – klar kl. 06.00 med 90 %.
+- `Møde Odense – Elroq 7:15 fuld klima 21` kl. 09.00 – klar kl. 07.15 med 100 %, og bilen varmet op til 21° fra kl. 07.00.
+- En heldagsbegivenhed `Elroq 6:30 80%` – klar kl. 06.30 den dag med 80 %.
 
 **Godt at vide:** en heldagsbegivenhed uden klokkeslæt ignoreres. Turen går før ugeplanen og et forvalg, når den kommer først. Klimaet starter *Før afgang* minutter før (standard 15) og én gang pr. tur; ordet i kalenderen starter det uanset vejret, mens det automatiske klima (*Regler → Klima*) kræver, at det er koldt, og – medmindre du slår det fra – at bilen er sat i. Kalenderen ændrer ikke bilens temperatur fast – kun til den start.
 

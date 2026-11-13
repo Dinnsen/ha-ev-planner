@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import GUEST_READY_BY, SET_EARLIEST_START, SET_READY_BY, SET_REMINDER_TIME
-from .entity import GuestEntity, VehicleEntity
+from .entity import GuestEntity, HouseholdEntity, VehicleEntity
 from .household import EVPlannerConfigEntry, Household
 from .rules import parse_hhmm
 
@@ -42,6 +42,7 @@ async def async_setup_entry(
             config_subentry_id=vehicle_id,
         )
     async_add_entities([GuestReadyBy(household)])
+    async_add_entities([QuietTime(household, "quiet_from", time(22)), QuietTime(household, "quiet_to", time(6))])
 
 
 class VehicleTime(VehicleEntity, TimeEntity):
@@ -59,6 +60,23 @@ class VehicleTime(VehicleEntity, TimeEntity):
         await self.coordinator.async_set_vehicle(
             self.vehicle_id, {self.entity_description.setting: value.strftime("%H:%M")}
         )
+
+
+class QuietTime(HouseholdEntity, TimeEntity):
+    """When the quiet hours, without notifications, begin and end."""
+
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, household: Household, key: str, default: time) -> None:
+        super().__init__(household, key)
+        self._default = default
+
+    @property
+    def native_value(self) -> time | None:
+        return parse_hhmm(self.coordinator.settings.get(self._key)) or self._default
+
+    async def async_set_value(self, value: time) -> None:
+        await self.coordinator.async_update_settings({self._key: value.strftime("%H:%M")})
 
 
 class GuestReadyBy(GuestEntity, TimeEntity):

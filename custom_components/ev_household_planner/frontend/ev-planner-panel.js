@@ -1337,6 +1337,14 @@ const HIST_PERIODS = ["day", "week", "month", "year"];
 /* Vehicle status → tone of the pill and the status line. */
 /* 2.4: presets, the climate, the latest charge and the charge level ahead. */
 Object.assign(TEXT.da, {
+  notify_all: "Notifikationer",
+  notify_all_hint: "Slå alle EV Planners beskeder til og fra – også med kontakten Notifikationer på enheden EV Planner, fx fra en automatisering, når I går i seng.",
+  notify_all_off: "Slået fra",
+  quiet_hours: "Stille timer",
+  quiet_hours_hint: "Ingen beskeder i dette tidsrum, heller ikke opdateringer af live-beskeden. Planen og ladningen kører som normalt.",
+  quiet_from: "Stille fra",
+  quiet_to: "Stille til",
+  quiet_summary: "stille {from}–{to}",
   trip: "Næste tur",
   trip_morning: "I morgen tidlig",
   trip_afternoon: "I eftermiddag",
@@ -1372,6 +1380,14 @@ Object.assign(TEXT.da, {
   rule_climate_plugged: "Kun når bilen er sat i",
 });
 Object.assign(TEXT.en, {
+  notify_all: "Notifications",
+  notify_all_hint: "Turn all of EV Planner's messages on and off – also with the Notifications switch on the EV Planner device, e.g. from an automation when you go to bed.",
+  notify_all_off: "Off",
+  quiet_hours: "Quiet hours",
+  quiet_hours_hint: "No messages in this time, nor updates of the live notification. The plan and the charging go on as usual.",
+  quiet_from: "Quiet from",
+  quiet_to: "Quiet until",
+  quiet_summary: "quiet {from}–{to}",
   trip: "Next trip",
   trip_morning: "Tomorrow morning",
   trip_afternoon: "This afternoon",
@@ -8157,8 +8173,20 @@ class EvPlannerPanel extends HTMLElement {
       notifications: {
         icon: "bell",
         title: this._t("settings_notifications"),
-        summary: lines([this._t(`lang_${settings.language || "auto"}`), notify.length ? notify.map((n) => config.notify_names?.[n] || n).join(", ") : this._t("not_set")]),
-        body: `<div class="field col"><span>${this._t("notify_language")}</span>
+        summary: lines([
+          settings.notify_enabled === false ? this._t("notify_all_off") : this._t(`lang_${settings.language || "auto"}`),
+          settings.notify_enabled !== false && settings.quiet_enabled && this._t("quiet_summary", { from: this._hhmm(settings.quiet_from || "22:00"), to: this._hhmm(settings.quiet_to || "06:00") }),
+          notify.length ? notify.map((n) => config.notify_names?.[n] || n).join(", ") : this._t("not_set"),
+        ]),
+        body: `${this._ruleRow({ icon: "bell", title: this._t("notify_all"), hint: this._t("notify_all_hint"), off: settings.notify_enabled === false, control: `<button class="switch" role="switch" data-act="hh-toggle" data-key="notify_enabled" data-f="hh-notify_enabled" aria-checked="${settings.notify_enabled !== false}" aria-label="${esc(this._t("notify_all"))}"><i></i></button>` })}
+          ${this._ruleRow({
+            icon: "history",
+            title: this._t("quiet_hours"),
+            hint: this._t("quiet_hours_hint"),
+            off: !settings.quiet_enabled,
+            control: `${settings.quiet_enabled ? `<label class="chip-input time on"><input type="time" step="900" id="quiet-from" value="${esc(settings.quiet_from || "22:00")}" aria-label="${this._t("quiet_from")}"></label><span class="dash">–</span><label class="chip-input time on"><input type="time" step="900" id="quiet-to" value="${esc(settings.quiet_to || "06:00")}" aria-label="${this._t("quiet_to")}"></label>` : ""}<button class="switch" role="switch" data-act="hh-toggle" data-key="quiet_enabled" data-f="hh-quiet_enabled" aria-checked="${Boolean(settings.quiet_enabled)}" aria-label="${esc(this._t("quiet_hours"))}"><i></i></button>`,
+          })}
+          <div class="field col"><span>${this._t("notify_language")}</span>
           <div class="chips">${["auto", "da", "en"]
             .map((code) => {
               const on = (settings.language || "auto") === code;
@@ -8317,6 +8345,13 @@ class EvPlannerPanel extends HTMLElement {
       case "climate":
         this._climate(button.dataset.on === "1");
         break;
+      case "hh-toggle": {
+        const key = button.dataset.key;
+        const settings = this._state.settings || {};
+        const now = key === "notify_enabled" ? settings.notify_enabled !== false : Boolean(settings[key]);
+        this._saveSettings({ [key]: !now });
+        break;
+      }
       case "support-export":
         this._exportSupport();
         break;
@@ -8550,6 +8585,8 @@ class EvPlannerPanel extends HTMLElement {
       if (el.value) this._setTrip("holiday", el.value);
     } else if (el.dataset.set) {
       this._setFromInput(el, true);
+    } else if (el.id === "quiet-from" || el.id === "quiet-to") {
+      if (el.value) this._saveSettings({ [el.id === "quiet-from" ? "quiet_from" : "quiet_to"]: el.value.slice(0, 5) });
     } else if (el.id === "bill-rate") {
       this._saveSettings({ bill_price: el.value === "" ? null : Number(el.value) });
     } else if (el.id === "payment-text") {

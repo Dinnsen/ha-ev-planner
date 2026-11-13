@@ -205,6 +205,10 @@ SETTINGS_SCHEMA = vol.Schema(
         vol.Optional("house"): vol.In(HOUSES),
         # The house of each of the other places: {the place's id: house}.
         vol.Optional("houses"): {cv.string: vol.In(HOUSES)},
+        vol.Optional("notify_enabled"): cv.boolean,
+        vol.Optional("quiet_enabled"): cv.boolean,
+        vol.Optional("quiet_from"): _hhmm,
+        vol.Optional("quiet_to"): _hhmm,
     }
 )
 

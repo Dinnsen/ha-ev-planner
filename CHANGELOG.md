@@ -2,6 +2,17 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.4.0b2] - 2026-11-13
+
+### New
+
+- **Quiet hours** for notifications (e.g. 22:00–06:00) under *Settings → Notifications*: no messages then, nor updates of the live notification, which is taken away and comes back silently in the morning. The plan and the charging go on as usual.
+- **A switch for all notifications** on the new *EV Planner* device, with the quiet hours' switch and times: turn them off from an automation when the house goes to sleep.
+
+### Changed
+
+- **A simpler calendar:** `Elroq 7:15 80% klima 21,5` – a time in the event is the departure, and the number after `klima` the temperature; no `°` or `afgang` needed (they still work).
+
 ## [2.4.0b1] - 2026-11-13
 
 ### New
