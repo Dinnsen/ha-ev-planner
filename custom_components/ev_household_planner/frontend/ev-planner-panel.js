@@ -262,6 +262,8 @@ const TEXT = {
     vstatus_no_price_data: "Ingen priser",
     vstatus_not_enough_prices: "Venter på priser",
     vstatus_no_window: "Ingen ladeperiode før fristen",
+    vstatus_limit_not_above_soc: "Allerede ved målet",
+    vstatus_invalid_input: "Indstillingerne kan ikke bruges",
 
     // Car page
     soc_missing: "Mangler batteriniveau",
@@ -807,6 +809,8 @@ const TEXT = {
     vstatus_no_price_data: "No prices",
     vstatus_not_enough_prices: "Waiting for prices",
     vstatus_no_window: "No charging window before the deadline",
+    vstatus_limit_not_above_soc: "Already at the target",
+    vstatus_invalid_input: "The settings cannot be used",
 
     soc_missing: "Battery level missing",
     soc_from_car: "Now comes from the car",
@@ -5010,7 +5014,7 @@ class EvPlannerPanel extends HTMLElement {
             <dl class="mini-facts">
               ${plan ? `<div><dt>${this._t("energy")}</dt><dd>${this._kwh(plan.energy)}</dd></div>` : ""}
               ${plan && plan.savings > 0.005 ? `<div><dt>${this._t("savings")}</dt><dd class="good">${this._money(plan.savings)}</dd></div>` : ""}
-              ${!plan && v.plan_error ? `<div class="wide"><dd class="soft">${esc(this._t(`vstatus_${v.plan_error}`))}</dd></div>` : ""}
+              ${!plan && v.plan_error && TEXT.en[`vstatus_${v.plan_error}`] ? `<div class="wide"><dd class="soft">${esc(this._t(`vstatus_${v.plan_error}`))}</dd></div>` : ""}
             </dl>
           </div>
         </div>

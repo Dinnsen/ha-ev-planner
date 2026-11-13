@@ -2,6 +2,16 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.4.0b5] - 2026-11-13
+
+### New
+
+- **How long the guard waits after a peak** before it turns the cars up again is set on the place's supply (*Guard: wait after a peak*, 5–30 min, 10 by default). Longer is calmer for appliances that come and go every few minutes; shorter lets the cars use the room sooner. Turning down is always at once.
+
+### Fixed
+
+- A car already at its target showed `vstatus_limit_not_above_soc` on the Cars tab instead of *Already at the target*.
+
 ## [2.4.0b4] - 2026-11-13
 
 ### Fixed

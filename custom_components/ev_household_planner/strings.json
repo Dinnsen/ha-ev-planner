@@ -368,6 +368,7 @@
                 "supply_meter": "Meter: current per phase",
                 "supply_reserve": "The house without a meter",
                 "supply_guard": "Guard: turn the cars down at once",
+                "supply_wait": "Guard: wait after a peak",
                 "supply_share": "Sharing between the cars",
                 "weather_entity": "Weather"
               },
@@ -377,6 +378,7 @@
                 "supply_meter": "Current sensors (A) for the phases, e.g. from a HAN/P1 reader, a Shelly EM or an Equalizer. EV Planner learns what the house draws hour by hour.",
                 "supply_reserve": "Without a meter: what the house is expected to draw per phase.",
                 "supply_guard": "When the meter shows more than the limit, lower the cars right away (the last in line first) and raise them again after a few minutes. Not a fuse: leave it off if an Equalizer or the charger already balances the load.",
+                "supply_wait": "How long the guard looks back for the house's peaks before it turns the cars up again (5–30 min, 10 by default). Longer is calmer, for appliances that come and go every few minutes; shorter lets the cars use the room sooner, so they are ready in time more often. The cars are always turned down at once.",
                 "supply_share": "When there is not room for all the cars in an hour. In line: the car that must be ready first takes what it needs, the next takes the rest. By need: they share by the kWh each lacks, never less than 6 A each.",
                 "weather_entity": "A weather entity with an hourly forecast. EV Planner learns how much more the house draws when it is cold, and counts on the night's temperature."
               }
@@ -419,6 +421,7 @@
                 "supply_meter": "Meter: current per phase",
                 "supply_reserve": "The house without a meter",
                 "supply_guard": "Guard: turn the cars down at once",
+                "supply_wait": "Guard: wait after a peak",
                 "supply_share": "Sharing between the cars",
                 "weather_entity": "Weather"
               },
@@ -428,6 +431,7 @@
                 "supply_meter": "Current sensors (A) for the phases, e.g. from a HAN/P1 reader, a Shelly EM or an Equalizer. EV Planner learns what the house draws hour by hour.",
                 "supply_reserve": "Without a meter: what the house is expected to draw per phase.",
                 "supply_guard": "When the meter shows more than the limit, lower the cars right away (the last in line first) and raise them again after a few minutes. Not a fuse: leave it off if an Equalizer or the charger already balances the load.",
+                "supply_wait": "How long the guard looks back for the house's peaks before it turns the cars up again (5–30 min, 10 by default). Longer is calmer, for appliances that come and go every few minutes; shorter lets the cars use the room sooner, so they are ready in time more often. The cars are always turned down at once.",
                 "supply_share": "When there is not room for all the cars in an hour. In line: the car that must be ready first takes what it needs, the next takes the rest. By need: they share by the kWh each lacks, never less than 6 A each.",
                 "weather_entity": "A weather entity with an hourly forecast. EV Planner learns how much more the house draws when it is cold, and counts on the night's temperature."
               }

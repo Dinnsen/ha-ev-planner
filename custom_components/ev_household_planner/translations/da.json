@@ -368,6 +368,7 @@
                 "supply_meter": "Måler: strøm pr. fase",
                 "supply_reserve": "Huset uden måler",
                 "supply_guard": "Vagt: skru bilerne ned med det samme",
+                "supply_wait": "Vagten: vent efter en spids",
                 "supply_share": "Deling mellem bilerne",
                 "weather_entity": "Vejret"
               },
@@ -377,6 +378,7 @@
                 "supply_meter": "Strømsensorer (A) for faserne, fx fra en HAN/P1-læser, en Shelly EM eller en Equalizer. EV Planner lærer, hvad huset trækker time for time.",
                 "supply_reserve": "Uden måler: hvad huset forventes at trække pr. fase.",
                 "supply_guard": "Når måleren viser mere end grænsen, sætter EV Planner bilerne ned med det samme (den bagerste i køen først) og op igen efter et par minutter. Ikke en sikring: lad den være slået fra, hvis en Equalizer eller laderen selv fordeler strømmen.",
+                "supply_wait": "Hvor langt vagten ser tilbage efter husets spidser, før den skruer op for bilerne igen (5–30 min, standard 10). Længere er roligere, når apparater tænder og slukker med få minutters mellemrum; kortere lader bilerne bruge pladsen før, så de oftere er klar til tiden. Der skrues altid ned med det samme.",
                 "supply_share": "Når der ikke er plads til alle bilerne i en time. I kø: bilen, der skal være klar først, tager, hvad den skal bruge, og den næste får resten. Efter behov: de deles efter de kWh, hver mangler, aldrig under 6 A til hver.",
                 "weather_entity": "En vejr-enhed med timeprognose. EV Planner lærer, hvor meget mere huset bruger, når det er koldt, og regner med nattens temperatur."
               }
@@ -419,6 +421,7 @@
                 "supply_meter": "Måler: strøm pr. fase",
                 "supply_reserve": "Huset uden måler",
                 "supply_guard": "Vagt: skru bilerne ned med det samme",
+                "supply_wait": "Vagten: vent efter en spids",
                 "supply_share": "Deling mellem bilerne",
                 "weather_entity": "Vejret"
               },
@@ -428,6 +431,7 @@
                 "supply_meter": "Strømsensorer (A) for faserne, fx fra en HAN/P1-læser, en Shelly EM eller en Equalizer. EV Planner lærer, hvad huset trækker time for time.",
                 "supply_reserve": "Uden måler: hvad huset forventes at trække pr. fase.",
                 "supply_guard": "Når måleren viser mere end grænsen, sætter EV Planner bilerne ned med det samme (den bagerste i køen først) og op igen efter et par minutter. Ikke en sikring: lad den være slået fra, hvis en Equalizer eller laderen selv fordeler strømmen.",
+                "supply_wait": "Hvor langt vagten ser tilbage efter husets spidser, før den skruer op for bilerne igen (5–30 min, standard 10). Længere er roligere, når apparater tænder og slukker med få minutters mellemrum; kortere lader bilerne bruge pladsen før, så de oftere er klar til tiden. Der skrues altid ned med det samme.",
                 "supply_share": "Når der ikke er plads til alle bilerne i en time. I kø: bilen, der skal være klar først, tager, hvad den skal bruge, og den næste får resten. Efter behov: de deles efter de kWh, hver mangler, aldrig under 6 A til hver.",
                 "weather_entity": "En vejr-enhed med timeprognose. EV Planner lærer, hvor meget mere huset bruger, når det er koldt, og regner med nattens temperatur."
               }

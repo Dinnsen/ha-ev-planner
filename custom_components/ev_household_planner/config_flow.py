@@ -86,6 +86,7 @@ from .const import (
     CONF_SUPPLY_PHASES,
     CONF_SUPPLY_RESERVE,
     CONF_SUPPLY_SHARE,
+    CONF_SUPPLY_WAIT,
     CONF_SWITCH_ENTITY,
     CONF_TARGET_ENTITY,
     CONF_UNPLUGGED_STATES,
@@ -108,6 +109,7 @@ from .const import (
     DEFAULT_NAME,
     DEFAULT_PLATE_PROVIDER,
     DEFAULT_SUPPLY_RESERVE,
+    DEFAULT_SUPPLY_WAIT,
     DOMAIN,
     ESC_DOMAIN,
     NO_CHARGER,
@@ -213,6 +215,12 @@ PERCENT_SELECTOR = selector.NumberSelector(
 )
 AMPS_SELECTOR = selector.NumberSelector(
     selector.NumberSelectorConfig(min=0, max=200, step=1, unit_of_measurement="A", mode=selector.NumberSelectorMode.BOX)
+)
+# How long the guard waits after a peak in the house before it turns the cars up again.
+WAIT_SELECTOR = selector.NumberSelector(
+    selector.NumberSelectorConfig(
+        min=5, max=30, step=5, unit_of_measurement="min", mode=selector.NumberSelectorMode.SLIDER
+    )
 )
 PHASES_SELECTOR = selector.SelectSelector(
     selector.SelectSelectorConfig(options=["1", "3"], mode=selector.SelectSelectorMode.LIST, translation_key="phases")
@@ -897,6 +905,7 @@ SUPPLY_FIELDS = (
     CONF_SUPPLY_METER,
     CONF_SUPPLY_RESERVE,
     CONF_SUPPLY_GUARD,
+    CONF_SUPPLY_WAIT,
     CONF_SUPPLY_SHARE,
     CONF_WEATHER_ENTITY,
 )
@@ -932,6 +941,9 @@ class SiteSubentryFlow(ConfigSubentryFlow):
                     ): AMPS_SELECTOR,
                     vol.Optional(CONF_SUPPLY_GUARD, default=bool(values.get(CONF_SUPPLY_GUARD, False))): bool,
                     vol.Optional(
+                        CONF_SUPPLY_WAIT, default=values.get(CONF_SUPPLY_WAIT, DEFAULT_SUPPLY_WAIT)
+                    ): WAIT_SELECTOR,
+                    vol.Optional(
                         CONF_SUPPLY_SHARE, default=values.get(CONF_SUPPLY_SHARE) or SHARE_QUEUE
                     ): SHARE_SELECTOR,
                     vol.Optional(
@@ -961,6 +973,8 @@ class SiteSubentryFlow(ConfigSubentryFlow):
         result = {key: flat[key] for key in SITE_KEYS if flat.get(key) not in (None, "", [], 0, False)}
         if CONF_SUPPLY_RESERVE in flat and flat[CONF_SUPPLY_RESERVE] is not None:
             result[CONF_SUPPLY_RESERVE] = flat[CONF_SUPPLY_RESERVE]
+        if result.get(CONF_SUPPLY_WAIT) == DEFAULT_SUPPLY_WAIT:
+            result.pop(CONF_SUPPLY_WAIT)  # the default is not stored, so a later default follows
         if home:
             result = {CONF_HOME: True, **{key: value for key, value in result.items() if key != CONF_ZONE}}
         return result

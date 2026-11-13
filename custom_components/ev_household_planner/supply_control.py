@@ -37,6 +37,7 @@ from .const import (
     CONF_SUPPLY_PHASES,
     CONF_SUPPLY_RESERVE,
     CONF_SUPPLY_SHARE,
+    CONF_SUPPLY_WAIT,
     CONF_WEATHER_ENTITY,
     CONTROL_CHARGE,
     DEFAULT_SUPPLY_RESERVE,
@@ -166,6 +167,14 @@ class SupplyControl:
         return [str(entity) for entity in (value if isinstance(value, list) else [value]) if entity]
 
     @property
+    def headroom_window(self) -> timedelta:
+        """How long the guard looks back for the house's peaks before it turns the cars up (5-30 min)."""
+        minutes = to_float(self.config.get(CONF_SUPPLY_WAIT))
+        if minutes is None:
+            return HEADROOM_WINDOW
+        return timedelta(minutes=max(5.0, min(30.0, minutes)))
+
+    @property
     def guard(self) -> bool:
         """The guard is on, and has a meter to watch."""
         return self.active and bool(self.config.get(CONF_SUPPLY_GUARD)) and bool(self.meters)
@@ -230,7 +239,7 @@ class SupplyControl:
             return None
         minute = now.replace(second=0, microsecond=0)
         self._house_peaks[minute] = max(house, self._house_peaks.get(minute, 0.0))
-        cutoff = minute - HEADROOM_WINDOW
+        cutoff = minute - self.headroom_window
         for old in [moment for moment in self._house_peaks if moment < cutoff]:
             del self._house_peaks[old]
         return house
@@ -240,7 +249,7 @@ class SupplyControl:
         house = self.note_house(now)
         if house is None:
             return None
-        cutoff = now - HEADROOM_WINDOW
+        cutoff = now - self.headroom_window
         return max([house, *(amps for moment, amps in self._house_peaks.items() if moment >= cutoff)])
 
     def _others_amps(self, vehicle: Vehicle, sent: float) -> float:

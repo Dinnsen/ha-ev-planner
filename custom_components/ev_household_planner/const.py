@@ -153,6 +153,9 @@ CONF_SUPPLY_METER: Final = "supply_meter"
 CONF_SUPPLY_RESERVE: Final = "supply_reserve"
 # Shared supply: lower the cars at once when the house draws more than planned (needs a meter and a current setting).
 CONF_SUPPLY_GUARD: Final = "supply_guard"
+# How long the guard looks back for the house's peaks before it turns the cars up (minutes).
+CONF_SUPPLY_WAIT: Final = "supply_wait"
+DEFAULT_SUPPLY_WAIT: Final = 10
 # Shared supply: how cars share a slot there is not room for all of them in. In line (the first
 # takes what it needs), or by need (each a share by the kWh it lacks).
 CONF_SUPPLY_SHARE: Final = "supply_share"
@@ -584,6 +587,7 @@ SITE_KEYS: Final = (
     CONF_SUPPLY_METER,
     CONF_SUPPLY_RESERVE,
     CONF_SUPPLY_GUARD,
+    CONF_SUPPLY_WAIT,
     CONF_SUPPLY_SHARE,
     CONF_WEATHER_ENTITY,
     CONF_GRID_POWER,
