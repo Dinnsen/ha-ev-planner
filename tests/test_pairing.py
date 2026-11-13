@@ -666,6 +666,26 @@ async def test_a_car_with_its_own_charger_is_plugged_in_when_the_charger_says_so
     assert elroq.connected is True and elroq.plugged_by_charger is False
 
 
+async def test_a_car_that_still_says_plugged_in_after_the_charger_is_unplugged_is_asked_to_report(
+    hass: HomeAssistant, fixed: MockConfigEntry, freezer: FrozenDateTimeFactory, presses: list[str]
+) -> None:
+    household = fixed.runtime_data
+    elroq: Vehicle = household.vehicles[ELROQ]
+    _set_car(hass, "elroq", place="home", cable=True)
+    hass.states.async_set("binary_sensor.garage_car", "on")
+    await settle(hass, freezer)
+    assert elroq.connected is True
+    presses.clear()
+    # The plug comes out at the charger; the car's cloud still says the cable is in.
+    hass.states.async_set("binary_sensor.garage_car", "off")
+    await settle(hass, freezer)
+    for _minute in range(4):
+        await move(hass, freezer, dt_util.now() + timedelta(minutes=1))
+    # Asked after half a minute and after two, and no more.
+    assert presses == ["button.elroq_refresh"] * 2
+    assert any(event.get("why") == "unplugged" for event in household.events.items)
+
+
 async def test_the_chargers_meter_counts_its_own_cars_charge(
     hass: HomeAssistant, fixed: MockConfigEntry, freezer: FrozenDateTimeFactory
 ) -> None:

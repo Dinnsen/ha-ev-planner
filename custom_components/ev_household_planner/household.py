@@ -22,7 +22,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN, UnitOfEnergy, UnitOfPower
 from homeassistant.core import CALLBACK_TYPE, Event, EventStateChangedData, HomeAssistant, State, callback
 from homeassistant.exceptions import HomeAssistantError, ServiceNotFound, ServiceValidationError
-from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers import entity_registry as er, issue_registry as ir
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event, async_track_time_interval
 from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.storage import Store
@@ -40,6 +40,7 @@ from .const import (
     COMMAND_REPEAT,
     COMMAND_TIMEOUT,
     CONF_CALENDAR_KEYWORD,
+    CONF_CLIMATE_ENTITY,
     CONF_CONNECTED_ENTITY,
     CONF_COUNTRY,
     CONF_CURRENCY,
@@ -56,6 +57,7 @@ from .const import (
     CONF_PRICE_ENTITY,
     CONF_SITE,
     CONF_SWITCH_ENTITY,
+    CONF_TARGET_ENTITY,
     CONF_UNPLUGGED_STATES,
     CONTROL_BACKOFF,
     CONTROL_CAR,
@@ -307,6 +309,23 @@ def climate_sibling(hass: HomeAssistant, entity_id: str, word: str, domain: str 
     return None
 
 
+def device_climate(hass: HomeAssistant, vehicle: Vehicle) -> str | None:
+    """The climate entity of the car's own device (the device its charge level comes from), when it has one."""
+    registry = er.async_get(hass)
+    for entity_id in (vehicle.soc_entity, vehicle.config.get(CONF_TARGET_ENTITY), vehicle.refresh_entity):
+        entry = registry.async_get(entity_id) if isinstance(entity_id, str) else None
+        if entry is None or entry.device_id is None:
+            continue
+        found = sorted(
+            e.entity_id
+            for e in er.async_entries_for_device(registry, entry.device_id)
+            if e.domain == "climate" and not e.disabled_by
+        )
+        if found:
+            return found[0]
+    return None
+
+
 def climate_temperature(wanted: float, attributes: Mapping[str, Any]) -> float:
     """The temperature as the climate entity takes it: within its range, in its steps (a Skoda: 16-29.5 in halves)."""
     low = to_float(attributes.get("min_temp"))
@@ -364,7 +383,10 @@ class Household(DataUpdateCoordinator[None]):
         self._site_keys: dict[str, str] = {}
         for subentry_id, subentry in entry.subentries.items():
             if subentry.subentry_type == SUBENTRY_VEHICLE:
-                self.vehicles[subentry_id] = Vehicle(subentry_id, subentry.title, dict(subentry.data))
+                car = Vehicle(subentry_id, subentry.title, dict(subentry.data))
+                if not car.config.get(CONF_CLIMATE_ENTITY):
+                    car.found_climate = device_climate(hass, car)
+                self.vehicles[subentry_id] = car
             elif subentry.subentry_type == SUBENTRY_CHARGER:
                 self.chargers[subentry_id] = Charger(subentry_id, subentry.title, dict(subentry.data))
             elif subentry.subentry_type == SUBENTRY_SITE:
@@ -1006,6 +1028,14 @@ class Household(DataUpdateCoordinator[None]):
                 charger.plugged_at = dt_util.now()
                 self.events.add(charger.plugged_at, "charger_plugged_in", charger=charger.name)
                 self._schedule_asks(charger_id)
+            if charger.connected is False and was is True:
+                # The car that was at it is asked to report, or its cloud may say it is plugged in for long.
+                at_it = [
+                    v.vehicle_id
+                    for v in self.vehicles.values()
+                    if v.charger_id == charger_id or v.fixed_charger == charger_id
+                ]
+                self._schedule_unplug_asks(charger_id, at_it)
             if charger.connected is not was:
                 now = dt_util.now()
                 for vehicle in self.vehicles.values():
@@ -1047,6 +1077,24 @@ class Household(DataUpdateCoordinator[None]):
     def _cancel_asks(self, charger_id: str) -> None:
         for cancel in self._ask_timers.pop(charger_id, []):
             cancel()
+
+    def _schedule_unplug_asks(self, charger_id: str, vehicle_ids: list[str]) -> None:
+        """The charger's plug came out: ask the car that was at it to report, after 30 s and 2 min."""
+        if not vehicle_ids:
+            return
+        self._cancel_asks(f"{charger_id}:out")
+
+        @callback
+        def ask(_now: datetime) -> None:
+            self.config_entry.async_create_task(
+                self.hass,
+                self.pairing.async_ask_unplugged(charger_id, vehicle_ids, dt_util.now()),
+                f"{DOMAIN} ask the unplugged car",
+            )
+
+        self._ask_timers[f"{charger_id}:out"] = [
+            async_call_later(self.hass, delay.total_seconds() + 1, ask) for delay in PAIR_ASK_CAR_AT[:2]
+        ]
 
     # ------------------------------------------------------------------
     # Recalculation

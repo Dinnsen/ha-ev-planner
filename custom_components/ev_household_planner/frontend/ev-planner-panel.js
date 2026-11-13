@@ -1349,6 +1349,10 @@ Object.assign(TEXT.da, {
   quiet_from: "Stille fra",
   quiet_to: "Stille til",
   quiet_summary: "stille {from}–{to}",
+  quiet_title: "Stille timer {from}–{to}",
+  quiet_off: "Ingen stille timer",
+  notify_all_off_title: "Alle beskeder er slået fra",
+  notify_household_link: "Telefoner, stille timer og sprog gælder alle biler · Indstillinger → Notifikationer",
   trip: "Næste tur",
   trip_morning: "I morgen tidlig",
   trip_afternoon: "I eftermiddag",
@@ -1440,6 +1444,10 @@ Object.assign(TEXT.en, {
   quiet_from: "Quiet from",
   quiet_to: "Quiet until",
   quiet_summary: "quiet {from}–{to}",
+  quiet_title: "Quiet hours {from}–{to}",
+  quiet_off: "No quiet hours",
+  notify_all_off_title: "All messages are off",
+  notify_household_link: "Phones, quiet hours and language are for all cars · Settings → Notifications",
   trip: "Next trip",
   trip_morning: "Tomorrow morning",
   trip_afternoon: "This afternoon",
@@ -7186,7 +7194,16 @@ class EvPlannerPanel extends HTMLElement {
       ${this._ruleRow({ icon: "receipt", title: this._t("notify_receipt"), hint: this._t("notify_receipt_hint"), off: s.notify_receipt === false, control: this._switchHtml("notify_receipt", s.notify_receipt !== false, this._t("notify_receipt")) })}
       ${this._ruleRow({ icon: "charge", title: this._t("live"), off: !s.live_notification, control: this._switchHtml("live_notification", s.live_notification, this._t("live")) })}
       ${this._ruleRow({ icon: "depart", title: this._t("notify_done"), off: !s.notify_done, control: this._switchHtml("notify_done", s.notify_done, this._t("notify_done")) })}
-      ${targets}`;
+      ${targets}
+      ${this._householdNotifyLink()}`;
+  }
+
+  /* In a car's messages: what the household decides for all of them (all on/off, quiet hours), and where. */
+  _householdNotifyLink() {
+    const settings = this._state.settings || {};
+    const quiet = settings.quiet_enabled ? this._t("quiet_title", { from: this._hhmm(settings.quiet_from || "22:00"), to: this._hhmm(settings.quiet_to || "06:00") }) : this._t("quiet_off");
+    const state = settings.notify_enabled === false ? this._t("notify_all_off_title") : quiet;
+    return `<button class="link-row" data-act="goto-settings" data-tile="notifications" data-f="goto-notify">${ICONS.history}<span><strong>${esc(state)}</strong><small>${esc(this._t("notify_household_link"))}</small></span>${ICONS.back}</button>`;
   }
 
   // ------------------------------------------------------------------ guest (EV Guest)
@@ -8835,6 +8852,12 @@ class EvPlannerPanel extends HTMLElement {
         this._render();
         this.shadowRoot.querySelector(`[data-f="cv-${this._carView}"]`)?.focus({ preventScroll: true });
         break;
+      case "goto-settings":
+        this._setTab("settings");
+        this._sheet = button.dataset.tile;
+        this._render();
+        this.shadowRoot.querySelector('[data-f="sheet-close"]')?.focus();
+        break;
       case "tile":
         this._sheet = button.dataset.tile;
         if (this._tab === "settings") this._render();
@@ -9239,6 +9262,9 @@ const STYLE = `
 }
 * { box-sizing: border-box; }
 button, input, select { font: inherit; color: inherit; }
+/* The list a select opens is drawn by the browser (on a PC a white box): its options get the
+   panel's own colours, or the light text of the dark theme is unreadable on it. */
+select option, select optgroup { background-color: var(--evp-card); color: var(--evp-ink); }
 svg { display: block; }
 a { color: var(--evp-accent); }
 code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transparent); border-radius: 6px; padding: 1px 6px; }
@@ -9347,6 +9373,14 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .pill.grey { color: var(--evp-soft); background: color-mix(in srgb, var(--evp-ink) 7%, transparent); }
 .notes { display: grid; gap: 8px; }
 .notes:empty { display: none; }
+.link-row { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 10px; padding: 12px 14px; border: 1px solid var(--evp-line); border-radius: 14px; background: color-mix(in srgb, var(--evp-ink) 3%, transparent); text-align: left; cursor: pointer; }
+.link-row:hover { background: color-mix(in srgb, var(--evp-a) 10%, transparent); }
+.link-row:focus-visible { outline: 2px solid var(--evp-accent); outline-offset: 2px; }
+.link-row > svg { width: 20px; height: 20px; flex: none; fill: none; stroke: var(--evp-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.link-row > svg:last-child { transform: rotate(180deg); stroke: var(--evp-soft); width: 16px; height: 16px; }
+.link-row span { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.link-row strong { font-weight: 600; }
+.link-row small { color: var(--evp-soft); font-size: 13px; line-height: 1.35; }
 .note-line { display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 9px 12px; border-radius: 12px; font-size: 14px; line-height: 1.4; }
 .note-line svg { width: 18px; height: 18px; flex: none; margin-top: 1px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .note-line.bad { color: color-mix(in srgb, #B42318 62%, var(--evp-ink)); background: color-mix(in srgb, var(--evp-coral) 13%, transparent); }

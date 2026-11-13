@@ -310,6 +310,8 @@ class Vehicle:
     connected: bool | None = None
     # What the car's own plug sensor says; ``connected`` can also come from its charger's plug.
     connected_car: bool | None = None
+    # The climate entity of the car's own device, when none is chosen.
+    found_climate: str | None = None
     # The car counts as plugged in because its charger says a car is, and only it can be.
     plugged_by_charger: bool = False
     home: bool | None = None
@@ -528,7 +530,7 @@ class Vehicle:
 
     @property
     def climate_entity(self) -> str | None:
-        return self.config.get(CONF_CLIMATE_ENTITY) or None
+        return self.config.get(CONF_CLIMATE_ENTITY) or self.found_climate
 
     @property
     def trip(self) -> dict[str, Any] | None:

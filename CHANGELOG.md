@@ -2,6 +2,18 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.4.0b9] - 2026-11-13
+
+### Changed
+
+- **The car's climate is found by itself** on the car's own device (a Skoda's `climate.…_air_conditioning`, a Tesla's climate) when none is chosen in the car's setup, so the climate button and its rules show up without setting anything.
+- **A car's messages show the household's**: a line at the bottom of *Rules → Messages* with the quiet hours (or that all messages are off) leads to *Settings → Notifications*, where the phones, the quiet hours and the language are set for all cars.
+
+### Fixed
+
+- **A car that still says it is plugged in after the plug came out** at its charger is asked to report, after half a minute and after two minutes (two calls, for cars whose cloud allows few), so the car and the charger are free again without waiting for the car's cloud.
+- The lists that open from a dropdown (the departure on the car's page) were light text on a white box on a PC; they now have the panel's colours.
+
 ## [2.4.0b8] - 2026-11-13
 
 ### Changed

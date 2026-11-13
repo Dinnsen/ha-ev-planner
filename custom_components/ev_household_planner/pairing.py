@@ -502,6 +502,31 @@ class Pairing:
             )
             await self._async_refresh(vehicle)
 
+    async def async_ask_unplugged(self, charger_id: str, vehicle_ids: list[str], now: datetime) -> None:
+        """The charger's plug came out: a car that was at it and still says it is plugged in is asked to report.
+
+        Its cloud may not ask the car for long, and until it does the car and the charger stay taken.
+        """
+        charger = self.household.chargers.get(charger_id)
+        if charger is None or charger.connected is not False:
+            return  # plugged in again
+        for vehicle_id in vehicle_ids:
+            vehicle = self.household.vehicles.get(vehicle_id)
+            if vehicle is None or vehicle.refresh_entity is None or vehicle.connected_car is False:
+                continue
+            if vehicle.refreshed_at is not None and elapsed(now, vehicle.refreshed_at) < PAIR_REFRESH_GAP:
+                continue
+            vehicle.refreshed_at = now
+            self.household.events.add(
+                now,
+                "asked_car",
+                vehicle=vehicle.name,
+                charger=charger.name,
+                entity=vehicle.refresh_entity,
+                why="unplugged",
+            )
+            await self._async_refresh(vehicle)
+
     async def _async_refresh(self, vehicle: Vehicle) -> None:
         """Make the car's integration ask the car now: press its button, run its script, or update its entity."""
         entity = vehicle.refresh_entity
