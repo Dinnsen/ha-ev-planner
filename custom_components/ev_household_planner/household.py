@@ -254,6 +254,10 @@ def state_float(state: State | None) -> float | None:
     return to_float(state.state)
 
 
+# Charging on after the ready-by time is for a car that was plugged in at least this long before it.
+LATE_PLUGGED_BEFORE = timedelta(minutes=30)
+
+
 class Household(DataUpdateCoordinator[None]):
     """Central state of one EV Planner household."""
 
@@ -1365,6 +1369,9 @@ class Household(DataUpdateCoordinator[None]):
             and soc < vehicle.target - 1
             # A car left to the sun, that was waiting for it, waits for it still.
             and vehicle.plan_error not in ("solar_only", "solar_expected")
+            # Only a car that was plugged in well before: one plugged in at the ready-by time had no plan to keep.
+            and vehicle.deadline is not None
+            and (vehicle.connected_since is None or vehicle.connected_since <= vehicle.deadline - LATE_PLUGGED_BEFORE)
             and not self.solar_of(vehicle).only(vehicle)
         ):
             vehicle.late_target = vehicle.target
