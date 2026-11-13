@@ -2499,7 +2499,7 @@ class Household(DataUpdateCoordinator[None]):
             if at is None
             else {"kind": kind, "at": at.isoformat(), "target": target, "day": day.isoformat() if day else None}
         )
-        self.events.add(now, "trip", vehicle=vehicle.name, kind=kind, at=at, target=target)
+        self.events.add(now, "trip", vehicle=vehicle.name, preset=kind, at=at, target=target)
         self.async_save()
         await self.async_recalculate(force=True)
         return at
