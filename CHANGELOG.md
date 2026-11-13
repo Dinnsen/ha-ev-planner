@@ -2,6 +2,25 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.3.1b1] - 2026-11-13
+
+### Fixed
+
+- **A car with its own charger is asked to report.** When the charger sees a plug and the car's cloud has not said so yet, the car is asked to report after one, three and eight minutes, also when it always uses that charger. Until it answers, the charger's plug counts: the car is plugged in.
+- **Never under 6 A.** A charger whose current goes down to 0 A (a Zaptec Go 2) was turned down below what a car charges on; the guard now stops at 6 A and pauses the car when that is still too much.
+- **Up only into room that was free all the last quarter of an hour**, less 2 A, so a kettle or an oven that comes and goes does not make the guard turn the cars up and down.
+- *Keep the charger on* only after the car's own plan in the same plug-in.
+- A car's current setting that is another charger's is not used for the car.
+- The target slider moves in the car's own steps (a Skoda: tens), and the target sent to the car is rounded up to one.
+- The forms no longer say *(beta)*.
+
+### New
+
+- **Charge on after the ready-by time** when the target was not reached, while the car is plugged in (a rule, on by default).
+- **The charger's energy meter counts the car's charge**, when the charger has one and it is the car's charger: what the meter counts is what is paid for. The history shows *Charger meter* as the source.
+- **Log and support** under *Settings*: one file with everything EV Planner knows and has done, for a question or a bug report. The settings, the plans, what it has learned about each car, a week of events (plug-ins, plans, decisions, commands, the guard, pairing, notifications, settings changes), its log lines, and every entity it uses and its own, with their attributes and the last 48 hours of history. Locations, number plates, VINs and keys are left out. The same file is the integration's diagnostics.
+- A guest who unplugged after the charge is cleared after half an hour; the charge stays in the history. The button says *Remove the guest* while one is filled in.
+
 ## [2.3.0] - 2026-11-12
 
 Everything from the 2.2 and 2.3 betas, for those coming from 2.1.2. The betas below list each change.

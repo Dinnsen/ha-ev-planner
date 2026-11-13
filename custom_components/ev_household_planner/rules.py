@@ -821,13 +821,15 @@ def decide(
     price_now: float | None,
     plan_done: bool = False,
     charger_free: bool = True,
+    late: bool = False,
 ) -> Decision:
     """What the charger should do for this car right now.
 
     ``connected`` and ``home`` are None when unknown (no sensor): then the car
     is taken to be plugged in at home. ``plan_done`` is True when the car's
-    last plan has ended (for keeping the charger on). ``charger_free`` is
-    False when a guest or another car has the charger now.
+    last plan has ended with the car plugged in (for keeping the charger on).
+    ``charger_free`` is False when a guest or another car has the charger
+    now. ``late`` is True when the ready-by time came before the target.
     """
     if mode == MODE_OFF:
         return Decision(CONTROL_RELEASED, "off")
@@ -852,6 +854,9 @@ def decide(
         return Decision(CONTROL_CHARGE, "low_price")
     if in_segments(segments, now):
         return Decision(CONTROL_CHARGE, "planned")
+    if late:
+        # The ready-by time came before the target: on to it, while the car is plugged in.
+        return Decision(CONTROL_CHARGE, "late")
     if rules.keep_on and plan_done:
         return Decision(CONTROL_CHARGE, "keep_on")
     return Decision(CONTROL_PAUSE, "waiting")

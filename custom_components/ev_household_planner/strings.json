@@ -357,7 +357,7 @@
           },
           "sections": {
             "supply": {
-              "name": "Shared supply (beta)",
+              "name": "Shared supply",
               "data": {
                 "supply_limit": "Limit per phase",
                 "supply_phases": "Phases",
@@ -378,7 +378,7 @@
               }
             },
             "grid": {
-              "name": "The grid, for charging on the sun (beta)",
+              "name": "The grid, for charging on the sun",
               "description": "With a sensor for the power to and from the grid, a car can charge on what the place would otherwise sell.",
               "data": {
                 "grid_power": "Grid power",
@@ -408,7 +408,7 @@
           },
           "sections": {
             "supply": {
-              "name": "Shared supply (beta)",
+              "name": "Shared supply",
               "data": {
                 "supply_limit": "Limit per phase",
                 "supply_phases": "Phases",
@@ -429,7 +429,7 @@
               }
             },
             "grid": {
-              "name": "The grid, for charging on the sun (beta)",
+              "name": "The grid, for charging on the sun",
               "description": "With a sensor for the power to and from the grid, a car can charge on what the place would otherwise sell.",
               "data": {
                 "grid_power": "Grid power",

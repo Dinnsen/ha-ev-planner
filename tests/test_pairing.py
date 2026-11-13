@@ -602,3 +602,83 @@ async def test_ask_after_is_longer_for_cars_that_cannot_be_asked(
     assert not [call for call in notify.calls if "Garage" in str(call.get("title"))]
     await move(hass, freezer, dt_util.now() + PAIR_ASK_AFTER_SLOW)
     assert len([call for call in notify.calls if "Garage" in str(call.get("title"))]) == 1
+
+
+# ----------------------------------------------------------------------
+# A car with its own charger
+
+
+@pytest.fixture
+async def fixed(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> AsyncGenerator[MockConfigEntry]:
+    """One car that always uses the garage charger, at home, and its cloud has not seen the cable yet."""
+    set_prices(hass, now, NIGHT)
+    _set_car(hass, "elroq", place="home")
+    hass.states.async_set("binary_sensor.garage_car", "off")
+    hass.states.async_set("switch.garage", "on")
+    hass.states.async_set("sensor.garage_power", "0", {"unit_of_measurement": "kW"})
+    hass.states.async_set("sensor.garage_energy", "100.0", {"unit_of_measurement": "kWh"})
+    entry = entry_with(
+        _charger(
+            GARAGE,
+            "Garage",
+            {
+                "power": 11.0,
+                "switch_entity": "switch.garage",
+                "connected_entity": "binary_sensor.garage_car",
+                "power_entity": "sensor.garage_power",
+                "energy_entity": "sensor.garage_energy",
+            },
+        ),
+        vehicle_sub(ELROQ, "Elroq", _car("elroq", charger=GARAGE)),
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    await settle(hass, freezer)
+    yield entry
+    if entry.state is ConfigEntryState.LOADED:
+        await hass.config_entries.async_unload(entry.entry_id)
+        await hass.async_block_till_done()
+
+
+async def test_a_car_with_its_own_charger_is_plugged_in_when_the_charger_says_so_and_is_asked_to_report(
+    hass: HomeAssistant, fixed: MockConfigEntry, freezer: FrozenDateTimeFactory, presses: list[str]
+) -> None:
+    household = fixed.runtime_data
+    elroq: Vehicle = household.vehicles[ELROQ]
+    assert elroq.connected is False
+    hass.states.async_set("binary_sensor.garage_car", "on")
+    await settle(hass, freezer)
+    # The car's cloud still says no cable: the charger's plug says yes, and it is the car's own charger.
+    assert elroq.connected is True
+    assert elroq.plugged_by_charger is True
+    for _minute in range(9):
+        await move(hass, freezer, dt_util.now() + timedelta(minutes=1))
+    # Asked after one, three and eight minutes, and no more.
+    assert presses == ["button.elroq_refresh"] * 3
+    kinds = [event["kind"] for event in household.events.items]
+    assert "charger_plugged_in" in kinds and "asked_car" in kinds
+    # The car answers: from now on its own cable sensor counts.
+    _set_car(hass, "elroq", place="home", cable=True)
+    await settle(hass, freezer)
+    assert elroq.connected is True and elroq.plugged_by_charger is False
+
+
+async def test_the_chargers_meter_counts_its_own_cars_charge(
+    hass: HomeAssistant, fixed: MockConfigEntry, freezer: FrozenDateTimeFactory
+) -> None:
+    household = fixed.runtime_data
+    elroq: Vehicle = household.vehicles[ELROQ]
+    _set_car(hass, "elroq", place="home", cable=True, charging=True)
+    hass.states.async_set("binary_sensor.garage_car", "on")
+    await settle(hass, freezer)
+    for minute in range(1, 6):
+        hass.states.async_set("sensor.garage_energy", str(100.0 + 0.18 * minute), {"unit_of_measurement": "kWh"})
+        await move(hass, freezer, dt_util.now() + timedelta(minutes=1))
+    session = elroq.session
+    assert session is not None
+    assert session.sources.get("meter", 0) > 0
+    # Counted by the meter, not by the charging power (11 kW would be 0.18 kWh a minute too, but labelled power).
+    assert session.energy == pytest.approx(0.18 * 4, abs=0.2)

@@ -128,6 +128,7 @@ REASON_STATUS = {
     "keep_on": STATUS_KEEPING_ON,
     "charger_busy": STATUS_CHARGER_BUSY,
     "solar": STATUS_SOLAR,
+    "late": STATUS_CHARGING,
 }
 
 
@@ -298,6 +299,10 @@ class Vehicle:
     # Battery capacity in kWh as the car reports it, when it does.
     capacity_from_car: float | None = None
     connected: bool | None = None
+    # What the car's own plug sensor says; ``connected`` can also come from its charger's plug.
+    connected_car: bool | None = None
+    # The car counts as plugged in because its charger says a car is, and only it can be.
+    plugged_by_charger: bool = False
     home: bool | None = None
     charging: bool | None = None
     # Where the car is, as its location entity says it (a zone's name, "home", "not_home" ...).
@@ -325,6 +330,11 @@ class Vehicle:
     planned_at: datetime | None = None
     decision: Decision = field(default_factory=lambda: Decision(CONTROL_RELEASED, "off"))
     plan_done: bool = False
+    # The ready-by time came before the target: charging on to this target, while plugged in.
+    late_target: float | None = None
+    # The charger's energy meter when the car's charging was last counted by it (kWh).
+    meter_kwh: float | None = None
+    meter_at: datetime | None = None
     other_cost: float | None = None  # the plan's cost on the other prices (known or forecast), when they differ
     # The plan came from storage (Home Assistant restarted) and has not been acted on yet.
     plan_restored: bool = False
@@ -874,6 +884,7 @@ class Vehicle:
             "reminders_sent": self.reminders_sent,
             "reminded_at": self.reminded_at.isoformat() if self.reminded_at else None,
             "plan_done": self.plan_done,
+            "late_target": self.late_target,
             "plan": self.plan.to_dict() if self.plan is not None else None,
             "pause_notice": self.pause_notice,
             "meter": self.meter.to_dict(),
@@ -922,6 +933,7 @@ class Vehicle:
         at = data.get("reminded_at")
         self.reminded_at = datetime.fromisoformat(at) if isinstance(at, str) else None
         self.plan_done = bool(data.get("plan_done"))
+        self.late_target = to_float(data.get("late_target"))
         self.plan = VehiclePlan.from_dict(data.get("plan"))
         self.plan_restored = self.plan is not None
         self.pause_notice = bool(data.get("pause_notice"))

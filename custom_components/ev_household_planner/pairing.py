@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.util import dt as dt_util
 
 from .const import (
     ACTION_PAIR,
@@ -34,10 +35,10 @@ from .const import (
     OCCUPANT_GUEST,
     PAIR_ASK_AFTER,
     PAIR_ASK_AFTER_SLOW,
+    PAIR_ASK_CAR_AT,
     PAIR_EARLIER,
     PAIR_NO_SENSOR_AFTER,
     PAIR_POWER,
-    PAIR_REFRESH_AGAIN,
     PAIR_REFRESH_GAP,
     SITE_HOME,
 )
@@ -335,6 +336,7 @@ class Pairing:
         charger.occupant = vehicle.vehicle_id
         charger.found_by = why
         _LOGGER.debug("%s is at %s (%s)", vehicle.name, charger.name, why)
+        self.household.events.add(dt_util.now(), "paired", vehicle=vehicle.name, charger=charger.name, by=why)
 
     def resolve(self, now: datetime) -> bool:
         """Bring cars and chargers together from what they say now. True when something changed."""
@@ -424,11 +426,13 @@ class Pairing:
     # Asking the cars, and the household
 
     async def async_follow_up(self, now: datetime) -> None:
-        """For each charger with an unknown car: ask the cars to report, then ask the household."""
+        """For each charger that got a car: ask the cars to report, then, if still unknown, the household."""
         household = self.household
+        free = self._free()
         for charger in household.chargers.values():
             cid = charger.charger_id
             tag = tag_for("pair", cid)
+            await self._async_ask_cars(charger, free, now)
             if not self.unknown(charger):
                 if charger.asked:
                     charger.asked = False
@@ -437,22 +441,9 @@ class Pairing:
             if charger.plugged_at is None:
                 # Plugged in before EV Planner saw it: shown in the panel, where the car can be chosen.
                 continue
-            free = self._free()
             cars = self._candidates(charger, free)
-            log = self._refreshed.setdefault(cid, {})
+            log = self._refreshed.get(cid, {})
             sure = [car for car in possible(cars, charger.plugged_at) if car.plugged is True]
-            if not sure:
-                for vehicle in free:
-                    if vehicle.refresh_entity is None:
-                        continue
-                    times = log.setdefault(vehicle.vehicle_id, [])
-                    if len(times) >= 2 or (times and elapsed(now, times[-1]) < PAIR_REFRESH_AGAIN):
-                        continue
-                    if vehicle.refreshed_at is not None and elapsed(now, vehicle.refreshed_at) < PAIR_REFRESH_GAP:
-                        continue
-                    times.append(now)
-                    vehicle.refreshed_at = now
-                    await self._async_refresh(vehicle)
             if cid in self._asked or not household.notifier.enabled:
                 continue
             asked_cars = any(log.values())
@@ -472,6 +463,44 @@ class Pairing:
                 color=COLOR_WARN,
                 actions=actions,
             )
+
+    async def _async_ask_cars(self, charger: Charger, free: list[Vehicle], now: datetime) -> None:
+        """A car is plugged in to the charger, and the car itself has not said so: ask it to report.
+
+        Its cloud asks the car every few minutes, so the car is asked after one, three and eight
+        minutes: the first time the car and the charger may not yet be done talking.
+        """
+        if charger.connected is not True or charger.plugged_at is None:
+            return
+        cid = charger.charger_id
+        site = self.site_of(charger)
+        cars = [
+            vehicle
+            for vehicle in self.household.vehicles.values()
+            if vehicle.charger_id == cid or (vehicle in free and self.here(vehicle, site) is not False)
+        ]
+        if any(vehicle.connected_car is True for vehicle in cars):
+            return  # the car at it has reported
+        log = self._refreshed.setdefault(cid, {})
+        for vehicle in cars:
+            if vehicle.refresh_entity is None:
+                continue
+            times = log.setdefault(vehicle.vehicle_id, [])
+            if len(times) >= len(PAIR_ASK_CAR_AT) or now < charger.plugged_at + PAIR_ASK_CAR_AT[len(times)]:
+                continue
+            if vehicle.refreshed_at is not None and elapsed(now, vehicle.refreshed_at) < PAIR_REFRESH_GAP:
+                continue
+            times.append(now)
+            vehicle.refreshed_at = now
+            self.household.events.add(
+                now,
+                "asked_car",
+                vehicle=vehicle.name,
+                charger=charger.name,
+                entity=vehicle.refresh_entity,
+                time=len(times),
+            )
+            await self._async_refresh(vehicle)
 
     async def _async_refresh(self, vehicle: Vehicle) -> None:
         """Make the car's integration ask the car now: press its button, run its script, or update its entity."""

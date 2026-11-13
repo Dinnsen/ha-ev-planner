@@ -12,6 +12,7 @@ from homeassistant.helpers.typing import ConfigType
 
 from . import migration, places
 from .const import DOMAIN, PLATFORMS, STORAGE_KEY, STORAGE_VERSION
+from .events import EVENTS_STORAGE_KEY, async_capture_logs
 from .household import EVPlannerConfigEntry, Household
 from .panel import async_register_panel, async_unregister_panel
 from .services import async_setup_services
@@ -27,6 +28,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Register the actions and the panel's websocket commands."""
     async_setup_services(hass)
     async_register_websocket(hass)
+    async_capture_logs()
     return True
 
 
@@ -73,6 +75,7 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Remove the stored settings, plans and history with the household."""
     store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY.format(entry_id=entry.entry_id))
     await store.async_remove()
+    await Store(hass, 1, EVENTS_STORAGE_KEY.format(entry_id=entry.entry_id)).async_remove()
 
 
 async def async_remove_config_entry_device(

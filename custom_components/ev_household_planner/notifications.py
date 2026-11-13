@@ -9,7 +9,7 @@ Live notifications are the Home Assistant Companion app's Live Activities
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from datetime import datetime
 import logging
 from typing import Any
@@ -50,9 +50,11 @@ def tag_for(kind: str, key: str) -> str:
 class Notifier:
     """Send EV Planner notifications to the chosen notify actions."""
 
-    def __init__(self, hass: HomeAssistant, services: Iterable[str]) -> None:
+    def __init__(self, hass: HomeAssistant, services: Iterable[str], note: Callable[..., None] | None = None) -> None:
         self.hass = hass
         self.services = [service_name(service) for service in services if service]
+        # Writes each notification in the event log (the support export).
+        self._note = note
 
     @property
     def enabled(self) -> bool:
@@ -86,6 +88,8 @@ class Notifier:
         to: Iterable[str] | None = None,
     ) -> None:
         """A normal notification with an icon (the companion app shows it)."""
+        if self._note is not None:
+            self._note("notification", title=title, message=message, tag=tag, to=list(self.targets(to)))
         for service in self.targets(to):
             data: dict[str, Any] = {"title": title, "message": message}
             if is_mobile_app(service):

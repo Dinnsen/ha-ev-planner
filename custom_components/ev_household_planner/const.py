@@ -116,9 +116,10 @@ PAIR_EARLIER: Final = timedelta(minutes=10)
 # were asked to report, and with cars that report when they like.
 PAIR_ASK_AFTER: Final = timedelta(minutes=5)
 PAIR_ASK_AFTER_SLOW: Final = timedelta(minutes=12)
-# A car is asked to report at most twice for one plug-in, this far apart, and never more often than this.
-PAIR_REFRESH_AGAIN: Final = timedelta(minutes=4)
-PAIR_REFRESH_GAP: Final = timedelta(minutes=3)
+# A car its charger says is plugged in, and that has not said so itself, is asked to report this
+# long after the plug went in (each once), and never more often than every ``PAIR_REFRESH_GAP``.
+PAIR_ASK_CAR_AT: Final = (timedelta(minutes=1), timedelta(minutes=3), timedelta(minutes=8))
+PAIR_REFRESH_GAP: Final = timedelta(minutes=1)
 # A plugged-in car that no charger with a plug sensor took goes to the one without, after this long.
 PAIR_NO_SENSOR_AFTER: Final = timedelta(minutes=3)
 # A charger draws this much (kW) when a car charges on it.
@@ -227,6 +228,7 @@ SET_NOTIFY_RECEIPT: Final = "notify_receipt"
 # Charge earlier when it costs at most ``early_within`` more per kWh than the cheapest plan.
 SET_EARLY_ENABLED: Final = "prefer_early"
 SET_KNOWN_PRICES: Final = "known_prices"
+SET_CHARGE_ON_LATE: Final = "charge_on_late"
 SET_EARLY_WITHIN: Final = "early_within"
 # Charge to ``topup_level`` at the cheapest prices, and the rest just before the ready-by time.
 SET_TOPUP_ENABLED: Final = "topup"
@@ -311,6 +313,7 @@ DEFAULT_VEHICLE_SETTINGS: Final[dict[str, object]] = {
     SET_NOTIFY_RECEIPT: True,
     SET_EARLY_ENABLED: False,
     SET_KNOWN_PRICES: False,
+    SET_CHARGE_ON_LATE: True,
     SET_EARLY_WITHIN: 0.02,
     SET_TOPUP_ENABLED: False,
     SET_TOPUP_LEVEL: 80.0,
@@ -345,6 +348,7 @@ REASON_KEEP_ON: Final = "keep_on"
 REASON_WAITING: Final = "waiting"
 REASON_CHARGER_BUSY: Final = "charger_busy"
 REASON_SOLAR: Final = "solar"
+REASON_LATE: Final = "late"
 
 STATUS_OFF: Final = "off"
 STATUS_PAUSED: Final = "paused"
@@ -435,6 +439,8 @@ RECALCULATE_DELAY: Final = 1.0
 METER_GRACE: Final = timedelta(minutes=10)
 PROGRESS_INTERVAL: Final = timedelta(minutes=1)
 UNPLUG_DELAY: Final = timedelta(minutes=1)
+# A guest that drove off after the charge is forgotten after this; the charge stays in the history.
+GUEST_CLEAR_AFTER: Final = timedelta(minutes=30)
 POST_PLAN_HOLD: Final = timedelta(hours=24)
 VERIFY_DELAY: Final = timedelta(minutes=6)
 # Waits between the checks that charging did what it was told: a command that

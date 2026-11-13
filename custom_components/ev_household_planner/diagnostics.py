@@ -2,19 +2,25 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
-from homeassistant.util import dt as dt_util
 
 from .const import REDACT_KEYS
-from .household import EVPlannerConfigEntry
+from .household import EVPlannerConfigEntry, Household
+from .support import async_bundle
 
 
 async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: EVPlannerConfigEntry) -> dict[str, Any]:
-    household = entry.runtime_data
-    now = dt_util.now()
+    """The whole support export: settings, state, what was learned, events, log lines and entity history."""
+    return await async_bundle(hass, entry.runtime_data)
+
+
+def household_diagnostics(household: Household, now: datetime) -> dict[str, Any]:
+    """The household as EV Planner sees it now."""
+    entry = household.config_entry
     return {
         "entry": async_redact_data(dict(entry.data), REDACT_KEYS),
         "options": dict(entry.options),

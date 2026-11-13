@@ -43,6 +43,7 @@ from .const import (
     GUEST_BATTERY,
     GUEST_CHARGER,
     GUEST_CHARGING,
+    GUEST_CLEAR_AFTER,
     GUEST_COMPLETED,
     GUEST_CONTINUOUS,
     GUEST_LIMIT,
@@ -619,6 +620,13 @@ class GuestSession:
         self.plan_info = None
         self._recorded = True
         self._carried = []
+
+    def finished_long_ago(self, now: datetime) -> bool:
+        """The guest unplugged after the charge a while ago, and has not come back: time to forget them."""
+        if self._release is None or self._release.get("reason") != RELEASE_UNPLUGGED or self.car_connected is True:
+            return False
+        released = dt_util.parse_datetime(str(self._release.get("at") or ""))
+        return released is not None and now - released >= GUEST_CLEAR_AFTER
 
     async def async_new_guest(self) -> None:
         """Forget the guest and the plan; a finished plan goes to the history."""

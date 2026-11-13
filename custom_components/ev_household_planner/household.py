@@ -14,6 +14,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from functools import partial
 import logging
+import math
 import re
 from typing import Any
 
@@ -92,6 +93,7 @@ from .const import (
     RECALCULATE_MAX_WAIT,
     REMINDER_MAX_REPEATS,
     SAVE_COUNTERS,
+    SET_CHARGE_ON_LATE,
     SET_DAY_TARGETS,
     SET_KNOWN_PRICES,
     SET_LIVE,
@@ -122,6 +124,7 @@ from .const import (
     WEEKDAYS,
     WIDGET_MIN_INTERVAL,
 )
+from .events import EventLog
 from .guest import GuestSession
 from .home import HomeInfo
 from .layout import clean_layouts
@@ -299,7 +302,11 @@ class Household(DataUpdateCoordinator[None]):
         self.layout: dict[str, Any] = {}
         # The photo as it was before its background was cut away, so the cut can be undone.
         self.originals: dict[str, str] = {}
-        self.notifier = Notifier(hass, self.notify_services)
+        # What happened and why, for the support export.
+        self.events = EventLog(hass, entry.entry_id)
+        self.notifier = Notifier(
+            hass, self.notify_services, lambda kind, **data: self.events.add(dt_util.now(), kind, **data)
+        )
         self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY.format(entry_id=entry.entry_id))
         self._unsub: list[CALLBACK_TYPE] = []
         self._recalc_timer: CALLBACK_TYPE | None = None
@@ -371,6 +378,7 @@ class Household(DataUpdateCoordinator[None]):
     # Lifecycle
 
     async def async_initialize(self) -> None:
+        await self.events.async_load()
         await self._async_load()
         await self._async_load_status_texts()
         hass = self.hass
@@ -440,6 +448,7 @@ class Household(DataUpdateCoordinator[None]):
         self._verify_timers.clear()
         self.guest.async_stop()
         await self._store.async_save(self._data_to_store())
+        await self.events.async_save()
         await super().async_shutdown()
 
     async def _async_update_data(self) -> None:
@@ -534,6 +543,10 @@ class Household(DataUpdateCoordinator[None]):
     @callback
     def _data_to_store(self) -> dict[str, Any]:
         self._save_due = None
+        return self.stored_data()
+
+    def stored_data(self) -> dict[str, Any]:
+        """What is kept on disk: settings, plans, history and what was learned."""
         return {
             "actuators": self.supply.actuators_to_store(),
             "vehicles": {vehicle_id: vehicle.to_store() for vehicle_id, vehicle in self.vehicles.items()},
@@ -722,15 +735,65 @@ class Household(DataUpdateCoordinator[None]):
             vehicle.capacity_from_car = meter_value(self.hass.states.get(vehicle.capacity_entity))
         if vehicle.connected_entity:
             vehicle.connected = vehicle.read_connected(self._state(vehicle.connected_entity))
+        vehicle.connected_car = vehicle.connected
         if vehicle.home_entity:
             # At home, or at another of the household's places (a summer house with a charger).
             vehicle.place = self._state(vehicle.home_entity)
             vehicle.home = self.pairing.at_a_site(vehicle.place)
+        # Many cars report late (the car's cloud asks the car every few minutes): when its charger
+        # says a car is plugged in, and it can only be this one, the car is plugged in, and there.
+        vehicle.plugged_by_charger = vehicle.connected is not True and self._charger_holds(vehicle)
+        if vehicle.plugged_by_charger:
+            vehicle.connected = True
+            vehicle.home = True
         if vehicle.charging_entity:
             charging = is_charging_state(self._state(vehicle.charging_entity))
             if charging is not None and vehicle.charging is not None and charging != vehicle.charging:
                 vehicle.charging_changed_at = dt_util.now()
             vehicle.charging = charging
+
+    def _charger_holds(self, vehicle: Vehicle) -> bool:
+        """The car's charger says a car is plugged in, and no other car or a guest can be it."""
+        cid = vehicle.charger_id
+        charger = self.chargers.get(cid or "")
+        if charger is None or charger.connected is not True or charger.connected_entity is None:
+            return False
+        if self.guest.charger_id == cid and self.guest.session_active(dt_util.now()):
+            return False
+        if charger.occupant is not None:
+            return charger.occupant == vehicle.vehicle_id
+        if any(other is not vehicle and other.charger_id == cid for other in self.vehicles.values()):
+            return False
+        site = self.pairing.site_of(charger)
+        # A car that finds its charger, and could be at this place, could be the one plugged in.
+        return not any(
+            other is not vehicle and self.pairing.here(other, site) is not False for other in self.pairing._free()
+        )
+
+    def _connection_changed(self, vehicle: Vehicle, was: bool | None, now: datetime) -> None:
+        """A car plugged in or unplugged: what follows from it."""
+        if vehicle.connected is was:
+            return
+        # Whatever went before belongs to the last time it was plugged in.
+        vehicle.plan_done = False
+        vehicle.late_target = None
+        if vehicle.connected is True and was is False:
+            vehicle.connected_since = now
+            # Many cars start charging as soon as they are plugged in: for a few
+            # minutes, make sure the car does what the plan says.
+            vehicle.enforce_until = now + ENFORCE_AFTER_PLUG_IN
+            self.config_entry.async_create_task(
+                self.hass, self._async_clear_reminder(vehicle), f"{DOMAIN} clear reminder"
+            )
+            self.events.add(
+                now, "plugged_in", vehicle=vehicle.name, by="charger" if vehicle.plugged_by_charger else "car"
+            )
+        elif vehicle.connected is False:
+            vehicle.connected_since = None
+            # Unplugged: whatever paused it has let go of it.
+            vehicle.paused_by = None
+            if was is True:
+                self.events.add(now, "unplugged", vehicle=vehicle.name, soc=vehicle.current_soc)
 
     @callback
     def _handle_vehicle_state(self, vehicle_id: str, event: Event[EventStateChangedData]) -> None:
@@ -764,23 +827,11 @@ class Household(DataUpdateCoordinator[None]):
                 cancel()
         elif vehicle.connected is False and vehicle.unplugged_at is None:
             vehicle.unplugged_at = now
-        if vehicle.connected is True and was_connected is False:
-            vehicle.connected_since = now
-        elif vehicle.connected is False:
-            vehicle.connected_since = None
-            # Unplugged: whatever paused it has let go of it.
-            vehicle.paused_by = None
         if entity_id == vehicle.soc_entity and vehicle.soc is not None:
             self._count_soc(vehicle, old_soc, vehicle.soc, now)
         if vehicle.connected is False and was_connected is True and vehicle.finish_measurement(unplugged=True):
             self.async_save()
-        if vehicle.connected is True and was_connected is False:
-            # Many cars start charging as soon as they are plugged in: for a few
-            # minutes, make sure the car does what the plan says.
-            vehicle.enforce_until = now + ENFORCE_AFTER_PLUG_IN
-            self.config_entry.async_create_task(
-                self.hass, self._async_clear_reminder(vehicle), f"{DOMAIN} clear reminder"
-            )
+        self._connection_changed(vehicle, was_connected, now)
         self.schedule_recalculate()
 
     @staticmethod
@@ -833,7 +884,17 @@ class Household(DataUpdateCoordinator[None]):
             charger.connected = charger.read_connected(new.state if new else None)
             if charger.connected is True and was is False:
                 charger.plugged_at = dt_util.now()
-            elif charger.connected is False:
+                self.events.add(charger.plugged_at, "charger_plugged_in", charger=charger.name)
+            if charger.connected is not was:
+                now = dt_util.now()
+                for vehicle in self.vehicles.values():
+                    if vehicle.charger_id == charger_id or vehicle.plugged_by_charger:
+                        before = vehicle.connected
+                        self._read_vehicle(vehicle)
+                        if vehicle.connected is False and before is True and vehicle.finish_measurement(unplugged=True):
+                            self.async_save()
+                        self._connection_changed(vehicle, before, now)
+            if charger.connected is False:
                 charger.plugged_at = None
             if self.guest.charger_id == charger_id:
                 self.guest.handle_connected(charger.connected)
@@ -983,12 +1044,35 @@ class Household(DataUpdateCoordinator[None]):
         except PlanError as err:
             old = vehicle.plan
             if old is not None and old.end is not None and old.end <= now:
-                vehicle.plan_done = True
+                vehicle.plan_done = self._plugged_through(vehicle, old.end)
             vehicle.plan, vehicle.plan_error = None, err.key
             if err.key in ("no_price_data", "not_enough_prices"):
                 # Waiting for prices: in case they never come, charge just in time anyway.
                 vehicle.plan = keep_fallback(old, fallback_plan(car, now, aim), now)
         vehicle.planned_at = now
+        self._note_plan(vehicle, now, aim)
+
+    def _note_plan(self, vehicle: Vehicle, now: datetime, aim: datetime | None) -> None:
+        """A new or changed plan goes in the event log, with what it was made from."""
+        plan = vehicle.plan
+        segments = [[seg["start"].isoformat(), seg["end"].isoformat()] for seg in plan.segments] if plan else []
+        self.events.changed(
+            now,
+            "plan",
+            vehicle.vehicle_id,
+            (tuple(map(tuple, segments)), vehicle.plan_error, vehicle.deadline),
+            vehicle=vehicle.name,
+            soc=vehicle.current_soc,
+            target=vehicle.target,
+            deadline=vehicle.deadline,
+            aim=aim,
+            segments=segments,
+            cost=plan.cost if plan else None,
+            energy=plan.energy if plan else None,
+            other_cost=vehicle.other_cost,
+            error=vehicle.plan_error,
+            mode=vehicle.settings.get(SET_MODE),
+        )
 
     @staticmethod
     def _aim(vehicle: Vehicle, now: datetime) -> datetime | None:
@@ -1188,11 +1272,16 @@ class Household(DataUpdateCoordinator[None]):
         for vehicle in self.vehicles.values():
             # A plan that has just ended: plan again from the new charge level.
             if vehicle.plan is not None and vehicle.plan.end is not None and vehicle.plan.end <= now:
-                vehicle.plan_done = True
+                vehicle.plan_done = self._plugged_through(vehicle, vehicle.plan.end)
                 replan = True
             if vehicle.deadline is not None and vehicle.deadline <= now:
                 replan = True
+                self._check_late(vehicle, now)
             self._count_time(vehicle, now)
+        if self.guest.finished_long_ago(now):
+            # The guest has driven off and the charge is in the history: the guest page starts empty again.
+            self.events.add(now, "guest_cleared")
+            await self.guest.async_new_guest()
         for supply in self.supplies.values():
             if supply.sample(now):
                 self.async_save()
@@ -1221,6 +1310,40 @@ class Household(DataUpdateCoordinator[None]):
         for vehicle in self.vehicles.values():
             await self._async_warn_short(vehicle)
 
+    def _late(self, vehicle: Vehicle) -> bool:
+        """Charging on past the ready-by time, until the target it had then is reached."""
+        target = vehicle.late_target
+        if target is None:
+            return False
+        soc = vehicle.current_soc
+        if vehicle.mode != MODE_SMART or vehicle.connected is not True or (soc is not None and soc >= target - 0.5):
+            vehicle.late_target = None
+            return False
+        return True
+
+    @staticmethod
+    def _plugged_through(vehicle: Vehicle, end: datetime) -> bool:
+        """The car was plugged in when its plan ended, and still is: the plan was its own charge."""
+        if vehicle.connected is not True:
+            return False
+        return vehicle.connected_since is None or vehicle.connected_since < end
+
+    def _check_late(self, vehicle: Vehicle, now: datetime) -> None:
+        """The ready-by time has come: a car still plugged in short of its target charges on to it."""
+        soc = vehicle.current_soc
+        if (
+            vehicle.late_target is None
+            and vehicle.settings.get(SET_CHARGE_ON_LATE, True)
+            and vehicle.mode == MODE_SMART
+            and vehicle.connected is True
+            and vehicle.at_home is not False
+            and soc is not None
+            and soc < vehicle.target - 1
+        ):
+            vehicle.late_target = vehicle.target
+            self.events.add(now, "late", vehicle=vehicle.name, soc=soc, target=vehicle.target)
+            self.async_save()
+
     def _count_time(self, vehicle: Vehicle, now: datetime) -> None:
         """A minute of charging: for the measurement, and for the energy when nothing else counts it.
 
@@ -1234,15 +1357,52 @@ class Household(DataUpdateCoordinator[None]):
         vehicle.power_from_car = reading
         if not charging:
             vehicle.counted_at = None
+            vehicle.meter_kwh = vehicle.meter_at = None
             return
         since = self._counted_since(vehicle)
         vehicle.counted_at = now
+        metered = self._metered_kwh(vehicle, now)
         if since is None:
             # The first sign of charging: counted from now on.
             return
         seconds = min(max(0.0, elapsed(now, since).total_seconds()), 2 * TICK.total_seconds())
         vehicle.meter.tick(seconds, True, reading)
-        self._count_energy(vehicle, now, seconds, reading)
+        self._count_energy(vehicle, now, seconds, reading, metered)
+
+    def _metered_kwh(self, vehicle: Vehicle, now: datetime) -> float | None:
+        """The energy the car's charger's meter counted since the last minute (None without one).
+
+        A meter in front of the charger counts what is paid for, the losses on the way included.
+        Only the car at the charger is counted by it: not a guest's, and not when two cars could be there.
+        A meter that reports every few minutes counts nothing in between and the lot when it reports;
+        one that has not moved for a quarter of an hour is not trusted, and the power counts instead.
+        """
+        charger = self.chargers.get(vehicle.charger_id or "")
+        usable = (
+            charger is not None
+            and bool(charger.energy_entity)
+            and not self.guest_holds(charger.charger_id, now)
+            and self.pairing.occupant(charger) in (None, vehicle.vehicle_id)
+            and not any(
+                other is not vehicle and other.charger_id == charger.charger_id and self._is_charging(other)
+                for other in self.vehicles.values()
+            )
+        )
+        value = self.meter_kwh(charger.energy_entity) if usable and charger is not None else None
+        previous, since = vehicle.meter_kwh, vehicle.meter_at
+        if value is None or previous is None or since is None or value < previous:
+            # Without a meter, its first reading, or a meter that was reset: the power counts this minute.
+            vehicle.meter_kwh, vehicle.meter_at = value, (now if value is not None else None)
+            return None
+        hours = max(0.0, elapsed(now, since).total_seconds()) / 3600
+        if value == previous:
+            if hours > 0.25:
+                vehicle.meter_kwh, vehicle.meter_at = value, now
+                return None
+            return 0.0
+        vehicle.meter_kwh, vehicle.meter_at = value, now
+        most = charger.power * max(hours, TICK.total_seconds() / 3600) * 1.5 + 0.05 if charger else 0.0
+        return value - previous if value - previous <= most else None
 
     @staticmethod
     def _counted_since(vehicle: Vehicle) -> datetime | None:
@@ -1251,7 +1411,9 @@ class Household(DataUpdateCoordinator[None]):
         moments = [moment for moment in (vehicle.counted_at, opened) if moment is not None]
         return max(moments, key=lambda moment: moment.astimezone(UTC)) if moments else None
 
-    def _count_energy(self, vehicle: Vehicle, now: datetime, seconds: float, reading: float | None) -> None:
+    def _count_energy(
+        self, vehicle: Vehicle, now: datetime, seconds: float, reading: float | None, metered: float | None = None
+    ) -> None:
         """Energy for ``seconds`` of charging up to ``now``: the reported power, else the charging power.
 
         A car with a charge level sensor but no power reading is counted by
@@ -1260,7 +1422,10 @@ class Household(DataUpdateCoordinator[None]):
         if seconds <= 0:
             return
         hours = seconds / 3600
-        if reading is not None and reading >= MIN_POWER_KW:
+        if metered is not None:
+            vehicle.power_counted_at = now
+            kwh, source = metered, "meter"
+        elif reading is not None and reading >= MIN_POWER_KW:
             vehicle.power_counted_at = now
             kwh, source = reading * hours, "power"
         elif vehicle.has_soc_sensor:
@@ -1343,6 +1508,7 @@ class Household(DataUpdateCoordinator[None]):
                 price_now=price_now,
                 plan_done=vehicle.plan_done,
                 charger_free=not self.guest_holds(vehicle.charger_id, now),
+                late=self._late(vehicle),
             )
             if (
                 self.solar_of(vehicle).wants(vehicle)
@@ -1356,6 +1522,22 @@ class Household(DataUpdateCoordinator[None]):
                 decision = Decision(CONTROL_PAUSE, REASON_WAITING)
             changed = decision != vehicle.decision
             vehicle.decision = decision
+            self.events.changed(
+                now,
+                "decision",
+                vehicle.vehicle_id,
+                (decision.control, decision.reason),
+                vehicle=vehicle.name,
+                control=decision.control,
+                reason=decision.reason,
+                soc=vehicle.current_soc,
+                target=vehicle.target,
+                connected=vehicle.connected,
+                home=vehicle.at_home,
+                charging=vehicle.charging,
+                charger=vehicle.charger_id,
+                price=current_price(self.price_slots(now), now),
+            )
             if apply and self._started:
                 await self._async_apply(vehicle, force=False)
                 if changed:
@@ -1377,6 +1559,7 @@ class Household(DataUpdateCoordinator[None]):
         """The guard: stop this car now, as the house needs the current. True when it was stopped."""
         vehicle.decision = Decision(CONTROL_PAUSE, REASON_WAITING)
         stopped = await self._async_apply(vehicle, force=True, urgent=True)
+        self.events.add(dt_util.now(), "guard_pause", vehicle=vehicle.name, stopped=stopped)
         self.async_update_listeners()
         return stopped
 
@@ -1454,10 +1637,13 @@ class Household(DataUpdateCoordinator[None]):
                 )
         except TimeoutError:
             _LOGGER.warning("No answer when turning %s %s", "on" if on else "off", entity_id)
+            self.events.add(dt_util.now(), "command", entity=entity_id, on=on, error="timeout")
             return "timeout"
         except (HomeAssistantError, ServiceNotFound) as err:
             _LOGGER.warning("Could not turn %s %s: %s", "on" if on else "off", entity_id, err)
+            self.events.add(dt_util.now(), "command", entity=entity_id, on=on, error=str(err) or type(err).__name__)
             return str(err) or type(err).__name__
+        self.events.add(dt_util.now(), "command", entity=entity_id, on=on)
         return None
 
     async def _async_apply(self, vehicle: Vehicle, *, force: bool, urgent: bool = False) -> bool:
@@ -2014,6 +2200,7 @@ class Household(DataUpdateCoordinator[None]):
             raise ServiceValidationError(translation_domain=DOMAIN, translation_key="car_not_found")
         mode_changed = False
         changes = dict(changes)
+        self.events.add(dt_util.now(), "settings", vehicle=vehicle.name, changes=changes)
         if changes.pop(FORGET_RESUME, False):
             # "Try again": the car may charge again after a pause after all (e.g. a new charger).
             vehicle.learned.forget_resume()
@@ -2025,7 +2212,8 @@ class Household(DataUpdateCoordinator[None]):
             if key == SET_DAY_TARGETS:
                 value = {day: float(entry) for day, entry in dict(value or {}).items() if day in WEEKDAYS}
             if key == SET_TARGET_SOC and vehicle.target_entity:
-                await self._async_set_car_target(vehicle, float(value))
+                value = self.car_target_value(vehicle, float(value))
+                await self._async_set_car_target(vehicle, value)
             if key == SET_MODE and value != vehicle.mode:
                 mode_changed = True
             vehicle.settings[key] = value
@@ -2039,12 +2227,39 @@ class Household(DataUpdateCoordinator[None]):
         self.async_save()
         await self.async_recalculate(force=True)
 
+    def car_target_steps(self, vehicle: Vehicle) -> tuple[float, float, float] | None:
+        """The car's own charge limit: (least, most, step), when it is a number EV Planner sets."""
+        entity_id = vehicle.target_entity
+        if not entity_id or entity_id.split(".", 1)[0] not in ("number", "input_number"):
+            return None
+        state = self.hass.states.get(entity_id)
+        if state is None:
+            return None
+        low = to_float(state.attributes.get("min"))
+        high = to_float(state.attributes.get("max"))
+        step = to_float(state.attributes.get("step"))
+        return (
+            low if low is not None else 0.0,
+            high if high is not None else 100.0,
+            step if step is not None and step > 0 else 1.0,
+        )
+
+    def car_target_value(self, vehicle: Vehicle, value: float) -> float:
+        """A target the car takes: up to its next step (80 % for 75 % on a car that takes tens), within its range."""
+        steps = self.car_target_steps(vehicle)
+        if steps is None:
+            return value
+        low, high, step = steps
+        value = low + math.ceil(round((value - low) / step, 6)) * step
+        return float(max(low, min(high, round(value, 6))))
+
     async def _async_set_car_target(self, vehicle: Vehicle, value: float) -> None:
         """Set the car's own charge limit, when it is a number entity."""
         entity_id = vehicle.target_entity
         if not entity_id or entity_id.split(".", 1)[0] not in ("number", "input_number"):
             return
         domain = entity_id.split(".", 1)[0]
+        value = self.car_target_value(vehicle, value)
         try:
             await self.hass.services.async_call(
                 domain, "set_value", {"entity_id": entity_id, "value": value}, blocking=True
@@ -2064,6 +2279,7 @@ class Household(DataUpdateCoordinator[None]):
         self.async_update_listeners()
 
     async def async_update_settings(self, changes: Mapping[str, Any]) -> None:
+        self.events.add(dt_util.now(), "settings", changes=dict(changes))
         self.settings.update({key: value for key, value in changes.items() if key in SETTINGS_DEFAULTS})
         self.async_save()
         self.async_update_listeners()

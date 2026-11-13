@@ -292,7 +292,13 @@ async def test_diagnostics(hass: HomeAssistant, init_integration: MockConfigEntr
     assert "supply" in diagnostics["sites"]["home"] and "solar" in diagnostics["sites"]["home"]
     assert diagnostics["vehicles"][TESLA]["site"] == "home"
     assert all(c["site"] == "home" for c in diagnostics["chargers"].values())
-    json.dumps(diagnostics, default=str)
+    # The support export: what is used, what was learned, what happened.
+    for key in ("about", "config", "panel", "stored", "learning", "events", "log", "entities", "history"):
+        assert key in diagnostics
+    assert diagnostics["entities"]["used"], "the entities EV Planner reads are in the export"
+    assert any(entity.startswith("sensor.") for entity in diagnostics["entities"]["own"])
+    assert "AB12345" not in json.dumps(diagnostics), "the number plate is left out everywhere"
+    json.dumps(diagnostics)
 
 
 async def test_phone_names(hass: HomeAssistant) -> None:

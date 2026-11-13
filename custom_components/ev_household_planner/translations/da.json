@@ -357,7 +357,7 @@
           },
           "sections": {
             "supply": {
-              "name": "Fælles forsyning (beta)",
+              "name": "Fælles forsyning",
               "data": {
                 "supply_limit": "Grænse pr. fase",
                 "supply_phases": "Faser",
@@ -378,7 +378,7 @@
               }
             },
             "grid": {
-              "name": "Nettet, til opladning på solen (beta)",
+              "name": "Nettet, til opladning på solen",
               "description": "Med en sensor for effekten til og fra nettet kan en bil lade på det, stedet ellers ville sælge.",
               "data": {
                 "grid_power": "Effekt til/fra nettet",
@@ -408,7 +408,7 @@
           },
           "sections": {
             "supply": {
-              "name": "Fælles forsyning (beta)",
+              "name": "Fælles forsyning",
               "data": {
                 "supply_limit": "Grænse pr. fase",
                 "supply_phases": "Faser",
@@ -429,7 +429,7 @@
               }
             },
             "grid": {
-              "name": "Nettet, til opladning på solen (beta)",
+              "name": "Nettet, til opladning på solen",
               "description": "Med en sensor for effekten til og fra nettet kan en bil lade på det, stedet ellers ville sælge.",
               "data": {
                 "grid_power": "Effekt til/fra nettet",

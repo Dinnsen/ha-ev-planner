@@ -127,6 +127,7 @@ const TEXT = {
     why_topup: "Venter med de sidste {from}–{to} til lige før afgang, så bilen ikke står fuld hele natten.",
     why_fallback: "Venter på priser. Kommer de ikke, lader den {window}, så bilen er klar.",
     why_keep_on: "Holder laderen tændt, så bilen kan forvarme fra nettet.",
+    why_late: "Klar-tiden er gået, og bilen er ikke nået til {target}. Den lader videre, til den er der.",
     why_full: "Bilen har nået sit mål på {target}.",
     why_paused: "Sat på pause af dig.",
     why_busy: "Laderen bruges af en anden lige nu.",
@@ -323,6 +324,8 @@ const TEXT = {
     rule_join_hint: "Lad videre eller i én periode, når det højst koster så meget mere pr. kWh end den billigste plan. En anden bil, der er sat til samme lader, beholder sine timer.",
     rule_join_continuous: "Plantypen er Én periode, så bilen lader allerede i ét stræk.",
     rule_keep_on: "Hold laderen tændt",
+    rule_late: "Lad videre efter klar-tiden",
+    rule_late_hint: "Når bilen ikke nåede målet til klar-tiden, lader den videre til målet, så længe den sidder i. Slået fra venter den på næste plan.",
     rule_keep_on_hint: "Efter planen, så bilen kan forvarme fra nettet. Kun når bilen selv stopper ved målet: målet er 100 %, eller bilens egen grænse er målet. Ellers pauses den.",
     rule_earliest: "Tidligste start",
     rule_earliest_hint: "Start ikke opladningen før dette tidspunkt.",
@@ -375,6 +378,7 @@ const TEXT = {
     recalculate: "Beregn igen",
     calculating: "Beregner …",
     new_guest: "Ny gæst",
+    remove_guest: "Fjern gæsten",
     guest_charge_now: "Lad nu",
     charging_now_busy: "Starter …",
     charge_now_tag: "Lad nu",
@@ -517,6 +521,13 @@ const TEXT = {
     app_title: "App på hjemmeskærmen",
     app_hint: "Åbn linket på telefonen og vælg Føj til hjemmeskærm.",
     open_app: "Åbn app",
+    support_title: "Log og support",
+    support_summary: "Eksportér alt til fejlfinding",
+    support_hint: "Én fil med alt EV Planner ved og har gjort: indstillinger, planer, hvad den har lært, en uges hændelser (beslutninger, kommandoer, vagten, parring, beskeder), loggen, og alle entiteter den bruger med attributter og historik for de sidste 48 timer. Placeringer, nummerplader, stelnumre og nøgler er taget ud.",
+    support_export: "Eksportér log",
+    support_busy: "Samler …",
+    support_failed: "Eksporten mislykkedes",
+    support_also: "Den samme fil hentes også under Indstillinger → Enheder og tjenester → EV Planner → ⋮ → Hent diagnosticering.",
     widgets_title: "Widgets",
     widgets_text: "iOS: Tilføj et Home Assistant-widget (Brugerdefineret, Gauge eller Sensorer) og vælg fx sensor.<bil>_summary, sensor.<bil>_status og din bils batteri.",
     saved: "Gemt",
@@ -662,6 +673,7 @@ const TEXT = {
     why_topup: "Saving the last {from}–{to} for just before departure, so the car does not stand full all night.",
     why_fallback: "Waiting for prices. If they do not come, it charges {window} so the car is ready.",
     why_keep_on: "Keeping the charger on, so the car can precondition from the grid.",
+    why_late: "The ready-by time has passed and the car has not reached {target}. It charges on until it has.",
     why_full: "The car has reached its target of {target}.",
     why_paused: "Paused by you.",
     why_busy: "Someone else is using the charger right now.",
@@ -856,6 +868,8 @@ const TEXT = {
     rule_join_hint: "Charge on, or in one period, when that costs at most this much more per kWh than the cheapest plan. Another car plugged in on the same charger keeps its hours.",
     rule_join_continuous: "The plan type is One period, so the car charges in one go already.",
     rule_keep_on: "Keep the charger on",
+    rule_late: "Charge on after the ready-by time",
+    rule_late_hint: "When the car did not reach the target by the ready-by time, it charges on to the target while plugged in. Off, it waits for the next plan.",
     rule_keep_on_hint: "After the plan, so the car can precondition from the grid. Only when the car stops at the target by itself: the target is 100 %, or the car's own limit is the target. Otherwise it is paused.",
     rule_earliest: "Earliest start",
     rule_earliest_hint: "Do not start charging before this time.",
@@ -907,6 +921,7 @@ const TEXT = {
     recalculate: "Plan again",
     calculating: "Planning …",
     new_guest: "New guest",
+    remove_guest: "Remove the guest",
     guest_charge_now: "Charge now",
     charging_now_busy: "Starting …",
     charge_now_tag: "Charge now",
@@ -1047,6 +1062,13 @@ const TEXT = {
     app_title: "App on the home screen",
     app_hint: "Open the link on your phone and choose Add to Home Screen.",
     open_app: "Open app",
+    support_title: "Log and support",
+    support_summary: "Export everything for troubleshooting",
+    support_hint: "One file with everything EV Planner knows and has done: settings, plans, what it has learned, a week of events (decisions, commands, the guard, pairing, notifications), the log, and every entity it uses with attributes and history for the last 48 hours. Locations, number plates, VINs and keys are left out.",
+    support_export: "Export log",
+    support_busy: "Collecting …",
+    support_failed: "The export failed",
+    support_also: "The same file is also under Settings → Devices & services → EV Planner → ⋮ → Download diagnostics.",
     widgets_title: "Widgets",
     widgets_text: "iOS: Add a Home Assistant widget (Custom, Gauge or Sensors) and pick e.g. sensor.<car>_summary, sensor.<car>_status and your car's battery.",
     saved: "Saved",
@@ -1145,6 +1167,7 @@ Object.assign(TEXT.da, {
   csv_solar: "Heraf fra solen (kWh)",
   csv_source: "Målt med",
   csv_source_power: "Effektmåling",
+  csv_source_meter: "Laderens elmåler",
   csv_source_soc: "Ladeniveau",
   csv_source_time: "Tid og ladeeffekt",
   hist_house_none: "Hele huset kræver en elmåler i Energi-dashboardet.",
@@ -1256,6 +1279,7 @@ Object.assign(TEXT.en, {
   csv_solar: "Of which from the sun (kWh)",
   csv_source: "Measured by",
   csv_source_power: "Power reading",
+  csv_source_meter: "Charger meter",
   csv_source_soc: "Charge level",
   csv_source_time: "Time and charging power",
   hist_house_none: "The whole house needs an electricity meter in the Energy dashboard.",
@@ -5592,6 +5616,7 @@ class EvPlannerPanel extends HTMLElement {
       min: Number(s.min_soc) || 0,
       nowKey: "manual_soc",
       targetKey: "target_soc",
+      targetSteps: Array.isArray(v.target_steps) ? v.target_steps.map(Number) : null,
       canNow: manual,
       canTarget: v.target_editable !== false,
       set: (changes, opts) => this._vchange(changes, opts),
@@ -5676,7 +5701,15 @@ class EvPlannerPanel extends HTMLElement {
     // Keep Now below the target and the target above Now.
     const bound = (model, key, v) => {
       if (key === model.nowKey) return clamp(Math.min(v, model.limit - 1), 0, 100);
-      return clamp(model.soc === null ? v : Math.max(v, model.soc + 1), 0, 100);
+      const value = clamp(model.soc === null ? v : Math.max(v, model.soc + 1), 0, 100);
+      return snapTarget(model, value);
+    };
+    // The car's own limit takes steps (a Skoda: tens from 50 %): the target goes in the same steps.
+    const snapTarget = (model, value) => {
+      const steps = model.targetSteps;
+      if (!steps || !(steps[2] > 1)) return value;
+      const [low, high, step] = steps;
+      return clamp(low + Math.round((value - low) / step) * step, low, high);
     };
     const can = (model, key) => (key === model.nowKey ? model.canNow : model.canTarget);
     const drag = (handle, which) => {
@@ -5710,7 +5743,8 @@ class EvPlannerPanel extends HTMLElement {
         if (!delta || !model || !can(model, key)) return;
         ev.preventDefault();
         const current = key === model.nowKey ? model.soc ?? 0 : model.limit;
-        model.set({ [key]: bound(model, key, current + delta) });
+        const step = key === model.targetKey && model.targetSteps?.[2] > 1 ? model.targetSteps[2] * Math.sign(delta) : delta;
+        model.set({ [key]: bound(model, key, current + step) });
       });
     };
     drag(root.querySelector(".handle.now"), "nowKey");
@@ -5723,7 +5757,7 @@ class EvPlannerPanel extends HTMLElement {
       const v = valueAt(ev.clientX);
       const nearNow = model.soc !== null && Math.abs(v - model.soc) <= Math.abs(v - model.limit);
       if (nearNow && model.canNow && v < model.limit) model.set({ [model.nowKey]: v });
-      else if (model.canTarget && (model.soc === null || v > model.soc)) model.set({ [model.targetKey]: v });
+      else if (model.canTarget && (model.soc === null || v > model.soc)) model.set({ [model.targetKey]: snapTarget(model, v) });
     });
   }
 
@@ -5969,6 +6003,7 @@ class EvPlannerPanel extends HTMLElement {
     else if (reason === "low_soc") text = this._t("why_low_soc", { level: this._pct(s.low_soc_level) });
     else if (reason === "low_price") text = this._t("why_low_price", { price: this._money(now), level: this._money(s.low_price_level) });
     else if (reason === "keep_on") text = this._t("why_keep_on");
+    else if (reason === "late") text = this._t("why_late", { target: this._pct(v.target) });
     else if (reason === "full") text = this._t("why_full", { target: this._pct(v.target) });
     else if (reason === "paused") text = this._t("why_paused");
     else if (reason === "charger_busy") text = this._t("why_busy");
@@ -6260,6 +6295,13 @@ class EvPlannerPanel extends HTMLElement {
         hint: this._t("rule_keep_on_hint"),
         off: !s.keep_charger_on,
         control: this._switchHtml("keep_charger_on", s.keep_charger_on, this._t("rule_keep_on")),
+      }),
+      this._ruleRow({
+        icon: "boost",
+        title: this._t("rule_late"),
+        hint: this._t("rule_late_hint"),
+        off: s.charge_on_late === false,
+        control: this._switchHtml("charge_on_late", s.charge_on_late !== false, this._t("rule_late")),
       }),
     );
     groups.time.unshift(
@@ -6598,6 +6640,13 @@ class EvPlannerPanel extends HTMLElement {
     now.classList.toggle("stop", stop);
     now.disabled = Boolean(this._busy);
     calc.classList.toggle("pulse", this._gstale);
+    // With a guest filled in, the button takes them away (their charge stays in the history).
+    const fresh = root.querySelector(".new-guest");
+    if (fresh) {
+      const someone = Boolean(inputs.license_plate || hasSegments(g.plan) || g.car?.name || g.results?.car_name);
+      const word = this._t(someone ? "remove_guest" : "new_guest");
+      this._patch(fresh, word, `${ICONS[someone ? "close" : "plus"] || ICONS.plus}<span>${esc(word)}</span>`);
+    }
     root.querySelector(".guest-page .note").textContent = this._gstale ? this._t("changed") : "";
   }
 
@@ -7399,6 +7448,40 @@ class EvPlannerPanel extends HTMLElement {
     return { name: `ev-planner-${day(start)}-${day(new Date(end.getTime() - 1))}.csv`, text: [head.join(sep), ...rows].join("\r\n") + "\r\n" };
   }
 
+  /* The support export: the integration's diagnostics (everything EV Planner knows, see support.py), as a file. */
+  async _exportSupport() {
+    if (this._exporting) return;
+    this._exporting = true;
+    this._exportError = "";
+    this._render();
+    try {
+      const entry = this._state?.entry_id;
+      if (!entry) throw new Error("no entry");
+      const response = await this._hass.fetchWithAuth(`/api/diagnostics/config_entry/${entry}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
+      this._download(blob, `ev-planner-support-${stamp}.json`);
+    } catch (err) {
+      this._exportError = String(err?.message || err);
+    } finally {
+      this._exporting = false;
+      this._render();
+    }
+  }
+
+  _download(blob, name) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = name;
+    link.hidden = true;
+    this.shadowRoot.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
   /* Download the CSV: a link to the file in memory, clicked once. The mark first tells Excel it is UTF-8. */
   _exportHistory() {
     const csv = this._historyCsv();
@@ -7855,6 +7938,15 @@ class EvPlannerPanel extends HTMLElement {
         <h3>${this._t("widgets_title")}</h3>
         <p class="hint">${esc(this._t("widgets_text"))}</p>`,
       },
+      support: {
+        icon: "download",
+        title: this._t("support_title"),
+        summary: this._t("support_summary"),
+        body: `<p class="hint">${this._t("support_hint")}</p>
+        <button class="btn" data-act="support-export" data-f="support-export"${this._exporting ? " disabled" : ""}>${ICONS.download}<span>${this._t(this._exporting ? "support_busy" : "support_export")}</span></button>
+        ${this._exportError ? `<p class="hint warn-text">${this._t("support_failed")}: ${esc(this._exportError)}</p>` : ""}
+        <p class="hint">${this._t("support_also")}</p>`,
+      },
     };
     const open = sections[this._sheet];
     const tiles = Object.entries(sections)
@@ -7941,6 +8033,9 @@ class EvPlannerPanel extends HTMLElement {
         break;
       case "hist-export":
         this._exportHistory();
+        break;
+      case "support-export":
+        this._exportSupport();
         break;
       case "scene-label": {
         const open = (this._scene.open = this._scene.open || new Set());

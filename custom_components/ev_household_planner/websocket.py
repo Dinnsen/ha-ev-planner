@@ -40,6 +40,7 @@ from .const import (
     SET_CEILING_ABOVE,
     SET_CEILING_ENABLED,
     SET_CEILING_RELATIVE,
+    SET_CHARGE_ON_LATE,
     SET_CONTINUOUS,
     SET_DAY_TARGETS,
     SET_EARLIEST_START,
@@ -154,6 +155,7 @@ VEHICLE_SCHEMA = vol.Schema(
         vol.Optional(SET_NOTIFY_RECEIPT): cv.boolean,
         vol.Optional(SET_EARLY_ENABLED): cv.boolean,
         vol.Optional(SET_KNOWN_PRICES): cv.boolean,
+        vol.Optional(SET_CHARGE_ON_LATE): cv.boolean,
         vol.Optional(SET_EARLY_WITHIN): vol.All(vol.Coerce(float), vol.Range(min=0, max=2)),
         vol.Optional(SET_TOPUP_ENABLED): cv.boolean,
         vol.Optional(SET_TOPUP_LEVEL): vol.All(vol.Coerce(float), vol.Range(min=10, max=100)),
@@ -306,6 +308,8 @@ def vehicle_state(household: Household, vehicle: Vehicle) -> dict[str, Any]:
         "soc_source": "sensor" if vehicle.has_soc_sensor else "manual",
         "target": _r(vehicle.target, 1),
         "target_editable": target_entity is None or target_entity.split(".", 1)[0] in ("number", "input_number"),
+        # The steps the car's own limit takes (a Skoda: 50-100 % in tens), for the slider.
+        "target_steps": list(steps) if (steps := household.car_target_steps(vehicle)) else None,
         # The car's own charge limit, when it has one: it stops there, whatever the plan says.
         "car_limit": _r(vehicle.target_from_car, 1) if target_entity else None,
         "day_target": vehicle.day_target,
