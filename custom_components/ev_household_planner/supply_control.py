@@ -80,9 +80,9 @@ GUARD_PAUSE = timedelta(minutes=5)
 HEADROOM_MARGIN = 2.0
 # ... and what has been free all the time this long: a dishwasher or a dryer that heats in bursts
 # every ten minutes is not given to a car in the gap between two of them.
-HEADROOM_WINDOW = timedelta(minutes=15)
+HEADROOM_WINDOW = timedelta(minutes=10)
 # What the plan leaves out for the peaks the guard waits out, on top of the margin (A).
-PEAK_ALLOWANCE = 1.0
+PEAK_ALLOWANCE = 0.0
 # The weather forecast is fetched again after this long.
 WEATHER_EVERY = timedelta(minutes=55)
 # A plan is made again when the forecast moves this much (°C) in the hours ahead.
