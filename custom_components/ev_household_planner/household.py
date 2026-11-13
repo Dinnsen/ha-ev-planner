@@ -1363,6 +1363,9 @@ class Household(DataUpdateCoordinator[None]):
             and vehicle.at_home is not False
             and soc is not None
             and soc < vehicle.target - 1
+            # A car left to the sun, that was waiting for it, waits for it still.
+            and vehicle.plan_error not in ("solar_only", "solar_expected")
+            and not self.solar_of(vehicle).only(vehicle)
         ):
             vehicle.late_target = vehicle.target
             self.events.add(now, "late", vehicle=vehicle.name, soc=soc, target=vehicle.target)
