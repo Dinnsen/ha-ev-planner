@@ -287,13 +287,13 @@ class Session:
         )
 
 
-@dataclass(slots=True)
 def default_keyword(name: str) -> str:
     """A car's word in a calendar when none is set: the first word of its name ("Tesla", "Elroq")."""
     words = [word for word in str(name or "").split() if len(word) >= 2]
     return words[0] if words else ""
 
 
+@dataclass(slots=True)
 class Vehicle:
     """One car, from a vehicle subentry."""
 

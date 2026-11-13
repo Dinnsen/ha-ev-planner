@@ -2332,7 +2332,7 @@ class Household(DataUpdateCoordinator[None]):
         for entity in entities:
             data = response.get(entity) if isinstance(response, dict) else None
             events = data.get("events") if isinstance(data, dict) else None
-            out[entity] = [item for item in events or [] if isinstance(item, Mapping)]
+            out[entity] = [item for item in events if isinstance(item, Mapping)] if isinstance(events, list) else []
         return out
 
     async def _async_refresh_calendars(self) -> bool:
