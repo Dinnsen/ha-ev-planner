@@ -83,6 +83,7 @@ from .const import (
     MODE_SMART,
     MODES,
     MOVED_KEYS,
+    PAIR_ASK_CAR_AT,
     PART_KEYS,
     PART_TYPES,
     PLANNING_HORIZON,
@@ -319,6 +320,7 @@ class Household(DataUpdateCoordinator[None]):
         self._verify_unknown: dict[str, int] = {}
         self._verify_timers: dict[str, CALLBACK_TYPE] = {}
         self._unplug_timers: dict[str, CALLBACK_TYPE] = {}
+        self._ask_timers: dict[str, list[CALLBACK_TYPE]] = {}
         # A supply for each place; ``supply`` is the home's.
         self.supplies: dict[str, SupplyControl] = {
             site_id: SupplyControl(self, site) for site_id, site in self.sites.items()
@@ -443,6 +445,8 @@ class Household(DataUpdateCoordinator[None]):
         for cancel in self._unplug_timers.values():
             cancel()
         self._unplug_timers.clear()
+        for charger_id in list(self._ask_timers):
+            self._cancel_asks(charger_id)
         for cancel in self._verify_timers.values():
             cancel()
         self._verify_timers.clear()
@@ -885,6 +889,7 @@ class Household(DataUpdateCoordinator[None]):
             if charger.connected is True and was is False:
                 charger.plugged_at = dt_util.now()
                 self.events.add(charger.plugged_at, "charger_plugged_in", charger=charger.name)
+                self._schedule_asks(charger_id)
             if charger.connected is not was:
                 now = dt_util.now()
                 for vehicle in self.vehicles.values():
@@ -896,6 +901,7 @@ class Household(DataUpdateCoordinator[None]):
                         self._connection_changed(vehicle, before, now)
             if charger.connected is False:
                 charger.plugged_at = None
+                self._cancel_asks(charger_id)
             if self.guest.charger_id == charger_id:
                 self.guest.handle_connected(charger.connected)
         if entity_id == charger.energy_entity:
@@ -907,6 +913,24 @@ class Household(DataUpdateCoordinator[None]):
                 # A meter counts every few seconds: no plan depends on it, so nothing is planned again.
                 return
         self.schedule_recalculate()
+
+    def _schedule_asks(self, charger_id: str) -> None:
+        """Ask the car to report at the set moments after the plug went in, not only on the minute."""
+        self._cancel_asks(charger_id)
+
+        @callback
+        def ask(_now: datetime) -> None:
+            self.config_entry.async_create_task(
+                self.hass, self.pairing.async_follow_up(dt_util.now()), f"{DOMAIN} ask the car"
+            )
+
+        self._ask_timers[charger_id] = [
+            async_call_later(self.hass, delay.total_seconds() + 1, ask) for delay in PAIR_ASK_CAR_AT
+        ]
+
+    def _cancel_asks(self, charger_id: str) -> None:
+        for cancel in self._ask_timers.pop(charger_id, []):
+            cancel()
 
     # ------------------------------------------------------------------
     # Recalculation

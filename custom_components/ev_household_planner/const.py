@@ -118,8 +118,9 @@ PAIR_ASK_AFTER: Final = timedelta(minutes=5)
 PAIR_ASK_AFTER_SLOW: Final = timedelta(minutes=12)
 # A car its charger says is plugged in, and that has not said so itself, is asked to report this
 # long after the plug went in (each once), and never more often than every ``PAIR_REFRESH_GAP``.
-PAIR_ASK_CAR_AT: Final = (timedelta(minutes=1), timedelta(minutes=3), timedelta(minutes=8))
-PAIR_REFRESH_GAP: Final = timedelta(minutes=1)
+# Some car clouds allow few calls (Skoda: 20 an hour), so three, and none once the car has answered.
+PAIR_ASK_CAR_AT: Final = (timedelta(seconds=30), timedelta(minutes=2), timedelta(minutes=8))
+PAIR_REFRESH_GAP: Final = timedelta(seconds=30)
 # A plugged-in car that no charger with a plug sensor took goes to the one without, after this long.
 PAIR_NO_SENSOR_AFTER: Final = timedelta(minutes=3)
 # A charger draws this much (kW) when a car charges on it.

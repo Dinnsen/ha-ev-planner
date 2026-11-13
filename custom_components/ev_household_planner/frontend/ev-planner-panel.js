@@ -6135,7 +6135,7 @@ class EvPlannerPanel extends HTMLElement {
   _ruleValues(s) {
     return [
       "min_soc", "must_soc", "priority", "price_ceiling_enabled", "price_ceiling", "price_ceiling_relative", "price_ceiling_above", "low_price_charging", "low_price_level", "low_soc_charging", "low_soc_level",
-      "opportunistic", "opportunistic_level", "follow_level", "keep_charger_on", "use_earliest_start", "earliest_start",
+      "opportunistic", "opportunistic_level", "follow_level", "keep_charger_on", "charge_on_late", "use_earliest_start", "earliest_start",
       "join_period", "join_within", "continuous", "prefer_early", "early_within", "topup", "topup_level",
       "solar", "body", "paint", "spot",
     ].map((key) => s[key]);

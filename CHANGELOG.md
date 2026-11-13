@@ -6,7 +6,7 @@ All notable changes to EV Planner. The version is the one in `custom_components/
 
 ### Fixed
 
-- **A car with its own charger is asked to report.** When the charger sees a plug and the car's cloud has not said so yet, the car is asked to report after one, three and eight minutes, also when it always uses that charger. Until it answers, the charger's plug counts: the car is plugged in.
+- **A car with its own charger is asked to report.** When the charger sees a plug and the car's cloud has not said so yet, the car is asked to report after 30 seconds, two and eight minutes (and no more once it has answered, as some car clouds allow few calls), also when it always uses that charger. Until it answers, the charger's plug counts: the car is plugged in.
 - **Never under 6 A.** A charger whose current goes down to 0 A (a Zaptec Go 2) was turned down below what a car charges on; the guard now stops at 6 A and pauses the car when that is still too much.
 - **Up only into room that was free all the last quarter of an hour**, less 2 A, so a kettle or an oven that comes and goes does not make the guard turn the cars up and down.
 - *Keep the charger on* only after the car's own plan in the same plug-in.
