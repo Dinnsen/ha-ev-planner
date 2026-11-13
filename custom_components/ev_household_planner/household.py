@@ -101,6 +101,7 @@ from .const import (
     SET_CLIMATE_MINUTES,
     SET_CLIMATE_PLUGGED,
     SET_CLIMATE_TEMP,
+    SET_DAY_CLIMATE,
     SET_DAY_TARGETS,
     SET_EVENING,
     SET_KNOWN_PRICES,
@@ -290,6 +291,16 @@ def state_float(state: State | None) -> float | None:
 
 # Charging on after the ready-by time is for a car that was plugged in at least this long before it.
 LATE_PLUGGED_BEFORE = timedelta(minutes=30)
+
+
+def climate_sibling(hass: HomeAssistant, entity_id: str, word: str, domain: str | None = None) -> str | None:
+    """The entity beside a climate start button: ``button.car_preclimate_start`` → ``..._stop`` or ``..._status``."""
+    own_domain, name = entity_id.split(".", 1)
+    for start in ("_start", "_on"):
+        if name.endswith(start):
+            sibling = f"{domain or own_domain}.{name.removesuffix(start)}_{word}"
+            return sibling if hass.states.get(sibling) is not None else None
+    return None
 
 
 def climate_temperature(wanted: float, attributes: Mapping[str, Any]) -> float:
@@ -2418,9 +2429,13 @@ class Household(DataUpdateCoordinator[None]):
                         )
                     )
         elif domain in ("button", "input_button"):
-            if not on:
+            if on:
+                calls.append((domain, "press", {"entity_id": entity}))
+            elif (stop := climate_sibling(self.hass, entity, "stop")) is not None:
+                # A start button with a stop button beside it (Mercedes: preclimate start and stop).
+                calls.append((domain, "press", {"entity_id": stop}))
+            else:
                 return None  # a button starts the climate; it stops by itself
-            calls.append((domain, "press", {"entity_id": entity}))
         elif domain == "script":
             calls.append(("script", "turn_on" if on else "turn_off", {"entity_id": entity}))
         else:
@@ -2449,6 +2464,10 @@ class Household(DataUpdateCoordinator[None]):
             return state.state != "off"
         if state.domain in ("switch", "input_boolean", "script"):
             return state.state == "on"
+        # A start button: a status sensor beside it says (Mercedes: preclimate status).
+        status = climate_sibling(self.hass, state.entity_id, "status", domain="binary_sensor")
+        if status is not None and (shown := self.hass.states.get(status)) is not None:
+            return shown.state == "on" if shown.state in ("on", "off") else None
         return None
 
     def _climate_wanted(self, vehicle: Vehicle, departure: datetime) -> tuple[bool, float | None]:
@@ -2461,6 +2480,12 @@ class Household(DataUpdateCoordinator[None]):
         if departure == vehicle.calendar_event and vehicle.calendar_climate is not None:
             climate = vehicle.calendar_climate
             return True, (float(climate) if not isinstance(climate, bool) else None)
+        trip = vehicle.trip
+        days = vehicle.settings.get(SET_DAY_CLIMATE)
+        # The week plan's day asks for the climate, at its temperature.
+        wanted = to_float(days.get(WEEKDAYS[departure.weekday()])) if isinstance(days, Mapping) else None
+        if departure != vehicle.calendar_event and trip is None and wanted is not None:
+            return True, wanted
         if not vehicle.settings.get(SET_CLIMATE_AUTO):
             return False, None
         trip = vehicle.trip

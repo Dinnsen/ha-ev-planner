@@ -264,6 +264,8 @@ SET_CLIMATE_MINUTES: Final = "climate_minutes"
 SET_CLIMATE_AUTO: Final = "climate_auto"
 SET_CLIMATE_BELOW: Final = "climate_below"
 SET_CLIMATE_PLUGGED: Final = "climate_plugged_only"
+# The climate before the week plan's ready-by time, per weekday: {"mon": 21.5}.
+SET_DAY_CLIMATE: Final = "day_climate"
 SET_EARLY_WITHIN: Final = "early_within"
 # Charge to ``topup_level`` at the cheapest prices, and the rest just before the ready-by time.
 SET_TOPUP_ENABLED: Final = "topup"
@@ -359,6 +361,7 @@ DEFAULT_VEHICLE_SETTINGS: Final[dict[str, object]] = {
     SET_CLIMATE_AUTO: False,
     SET_CLIMATE_BELOW: 5.0,
     SET_CLIMATE_PLUGGED: True,
+    SET_DAY_CLIMATE: {},
     SET_EARLY_WITHIN: 0.02,
     SET_TOPUP_ENABLED: False,
     SET_TOPUP_LEVEL: 80.0,

@@ -1373,6 +1373,11 @@ Object.assign(TEXT.da, {
   rule_evening_time: "Aften",
   rule_evening_time_hint: "Klar-tiden for Aften.",
   avg_price: "Pris pr. kWh",
+  err_3: "Forbindelsen til Home Assistant blev afbrudt et øjeblik. Prøv igen.",
+  sched_make_default: "Sæt som standard",
+  sched_other_short: "Andet",
+  sched_none_short: "Ingen",
+  plan_type_hint: "Én periode lader i ét stræk; de billigste perioder kan dele ladningen op.",
   go_morning: "Morgen",
   go_midday: "Middag",
   go_evening: "Aften",
@@ -1428,6 +1433,11 @@ Object.assign(TEXT.en, {
   rule_evening_time: "Evening",
   rule_evening_time_hint: "The ready-by time for Evening.",
   avg_price: "Price per kWh",
+  err_3: "The connection to Home Assistant was lost for a moment. Try again.",
+  sched_make_default: "Make it the default",
+  sched_other_short: "Other",
+  sched_none_short: "None",
+  plan_type_hint: "One period charges in one go; the cheapest periods may split the charge.",
   go_morning: "Morning",
   go_midday: "Midday",
   go_evening: "Evening",
@@ -4450,7 +4460,15 @@ class EvPlannerPanel extends HTMLElement {
   async _ws(type, data = {}) {
     const message = { type, ...data };
     if (this._state?.entry_id) message.entry_id = this._state.entry_id;
-    return this._hass.callWS(message);
+    try {
+      return await this._hass.callWS(message);
+    } catch (err) {
+      // 3: the connection to Home Assistant was lost (a phone waking up, a network change).
+      // It comes back by itself in a moment: send the command once more then.
+      if ((err?.code ?? err) !== 3) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+      return this._hass.callWS(message);
+    }
   }
 
   // ------------------------------------------------------------------ state helpers
@@ -4540,7 +4558,7 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   _showError(err) {
-    const code = err?.code || err?.error?.code;
+    const code = err?.code || err?.error?.code || (typeof err === "number" ? err : undefined);
     const key = `err_${code}`;
     // The backend sends a translated message; known codes get the panel's own wording.
     const text = TEXT.en[key] ? this._t(key) : err?.message || this._t("err_unknown", { detail: code || String(err) });
@@ -5976,19 +5994,7 @@ class EvPlannerPanel extends HTMLElement {
           <div class="go-box"></div>
           <details class="more week-more">
             <summary>${ICONS.calendar}<span>${this._t("schedule")}</span><small class="week-sum"></small></summary>
-            <div class="fields">
-              <div class="field">
-                <span>${this._t("ready_by")}</span>
-                ${this._readyChipsHtml("car")}
-              </div>
-              <div class="field schedule-field">
-                <div class="schedule-box"></div>
-              </div>
-              <div class="field">
-                <span>${this._t("mode")}</span>
-                ${this._planTypeHtml("car")}
-              </div>
-            </div>
+            <div class="schedule-box"></div>
           </details>
           <details class="more info-more">
             <summary>${ICONS.info}<span>${this._t("details")}</span></summary>
@@ -6045,12 +6051,12 @@ class EvPlannerPanel extends HTMLElement {
     const schedule = s.schedule || {};
     this._patch(
       root.querySelector(".schedule-box"),
-      JSON.stringify([schedule, s.ready_by, s.use_ready_by, this._schedDay, s.day_targets, s.target_soc, this._level, lang]),
-      this._scheduleHtml(s),
+      JSON.stringify([schedule, s.ready_by, s.use_ready_by, this._schedDay, s.day_targets, s.day_climate, s.climate_temperature, v.climate, v.target_steps, s.target_soc, lang]),
+      this._scheduleHtml(s, v),
     );
     this._patch(
       root.querySelector(".go-box"),
-      JSON.stringify([v.trip, v.deadline, s.morning_time, s.midday_time, s.evening_time, this._holidayOpen, v.climate, s.climate_temperature, this._busy, lang]),
+      JSON.stringify([v.trip, v.deadline, s.morning_time, s.midday_time, s.evening_time, this._tripPick, v.climate, s.climate_temperature, this._busy, lang]),
       this._goHtml(v, s),
     );
     const weekSum = root.querySelector(".week-sum");
@@ -6126,7 +6132,8 @@ class EvPlannerPanel extends HTMLElement {
       weekend: this._t("trip_weekend"),
       holiday: this._t("trip_holiday"),
     };
-    const current = trip?.kind || (this._holidayOpen ? "holiday" : "");
+    if (this._tripPick !== undefined && (trip?.kind || "") === this._tripPick && (this._tripPick !== "holiday" || trip)) this._tripPick = undefined;
+    const current = this._tripPick !== undefined ? this._tripPick : trip?.kind || "";
     const options = [
       `<option value=""${current ? "" : " selected"}>${esc(this._t("trip_week"))}</option>`,
       ...kinds.map((kind) => `<option value="${kind}"${kind === current ? " selected" : ""}>${esc(labels[kind])}</option>`),
@@ -6180,12 +6187,10 @@ class EvPlannerPanel extends HTMLElement {
   async _setTrip(kind, date) {
     const v = this._currentCar;
     if (!v) return;
-    if (kind === "holiday" && !date) {
-      this._holidayOpen = true;
-      this._renderCarPage({ live: false });
-      return;
-    }
-    this._holidayOpen = false;
+    // What was picked shows at once; the car's trip follows when Home Assistant has it.
+    this._tripPick = kind || "";
+    this._renderCarPage({ live: false });
+    if (kind === "holiday" && !date) return;
     await this._run("trip", "ev_household_planner/vehicle_trip", { vehicle_id: v.id, kind: kind || null, date: date || null });
   }
 
@@ -6344,42 +6349,71 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   /* Man–Søn: each day's ready-by time, with a small picker for the chosen day. */
-  _scheduleHtml(s) {
+  /* The week plan: pick a day, then its departure, its target and its climate. */
+  _scheduleHtml(s, v) {
     const schedule = s.schedule || {};
-    const disabled = s.use_ready_by === false;
-    const chips = WEEKDAYS.map((day) => {
-      const value = schedule[day] || "default";
-      const own = (s.day_targets || {})[day];
-      const shown = `${value === "default" ? this._hhmm(s.ready_by) : value === "none" ? "–" : this._hhmm(value)}${isNum(own) && value !== "none" ? ` · ${Math.round(own)}%` : ""}`;
-      const cls = [value === "default" ? "std" : value === "none" ? "none" : "own", this._schedDay === day ? "open" : ""].join(" ");
-      return `<button class="day ${cls}" data-act="sched-day" data-day="${day}" data-f="sched-${day}" aria-expanded="${this._schedDay === day}"
-        aria-label="${esc(`${this._t(`day_${day}`)}: ${value === "none" ? this._t("no_deadline") : shown}`)}"><b>${this._t(`day_${day}`)}</b><span>${shown}</span></button>`;
+    const off = s.use_ready_by === false;
+    const targets = s.day_targets || {};
+    const climates = s.day_climate || {};
+    const today = WEEKDAYS[(new Date().getDay() + 6) % 7];
+    const day = WEEKDAYS.includes(this._schedDay) ? this._schedDay : today;
+    const valueOf = (d) => (off ? "none" : schedule[d] || "default");
+    const usual = this._hhmm(s.ready_by || "07:00");
+    const days = WEEKDAYS.map((d) => {
+      const value = valueOf(d);
+      const time = value === "default" ? usual : value === "none" ? "–" : this._hhmm(value);
+      const marks = value === "none" ? "" : `${isNum(targets[d]) ? `<em>${Math.round(targets[d])}%</em>` : ""}${isNum(climates[d]) && v?.climate ? ICONS.climate : ""}`;
+      const cls = [value === "default" ? "std" : value === "none" ? "none" : "own", d === day ? "open" : ""].join(" ");
+      return `<button class="day ${cls}" data-act="sched-day" data-day="${d}" data-f="sched-${d}" aria-pressed="${d === day}"
+        aria-label="${esc(`${this._t(`dayl_${d}`)}: ${value === "none" ? this._t("no_deadline") : time}`)}"><b>${this._t(`day_${d}`)}</b><span>${time}</span><i class="marks">${marks}</i></button>`;
     }).join("");
-    let picker = "";
-    if (this._schedDay) {
-      const day = this._schedDay;
-      const value = schedule[day] || "default";
-      const own = value !== "default" && value !== "none";
-      picker = `<div class="sched-picker" role="group" aria-label="${esc(this._t("schedule_for", { day: this._t(`dayl_${day}`) }))}">
-        <p>${esc(this._t("schedule_for", { day: this._t(`dayl_${day}`) }))}</p>
-        <div class="chips">
-          <button data-act="sched-set" data-value="default" data-f="sched-std" class="${value === "default" ? "on" : ""}" aria-pressed="${value === "default"}">${this._t("schedule_use_default", { time: this._hhmm(s.ready_by) })}</button>
-          <label class="chip-input time ${own ? "on" : ""}"><input type="time" step="900" data-sched="${day}" value="${own ? esc(value) : esc(s.ready_by || "07:00")}" aria-label="${this._t("schedule_other")}"></label>
-          <button data-act="sched-set" data-value="none" data-f="sched-none" class="none ${value === "none" ? "on" : ""}" aria-pressed="${value === "none"}">${this._t("no_deadline")}</button>
-        </div>
-        ${
-          this._level === "simple" || value === "none"
-            ? ""
-            : `<div class="inline-values day-target">
-          <span>${this._t("day_target")}</span>
-          <label class="unit-input small"><input type="number" inputmode="decimal" data-daytarget="${day}" min="10" max="100" step="5"
-            value="${isNum((s.day_targets || {})[day]) ? esc(s.day_targets[day]) : ""}" placeholder="${esc(String(Math.round(Number(s.target_soc) || 80)))}" aria-label="${esc(this._t("day_target"))}"><span>%</span></label>
-          ${isNum((s.day_targets || {})[day]) ? `<button class="btn ghost small" data-act="day-target-clear" data-day="${day}">${this._t("day_target_usual")}</button>` : ""}
-        </div>`
-        }
-      </div>`;
+    const value = valueOf(day);
+    const kind = value === "default" || value === "none" ? value : "other";
+    const seg = (options, act, current) =>
+      `<div class="segmented day-seg" role="radiogroup">${options
+        .map(([key, label]) => `<button role="radio" data-act="${act}" data-value="${key}" aria-checked="${key === current}" class="${key === current ? "on" : ""}">${esc(label)}</button>`)
+        .join("")}</div>`;
+    const rows = [];
+    rows.push(`<div class="day-row"><span>${ICONS.history}</span>${seg(
+      [
+        ["default", usual],
+        ["other", this._t("sched_other_short")],
+        ["none", this._t("sched_none_short")],
+      ],
+      "sched-kind",
+      kind,
+    )}</div>`);
+    if (kind === "other") {
+      rows.push(`<div class="day-row sub"><label class="chip-input time"><input type="time" step="900" data-sched="${day}" value="${esc(value)}" aria-label="${this._t("schedule_other")}"></label>
+        <button class="btn ghost small" data-act="sched-default" data-time="${esc(value)}">${this._t("sched_make_default")}</button></div>`);
     }
-    return `<div class="week ${disabled ? "dim" : ""}">${chips}</div>${disabled ? `<small class="hint">${this._t("schedule_hint")}</small>` : ""}${picker}`;
+    if (kind !== "none") {
+      const steps = Array.isArray(v?.target_steps) ? v.target_steps.map(Number) : null;
+      const step = steps && steps[2] > 1 ? steps[2] : 5;
+      const own = targets[day];
+      const shown = isNum(own) ? Number(own) : Number(s.target_soc) || 80;
+      rows.push(`<div class="day-row"><span>${ICONS.charge}</span>
+        <input type="range" class="day-range" min="${steps ? steps[0] : 10}" max="${steps ? steps[1] : 100}" step="${step}" value="${shown}" data-daytarget="${day}" aria-label="${esc(this._t("day_target"))}">
+        <b class="day-val${isNum(own) ? "" : " soft"}">${Math.round(shown)} %</b>
+        ${isNum(own) ? `<button class="icon-x" data-act="day-target-clear" data-day="${day}" aria-label="${esc(this._t("day_target_usual"))}" title="${esc(this._t("day_target_usual"))}">${ICONS.close}</button>` : ""}</div>`);
+      if (v?.climate) {
+        const temp = climates[day];
+        const on = isNum(temp);
+        rows.push(`<div class="day-row"><span>${ICONS.climate}</span>
+          <button class="switch" role="switch" data-act="day-climate" data-day="${day}" aria-checked="${on}" aria-label="${esc(this._t("climate_label"))}"><i></i></button>
+          ${on ? `<label class="unit-input small"><input type="number" inputmode="decimal" step="0.5" min="10" max="32" data-dayclimate="${day}" value="${esc(temp)}" aria-label="${esc(this._t("rule_climate_temp"))}"><span>°</span></label>` : `<small class="soft">${this._t("climate_label")}</small>`}</div>`);
+      }
+    }
+    return `<div class="week ${off ? "dim" : ""}">${days}</div>
+      <div class="day-card"><p class="day-title">${esc(this._weekdayName(day))}</p>${rows.join("")}</div>`;
+  }
+
+  /* "Fredag" / "Friday". */
+  _weekdayName(day) {
+    const monday = new Date(2026, 0, 5);
+    const date = new Date(monday.getTime() + WEEKDAYS.indexOf(day) * 86400000);
+    const name = new Intl.DateTimeFormat(this._locale, { weekday: "long" }).format(date);
+    return name.charAt(0).toUpperCase() + name.slice(1);
   }
 
   _carInfoHtml(v) {
@@ -6595,6 +6629,22 @@ class EvPlannerPanel extends HTMLElement {
         hint: this._t("rule_late_hint"),
         off: s.charge_on_late === false,
         control: this._switchHtml("charge_on_late", s.charge_on_late !== false, this._t("rule_late")),
+      }),
+    );
+    groups.time.push(
+      this._ruleRow({
+        icon: "plan",
+        title: this._t("mode"),
+        hint: this._t("plan_type_hint"),
+        control: `<div class="segmented" role="radiogroup" aria-label="${this._t("mode")}">${[
+          ["continuous", this._t("continuous")],
+          ["split", this._t("split")],
+        ]
+          .map(([mode, label]) => {
+            const on = (mode === "continuous") === Boolean(s.continuous);
+            return `<button role="radio" data-act="car-cont" data-mode="${mode}" aria-checked="${on}" class="${on ? "on" : ""}">${label}</button>`;
+          })
+          .join("")}</div>`,
       }),
     );
     for (const [key, fallback] of [["morning_time", "06:00"], ["midday_time", "12:00"], ["evening_time", "17:00"]]) {
@@ -8413,8 +8463,32 @@ class EvPlannerPanel extends HTMLElement {
         this._vchange({ continuous: button.dataset.mode === "continuous" });
         break;
       case "sched-day":
-        this._schedDay = this._schedDay === button.dataset.day ? null : button.dataset.day;
+        this._schedDay = button.dataset.day;
         this._renderCarPage({ live: false });
+        break;
+      case "sched-kind":
+        if (s) {
+          const day = WEEKDAYS.includes(this._schedDay) ? this._schedDay : WEEKDAYS[(new Date().getDay() + 6) % 7];
+          const now = (s.schedule || {})[day];
+          const own = now && now !== "default" && now !== "none" ? now : s.ready_by || "07:00";
+          const value = button.dataset.value === "other" ? own : button.dataset.value;
+          this._vchange({ use_ready_by: true, schedule: { ...(s.schedule || {}), [day]: value } });
+        }
+        break;
+      case "sched-default":
+        if (s && button.dataset.time) {
+          const day = WEEKDAYS.includes(this._schedDay) ? this._schedDay : WEEKDAYS[(new Date().getDay() + 6) % 7];
+          this._vchange({ use_ready_by: true, ready_by: button.dataset.time, schedule: { ...(s.schedule || {}), [day]: "default" } });
+        }
+        break;
+      case "day-climate":
+        if (s) {
+          const day = button.dataset.day;
+          const climates = { ...(s.day_climate || {}) };
+          if (isNum(climates[day])) delete climates[day];
+          else climates[day] = Number(s.climate_temperature) || 21;
+          this._vchange({ day_climate: climates });
+        }
         break;
       case "sched-set":
         if (s && this._schedDay) {
@@ -8612,12 +8686,18 @@ class EvPlannerPanel extends HTMLElement {
       if (el.value) this._gchange({ use_completion_time: true, charge_completion_time: el.value });
     } else if (el.dataset.sched) {
       const v = this._currentCar;
-      if (v && el.value) this._vchange({ schedule: { ...(this._vs(v).schedule || {}), [el.dataset.sched]: el.value } });
+      if (v && el.value) this._vchange({ use_ready_by: true, schedule: { ...(this._vs(v).schedule || {}), [el.dataset.sched]: el.value.slice(0, 5) } });
     } else if (el.dataset.daytarget) {
       const v = this._currentCar;
       if (v && isNum(el.value)) {
         const value = clamp(Math.round(Number(el.value)), 10, 100);
         this._vchange({ day_targets: { ...(this._vs(v).day_targets || {}), [el.dataset.daytarget]: value } });
+      }
+    } else if (el.dataset.dayclimate) {
+      const v = this._currentCar;
+      if (v && isNum(el.value)) {
+        const value = clamp(Math.round(Number(el.value) * 2) / 2, 10, 32);
+        this._vchange({ day_climate: { ...(this._vs(v).day_climate || {}), [el.dataset.dayclimate]: value } });
       }
     } else if (el.dataset.tripSelect) {
       this._setTrip(el.value || null);
@@ -9085,6 +9165,25 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .go-date span { color: var(--evp-soft); font-size: 14px; }
 .go-date input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--evp-ink); font: inherit; font-size: 15px; font-weight: 600; outline: 0; }
 .go-when { margin: 6px 4px 0; color: var(--evp-soft); font-size: 13px; }
+.week .day { position: relative; padding: 7px 0 14px; }
+.week .day .marks { position: absolute; bottom: 2px; left: 0; right: 0; display: flex; justify-content: center; align-items: center; gap: 2px; font-style: normal; font-size: 9px; line-height: 1; height: 10px; }
+.week .day .marks em { font-style: normal; font-weight: 600; }
+.week .day .marks svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 2.2; }
+.day-card { margin-top: 10px; padding: 12px; border-radius: 14px; background: color-mix(in srgb, var(--evp-ink) 4%, transparent); display: grid; gap: 10px; }
+.day-title { margin: 0; font-weight: 600; }
+.day-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.day-row > span:first-child { display: grid; place-items: center; width: 22px; flex: none; }
+.day-row > span:first-child svg { width: 18px; height: 18px; fill: none; stroke: var(--evp-a); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.day-row.sub { padding-left: 32px; flex-wrap: wrap; gap: 8px; }
+.day-row.sub .chip-input { padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--evp-ink) 14%, transparent); border-radius: 12px; background: var(--evp-card); }
+.day-row.sub .chip-input input { color: var(--evp-ink); font-weight: 600; }
+.day-seg { flex: 1; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; }
+.day-seg button { white-space: nowrap; }
+.day-range { flex: 1; min-width: 0; accent-color: var(--evp-a); }
+.day-val { min-width: 44px; text-align: right; font-variant-numeric: tabular-nums; }
+.day-val.soft, .day-row .soft { color: var(--evp-soft); font-weight: 400; }
+.icon-x { border: 0; background: transparent; color: var(--evp-soft); padding: 4px; cursor: pointer; display: grid; place-items: center; }
+.icon-x svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; }
 details.more { margin-top: 14px; border-top: 1px solid color-mix(in srgb, var(--evp-ink) 9%, transparent); }
 details.more > summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 12px 2px 4px; cursor: pointer; font-weight: 600; }
 details.more > summary::-webkit-details-marker { display: none; }

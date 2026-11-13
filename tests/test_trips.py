@@ -206,3 +206,33 @@ async def test_the_actions_set_a_trip_and_go_back_to_the_week_plan(
     )
     await settle(hass, freezer)
     assert tesla.trip is None
+
+
+async def test_a_week_day_with_climate_starts_it_and_a_start_button_has_its_stop(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    from custom_components.ev_household_planner.household import climate_sibling  # noqa: PLC0415
+
+    household = init_integration.runtime_data
+    tesla = household.vehicles[TESLA]
+    pressed: list[str] = []
+
+    async def press(call: ServiceCall) -> None:
+        pressed.append(str(call.data["entity_id"]))
+
+    hass.services.async_register("button", "press", press)
+    for entity in ("button.car_preclimate_start", "button.car_preclimate_stop"):
+        hass.states.async_set(entity, "unknown")
+    hass.states.async_set("binary_sensor.car_preclimate_status", "on")
+    assert climate_sibling(hass, "button.car_preclimate_start", "stop") == "button.car_preclimate_stop"
+    tesla.config["climate_entity"] = "button.car_preclimate_start"
+    assert household.climate_running(tesla) is True
+
+    departure = tesla.deadline
+    assert departure is not None
+    weekday = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")[departure.weekday()]
+    tesla.settings["day_climate"] = {weekday: 20.5}
+    await household._async_auto_climate(tesla, departure - timedelta(minutes=10))
+    assert pressed == ["button.car_preclimate_start"]
+    await household.async_climate(TESLA, False)
+    assert pressed[-1] == "button.car_preclimate_stop"
