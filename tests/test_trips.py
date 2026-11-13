@@ -211,7 +211,7 @@ async def test_the_actions_set_a_trip_and_go_back_to_the_week_plan(
 async def test_a_week_day_with_climate_starts_it_and_a_start_button_has_its_stop(
     hass: HomeAssistant, init_integration: MockConfigEntry
 ) -> None:
-    from custom_components.ev_household_planner.household import climate_sibling  # noqa: PLC0415
+    from custom_components.ev_household_planner.household import climate_sibling
 
     household = init_integration.runtime_data
     tesla = household.vehicles[TESLA]

@@ -2,6 +2,19 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.4.0b3] - 2026-11-13
+
+### Changed
+
+- **The week plan in a few taps:** pick a day, then its departure (the usual time, *Other* or *None*), its target on a slider and, with a climate, whether to warm the car and to what. *Other* can be made the usual time. The days show their time, target and climate at a glance. The one *Ready by* for every day is gone, and *One period / Cheapest periods* has moved to *Rules → Time*.
+- **The climate per weekday:** a day of the week plan with the climate on starts it before leaving, as a calendar event does.
+- **A start button for the climate with a stop button beside it** (Mercedes: *Preclimate start* and *Preclimate stop*) is stopped with it, and its status sensor tells whether it runs.
+
+### Fixed
+
+- Choosing *Holiday* shows its date at once, and choosing something else takes it away at once.
+- A lost connection to Home Assistant (a phone waking up) no longer shows "Something went wrong: 3": the command is sent again when the connection is back.
+
 ## [2.4.0b2] - 2026-11-13
 
 ### New
