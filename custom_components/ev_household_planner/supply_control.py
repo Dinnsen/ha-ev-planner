@@ -282,9 +282,11 @@ class SupplyControl:
         return saved
 
     def house_at(self, slot: PriceSlot, cheap: set[datetime]) -> float:
-        return self.forecast.predict(
+        """What the house is expected to need in the slot; with the guard, its margin too, as the cars never get it."""
+        expected = self.forecast.predict(
             slot.start.hour, slot.start in cheap, self.reserve, self.temperature_at(slot.start)
         )
+        return expected + (HEADROOM_MARGIN if self.guard else 0.0)
 
     # ------------------------------------------------------------------
     # The weather
