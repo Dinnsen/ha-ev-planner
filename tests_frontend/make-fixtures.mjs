@@ -156,16 +156,28 @@ function state(extra = {}) {
     supply: null, solar: null, heat_pump: null, home: null,
     vehicles: [], chargers: [], sites: [],
     guest: guest(),
-    settings: {},
     config: {
       price_entity: "sensor.energi_data_service",
       notify: ["notify.mobile_app_pixel_9"],
-      notify_names: { "notify.mobile_app_pixel_9": "Pixel 9" },
+      notify_names: { "notify.mobile_app_pixel_9": "Pixel 9", "notify.mobile_app_iphone_15": "iPhone 15" },
+      notify_all: ["notify.mobile_app_iphone_15", "notify.mobile_app_pixel_9"],
       update_widgets: false,
     },
     ...extra,
+    // The household's departures (Settings → Departures), as panel_state() always sends them.
+    settings: { departures: DEPARTURES, price_add: 0, update_widgets: false, places: {}, ...(extra.settings || {}) },
   };
 }
+
+const DEPARTURES = [
+  { id: "morning", day: "next", time: "06:00", price: "normal", pct: 10 },
+  { id: "midday", day: "next", time: "12:00", price: "normal", pct: 10 },
+  { id: "evening", day: "next", time: "17:00", price: "normal", pct: 10 },
+  { id: "tomorrow_afternoon", day: "tomorrow", time: "17:00", price: "normal", pct: 10 },
+  { id: "summer", name: "Sommerhus", day: "fri", time: "15:30", price: "normal", pct: 10, target: 90 },
+  { id: "weekend", day: "mon", time: "06:00", price: "lowest", pct: 10 },
+  { id: "holiday", day: "date", time: "06:00", price: "cheapest", pct: 10 },
+];
 
 /* ------------------------------------------------------------------ the cars the fixtures share */
 
@@ -245,8 +257,8 @@ const FIXTURES = {
       charger("cabin", "Skur", { site: "summer", connected: false }),
     ],
     sites: [
-      { id: "home", name: "Hjem", home: true, zone: "zone.home", parts: [], supply: null, solar: null, energy: null },
-      { id: "summer", name: "Sommerhus", home: false, zone: "zone.sommerhus", parts: ["solar"], supply: null, solar: null, energy: { grid_kw: -0.6, house_kw: 0.4, solar_kw: 1.0 } },
+      { id: "home", name: "Hjem", home: true, zone: "zone.home", parts: [], supply: null, solar: null, energy: null, price_entity: "sensor.energi_data_service", own_price: false, guard: false, wait: 10, share: "queue", has_meter: false },
+      { id: "summer", name: "Sommerhus", home: false, zone: "zone.sommerhus", parts: ["solar"], supply: null, solar: null, energy: { grid_kw: -0.6, house_kw: 0.4, solar_kw: 1.0 }, price_entity: "sensor.energi_data_service_dk1", own_price: true, guard: true, wait: 15, share: "need", has_meter: true },
     ],
   }),
 

@@ -2,6 +2,24 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b1] - 2026-11-13
+
+Every setting has one place: Home Assistant for what is connected, the panel for how it behaves.
+
+### Added
+
+- **Departures**, under *Settings → Departures* in the panel: the household's list of what every car's dropdown offers besides the week plan. Each has a name, a day (next time, today, tomorrow or a weekday), a time, how cheaply it charges (the cheapest hours before it; only up to X % above the lowest published price; or only the cheapest X % of the hours) and maybe its own target. Change, delete, move or add your own – *Tomorrow afternoon 17:00* is there from the start. The weekend's behaviour can be changed too; *Week plan* and *Holiday* are always there. The cars' own morning, midday and evening times become the household's.
+- **Prices per place:** a place (a summer house in another price area) can have its own price sensor; a car there is planned, and its charging counted, at that place's prices.
+- **Settings → Places** in the panel: for each place its prices, the guard (on or off, and how long it waits after a peak), how the cars share it, and its house. *House and supply* and *Setup* are folded into it.
+
+### Changed
+
+- **Messages in one place**, under *Settings → Messages*: at the top what is for all cars – all messages on or off, the quiet hours, the phones (chosen here now, not under *Configure*) and the language – and then each car's own messages. A car's *Rules → Messages* tile leads there with that car open.
+- **The car's climate** is always under *Rules → Climate*, where its entity can be chosen (or left to be found on the car's device); the car's setup no longer asks for it.
+- **What is added to every price** is set under *Settings → Billing guests*, and **Refresh iOS widgets** under *Settings → App on the home screen*. *Configure* under the integration has only the currency left.
+- The guard, its wait and the sharing are no longer in the place's setup; a place's setup asks for its own price sensor instead. Everything set before moves by itself.
+- The action `ev_household_planner.set_trip` takes the id of any departure, your own too.
+
 ## [2.4.0b9] - 2026-11-13
 
 ### Changed

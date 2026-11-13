@@ -32,7 +32,7 @@ EV Planner is built from [EV Guest](https://github.com/Dinnsen/EV-Guest) (the pl
 - **The cheapest plan** from 15-minute or hourly prices: in whole quarters of an hour (like EV Smart Charging), one period or the cheapest periods, with cost and savings. A car stops by itself at its limit, so the quarter it does not need in full costs nothing.
 - **Learns how fast each car charges.** Plans are made from the charging speed in % per hour that the car itself shows, so a car that draws less than its setting, or a battery that is not the size you expected, still gets a plan that is long enough. Nothing to set: no efficiency, no guessing.
 - **Ready by** a time, per weekday (with its own target if you like, e.g. Friday 100 %), or by a trip in a calendar ("Elroq 7:15 80% klima 21,5": ready at 7.15 with 80 %, the car warmed to 21.5° – see [Trips from a calendar](#trips-from-a-calendar)).
-- **Presets** on the car's page: a dropdown with *Morning*, *Midday*, *Evening*, *Weekend* (only at the cheapest prices, ready Monday morning) and *Holiday* (only the cheapest hours, ready the day you are home) – once, then the week plan again.
+- **Departures** on the car's page: a dropdown with *Morning*, *Midday*, *Evening*, *Tomorrow afternoon*, *Weekend* (only at the cheapest prices, ready Monday morning), *Holiday* (only the cheapest hours, ready the day you are home) and your own – once, then the week plan again. The list is the household's, under *Settings → Departures*.
 - **The car's climate:** a button on the car's page, and by itself before a calendar trip or a preset when it is cold (opt-in).
 - **Learns the car's charging curve:** many cars charge slower near the top, so the speed is learned per band of the charge level (0–50, 50–80, 80–90, 90–100 %), and a plan to 100 % gives the last per cent the time they take. A morning the car was not quite ready makes the next plans finish a little earlier (in quarters, at most an hour); three mornings on time bring it back.
 - **Prefer early:** the plan that is done soonest while it costs at most a few øre per kWh more than the cheapest – prices that are almost the same do not push the charge late into the night.
@@ -97,10 +97,10 @@ Actions are now called `ev_household_planner.*` instead of `ev_planner.*`: chang
 | Charging power (sensor) | Optional. The car's own charging power sensor in kW (W is converted), e.g. `sensor.model3_charger_power`. EV Planner learns the power from it and counts the energy with it. |
 | Charging power, Charger | What the car draws at home – a starting point until the car has shown it – and the charger it uses. |
 | Who starts and stops charging | **The car** (choose its charge switch), **the charger** (the charger needs a switch), or **neither**. |
-| Calendar, Keyword | Optional. Trips in the calendar set when the car must be ready, how full and whether to warm it – see [Trips from a calendar](#trips-from-a-calendar). |
-| Climate | Optional. The car's climate entity (set to heat or cool at the temperature under *Rules → Climate*), or a switch, button or script that starts it. |
 
-4. **Configure** (options): the phones and other notify actions to use, whether to refresh iOS widgets, and an amount added to every price.
+The car's climate is found on its device; another can be chosen in the panel under *Rules → Climate*. The calendars are the household's, in the panel under *Settings → Calendar*.
+
+4. **Configure** (options): the currency. The phones, an amount added to every price and the iOS widgets are set in the panel under *Settings*.
 5. Optional, on the same page: **Add solar panels**, **Add home battery** and **Add heat pump**, and **Add place** for a summer house. Your home is the place *Home*, made for you; open it for its shared supply (the limit, the phases and a meter). With more than one place, each charger has a *Place*.
 
 ## Moving from EV Smart Charging
@@ -178,7 +178,7 @@ Without them, the cards look as in Home Assistant's default theme.
 
 ## Notifications
 
-Choose phones under **Configure**. Then, per car:
+Everything about messages is in the panel under **Settings → Messages**: at the top what is for all cars (all messages on or off, quiet hours, the phones and the language), then each car's own. A car's *Rules → Messages* tile leads there, with that car open. Per car:
 
 - **Plug-in reminder** (`switch.<car>_plug_in_reminder`): at the reminder time, when the car is home, not plugged in and below the level, with tonight's cheapest window and buttons *Charge now* and *Follow the plan*.
 - **Live notification** (`switch.<car>_live_notification`): while the car charges, a Live Activity (iPhone, iOS 17.2+) or Live Update (Android) with the charge level, the target and a countdown to the end of the charging period. It ends when charging stops. iOS ends Live Activities after 8 hours and may delay frequent updates; EV Planner updates at most every 5 minutes.
@@ -192,7 +192,7 @@ Notify actions that are not the companion app get the text only.
 
 An integration cannot add widgets to a phone, but the companion app's widgets can show EV Planner:
 
-- **iOS:** add a Home Assistant widget (*Custom*, *Gauge* or *Sensors*) and pick e.g. `sensor.<car>_summary` ("03.00-04.10 · 12,45 kr."), `sensor.<car>_status`, `sensor.<car>_plan_cost` and the car's battery level. Turn on **Refresh iOS widgets** under **Configure** to refresh them when a status changes.
+- **iOS:** add a Home Assistant widget (*Custom*, *Gauge* or *Sensors*) and pick e.g. `sensor.<car>_summary` ("03.00-04.10 · 12,45 kr."), `sensor.<car>_status`, `sensor.<car>_plan_cost` and the car's battery level. Turn on **Refresh iOS widgets** in the panel under *Settings → App on the home screen* to refresh them when a status changes.
 - **Android:** add an *Entity* or *Template* widget with the same entities.
 
 ## Entities
@@ -288,11 +288,17 @@ Choose your calendars under *Settings → Calendar* in the panel: any calendars 
 
 **Good to know:** an all-day event without a time is ignored. The trip comes before the week plan and a preset when it is earlier. The climate starts *Before leaving* minutes ahead (default 15) and once for each trip; the calendar's word starts it whatever the weather, while the automatic climate (*Rules → Climate*) needs it to be cold and, unless you turn it off, the car plugged in. The calendar does not set the climate's temperature on the car for good – only for that start.
 
-## Presets and the climate
+## Departures and the climate
 
-**Presets** on the car's page set a one-off ready-by time; when it has passed, the week plan is used again. *Morning*, *Midday* and *Evening* are the next 06:00, 12:00 and 17:00 (change them under *Rules → Time*); *Weekend* and *Holiday* use the morning time. *Weekend* charges only when the price is at most 10 % above the lowest published price, and is ready Monday morning; *Holiday* asks for the day you are home and charges only in the cheapest tenth of the hours until then. The minimum level still applies, and a calendar trip that comes first still wins. *Week plan* goes back at once.
+**Departures** on the car's page set a one-off ready-by time; when it has passed, the week plan is used again. The list is the household's, under *Settings → Departures* in the panel, and every car has it. Each departure has a name, a day (*Next time*, *Today*, *Tomorrow* or a weekday), a time, how cheaply it charges, and maybe a target of its own:
 
-**The climate:** with a climate entity under the car's settings, the car's page has a *Start climate* button. A climate entity is set to its heating mode (e.g. *heat_cool*) at the temperature under *Rules → Climate*; a switch, button or script is just started. Under *Rules → Climate*, *Start the climate by itself* starts it before a calendar trip or a preset when the weather at the place says it is colder than your limit (default 5°), and by default only while the car is plugged in, so it runs on the grid.
+- **Cheapest before leaving** (the default): as any ready-by time.
+- **Lowest price only**: only when the price is at most X % above the lowest published price (*Weekend*: 10 %, ready Monday morning).
+- **Cheapest hours only**: only in the cheapest X % of the hours until leaving (*Holiday*: 10 %).
+
+Change, delete, move or add your own (*Tomorrow afternoon 17:00*, *Football Saturday 9:30*). *Week plan* and *Holiday* are always there; *Holiday* asks for the day you are home. The minimum level still applies, and a calendar trip that comes first still wins. The action `ev_household_planner.set_trip` takes a departure's id, or `week`.
+
+**The climate:** the car's climate is found on its device (a Tesla's or a Skoda's climate entity); another can be chosen under *Rules → Climate*, also a switch, button or script that starts it. The car's page then has a climate button. A climate entity is set to its heating mode (e.g. *heat_cool*) at the temperature under *Rules → Climate*; a switch, button or script is just started. Under *Rules → Climate*, *Start the climate by itself* starts it before a calendar trip or a departure when the weather at the place says it is colder than your limit (default 5°), and by default only while the car is plugged in, so it runs on the grid.
 
 ## Known limitations
 
@@ -325,19 +331,19 @@ Remove EV Planner under **Settings → Devices & services**. Its settings, plans
 - **A charger without a plug sensor** is the car's charger when it is the only such charger at the place, and no charger with a sensor is waiting for its car.
 - A car with a charger of its own keeps it. Nothing changes for a household where every car has one.
 
-**Places.** Your home is a place (*Home*), and a place with chargers besides it, a summer house say, is added under the integration (*Add place*): its zone in Home Assistant, and its own supply limit and meter if you want one. Solar panels, a home battery and a heat pump are parts of their own, added the same way, each at a place. Choose the place in each charger's settings (the field is there once there is more than one place). A car is at the place when its location shows that zone; it is then planned on that place's supply, and a car with a charger of its own at home finds the charger at the place it is at. Each place has its own picture and house in the Home tab.
+**Places.** Your home is a place (*Home*), and a place with chargers besides it, a summer house say, is added under the integration (*Add place*): its zone in Home Assistant, its own supply limit and meter if you want one, and its own price sensor if it is in another price area (a summer house in DK1 when home is in DK2): a car there is planned at that place's prices. The guard and how the cars share a place's supply are set in the panel under *Settings → Places*. Solar panels, a home battery and a heat pump are parts of their own, added the same way, each at a place. Choose the place in each charger's settings (the field is there once there is more than one place). A car is at the place when its location shows that zone; it is then planned on that place's supply, and a car with a charger of its own at home finds the charger at the place it is at. Each place has its own picture and house in the Home tab.
 
 **The charger starts and pauses, the car is the backup.** A new car is started and paused by its charger when the chargers have a switch, as a charger is more often there to answer than a car; with *The other one is the backup*, the car's own switch steps in when the charger does not answer (and the other way round). What paused the car is what starts it again, since a car paused by one cannot be started by the other.
 
 **Peblar (also the chargers Peblar builds for OK), Zaptec and others.** Choosing the charger's device fills in its switch, current limit, power, energy meter and status sensor. Peblar's local API must be on for Home Assistant to see the charger; without it the charger has no entities, and the car's own switch controls charging. Peblar takes three pauses in ten minutes, so EV Planner waits with a start when the next pause would be one too many; Zaptec's current is raised at most every 15 minutes (lowered at once).
 
-**Sharing by need.** Under *Shared supply*, *Sharing between the cars* can be set to *By need*: when there is not room for all the cars in an hour, they share it by the kWh each lacks, never less than 6 A each, instead of the first taking what it needs. It is only used when it leaves no car further from what it must have.
+**Sharing by need.** Under *Settings → Places*, *When there is not room for all* can be set to *By need*: when there is not room for all the cars in an hour, they share it by the kWh each lacks, never less than 6 A each, instead of the first taking what it needs. It is only used when it leaves no car further from what it must have.
 
 ## Shared supply
 
 Several cars behind one fuse, or two chargers on one circuit: on the place (the integration, *Home*), under *Shared supply*, set the most the house may draw per phase (for example 23 A on a 25 A supply), the phases, and a meter if you have one. EV Planner then plans the plugged-in cars together under that limit, cheapest slots first. The house comes first (learned from the meter, or a fixed reserve), every car first gets what it must have by its ready-by time, and then they fill up by priority. A car or charger with a current setting gets its share in amps; one that can only be switched on and off takes its turn. Plans aim to be done an hour early. EV Planner does not protect the fuse; keep your charger's own load balancing on.
 
-An Easee charger needs no number: pick any sensor of the charger as its charging current, and EV Planner uses Easee's own action (with a 30-minute time limit, renewed, so the charger falls back by itself if Home Assistant stops). Without an Equalizer, you can turn on the *guard*: it watches the meter and turns the cars down at once when the house needs more, and puts them at the least current if the meter stops reporting. It reacts in seconds, not milliseconds, and is not a fuse. The *Home* tab in the panel shows the house, the cars and who gets the current through the night.
+An Easee charger needs no number: pick any sensor of the charger as its charging current, and EV Planner uses Easee's own action (with a 30-minute time limit, renewed, so the charger falls back by itself if Home Assistant stops). Without an Equalizer, you can turn on the *guard* (in the panel, *Settings → Places*, with how long it waits after a peak, 5–30 minutes): it watches the meter and turns the cars down at once when the house needs more, and puts them at the least current if the meter stops reporting. It reacts in seconds, not milliseconds, and is not a fuse. The *Home* tab in the panel shows the house, the cars and who gets the current through the night.
 
 ### Weather and heat pump
 
@@ -393,7 +399,7 @@ Under the integration, **Add solar panels** (and **Add home battery**) at the pl
 
 ## Prices
 
-EV Planner reads the prices from one price sensor (Energi Data Service, Nordpool, Stromligning and others with the day's prices as an attribute). If your sensor shows the spot price without tariffs and taxes, set *Added to every price* in the options: an amount per kWh that is added to every hour. With solar panels you can set what you get for a kWh you sell, as a number or a sensor (under the place's solar panels): a charge's kWh from the sun are then counted at that price instead of as free, so the history shows what the charge really cost you.
+EV Planner reads the prices from one price sensor (Energi Data Service, Nordpool, Stromligning and others with the day's prices as an attribute). If your sensor shows the spot price without tariffs and taxes, set *Added to every price* in the panel under *Settings → Billing guests*: an amount per kWh that is added to every hour. With solar panels you can set what you get for a kWh you sell, as a number or a sensor (under the place's solar panels): a charge's kWh from the sun are then counted at that price instead of as free, so the history shows what the charge really cost you.
 
 ## How careful it is with the car
 

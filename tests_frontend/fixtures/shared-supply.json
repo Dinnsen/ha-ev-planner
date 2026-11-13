@@ -1119,18 +1119,79 @@
       }
     ]
   },
-  "settings": {
-    "language": "auto",
-    "house": "classic"
-  },
   "config": {
     "price_entity": "sensor.energi_data_service",
     "notify": [
       "notify.mobile_app_pixel_9"
     ],
     "notify_names": {
-      "notify.mobile_app_pixel_9": "Pixel 9"
+      "notify.mobile_app_pixel_9": "Pixel 9",
+      "notify.mobile_app_iphone_15": "iPhone 15"
     },
+    "notify_all": [
+      "notify.mobile_app_iphone_15",
+      "notify.mobile_app_pixel_9"
+    ],
     "update_widgets": false
+  },
+  "settings": {
+    "departures": [
+      {
+        "id": "morning",
+        "day": "next",
+        "time": "06:00",
+        "price": "normal",
+        "pct": 10
+      },
+      {
+        "id": "midday",
+        "day": "next",
+        "time": "12:00",
+        "price": "normal",
+        "pct": 10
+      },
+      {
+        "id": "evening",
+        "day": "next",
+        "time": "17:00",
+        "price": "normal",
+        "pct": 10
+      },
+      {
+        "id": "tomorrow_afternoon",
+        "day": "tomorrow",
+        "time": "17:00",
+        "price": "normal",
+        "pct": 10
+      },
+      {
+        "id": "summer",
+        "name": "Sommerhus",
+        "day": "fri",
+        "time": "15:30",
+        "price": "normal",
+        "pct": 10,
+        "target": 90
+      },
+      {
+        "id": "weekend",
+        "day": "mon",
+        "time": "06:00",
+        "price": "lowest",
+        "pct": 10
+      },
+      {
+        "id": "holiday",
+        "day": "date",
+        "time": "06:00",
+        "price": "cheapest",
+        "pct": 10
+      }
+    ],
+    "price_add": 0,
+    "update_widgets": false,
+    "places": {},
+    "language": "auto",
+    "house": "classic"
   }
 }

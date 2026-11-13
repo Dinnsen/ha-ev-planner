@@ -30,8 +30,8 @@ EV Planner er bygget på [EV Guest](https://github.com/Dinnsen/EV-Guest) (planl�
 - **Den billigste plan** ud fra kvarter- eller timepriser: i hele kvarterer (som EV Smart Charging), én periode eller de billigste perioder, med pris og besparelse. Bilen stopper selv ved sin grænse, så det kvarter, den ikke bruger helt, koster ingenting.
 - **Lærer hvor hurtigt hver bil lader.** Planen regnes ud fra den ladehastighed i % pr. time, bilen selv viser. En bil, der trækker mindre end indstillet, eller et batteri, der ikke har den størrelse, I troede, får stadig en plan, der er lang nok. Intet at indstille: ingen effektivitet, intet gætteri. En ladning tæller, når niveauet er steget mindst 30 %, og under ladningen følger planen den hastighed, bilen viser. Med bilens sensor for ladeeffekt lærer EV Planner også effekten og tæller energien med den.
 - **Klar kl.** et tidspunkt, per ugedag (gerne med sit eget mål, fx fredag 100 %), eller efter en tur i kalenderen ("Elroq 7:15 80% klima 21,5": klar kl. 7.15 med 80 %, bilen varmet op til 21,5° – se [Ture fra en kalender](#ture-fra-en-kalender)).
-- **Forvalg** på bilens side: en rulleliste med *Morgen*, *Middag*, *Aften*, *Weekend* (kun til de billigste priser, klar mandag morgen) og *Ferie* (kun de billigste timer, klar den dag I er hjemme) – én gang, derefter ugeplanen igen.
-- **Bilens klima:** en knap på bilens side, og af sig selv før en kalendertur eller et forvalg, når det er koldt (slås til).
+- **Afgange** på bilens side: en rulleliste med *Morgen*, *Middag*, *Aften*, *I morgen eftermiddag*, *Weekend* (kun til de billigste priser, klar mandag morgen), *Ferie* (kun de billigste timer, klar den dag I er hjemme) og jeres egne – én gang, derefter ugeplanen igen. Listen er husstandens, under *Indstillinger → Afgange*.
+- **Bilens klima:** en knap på bilens side, og af sig selv før en kalendertur eller en afgang, når det er koldt (slås til). Klimaet findes selv på bilens enhed.
 - **Lærer bilens ladekurve:** mange biler lader langsommere til sidst, så hastigheden læres i hvert bånd af ladeniveauet (0–50, 50–80, 80–90, 90–100 %), og en plan til 100 % giver de sidste procent den tid, de tager. En morgen, hvor bilen ikke helt nåede det, får de næste planer til at slutte lidt før (i kvarterer, højst en time); tre morgener til tiden flytter det tilbage.
 - **Hellere tidligt:** den plan, der er færdig først, når den højst koster et par øre mere pr. kWh end den billigste – næsten ens priser skubber ikke ladningen langt ud på natten.
 - **Top op før afgang:** lad fx til 80 % når det er billigst og resten lige før klar-tiden, så bilen ikke står på 100 % hele natten.
@@ -41,7 +41,7 @@ EV Planner er bygget på [EV Guest](https://github.com/Dinnsen/EV-Guest) (planl�
 - **Tilstande:** Smart, Lad nu (tilbage til Smart, når bilen er fuld eller taget ud), Pause, Fra.
 - **Tjekker at ladningen startede:** prøver igen efter 6 og 12 minutter, giver så besked og prøver af og til igen. Højst 12 kommandoer pr. bil i timen. En bil, der ikke starter igen efter en pause i planen (nogle biler skal have stikket sat i igen), bliver lært og lader så i ét stræk.
 - **Klar uden priser:** mens den venter på priser, har en bil med klar-tid en plan, der slutter lige før, hvis priserne aldrig kommer. Rigtige priser erstatter den.
-- **Påmindelse om stikket** med knapperne *Lad nu* og *Følg planen*, **live-notifikationer** mens bilen lader (Live Activities på iPhone, Live Updates på Android), **besked når bilen er ladet** og en **morgenkvittering** ved klar-tiden med en advarsel, hvis bilen ikke kan nå målet – alle med ikoner.
+- **Påmindelse om stikket** med knapperne *Lad nu* og *Følg planen*, **live-notifikationer** mens bilen lader (Live Activities på iPhone, Live Updates på Android), **besked når bilen er ladet** og en **morgenkvittering** ved klar-tiden med en advarsel, hvis bilen ikke kan nå målet – alle med ikoner. Alt om beskeder ligger i panelet under *Indstillinger → Beskeder*: øverst det, der gælder alle biler (til/fra, stille timer, telefoner, sprog), og nedenunder hver bils egne.
 - **Gæstebilen** præcis som i EV Guest: opslag på nummerplade, prisur, regning og historik – og *Lad nu*, der lader med det samme og gemmes i historikken. En plan i to perioder kommer med på regningen for begge, og en ny plan, mens gæsten lader, beholder det, der allerede er ladet.
 - **Historik pr. tilkobling:** med en stik-sensor kommer en ladning i historikken, når bilen tages ud – én linje med dens perioder, ikke én pr. pause.
 - **Billeder** af jeres biler og ladere (tryk på billedet i panelet), og tegninger af ca. 40 kendte ladere.
@@ -77,7 +77,7 @@ Handlingerne hedder nu `ev_household_planner.*` i stedet for `ev_planner.*`: ret
 1. **Indstillinger → Enheder og tjenester → Tilføj integration → EV Planner.** Vælg prissensor og valuta. MotorAPI-nøglen bruges kun til gæstebiler. Uden for Danmark: vælg *Andet land* – så indtastes gæstens batteri og ladeeffekt i hånden.
 2. **Tilføj ladepunkt** for hvert ladepunkt. Vælg laderens enhed i Home Assistant og/eller mærke og model, så udfylder EV Planner effekt, kontakt, energimåler og *bil tilsluttet*-sensor, som I kan rette.
 3. **Tilføj bil** for hver bil (alle biler sættes op ens). Vælg bilens enhed i Home Assistant, så finder EV Planner ladeniveau, ladegrænse, stik, ladning, placering og ladekontakt: batterikapacitet (et tal eller en sensor fra bilen), bilens sensorer (alle valgfri, også ladeeffekt i kW), ladeeffekt (et udgangspunkt, indtil bilen har vist den), ladepunkt, og hvem der starter og stopper ladningen. Har I EV Smart Charging, kan I starte fra den bil derfra – også med dens ladehastighed i % pr. time.
-4. **Konfigurer**: hvilke mobiler der får beskeder, om iOS-widgets skal opdateres, og et beløb, der lægges til hver pris.
+4. **Konfigurer**: valutaen. Telefoner, et beløb der lægges til hver pris, og iOS-widgets sættes i panelet under *Indstillinger*. Bilens klima findes selv på bilens enhed (et andet vælges under *Regler → Klima*), og kalenderne er husstandens, under *Indstillinger → Kalender*.
 5. Valgfrit, på samme side: **Tilføj solceller**, **Tilføj husbatteri** og **Tilføj varmepumpe**, og **Tilføj sted** til et sommerhus. Hjemmet er stedet *Hjem*, som laves af sig selv; åbn det for fælles forsyning (grænsen, faserne og en måler). Med mere end ét sted har hver lader et *Sted*.
 
 ## Fra EV Smart Charging
@@ -139,11 +139,11 @@ Under *Indstillinger → Hus* vælger I billedet i Hjem-fanen: det *klassiske* h
 
 ## Priser
 
-EV Planner læser priserne fra én prissensor. Viser den spotprisen uden tariffer og afgifter, så sæt *Lægges til hver pris* i indstillingerne: et beløb pr. kWh, der lægges til hver time. Med solceller kan I angive, hvad I får for en solgt kWh, som tal eller sensor (under stedets solceller): opladningens kWh fra solen regnes så til den pris i stedet for som gratis.
+EV Planner læser priserne fra én prissensor. Viser den spotprisen uden tariffer og afgifter, så sæt *Lægges til hver pris* i panelet under *Indstillinger → Afregning med gæster*: et beløb pr. kWh, der lægges til hver time. Med solceller kan I angive, hvad I får for en solgt kWh, som tal eller sensor (under stedets solceller): opladningens kWh fra solen regnes så til den pris i stedet for som gratis.
 
 ## Fælles forsyning, sol og varmepumpe
 
-Flere biler bag én sikring: på stedet (integrationen, *Hjem*) under *Fælles forsyning* sættes det, huset højst må trække pr. fase, faserne og en måler. Bilerne planlægges så sammen under grænsen, billigste timer først, og *vagten* skruer bilerne ned med det samme, når huset skal bruge mere. En måler, der ikke har meldt sig i fem minutter, stoles der ikke på: bilerne går til mindste strøm. Med en vejr-entitet regner EV Planner med nattens temperatur, og en varmepumpe kan holdes tilbage i højst 15 minutter, før en bil stoppes. Vagten er ikke en sikring; behold laderens egen lastbalancering.
+Flere biler bag én sikring: på stedet (integrationen, *Hjem*) under *Fælles forsyning* sættes det, huset højst må trække pr. fase, faserne og en måler. Bilerne planlægges så sammen under grænsen, billigste timer først, og *vagten* skruer bilerne ned med det samme, når huset skal bruge mere. Vagten slås til i panelet under *Indstillinger → Steder*, med hvor længe den venter efter en spids (5–30 minutter). En måler, der ikke har meldt sig i fem minutter, stoles der ikke på: bilerne går til mindste strøm. Med en vejr-entitet regner EV Planner med nattens temperatur, og en varmepumpe kan holdes tilbage i højst 15 minutter, før en bil stoppes. Vagten er ikke en sikring; behold laderens egen lastbalancering.
 
 Med solceller (**Tilføj solceller** under integrationen, på stedet: en sensor for strømmen til og fra nettet, solcellernes effekt og salgsprisen) kan en bil lade på overskuddet fra solen: *Sol og plan* eller *Kun sol*. Når en kWh sælges for mere, end bilens plan betaler for en, lader en bil på *Sol og plan* overskuddet gå til nettet og lader i sine billige timer i stedet; salgsprisen sættes under stedets solceller.
 
@@ -157,13 +157,13 @@ Med solceller (**Tilføj solceller** under integrationen, på stedet: en sensor 
 - **En lader uden sensor for tilsluttet bil** er bilens lader, når den er den eneste af slagsen på stedet.
 - En bil med sin egen lader beholder den. Intet ændrer sig, hvor hver bil har sin lader.
 
-**Steder.** Hjemmet er et sted (*Hjem*), og et sted med ladere ud over det, fx et sommerhus, tilføjes under integrationen (*Tilføj sted*): dets zone i Home Assistant og dets egen grænse og måler, hvis I vil. Solceller, husbatteri og varmepumpe er dele for sig, som tilføjes på samme måde og hører til et sted. Vælg stedet i hver laders indstillinger (feltet er der, når der er mere end ét sted). Bilen er på stedet, når dens placering viser zonen; den planlægges da på stedets forsyning. Hvert sted har sit eget billede og hus i Hjem-fanen.
+**Steder.** Hjemmet er et sted (*Hjem*), og et sted med ladere ud over det, fx et sommerhus, tilføjes under integrationen (*Tilføj sted*): dets zone i Home Assistant, dets egen grænse og måler, hvis I vil, og dets egen prissensor, hvis det ligger i et andet prisområde (et sommerhus i DK1, når hjemmet er i DK2): en bil der planlægges så med stedets priser. Solceller, husbatteri og varmepumpe er dele for sig, som tilføjes på samme måde og hører til et sted. Vælg stedet i hver laders indstillinger (feltet er der, når der er mere end ét sted). Bilen er på stedet, når dens placering viser zonen; den planlægges da på stedets forsyning. Hvert sted har sit eget billede og hus i Hjem-fanen.
 
 **Laderen starter og stopper, bilen er backup.** En ny bil styres af laderen, når laderne har en kontakt, for en lader er oftere til at få fat i end en bil. Med *Den anden er backup* træder bilens egen kontakt til, når laderen ikke svarer (og omvendt). Det, der satte bilen på pause, starter den også igen.
 
 **Peblar (også de ladere, Peblar bygger for OK), Zaptec og andre.** Vælg laderens enhed, så udfyldes kontakt, strømgrænse, effekt, energimåler og status. Peblars lokale API skal være slået til, for at Home Assistant kan se laderen; uden det har laderen ingen entiteter, og bilens egen kontakt styrer opladningen. Peblar tåler tre pauser på ti minutter, så EV Planner venter med en start, når næste pause ville være én for meget; Zaptecs strøm sættes højst op hvert 15. minut (ned med det samme).
 
-**Deling efter behov.** Under *Fælles forsyning* kan *Deling mellem bilerne* sættes til *Efter behov*: når der ikke er plads til alle bilerne i en time, deles de om den efter de kWh, hver mangler, aldrig under 6 A til hver.
+**Deling efter behov.** Under *Indstillinger → Steder* kan *Når der ikke er plads til alle* sættes til *Efter behov*: når der ikke er plads til alle bilerne i en time, deles de om den efter de kWh, hver mangler, aldrig under 6 A til hver.
 
 ## Reglerne og deres tider
 
@@ -240,11 +240,17 @@ Vælg jeres kalendere under *Indstillinger → Kalender* i panelet: alle kalende
 
 **Godt at vide:** en heldagsbegivenhed uden klokkeslæt ignoreres. Turen går før ugeplanen og et forvalg, når den kommer først. Klimaet starter *Før afgang* minutter før (standard 15) og én gang pr. tur; ordet i kalenderen starter det uanset vejret, mens det automatiske klima (*Regler → Klima*) kræver, at det er koldt, og – medmindre du slår det fra – at bilen er sat i. Kalenderen ændrer ikke bilens temperatur fast – kun til den start.
 
-## Forvalg og klima
+## Afgange og klima
 
-**Forvalg** på bilens side sætter en klar-tid én gang; når den er gået, bruges ugeplanen igen. *Morgen*, *Middag* og *Aften* er næste kl. 06.00, 12.00 og 17.00 (ændres under *Regler → Tid*); *Weekend* og *Ferie* bruger morgentiden. *Weekend* lader kun, når prisen højst er 10 % over den laveste kendte pris, og er klar mandag morgen; *Ferie* spørger om dagen, I er hjemme, og lader kun i den billigste tiendedel af timerne frem til da. Minimumsniveauet gælder stadig, og en kalendertur, der kommer først, vinder stadig. *Ugeplan* går tilbage med det samme.
+**Afgange** på bilens side sætter en klar-tid én gang; når den er gået, bruges ugeplanen igen. Listen er husstandens, under *Indstillinger → Afgange* i panelet, og alle biler har den. Hver afgang har et navn, en dag (*Næste gang*, *I dag*, *I morgen* eller en ugedag), et klokkeslæt, hvor billigt den lader, og evt. sit eget mål:
 
-**Klimaet:** med en klima-entitet under bilens indstillinger har bilens side en *Start klima*-knap. En klima-entitet sættes til sin varmetilstand (fx *heat_cool*) og temperaturen under *Regler → Klima*; en kontakt, knap eller et script startes bare. Under *Regler → Klima* starter *Start klima af sig selv* det før en kalendertur eller et forvalg, når vejret ved stedet siger, at det er koldere end din grænse (standard 5°), og som standard kun mens bilen er sat i, så det kører på nettet.
+- **Billigst før afgang** (standard): som enhver klar-tid.
+- **Kun laveste pris**: kun når prisen højst er X % over den laveste kendte pris (*Weekend*: 10 %, klar mandag morgen).
+- **Kun billigste timer**: kun i de billigste X % af timerne frem til afgang (*Ferie*: 10 %).
+
+Ret, slet, flyt eller lav jeres egne (*I morgen eftermiddag 17.00*, *Fodbold lørdag 9.30*). *Ugeplan* og *Ferie* er der altid; *Ferie* spørger om dagen, I er hjemme. Minimumsniveauet gælder stadig, og en kalendertur, der kommer først, vinder stadig. Handlingen `ev_household_planner.set_trip` tager en afgangs id, eller `week`.
+
+**Klimaet:** bilens klima findes på dens enhed (en Teslas eller Skodas klima-entitet); et andet kan vælges under *Regler → Klima*, også en kontakt, knap eller et script, der starter det. Bilens side har så en klima-knap. En klima-entitet sættes til sin varmetilstand (fx *heat_cool*) og temperaturen under *Regler → Klima*; en kontakt, knap eller et script startes bare. Under *Regler → Klima* starter *Start klima af sig selv* det før en kalendertur eller en afgang, når vejret ved stedet siger, at det er koldere end din grænse (standard 5°), og som standard kun mens bilen er sat i, så det kører på nettet.
 
 ## Kendte begrænsninger
 
@@ -263,7 +269,7 @@ Vælg jeres kalendere under *Indstillinger → Kalender* i panelet: alle kalende
 
 ## Widgets
 
-En integration kan ikke selv lægge widgets på telefonen, men companion-appens widgets kan vise EV Planner: på iOS fx et *Brugerdefineret*-, *Gauge*- eller *Sensorer*-widget med `sensor.<bil>_summary`, `sensor.<bil>_status` og bilens batteri. Slå **Opdater iOS-widgets** til under **Konfigurer**.
+En integration kan ikke selv lægge widgets på telefonen, men companion-appens widgets kan vise EV Planner: på iOS fx et *Brugerdefineret*-, *Gauge*- eller *Sensorer*-widget med `sensor.<bil>_summary`, `sensor.<bil>_status` og bilens batteri. Slå **Opdater iOS-widgets** til i panelet under *Indstillinger → App på hjemmeskærmen*.
 
 ## Fjern integrationen
 

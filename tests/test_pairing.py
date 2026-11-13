@@ -533,7 +533,6 @@ async def test_add_a_place_and_put_a_charger_there(hass: HomeAssistant, init_int
         "battery_capacity": 60,
         "sensors": {},
         "charging": {"charge_power": 11, "charger": "auto", "control": "charger"},
-        "trips": {},
     }
     result = await hass.config_entries.subentries.async_configure(result["flow_id"], user_input)
     # Found each time, and started and paused by the charger: one of the chargers must have a switch.

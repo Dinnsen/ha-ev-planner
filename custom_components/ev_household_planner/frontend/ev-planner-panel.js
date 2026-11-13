@@ -9061,7 +9061,8 @@ class EvPlannerPanel extends HTMLElement {
 
   /* Settings → Places: each place's prices, guard, how the cars share it, and its house. */
   _placesTile(settings) {
-    const sites = this._state.sites?.length ? this._state.sites : [{ id: "home", home: true, name: "", supply: this._state.supply }];
+    const supply = this._state.supply;
+    const sites = this._state.sites?.length ? this._state.sites : [{ id: "home", home: true, name: "", supply, guard: Boolean(supply?.guard), has_meter: Boolean(supply?.meter), wait: 10, share: "queue" }];
     const many = sites.length > 1;
     const body = sites
       .map((site) => {

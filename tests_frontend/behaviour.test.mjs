@@ -170,7 +170,7 @@ test("each place has its own picture and its own house", async () => {
 
     // Each place's house is chosen by itself: the summer house starts as the wooden one.
     await tap('.tabs button[data-tab="settings"]');
-    await tap('[data-act="tile"][data-tile="house"]');
+    await tap('[data-act="tile"][data-tile="places"]');
     assert.equal(await read('[data-act="house-look"][data-site="home"][data-house="classic"]', "aria-pressed"), "true");
     assert.equal(await read('[data-act="house-look"][data-site="summer"][data-house="cabin"]', "aria-pressed"), "true");
     await touch('[data-act="house-look"][data-site="summer"][data-house="funkis"]');
@@ -196,7 +196,7 @@ test("the house's look is stored, and the house is drawn again when it changes",
     assert.ok(classic.includes("cs-wire"), "the classic house is drawn");
 
     await tap('.tabs button[data-tab="settings"]');
-    await tap('[data-act="tile"][data-tile="house"]');
+    await tap('[data-act="tile"][data-tile="places"]');
     assert.equal(await read('[data-act="house-look"][data-house="classic"]', "aria-pressed"), "true");
     // The focus is on the sheet's "Done" button and stays there: the choice must show all the same.
     await touch('[data-act="house-look"][data-house="angle"]');
@@ -431,5 +431,50 @@ test("a car whose charger is not found yet says so, without a warning", async ()
     const card = await page.locator("ev-planner-panel .cars-grid").innerText();
     assert.match(card, /Finding the charger/);
     assert.equal(await page.locator('ev-planner-panel .tabs button[data-tab="cars"] .badge').count(), 0);
+  });
+});
+
+test("the household's departures: your own is added, changed and in every car's dropdown", async () => {
+  await withPanel("two-cars", {}, async ({ page, tap, calls, waitForCall, state }) => {
+    await tap('.tabs button[data-tab="settings"]');
+    await tap('[data-act="tile"][data-tile="departures"]');
+    await tap('[data-act="dep-add"]');
+    await waitForCall("settings");
+    const added = (await calls("settings")).at(-1).settings.departures;
+    assert.equal(added.at(-1).id, "holiday", "the holiday stays last");
+    const own = added.at(-2);
+    assert.equal(own.day, "tomorrow");
+    assert.equal(own.time, "17:00");
+    // Fridays, and only at the cheapest hours.
+    await tap('[data-act="dep-set"][data-field="day"][data-value="fri"]');
+    await tap('[data-act="dep-set"][data-field="price"][data-value="cheapest"]');
+    const last = (await calls("settings")).at(-1).settings.departures.find((d) => d.id === own.id);
+    assert.equal(last.day, "fri");
+    assert.equal(last.price, "cheapest");
+    // A car's dropdown has it.
+    await tap('[data-act="sheet-close"][data-f]');
+    await tap('.tabs button[data-tab="cars"]');
+    await tap(`[data-act="open-car"][data-id="${state.vehicles[0].id}"]`);
+    const options = await page.evaluate(() => [...window.harness.panel.shadowRoot.querySelectorAll("[data-trip-select] option")].map((o) => o.value));
+    assert.ok(options.includes(own.id), "the new departure is in the dropdown");
+    assert.ok(options.includes("summer") && options.includes("holiday"));
+  });
+});
+
+test("a car's messages are set in Settings → Messages, and the phones for all cars", async () => {
+  await withPanel("two-cars", {}, async ({ tap, calls, waitForCall, state }) => {
+    const car = state.vehicles[0];
+    await tap(`[data-act="open-car"][data-id="${car.id}"]`);
+    await tap('[data-act="car-view"][data-view="rules"]');
+    // The car's Messages tile leads to the household's settings, with this car open.
+    await tap('[data-tile="notifications"][data-act="goto-settings"]');
+    await tap('[data-ncar] [data-act="toggle"][data-key="live_notification"]');
+    await waitForCall("vehicle_set");
+    const set = (await calls("vehicle_set")).at(-1);
+    assert.equal(set.vehicle_id, car.id);
+    assert.equal(set.settings.live_notification, !car.settings?.live_notification);
+    await tap('[data-act="phone-toggle"][data-phone="notify.mobile_app_iphone_15"]');
+    await waitForCall("settings");
+    assert.deepEqual((await calls("settings")).at(-1).settings.phones, ["notify.mobile_app_pixel_9", "notify.mobile_app_iphone_15"]);
   });
 });
