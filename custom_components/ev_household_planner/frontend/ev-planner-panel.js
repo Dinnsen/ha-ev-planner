@@ -1375,6 +1375,7 @@ Object.assign(TEXT.da, {
   avg_price: "Pris pr. kWh",
   err_3: "Forbindelsen til Home Assistant blev afbrudt et øjeblik. Prøv igen.",
   sched_make_default: "Sæt som standard",
+  sched_default_set: "Standard er nu {time}",
   sched_other_short: "Andet",
   sched_none_short: "Ingen",
   plan_type_hint: "Én periode lader i ét stræk; de billigste perioder kan dele ladningen op.",
@@ -1435,6 +1436,7 @@ Object.assign(TEXT.en, {
   avg_price: "Price per kWh",
   err_3: "The connection to Home Assistant was lost for a moment. Try again.",
   sched_make_default: "Make it the default",
+  sched_default_set: "The usual time is now {time}",
   sched_other_short: "Other",
   sched_none_short: "None",
   plan_type_hint: "One period charges in one go; the cheapest periods may split the charge.",
@@ -6188,6 +6190,8 @@ class EvPlannerPanel extends HTMLElement {
     const v = this._currentCar;
     if (!v) return;
     // What was picked shows at once; the car's trip follows when Home Assistant has it.
+    // The list keeps the focus after a choice, and a box with the focus is not drawn again: let go of it.
+    this.shadowRoot.activeElement?.blur?.();
     this._tripPick = kind || "";
     this._renderCarPage({ live: false });
     if (kind === "holiday" && !date) return;
@@ -8475,12 +8479,16 @@ class EvPlannerPanel extends HTMLElement {
           this._vchange({ use_ready_by: true, schedule: { ...(s.schedule || {}), [day]: value } });
         }
         break;
-      case "sched-default":
-        if (s && button.dataset.time) {
+      case "sched-default": {
+        // The time as it is in the field now, also when it was just changed and not yet saved.
+        const time = (this.shadowRoot.querySelector(".schedule-box [data-sched]")?.value || button.dataset.time || "").slice(0, 5);
+        if (s && time) {
           const day = WEEKDAYS.includes(this._schedDay) ? this._schedDay : WEEKDAYS[(new Date().getDay() + 6) % 7];
-          this._vchange({ use_ready_by: true, ready_by: button.dataset.time, schedule: { ...(s.schedule || {}), [day]: "default" } });
+          this._vchange({ use_ready_by: true, ready_by: time, schedule: { ...(s.schedule || {}), [day]: "default" } });
+          this._toast(this._t("sched_default_set", { time: this._hhmm(time) }));
         }
         break;
+      }
       case "day-climate":
         if (s) {
           const day = button.dataset.day;

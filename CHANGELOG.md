@@ -2,6 +2,13 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.4.0b4] - 2026-11-13
+
+### Fixed
+
+- The holiday's date comes and goes at once: the departure list let the page wait until it lost the focus.
+- *Make it the default* takes the time in the field, also one just changed.
+
 ## [2.4.0b3] - 2026-11-13
 
 ### Changed
