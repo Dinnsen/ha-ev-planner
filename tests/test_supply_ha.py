@@ -303,6 +303,7 @@ async def test_the_guard_stops_a_car_when_even_the_least_is_too_much(
     hass.states.async_set(METER, "20", {"unit_of_measurement": "A"})
     assert supply.holds_off(tesla, later)
     hass.states.async_set(METER, "8", {"unit_of_measurement": "A"})
+    supply.cars_amps = lambda: 0.0  # type: ignore[method-assign]  # the car is paused
     # The 40 A of a moment ago still counts: room is what was free all the last quarter of an hour.
     assert supply.holds_off(tesla, later)
     assert not supply.holds_off(tesla, later + HEADROOM_WINDOW)
@@ -325,6 +326,7 @@ async def test_the_plan_raises_a_watched_car_only_into_free_room(
     supply._sent[TESLA] = (6.0, moment - timedelta(hours=1))
     supply._held.clear()
     supply._house_peaks.clear()
+    supply.cars_amps = lambda: 6.0  # type: ignore[method-assign]  # the Tesla at its 6 A
     calls.clear()
     # 23 A limit, 19 A on the meter with the car's 6: 4 A free after the 2 A margin, so 6 becomes 8,
     # not the plan's share.

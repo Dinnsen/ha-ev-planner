@@ -193,18 +193,17 @@ class SupplyControl:
     # The house
 
     def cars_amps(self) -> float:
-        """What the cars charging now draw per phase: their power readings, the current they were given, or the plan."""
+        """What the cars charging now draw per phase, from their power readings or the plan."""
         total = 0.0
         for vehicle in self.cars():
             if not self.household.is_charging(vehicle):
                 continue
             reading = self.household.power_reading(vehicle)
-            if reading is not None:
-                total += amps_for(reading, self.phases)
-            elif (sent := self._sent.get(vehicle.vehicle_id)) is not None:
-                total += sent[0]
-            elif self.plan is not None:
-                total += self.plan.amps_at(vehicle.vehicle_id, self._now()) or 0.0
+            if reading is None:
+                reading = (
+                    kw(self.plan.amps_at(vehicle.vehicle_id, self._now()) or 0.0, self.phases) if self.plan else 0.0
+                )
+            total += amps_for(reading, self.phases)
         return total
 
     def _amps(self, entity: str) -> float | None:
@@ -282,11 +281,9 @@ class SupplyControl:
         return saved
 
     def house_at(self, slot: PriceSlot, cheap: set[datetime]) -> float:
-        """What the house is expected to need in the slot; with the guard, its margin too, as the cars never get it."""
-        expected = self.forecast.predict(
+        return self.forecast.predict(
             slot.start.hour, slot.start in cheap, self.reserve, self.temperature_at(slot.start)
         )
-        return expected + (HEADROOM_MARGIN if self.guard else 0.0)
 
     # ------------------------------------------------------------------
     # The weather
@@ -409,8 +406,10 @@ class SupplyControl:
         horizon = max(deadlines) if len(deadlines) == len(cars) else now + timedelta(hours=24)
         slots = [slot for slot in self.household.price_slots(now) if slot.start < horizon]
         cheap = cheap_hours(slots)
+        # With the guard, the cars never get its margin: the plan leaves it out, so it is long enough.
+        limit = self.limit - (HEADROOM_MARGIN if self.guard else 0.0)
         self.plan = plan_supply(
-            slots, cars, now, limit=self.limit, house=lambda slot: self.house_at(slot, cheap), share=self.share
+            slots, cars, now, limit=limit, house=lambda slot: self.house_at(slot, cheap), share=self.share
         )
         for car in cars:
             vehicle = self.household.vehicles[car.vehicle_id]
