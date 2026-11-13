@@ -2458,8 +2458,10 @@ class Household(DataUpdateCoordinator[None]):
         """Whether the car's climate runs now, as its entity says (None when it cannot tell, e.g. a button)."""
         entity = vehicle.climate_entity
         state = self.hass.states.get(entity) if entity else None
-        if state is None or state.state in ("unknown", "unavailable"):
+        if state is None:
             return None
+        if state.state in ("unknown", "unavailable") and state.domain not in ("button", "input_button"):
+            return None  # a button's state is when it was last pressed, often unknown
         if state.domain == "climate":
             return state.state != "off"
         if state.domain in ("switch", "input_boolean", "script"):
