@@ -163,16 +163,12 @@
               }
             },
             "trips": {
-              "name": "Trips and climate",
-              "description": "Optional. A calendar with the car's trips, and the car's climate.",
+              "name": "Climate",
+              "description": "Optional. The car's climate.",
               "data": {
-                "calendar_entity": "Calendar",
-                "calendar_keyword": "Keyword",
                 "climate_entity": "Climate"
               },
               "data_description": {
-                "calendar_entity": "Trips in this calendar set when the car must be ready.",
-                "calendar_keyword": "Only events with this word. Short form in the event: \"Elroq 7:15 80% klima 21,5\" – ready at 7.15 with 80 %, warmed to 21.5°. Each part is optional. See the guide in the documentation.",
                 "climate_entity": "Optional. The car's climate entity (it is set to heat or cool at the temperature you choose), or a switch, button or script that starts the climate. Used by the Climate button on the car's page, before calendar trips that ask for it, and before presets when automatic climate is on."
               }
             }
@@ -239,16 +235,12 @@
               }
             },
             "trips": {
-              "name": "Trips and climate",
-              "description": "Optional. A calendar with the car's trips, and the car's climate.",
+              "name": "Climate",
+              "description": "Optional. The car's climate.",
               "data": {
-                "calendar_entity": "Calendar",
-                "calendar_keyword": "Keyword",
                 "climate_entity": "Climate"
               },
               "data_description": {
-                "calendar_entity": "Trips in this calendar set when the car must be ready.",
-                "calendar_keyword": "Only events with this word. Short form in the event: \"Elroq 7:15 80% klima 21,5\" – ready at 7.15 with 80 %, warmed to 21.5°. Each part is optional. See the guide in the documentation.",
                 "climate_entity": "Optional. The car's climate entity (it is set to heat or cool at the temperature you choose), or a switch, button or script that starts the climate. Used by the Climate button on the car's page, before calendar trips that ask for it, and before presets when automatic climate is on."
               }
             }

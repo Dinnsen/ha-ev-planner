@@ -53,6 +53,7 @@ from .const import (
     PAUSES_IN_WINDOW,
     PAUSES_WINDOW,
     PERIOD_JOIN,
+    SET_CALENDAR_KEYWORD,
     SET_CEILING,
     SET_CEILING_ABOVE,
     SET_CEILING_ENABLED,
@@ -287,6 +288,12 @@ class Session:
 
 
 @dataclass(slots=True)
+def default_keyword(name: str) -> str:
+    """A car's word in a calendar when none is set: the first word of its name ("Tesla", "Elroq")."""
+    words = [word for word in str(name or "").split() if len(word) >= 2]
+    return words[0] if words else ""
+
+
 class Vehicle:
     """One car, from a vehicle subentry."""
 
@@ -503,8 +510,21 @@ class Vehicle:
         return self.config.get(CONF_CALENDAR_ENTITY) or None
 
     @property
+    def calendar_takes_all(self) -> bool:
+        """A calendar of the car's own from its setup, with no word set: every event in it is a trip."""
+        own = str(self.settings.get(SET_CALENDAR_KEYWORD) or "").strip()
+        return not own and not str(self.config.get(CONF_CALENDAR_KEYWORD) or "").strip()
+
+    @property
     def calendar_keyword(self) -> str:
-        return str(self.config.get(CONF_CALENDAR_KEYWORD) or "").strip()
+        """The word that marks this car's trips: its own, the one from its setup, or its name's first word."""
+        own = str(self.settings.get(SET_CALENDAR_KEYWORD) or "").strip()
+        if own:
+            return own
+        legacy = str(self.config.get(CONF_CALENDAR_KEYWORD) or "").strip()
+        if legacy:
+            return legacy
+        return default_keyword(self.name)
 
     @property
     def climate_entity(self) -> str | None:

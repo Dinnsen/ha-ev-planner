@@ -2,6 +2,17 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.4.0b8] - 2026-11-13
+
+### Changed
+
+- **Calendars for the whole household**, under *Settings → Calendar* in the panel: as many as you like. Each car finds its trips by its word in the event – the first word of its name (`Tesla`, `Elroq`) unless you choose another. A calendar from a car's setup moves there by itself, with the car's keyword (or `*`, every event, when it had none); the car's setup no longer asks for one.
+- **The guest's page** is laid out as the car's: the ready-by time and the target at the top, three numbers, the charger, the time and the plan folded under *Charger and time*, and the buttons in two rows.
+
+### Fixed
+
+- The hours under *Tonight* on the Home tab no longer run into each other when a plan spans days: every 3, 6, 12 or 24 hours, with the day at midnight.
+
 ## [2.4.0b7] - 2026-11-13
 
 ### Changed

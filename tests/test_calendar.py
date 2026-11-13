@@ -55,7 +55,7 @@ async def test_trip_sets_deadline_and_target(
         ],
     )
     await _setup(hass, freezer, now, calendar_keyword="mercedes")
-    assert calls and calls[0]["entity_id"] == CALENDAR
+    assert calls and calls[0]["entity_id"] in (CALENDAR, [CALENDAR])
     status = hass.states.get("sensor.mercedes_status")
     assert status is not None
     assert status.attributes["target_soc"] == 90
@@ -79,3 +79,36 @@ async def test_calendar_errors_are_ignored(hass: HomeAssistant, now: datetime, f
     _register(hass, [], fail=True)
     await _setup(hass, freezer, now)
     assert hass.states.get("sensor.mercedes_ready_by").state == "2026-10-20T05:00:00+00:00"
+
+
+async def test_the_households_calendars_find_each_car_by_its_word(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory
+) -> None:
+    trip = (now + timedelta(days=1)).replace(hour=5, minute=0)
+    _register(
+        hass,
+        [
+            {"start": (now + timedelta(hours=1)).isoformat(), "summary": "Dentist"},
+            {"start": trip.isoformat(), "summary": "Til far - Mercedes 7:15 80% klima 21,5"},
+        ],
+    )
+    set_prices(hass, now, NIGHT)
+    entry = entry_with(vehicle_sub(MERCEDES, "Mercedes EQB", mercedes_data()))
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    household = entry.runtime_data
+    # No calendar on the car: the household's calendar, and the car's word is the first of its name.
+    await household.async_update_settings({"calendars": [CALENDAR]})
+    await household._async_calendar_tick()
+    await settle(hass, freezer)
+    mercedes = household.vehicles[MERCEDES]
+    assert mercedes.calendar_keyword == "Mercedes"
+    assert mercedes.calendar_event is not None
+    assert mercedes.calendar_event.hour == 7 and mercedes.calendar_event.minute == 15
+    assert mercedes.calendar_target == 80
+    assert mercedes.calendar_climate == 21.5
+    # Another word: the event is not this car's.
+    await household.async_set_vehicle(MERCEDES, {"calendar_keyword": "Elroq"})
+    await household._async_calendar_tick()
+    assert mercedes.calendar_event is None

@@ -218,9 +218,9 @@ Hvad EV Planner gør af sig selv, og hvor længe den venter. Ingen af dem er ind
 
 ## Ture fra en kalender
 
-Giv bilen en kalender under dens indstillinger (*Ture og klima*): enhver kalender i Home Assistant – Google, Outlook/Office 365, iCloud (CalDAV), en lokal kalender. EV Planner læser de næste 36 timer hvert kvarter.
+Vælg jeres kalendere under *Indstillinger → Kalender* i panelet: alle kalendere i Home Assistant – Google, Outlook/Office 365, iCloud (CalDAV), en lokal kalender – så mange I vil. EV Planner læser de næste 36 timer hvert kvarter.
 
-**Hvor:** skriv i begivenhedens **titel** eller **beskrivelse**. Med et *Nøgleord* (fx `Elroq`) tæller kun begivenheder med det ord – smart i en fælles familiekalender. Uden nøgleord tæller alle begivenheder med et klokkeslæt.
+**Hvor:** skriv i begivenhedens **titel** eller **beskrivelse**, med bilens **ord**: det første ord i dens navn (`Tesla`, `Elroq`), medmindre du vælger et andet under *Indstillinger → Kalender*. Begivenheder uden ordet er ikke bilens – så en fælles familiekalender virker. Ordet `*` gør alle begivenheder til bilens.
 
 **Den korte måde:** `Elroq 7:15 80% klima 21,5` – klar kl. 7.15 med 80 %, og bilen varmet op til 21,5°. Hver del kan undværes, i vilkårlig rækkefølge:
 

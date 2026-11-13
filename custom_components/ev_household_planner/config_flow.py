@@ -39,8 +39,6 @@ from .const import (
     CONF_BATTERY_INVERTED,
     CONF_BATTERY_POWER,
     CONF_BATTERY_SOC,
-    CONF_CALENDAR_ENTITY,
-    CONF_CALENDAR_KEYWORD,
     CONF_CAPACITY_ENTITY,
     CONF_CHARGE_POWER,
     CONF_CHARGER,
@@ -631,8 +629,6 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
                 vol.Required(SECTION_TRIPS): section(
                     vol.Schema(
                         {
-                            opt(CONF_CALENDAR_ENTITY): CALENDAR_SELECTOR,
-                            opt(CONF_CALENDAR_KEYWORD): str,
                             opt(CONF_CLIMATE_ENTITY): CLIMATE_SELECTOR,
                         }
                     ),

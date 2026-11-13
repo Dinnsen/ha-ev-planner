@@ -39,6 +39,7 @@ from .const import (
     CALENDAR_REFRESH,
     COMMAND_REPEAT,
     COMMAND_TIMEOUT,
+    CONF_CALENDAR_KEYWORD,
     CONF_CONNECTED_ENTITY,
     CONF_COUNTRY,
     CONF_CURRENCY,
@@ -95,6 +96,7 @@ from .const import (
     REMINDER_MAX_REPEATS,
     SAVE_COUNTERS,
     SET_AFTERNOON,
+    SET_CALENDAR_KEYWORD,
     SET_CHARGE_ON_LATE,
     SET_CLIMATE_AUTO,
     SET_CLIMATE_BELOW,
@@ -181,6 +183,8 @@ SETTINGS_DEFAULTS: dict[str, Any] = {
     "house": "classic",
     "houses": {},
     # Notifications: all on or off (a switch), and quiet hours with none (e.g. 22:00-06:00).
+    # The calendars with the household's trips; each car finds its own by its word in them.
+    "calendars": [],
     "notify_enabled": True,
     "quiet_enabled": False,
     "quiet_from": "22:00",
@@ -612,11 +616,31 @@ class Household(DataUpdateCoordinator[None]):
                 self.solars[site_id].load(place.get("solar"))
         self.solar.load(stored.get("solar"))
         self.settings = {**SETTINGS_DEFAULTS, **(stored.get("settings") or {})}
+        self._adopt_car_calendars()
         self.images = self._known_images(stored.get("images"))
         self.layout = clean_layouts(stored.get("layout"))
         self.originals = {
             key: value for key, value in self._known_images(stored.get("image_originals")).items() if key in self.images
         }
+
+    def _adopt_car_calendars(self) -> None:
+        """A calendar from a car's setup (before 2.4) becomes one of the household's, with the car's word.
+
+        A car's own calendar without a word was all that car's trips: its word becomes "*", every event.
+        """
+        calendars = [str(entity) for entity in self.settings.get("calendars") or [] if entity]
+        for vehicle in self.vehicles.values():
+            entity = vehicle.calendar_entity
+            if not entity:
+                continue
+            if entity not in calendars:
+                calendars.append(entity)
+            if not str(vehicle.settings.get(SET_CALENDAR_KEYWORD) or "").strip():
+                legacy = str(vehicle.config.get(CONF_CALENDAR_KEYWORD) or "").strip()
+                vehicle.settings[SET_CALENDAR_KEYWORD] = legacy or "*"
+        if calendars != self.settings.get("calendars"):
+            self.settings["calendars"] = calendars
+            self._store.async_delay_save(self._data_to_store, 5)
 
     def _known_images(self, images: Any) -> dict[str, str]:
         if not isinstance(images, dict):
@@ -2276,14 +2300,53 @@ class Household(DataUpdateCoordinator[None]):
         if await self._async_refresh_calendars():
             await self.async_recalculate(force=True)
 
+    def calendars(self) -> list[str]:
+        """The household's calendars, and any a car still has from its setup."""
+        found = [str(entity) for entity in self.settings.get("calendars") or [] if entity]
+        for vehicle in self.vehicles.values():
+            if vehicle.calendar_entity and vehicle.calendar_entity not in found:
+                found.append(vehicle.calendar_entity)
+        return found
+
+    async def _async_read_calendars(self, now: datetime) -> dict[str, list[Mapping[str, Any]]]:
+        """The events of the next hours in every calendar, read once for all the cars."""
+        entities = self.calendars()
+        if not entities:
+            return {}
+        try:
+            response = await self.hass.services.async_call(
+                "calendar",
+                "get_events",
+                {
+                    "entity_id": entities,
+                    "start_date_time": now.isoformat(),
+                    "end_date_time": (now + CALENDAR_LOOKAHEAD).isoformat(),
+                },
+                blocking=True,
+                return_response=True,
+            )
+        except (HomeAssistantError, ServiceNotFound) as err:
+            _LOGGER.debug("Could not read the calendars: %s", err)
+            return {}
+        out: dict[str, list[Mapping[str, Any]]] = {}
+        for entity in entities:
+            data = response.get(entity) if isinstance(response, dict) else None
+            events = data.get("events") if isinstance(data, dict) else None
+            out[entity] = [item for item in events or [] if isinstance(item, Mapping)]
+        return out
+
     async def _async_refresh_calendars(self) -> bool:
-        """Read the next trip from each car's calendar; True when one changed."""
+        """Read the next trip of each car from the calendars; True when one changed."""
         changed = False
         now = dt_util.now()
+        read = await self._async_read_calendars(now)
         for vehicle in self.vehicles.values():
-            if not vehicle.calendar_entity:
-                continue
-            event, target, summary, climate = await self._async_next_trip(vehicle, now)
+            if not read:
+                if vehicle.calendar_event is None:
+                    continue
+                event, target, summary, climate = None, None, None, None
+            else:
+                event, target, summary, climate = self._next_trip(vehicle, read, now)
             if (event, target) != (vehicle.calendar_event, vehicle.calendar_target):
                 changed = True
                 self.events.add(
@@ -2299,52 +2362,35 @@ class Household(DataUpdateCoordinator[None]):
             vehicle.calendar_climate = climate
         return changed
 
-    async def _async_next_trip(
-        self, vehicle: Vehicle, now: datetime
+    def _next_trip(
+        self, vehicle: Vehicle, read: Mapping[str, list[Mapping[str, Any]]], now: datetime
     ) -> tuple[datetime | None, float | None, str | None, float | bool | None]:
-        entity_id = vehicle.calendar_entity
-        assert entity_id is not None
-        try:
-            response = await self.hass.services.async_call(
-                "calendar",
-                "get_events",
-                {
-                    "entity_id": entity_id,
-                    "start_date_time": now.isoformat(),
-                    "end_date_time": (now + CALENDAR_LOOKAHEAD).isoformat(),
-                },
-                blocking=True,
-                return_response=True,
-            )
-        except (HomeAssistantError, ServiceNotFound) as err:
-            _LOGGER.debug("Could not read %s: %s", entity_id, err)
-            return None, None, None, None
-        data = response.get(entity_id) if isinstance(response, dict) else None
-        found = data.get("events") if isinstance(data, dict) else None
-        events = found if isinstance(found, list) else []
+        """The car's next trip in the calendars: the first event with its word that has a departure ahead."""
         keyword = vehicle.calendar_keyword.casefold()
-        for item in events:
-            if not isinstance(item, Mapping):
-                continue
-            summary = str(item.get("summary") or "")
-            text = f"{summary} {item.get('description') or ''}"
-            if keyword and keyword not in text.casefold():
-                continue
-            start_raw = str(item.get("start") or "")
-            if "T" in start_raw:
-                start = dt_util.parse_datetime(start_raw)
-            elif TRIP_TIME.search(text) and (day := dt_util.parse_date(start_raw[:10])) is not None:
-                # An all-day event with a departure in it ("afgang 7:30").
-                start = datetime.combine(day, time(0), now.tzinfo)
-            else:
-                continue  # an all-day event has no departure time
-            if start is None:
-                continue
-            departure, target, climate = read_trip(text, dt_util.as_local(start))
-            if departure <= now:
-                continue
-            return departure, target, summary or None, climate
-        return None, None, None, None
+        best: tuple[datetime, float | None, str | None, float | bool | None] | None = None
+        for entity, events in read.items():
+            # A calendar a car has as its own from its setup, without a word, is all that car's.
+            own = entity == vehicle.calendar_entity and vehicle.calendar_takes_all
+            for item in events:
+                summary = str(item.get("summary") or "")
+                text = f"{summary} {item.get('description') or ''}"
+                if not own and keyword != "*" and (not keyword or keyword not in text.casefold()):
+                    continue
+                start_raw = str(item.get("start") or "")
+                if "T" in start_raw:
+                    start = dt_util.parse_datetime(start_raw)
+                elif TRIP_TIME.search(text) and (day := dt_util.parse_date(start_raw[:10])) is not None:
+                    # An all-day event with a departure in it ("Elroq 7:30").
+                    start = datetime.combine(day, time(0), now.tzinfo)
+                else:
+                    continue  # an all-day event has no departure time
+                if start is None:
+                    continue
+                departure, target, climate = read_trip(text, dt_util.as_local(start))
+                if departure <= now or (best is not None and departure >= best[0]):
+                    continue
+                best = (departure, target, summary or None, climate)
+        return best if best is not None else (None, None, None, None)
 
     # ------------------------------------------------------------------
     # Changes from entities, actions and the panel

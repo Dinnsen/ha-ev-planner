@@ -266,9 +266,9 @@ With a plug sensor (`connected_entity`), a charge goes to the history when the c
 
 ## Trips from a calendar
 
-Give the car a calendar under its settings (*Trips and climate*): any calendar in Home Assistant – Google, Outlook/Office 365, iCloud (CalDAV), a local calendar. EV Planner reads the next 36 hours every 15 minutes.
+Choose your calendars under *Settings → Calendar* in the panel: any calendars in Home Assistant – Google, Outlook/Office 365, iCloud (CalDAV), a local calendar – as many as you like. EV Planner reads the next 36 hours every 15 minutes.
 
-**Where:** write in the event's **title** or its **description**. With a *Keyword* (e.g. `Elroq`), only events with that word count – useful in a shared family calendar. Without one, every event with a time counts.
+**Where:** write in the event's **title** or its **description**, with the car's **word**: the first word of its name (`Tesla`, `Elroq`) unless you set another under *Settings → Calendar*. Events without it are not the car's – so a shared family calendar works. The word `*` makes every event the car's.
 
 **The short way:** `Elroq 7:15 80% klima 21,5` – ready at 7.15 with 80 %, the car warmed to 21.5°. Each part is optional, in any order:
 

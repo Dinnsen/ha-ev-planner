@@ -163,16 +163,12 @@
               }
             },
             "trips": {
-              "name": "Ture og klima",
-              "description": "Valgfrit. En kalender med bilens ture, og bilens klima.",
+              "name": "Klima",
+              "description": "Valgfrit. Bilens klima.",
               "data": {
-                "calendar_entity": "Kalender",
-                "calendar_keyword": "Nøgleord",
                 "climate_entity": "Klima"
               },
               "data_description": {
-                "calendar_entity": "Ture i denne kalender bestemmer, hvornår bilen skal være klar.",
-                "calendar_keyword": "Kun begivenheder med dette ord. Kort form i begivenheden: \"Elroq 7:15 80% klima 21,5\" – klar kl. 7.15 med 80 %, varmet op til 21,5°. Hver del kan undværes. Se vejledningen i dokumentationen.",
                 "climate_entity": "Valgfrit. Bilens klima-entitet (den sættes til at varme eller køle til den temperatur, du vælger), eller en kontakt, knap eller et script, der starter klimaet. Bruges af Klima-knappen på bilens side, før kalenderture der beder om det, og før forvalg når automatisk klima er slået til."
               }
             }
@@ -239,16 +235,12 @@
               }
             },
             "trips": {
-              "name": "Ture og klima",
-              "description": "Valgfrit. En kalender med bilens ture, og bilens klima.",
+              "name": "Klima",
+              "description": "Valgfrit. Bilens klima.",
               "data": {
-                "calendar_entity": "Kalender",
-                "calendar_keyword": "Nøgleord",
                 "climate_entity": "Klima"
               },
               "data_description": {
-                "calendar_entity": "Ture i denne kalender bestemmer, hvornår bilen skal være klar.",
-                "calendar_keyword": "Kun begivenheder med dette ord. Kort form i begivenheden: \"Elroq 7:15 80% klima 21,5\" – klar kl. 7.15 med 80 %, varmet op til 21,5°. Hver del kan undværes. Se vejledningen i dokumentationen.",
                 "climate_entity": "Valgfrit. Bilens klima-entitet (den sættes til at varme eller køle til den temperatur, du vælger), eller en kontakt, knap eller et script, der starter klimaet. Bruges af Klima-knappen på bilens side, før kalenderture der beder om det, og før forvalg når automatisk klima er slået til."
               }
             }

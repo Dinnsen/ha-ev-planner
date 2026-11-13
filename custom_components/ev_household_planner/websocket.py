@@ -37,6 +37,7 @@ from .const import (
     SCHEDULE_NONE,
     SET_AFTERNOON,
     SET_BODY,
+    SET_CALENDAR_KEYWORD,
     SET_CEILING,
     SET_CEILING_ABOVE,
     SET_CEILING_ENABLED,
@@ -176,6 +177,7 @@ VEHICLE_SCHEMA = vol.Schema(
         vol.Optional(SET_CLIMATE_AUTO): cv.boolean,
         vol.Optional(SET_CLIMATE_BELOW): vol.All(vol.Coerce(float), vol.Range(min=-30, max=40)),
         vol.Optional(SET_CLIMATE_PLUGGED): cv.boolean,
+        vol.Optional(SET_CALENDAR_KEYWORD): vol.All(cv.string, vol.Length(max=40)),
         vol.Optional(SET_DAY_CLIMATE): {vol.In(WEEKDAYS): vol.All(vol.Coerce(float), vol.Range(min=10, max=32))},
         vol.Optional(SET_EARLY_WITHIN): vol.All(vol.Coerce(float), vol.Range(min=0, max=2)),
         vol.Optional(SET_TOPUP_ENABLED): cv.boolean,
@@ -212,6 +214,7 @@ SETTINGS_SCHEMA = vol.Schema(
         # The house of each of the other places: {the place's id: house}.
         vol.Optional("houses"): {cv.string: vol.In(HOUSES)},
         vol.Optional("notify_enabled"): cv.boolean,
+        vol.Optional("calendars"): [cv.entity_id],
         vol.Optional("quiet_enabled"): cv.boolean,
         vol.Optional("quiet_from"): _hhmm,
         vol.Optional("quiet_to"): _hhmm,

@@ -380,7 +380,7 @@ const TEXT = {
     recalculate: "Beregn igen",
     calculating: "Beregner …",
     new_guest: "Ny gæst",
-    remove_guest: "Fjern gæsten",
+    remove_guest: "Fjern gæst",
     guest_charge_now: "Lad nu",
     charging_now_busy: "Starter …",
     charge_now_tag: "Lad nu",
@@ -1377,6 +1377,21 @@ Object.assign(TEXT.da, {
   rule_evening_time: "Aften",
   rule_evening_time_hint: "Klar-tiden for Aften.",
   avg_price: "Pris pr. kWh",
+  g_settings: "Lader og tid",
+  cal_title: "Kalender",
+  cal_intro: "Vælg de kalendere, jeres ture står i. Hver bil finder sine egne ture på sit ord i begivenheden.",
+  cal_example: "klar kl. 7.15 med 80 %, bilen varmet op til 21,5°",
+  cal_calendars: "Kalendere",
+  cal_cars: "Bilernes ord",
+  cal_word: "Ord",
+  cal_no_trip: "Ingen tur de næste 36 timer",
+  cal_none: "Home Assistant har ingen kalendere endnu. Tilføj fx Google Kalender eller en lokal kalender under Enheder og tjenester.",
+  cal_guide: "Hvad kan man skrive?",
+  cal_g_time: "Et klokkeslæt (7:15 eller 7.15) er afgangen. Uden står bilen klar ved begivenhedens start.",
+  cal_g_target: "80% lader til 80 % til denne tur.",
+  cal_g_full: "fuld lader til 100 %.",
+  cal_g_climate: "klima varmer bilen op inden afgang, klima 21,5 til 21,5°.",
+  cal_g_allday: "En heldagsbegivenhed tæller kun med et klokkeslæt. Ordet * betyder alle begivenheder.",
   src_calendar: "Kalender",
   src_trip: "Forvalg",
   src_week: "Ugeplan",
@@ -1453,6 +1468,21 @@ Object.assign(TEXT.en, {
   rule_evening_time: "Evening",
   rule_evening_time_hint: "The ready-by time for Evening.",
   avg_price: "Price per kWh",
+  g_settings: "Charger and time",
+  cal_title: "Calendar",
+  cal_intro: "Choose the calendars your trips are in. Each car finds its own trips by its word in the event.",
+  cal_example: "ready at 7.15 with 80 %, the car warmed to 21.5°",
+  cal_calendars: "Calendars",
+  cal_cars: "The cars' words",
+  cal_word: "Word",
+  cal_no_trip: "No trip in the next 36 hours",
+  cal_none: "Home Assistant has no calendars yet. Add e.g. Google Calendar or a local calendar under Devices & services.",
+  cal_guide: "What can I write?",
+  cal_g_time: "A time (7:15 or 7.15) is the departure. Without one, the car is ready at the event's start.",
+  cal_g_target: "80% charges to 80 % for this trip.",
+  cal_g_full: "full charges to 100 %.",
+  cal_g_climate: "climate warms the car before leaving, climate 21,5 to 21.5°.",
+  cal_g_allday: "An all-day event counts only with a time. The word * means every event.",
   src_calendar: "Calendar",
   src_trip: "Preset",
   src_week: "Week plan",
@@ -5604,13 +5634,14 @@ class EvPlannerPanel extends HTMLElement {
       return;
     }
     box.hidden = false;
-    // Three numbers on the car's page; the guest's page shows them all.
-    const compact = this._tab === "cars";
+    // Three numbers (the dial has the price, the window and the saving); the guest's measured ones after them.
+    const compact = this._tab === "cars" || this._tab === "guest";
     const items = compact
       ? [
           [this._t("duration"), this._duration(plan.minutes)],
           [this._t("energy"), this._kwh(plan.energy)],
           [this._t("avg_price"), Number(plan.energy) > 0 && isNum(plan.cost) ? `${this._money(plan.cost / plan.energy)}/kWh` : "–"],
+          ...(this._tab === "guest" ? extra : []),
         ]
       : [
           [this._t("start"), `${this._day(plan.segments[0].start)} ${this._time(plan.segments[0].start)}`],
@@ -7191,6 +7222,7 @@ class EvPlannerPanel extends HTMLElement {
           <div class="dial-center big"></div>
         </div>
         <div class="status-line"></div>
+        <div class="glance"></div>
       </section>
       <section class="panel facts" hidden></section>
       </div>
@@ -7230,6 +7262,10 @@ class EvPlannerPanel extends HTMLElement {
         </div>`
             : ""
         }
+        </div>
+        <details class="more g-more">
+          <summary>${ICONS.rules}<span>${this._t("g_settings")}</span><small class="g-sum"></small></summary>
+          <div class="fields">
         <div class="field">
           <span>${this._t("charger")}</span>
           <div class="chips power">
@@ -7248,9 +7284,10 @@ class EvPlannerPanel extends HTMLElement {
           ${this._planTypeHtml("g")}
           <small class="hint split-note" hidden>${this._t("guest_split_note")}</small>
         </div>
-        </div>
+          </div>
+        </details>
 
-        <div class="actions">
+        <div class="actions g-actions">
           <button class="btn primary calc" data-act="g-plan">${ICONS.charge}<span></span></button>
           <button class="btn ghost charge-now" data-act="g-now">${ICONS.boost}<span>${this._t("guest_charge_now")}</span></button>
           <button class="btn ghost new-guest" data-act="g-new">${ICONS.plus}<span>${this._t("new_guest")}</span></button>
@@ -7396,6 +7433,29 @@ class EvPlannerPanel extends HTMLElement {
     this._renderFacts(plan, extra);
     this._renderTimeline(plan, { deadline: plan ? deadline : null });
     this._renderGuestBatteryLive();
+    // At a glance: ready by and to what; and the settings in one line where they fold away.
+    const root = this.shadowRoot;
+    const inputs = this._gin;
+    const ready = deadline ? this._readyText(deadline) : this._t("no_deadline_short");
+    const glance = root.querySelector(".guest-page .glance");
+    if (glance) {
+      const target = plan && isNum(plan.end_soc) ? plan.end_soc : inputs.charge_limit;
+      this._patch(
+        glance,
+        JSON.stringify([ready, target, this._lang]),
+        `<span class="g-chip">${ICONS.history}<b>${esc(ready.charAt(0).toUpperCase() + ready.slice(1))}</b></span>${isNum(target) ? `<span class="g-chip">${ICONS.charge}<b>${esc(this._pct(target))}</b></span>` : ""}`,
+      );
+    }
+    const sum = root.querySelector(".guest-page .g-sum");
+    if (sum) {
+      sum.textContent = [
+        isNum(inputs.charger_power) ? `${this._num(inputs.charger_power, 1)} kW` : "",
+        inputs.use_completion_time === false ? this._t("no_deadline_short") : this._hhmm(inputs.charge_completion_time || "07:00"),
+        this._t(inputs.continuous_charging_preferred === false ? "split" : "continuous"),
+      ]
+        .filter(Boolean)
+        .join(" · ");
+    }
   }
 
   _renderGuestStatus() {
@@ -7762,10 +7822,17 @@ class EvPlannerPanel extends HTMLElement {
         return `<div class="tn-row"><span class="tn-name"><em style="background:${this._carColor(i)}"></em><span>${esc(v.name)}</span></span><div class="tn-track">${segs}</div><span class="tn-cost">${this._money(v.plan.cost)}</span></div>`;
       })
       .join("");
+    // Room for about six labels: every 3 hours on a night, every 6, 12 or 24 over days (midnight as the day).
+    const hours = span / 3600e3;
+    const every = hours <= 18 ? 3 : hours <= 36 ? 6 : hours <= 72 ? 12 : 24;
+    const dayName = new Intl.DateTimeFormat(this._locale, { weekday: "short" });
     const ticks = [];
     for (let t = Math.ceil(t0 / 3600e3) * 3600e3; t < t1; t += 3600e3) {
-      const hour = new Date(t).getHours();
-      if (hour % 3 === 0) ticks.push(`<span style="left:${x(t).toFixed(2)}%">${String(hour).padStart(2, "0")}</span>`);
+      const date = new Date(t);
+      const hour = date.getHours();
+      if (hour % every !== 0 || x(t) > 96) continue;
+      const label = hour === 0 && every >= 6 ? dayName.format(date).replace(".", "") : String(hour).padStart(2, "0");
+      ticks.push(`<span style="left:${x(t).toFixed(2)}%">${esc(label)}</span>`);
     }
     const energy = cars.reduce((sum, v) => sum + (Number(v.plan.energy) || 0), 0);
     const cost = cars.reduce((sum, v) => sum + (Number(v.plan.cost) || 0), 0);
@@ -8590,6 +8657,7 @@ class EvPlannerPanel extends HTMLElement {
           <input id="payment-text" type="text" maxlength="200" value="${esc(settings.payment_text || "")}">
           <small>${this._t("payment_hint")}</small></label>`,
       },
+      calendar: this._calendarTile(settings),
       notifications: {
         icon: "bell",
         title: this._t("settings_notifications"),
@@ -8692,6 +8760,48 @@ class EvPlannerPanel extends HTMLElement {
     return `<div class="page settings-page"><div class="tile-grid">${tiles}</div>${sheet}</div>`;
   }
 
+  /* The household's calendars, and the word that marks each car's trips in them. */
+  _calendarTile(settings) {
+    const chosen = new Set(settings.calendars || []);
+    const states = this._hass?.states || {};
+    const all = Object.keys(states)
+      .filter((entity) => entity.startsWith("calendar."))
+      .sort((a, b) => String(states[a].attributes?.friendly_name || a).localeCompare(String(states[b].attributes?.friendly_name || b)));
+    for (const entity of chosen) if (!all.includes(entity)) all.push(entity);
+    const name = (entity) => states[entity]?.attributes?.friendly_name || entity;
+    const list = all.length
+      ? all
+          .map((entity) => {
+            const on = chosen.has(entity);
+            return `<div class="cal-row"><span>${ICONS.calendar}<b>${esc(name(entity))}</b></span>
+              <button class="switch" role="switch" data-act="cal-toggle" data-entity="${esc(entity)}" aria-checked="${on}" aria-label="${esc(name(entity))}"><i></i></button></div>`;
+          })
+          .join("")
+      : `<p class="hint">${this._t("cal_none")}</p>`;
+    const cars = this._cars
+      .map((v) => {
+        const own = String(this._vs(v).calendar_keyword || "");
+        const fallback = String(v.name || "").split(/\s+/).find((w) => w.length >= 2) || "";
+        const next = v.calendar?.start ? `${this._day(v.calendar.start)} ${this._time(v.calendar.start)}` : this._t("cal_no_trip");
+        return `<div class="cal-car"><b>${esc(v.name)}</b>
+          <label class="cal-word"><span>${this._t("cal_word")}</span><input type="text" maxlength="40" data-calkw="${esc(v.id)}" value="${esc(own)}" placeholder="${esc(fallback)}" aria-label="${esc(`${v.name}: ${this._t("cal_word")}`)}"></label>
+          <small>${ICONS.history}${esc(next)}</small></div>`;
+      })
+      .join("");
+    const example = `${(this._cars[0]?.name || "Elroq").split(/\s+/)[0]} 7:15 80% klima 21,5`;
+    return {
+      icon: "calendar",
+      title: this._t("cal_title"),
+      summary: chosen.size ? [...chosen].map(name).join(", ") : this._t("not_set"),
+      body: `<p class="hint">${esc(this._t("cal_intro"))}</p>
+        <div class="cal-example"><code>${esc(example)}</code><small>${esc(this._t("cal_example"))}</small></div>
+        <div class="field col"><span>${this._t("cal_calendars")}</span>${list}</div>
+        <div class="field col"><span>${this._t("cal_cars")}</span>${cars}</div>
+        <details class="more"><summary>${ICONS.info}<span>${this._t("cal_guide")}</span></summary>
+          <ul class="cal-guide">${["cal_g_time", "cal_g_target", "cal_g_full", "cal_g_climate", "cal_g_allday"].map((k) => `<li>${this._t(k)}</li>`).join("")}</ul></details>`,
+    };
+  }
+
   // ------------------------------------------------------------------ events
 
   /* One click handler for the whole page: buttons say what they do with data-act. */
@@ -8776,6 +8886,14 @@ class EvPlannerPanel extends HTMLElement {
         const settings = this._state.settings || {};
         const now = key === "notify_enabled" ? settings.notify_enabled !== false : Boolean(settings[key]);
         this._saveSettings({ [key]: !now });
+        break;
+      }
+      case "cal-toggle": {
+        const now = new Set(this._state.settings?.calendars || []);
+        const entity = button.dataset.entity;
+        if (now.has(entity)) now.delete(entity);
+        else now.add(entity);
+        this._saveSettings({ calendars: [...now] });
         break;
       }
       case "support-export":
@@ -9041,6 +9159,10 @@ class EvPlannerPanel extends HTMLElement {
         const value = clamp(Math.round(Number(el.value) * 2) / 2, 10, 32);
         this._vchange({ day_climate: { ...(this._vs(v).day_climate || {}), [el.dataset.dayclimate]: value } });
       }
+    } else if (el.dataset.calkw) {
+      this._run("settings", "ev_household_planner/vehicle_set", { vehicle_id: el.dataset.calkw, settings: { calendar_keyword: el.value.trim() } }).then(
+        (ok) => ok && this._toast(this._t("saved")),
+      );
     } else if (el.dataset.tripSelect) {
       this._setTrip(el.value || null);
     } else if (el.dataset.tripDate) {
@@ -9510,6 +9632,24 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .go-date { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 6px 12px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--evp-ink) 14%, transparent); background: var(--evp-card); color: var(--evp-ink); }
 .go-date span { color: var(--evp-soft); font-size: 14px; }
 .go-date input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--evp-ink); font: inherit; font-size: 15px; font-weight: 600; outline: 0; }
+.actions.g-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+.g-actions .calc { grid-column: 1 / -1; }
+.g-actions .btn { justify-content: center; }
+.guest-page .g-more { margin-top: 12px; }
+.cal-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid color-mix(in srgb, var(--evp-ink) 7%, transparent); }
+.cal-row > span { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cal-row > span b { font-weight: 500; overflow-wrap: anywhere; }
+.cal-row svg, .cal-car small svg { width: 17px; height: 17px; flex: none; fill: none; stroke: var(--evp-a); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.cal-car { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid color-mix(in srgb, var(--evp-ink) 7%, transparent); }
+.cal-car small { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; color: var(--evp-soft); }
+.cal-word { display: flex; align-items: center; gap: 8px; }
+.cal-word span { color: var(--evp-soft); font-size: 13px; }
+.cal-car > b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-word input { width: 110px; padding: 7px 10px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--evp-ink) 14%, transparent); background: var(--evp-card); color: var(--evp-ink); font: inherit; }
+.cal-example { display: grid; gap: 4px; margin: 4px 0 10px; padding: 12px; border-radius: 12px; background: color-mix(in srgb, var(--evp-a) 9%, transparent); }
+.cal-example code { font-size: 16px; font-weight: 600; font-family: inherit; background: none; padding: 0; }
+.cal-example small { color: var(--evp-soft); }
+.cal-guide { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 6px; color: var(--evp-soft); font-size: 14px; }
 .go-when { margin: 6px 4px 0; color: var(--evp-soft); font-size: 13px; }
 .go-when.as-link { display: flex; align-items: center; gap: 8px; width: 100%; margin: 8px 0 0; padding: 9px 12px; border: 0; border-radius: 12px; background: color-mix(in srgb, var(--evp-a) 9%, transparent); color: var(--evp-ink); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
 .go-when.as-link svg { width: 17px; height: 17px; flex: none; fill: none; stroke: var(--evp-a); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
