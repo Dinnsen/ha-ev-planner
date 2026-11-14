@@ -26,6 +26,7 @@ from .catalog import (
     MODEL_AUTO,
     MODEL_OTHER,
     describe_device,
+    device_brand,
     get_model,
     model_options,
     suggest_entities,
@@ -599,8 +600,15 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
             }
         )
 
-    def _validate(self, data: Mapping[str, Any]) -> dict[str, str]:
+    def _validate(self, data: Mapping[str, Any], own: str | None = None) -> dict[str, str]:
         errors: dict[str, str] = {}
+        soc = data.get(CONF_SOC_ENTITY)
+        if soc and any(
+            sub.subentry_type == SUBENTRY_VEHICLE and sid != own and sub.data.get(CONF_SOC_ENTITY) == soc
+            for sid, sub in self._get_entry().subentries.items()
+        ):
+            # Two cars on one battery sensor would be planned as one.
+            errors["base"] = "soc_in_use"
         control = data.get(CONF_CONTROL)
         if control == CONTROL_CAR and not data.get(CONF_CONTROL_ENTITY):
             errors["base"] = "control_entity_required"
@@ -706,7 +714,7 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
         errors: dict[str, str] = {}
         if user_input is not None:
             data = _flat(user_input)
-            errors = self._validate(data)
+            errors = self._validate(data, subentry.subentry_id)
             if not errors:
                 stored = self._clean(data)
                 for key in (CONF_IMPORTED_FROM, CONF_IMPORTED_SETTINGS, CONF_CLIMATE_ENTITY):
@@ -795,7 +803,7 @@ class ChargerSubentryFlow(ConfigSubentryFlow):
                 CONF_POWER: model.suggested_power if model else DEFAULT_CHARGE_POWER,
             }
             if device_id:
-                values.update(suggest_entities(self.hass, device_id, model))
+                values.update(suggest_entities(self.hass, device_id, model, device_brand(self.hass, device_id)))
             self._values = values
             return await self.async_step_details()
         return self.async_show_form(
@@ -857,6 +865,8 @@ def _site_of(entry: ConfigEntry, raw: Any) -> str:
 
 
 SECTION_GRID = "grid"
+# The least a place's supply may be (A per phase): what one charger gives at the least.
+MIN_SUPPLY_LIMIT = 6
 SUPPLY_FIELDS = (
     CONF_SUPPLY_LIMIT,
     CONF_SUPPLY_PHASES,
@@ -930,21 +940,43 @@ class SiteSubentryFlow(ConfigSubentryFlow):
             result = {CONF_HOME: True, **{key: value for key, value in result.items() if key != CONF_ZONE}}
         return result
 
+    @staticmethod
+    def _errors(user_input: Mapping[str, Any]) -> dict[str, str]:
+        """A supply under what one charger gives at the least has room for no car at all."""
+        limit = (user_input.get(SECTION_SUPPLY) or {}).get(CONF_SUPPLY_LIMIT) or 0
+        return {"base": "supply_low"} if 0 < float(limit) < MIN_SUPPLY_LIMIT else {}
+
+    @staticmethod
+    def _again(user_input: Mapping[str, Any]) -> dict[str, Any]:
+        """What was typed, as the form takes it (the sections' fields beside the others)."""
+        return {**user_input, **(user_input.get(SECTION_SUPPLY) or {}), **(user_input.get(SECTION_GRID) or {})}
+
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
+        errors: dict[str, str] = {}
         if user_input is not None:
-            return self.async_create_entry(title=user_input[CONF_NAME], data=self._clean(user_input, home=False))
-        return self.async_show_form(step_id="user", data_schema=self._schema({}, home=False))
+            errors = self._errors(user_input)
+            if not errors:
+                return self.async_create_entry(title=user_input[CONF_NAME], data=self._clean(user_input, home=False))
+        return self.async_show_form(
+            step_id="user", data_schema=self._schema(self._again(user_input or {}), home=False), errors=errors
+        )
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
         subentry = self._get_reconfigure_subentry()
         home = bool(subentry.data.get(CONF_HOME))
+        errors: dict[str, str] = {}
         if user_input is not None:
-            return self.async_update_and_abort(
-                self._get_entry(), subentry, title=user_input[CONF_NAME], data=self._clean(user_input, home=home)
-            )
+            errors = self._errors(user_input)
+            if not errors:
+                return self.async_update_and_abort(
+                    self._get_entry(), subentry, title=user_input[CONF_NAME], data=self._clean(user_input, home=home)
+                )
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=self._schema({**subentry.data, CONF_NAME: subentry.title}, home=home),
+            data_schema=self._schema(
+                self._again(user_input) if user_input else {**subentry.data, CONF_NAME: subentry.title}, home=home
+            ),
+            errors=errors,
         )
 
 

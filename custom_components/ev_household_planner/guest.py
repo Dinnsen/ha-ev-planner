@@ -201,6 +201,8 @@ class GuestSession:
         # After "Stop": the charger stays paused for the guest until then
         # (or until the guest car is unplugged, when the charger can tell).
         self._hold_until: datetime | None = None
+        # The guard paused the guest for the house: its charger waits until then.
+        self.house_hold: datetime | None = None
         self._meter_last: float | None = None
         # What was charged under earlier plans of the same session (planned again, or
         # "Charge now", while it charged): it stays on the bill.
@@ -781,7 +783,14 @@ class GuestSession:
         now = now or dt_util.now()
         if not self.session_active(now):
             return CONTROL_RELEASED
+        if self.house_hold is not None and now < self.house_hold:
+            return CONTROL_PAUSE  # the guard: the house needs the current for a while
         return CONTROL_CHARGE if self.is_charge_now(now) else CONTROL_PAUSE
+
+    def wants_charge(self, now: datetime | None = None) -> bool:
+        """The guest's plan charges now (whether or not the guard holds it back for the house)."""
+        now = now or dt_util.now()
+        return self.session_active(now) and self.is_charge_now(now)
 
     def release_info(self, now: datetime | None = None) -> dict[str, str] | None:
         now = now or dt_util.now()

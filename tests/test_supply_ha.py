@@ -508,3 +508,29 @@ async def test_an_idle_charger_is_set_to_what_the_place_has_room_for(
     assert not calls
     await supply.async_idle(dt_util.now() + timedelta(minutes=16))
     assert calls and calls[-1].data["value"] == 6.0
+
+
+async def test_the_joint_plan_follows_a_cars_price_ceiling_as_far_as_its_target_allows(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass, soc=20)
+    _skoda(hass, soc=80)
+    entry = _entry()
+    await _setup(hass, freezer, entry)
+    household = entry.runtime_data
+    await household.async_set_vehicle(TESLA, {"price_ceiling_enabled": True, "price_ceiling": 0.5})
+    await settle(hass, freezer)
+    plan = household.supply.plan
+    assert plan is not None
+    prices = {now + timedelta(hours=i): price for i, price in enumerate(NIGHT)}
+    shares = {start: amps for start, _end, amps in plan.amps[TESLA]}
+    under = [start for start, price in prices.items() if price <= 0.5]
+    over = [start for start in shares if prices[start] > 0.5]
+    # Every hour under the ceiling is used in full (16 A), before any hour over it.
+    assert len(under) == 3 and all(shares.get(start) == 16 for start in under)
+    # The target still comes first: what the three hours cannot give comes in the cheapest hour over the
+    # ceiling (0.8), and nowhere dearer.
+    assert over and all(prices[start] == 0.8 for start in over)
+    tesla = household.vehicles[TESLA]
+    assert tesla.plan is not None and not tesla.plan.limited and tesla.plan.end_soc == tesla.target

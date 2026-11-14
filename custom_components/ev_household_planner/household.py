@@ -9,7 +9,7 @@ price rule follows the current price).
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, time, timedelta
 from functools import partial
@@ -21,7 +21,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_OFF, STATE_UNAVAILABLE, STATE_UNKNOWN, UnitOfEnergy, UnitOfPower
 from homeassistant.core import CALLBACK_TYPE, Event, EventStateChangedData, HomeAssistant, State, callback
-from homeassistant.exceptions import HomeAssistantError, ServiceNotFound, ServiceValidationError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import entity_registry as er, issue_registry as ir
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event, async_track_time_interval
 from homeassistant.helpers.start import async_at_started
@@ -37,9 +37,11 @@ from .const import (
     BLIP_KWH,
     CALENDAR_LOOKAHEAD,
     CALENDAR_REFRESH,
+    CHARGER_AUTO,
     COMMAND_REPEAT,
     COMMAND_TIMEOUT,
     CONF_CALENDAR_KEYWORD,
+    CONF_CHARGER,
     CONF_CLIMATE_ENTITY,
     CONF_CONNECTED_ENTITY,
     CONF_COUNTRY,
@@ -80,6 +82,7 @@ from .const import (
     DOMAIN,
     EVENT_NOTIFICATION_ACTION,
     FORGET_RESUME,
+    ISSUE_CHARGER_MISSING,
     ISSUE_CONTROL_FAILED,
     ISSUE_PRICE_ENTITY_MISSING,
     LIVE_MIN_INTERVAL,
@@ -90,6 +93,7 @@ from .const import (
     MODE_SMART,
     MODES,
     MOVED_KEYS,
+    NO_CHARGER,
     OCCUPANT_GUEST,
     PAIR_ASK_CAR_AT,
     PART_KEYS,
@@ -431,6 +435,15 @@ class Household(DataUpdateCoordinator[None]):
     """Central state of one EV Planner household."""
 
     config_entry: EVPlannerConfigEntry
+    # The panel and the cards that follow the state: told when the household is made again, and the
+    # state made once for all of them at each update (websocket.py).
+    ws_reload: set[Callable[[], None]] | None = None
+    ws_state: dict[str, Any] | None = None
+
+    @callback
+    def async_update_listeners(self) -> None:
+        self.ws_state = None
+        super().async_update_listeners()
 
     def __init__(self, hass: HomeAssistant, entry: EVPlannerConfigEntry) -> None:
         super().__init__(hass, _LOGGER, config_entry=entry, name=f"{DOMAIN}_{entry.entry_id}", update_interval=None)
@@ -633,6 +646,7 @@ class Household(DataUpdateCoordinator[None]):
         """Once Home Assistant runs: check the price sensor, read calendars, and start acting."""
         self._started = True
         self._check_price_entity()
+        self._check_chargers()
         for supply in self.supplies.values():
             supply.async_start()
         self.config_entry.async_create_task(self.hass, self._async_after_start(), f"{DOMAIN} start")
@@ -684,6 +698,25 @@ class Household(DataUpdateCoordinator[None]):
             return None
         state = self.hass.states.get(entity_id)
         return state.state if state is not None else None
+
+    @callback
+    def _check_chargers(self) -> None:
+        """A car set up with a charger that is no longer there has nothing that starts and stops it."""
+        for vehicle in self.vehicles.values():
+            issue_id = f"{ISSUE_CHARGER_MISSING}_{vehicle.vehicle_id}"
+            chosen = vehicle.config.get(CONF_CHARGER)
+            if chosen and chosen not in (NO_CHARGER, CHARGER_AUTO) and chosen not in self.chargers:
+                ir.async_create_issue(
+                    self.hass,
+                    DOMAIN,
+                    issue_id,
+                    is_fixable=False,
+                    severity=ir.IssueSeverity.WARNING,
+                    translation_key=ISSUE_CHARGER_MISSING,
+                    translation_placeholders={"name": vehicle.name},
+                )
+            else:
+                ir.async_delete_issue(self.hass, DOMAIN, issue_id)
 
     @callback
     def _check_price_entity(self) -> None:
@@ -1371,6 +1404,7 @@ class Household(DataUpdateCoordinator[None]):
         aim, other_aim = (known_aim, aim) if use_known else (aim, known_aim)
 
         rules = vehicle.rules()
+        vehicle.trip_cap = None
         if trip is not None and vehicle.deadline == trip["at"]:
             # The weekend and a holiday charge only at the cheapest prices.
             kind = str(trip.get("kind"))
@@ -1381,6 +1415,7 @@ class Household(DataUpdateCoordinator[None]):
                 else cheap_ceiling(kind, every, trip["at"])
             )
             if cap is not None:
+                vehicle.trip_cap = cap
                 rules = replace(
                     rules, ceiling=cap if rules.ceiling is None else min(rules.ceiling, cap), ceiling_above=None
                 )
@@ -2037,7 +2072,7 @@ class Household(DataUpdateCoordinator[None]):
             _LOGGER.warning("No answer when turning %s %s", "on" if on else "off", entity_id)
             self.events.add(dt_util.now(), "command", entity=entity_id, on=on, error="timeout")
             return "timeout"
-        except (HomeAssistantError, ServiceNotFound) as err:
+        except Exception as err:  # whatever the car's or charger's integration raises
             _LOGGER.warning("Could not turn %s %s: %s", "on" if on else "off", entity_id, err)
             self.events.add(dt_util.now(), "command", entity=entity_id, on=on, error=str(err) or type(err).__name__)
             return str(err) or type(err).__name__
@@ -2566,38 +2601,59 @@ class Household(DataUpdateCoordinator[None]):
                 found.append(vehicle.calendar_entity)
         return found
 
-    async def _async_read_calendars(self, now: datetime) -> dict[str, list[Mapping[str, Any]]]:
-        """The events of the next hours in every calendar, read once for all the cars."""
+    async def _async_read_calendars(self, now: datetime) -> tuple[dict[str, list[Mapping[str, Any]]], bool]:
+        """The events of the next hours in every calendar, read once for all the cars.
+
+        Also whether every calendar answered: when all are asked at once, one that does not answer
+        fails them all, so they are then asked one by one, and only that one is missing.
+        """
         entities = self.calendars()
         if not entities:
-            return {}
+            return {}, True
+
+        async def ask(which: list[str]) -> Any:
+            async with asyncio.timeout(COMMAND_TIMEOUT):
+                return await self.hass.services.async_call(
+                    "calendar",
+                    "get_events",
+                    {
+                        "entity_id": which,
+                        "start_date_time": now.isoformat(),
+                        "end_date_time": (now + CALENDAR_LOOKAHEAD).isoformat(),
+                    },
+                    blocking=True,
+                    return_response=True,
+                )
+
+        answered = True
         try:
-            response = await self.hass.services.async_call(
-                "calendar",
-                "get_events",
-                {
-                    "entity_id": entities,
-                    "start_date_time": now.isoformat(),
-                    "end_date_time": (now + CALENDAR_LOOKAHEAD).isoformat(),
-                },
-                blocking=True,
-                return_response=True,
-            )
-        except (HomeAssistantError, ServiceNotFound) as err:
-            _LOGGER.debug("Could not read the calendars: %s", err)
-            return {}
+            response = await ask(entities)
+        except Exception as err:  # a calendar that is away, or whatever its integration raises
+            _LOGGER.debug("Could not read the calendars together: %s", err)
+            response = {}
+            for entity in entities:
+                try:
+                    one = await ask([entity])
+                except Exception as one_err:
+                    _LOGGER.debug("Could not read the calendar %s: %s", entity, one_err)
+                    answered = False
+                    continue
+                if isinstance(one, dict):
+                    response.update(one)
         out: dict[str, list[Mapping[str, Any]]] = {}
         for entity in entities:
             data = response.get(entity) if isinstance(response, dict) else None
+            if data is None and not answered:
+                continue
             events = data.get("events") if isinstance(data, dict) else None
             out[entity] = [item for item in events if isinstance(item, Mapping)] if isinstance(events, list) else []
-        return out
+        return out, answered
 
     async def _async_refresh_calendars(self) -> bool:
         """Read the next trip of each car from the calendars; True when one changed."""
         changed = False
         now = dt_util.now()
-        read = await self._async_read_calendars(now)
+        read, answered = await self._async_read_calendars(now)
         for vehicle in self.vehicles.values():
             if not read:
                 if vehicle.calendar_event is None:
@@ -2605,6 +2661,9 @@ class Household(DataUpdateCoordinator[None]):
                 event, target, summary, climate = None, None, None, None
             else:
                 event, target, summary, climate = self._next_trip(vehicle, read, now)
+            if event is None and not answered and vehicle.calendar_event is not None and vehicle.calendar_event > now:
+                # A calendar did not answer: the trip known from before stays until it does (or has passed).
+                continue
             if (event, target) != (vehicle.calendar_event, vehicle.calendar_target):
                 changed = True
                 self.events.add(
@@ -2762,7 +2821,7 @@ class Household(DataUpdateCoordinator[None]):
             try:
                 async with asyncio.timeout(COMMAND_TIMEOUT):
                     await self.hass.services.async_call(service_domain, service, data, blocking=True)
-            except (TimeoutError, HomeAssistantError, ServiceNotFound) as err:
+            except Exception as err:  # whatever the car's integration raises
                 error = str(err) or type(err).__name__
                 _LOGGER.warning("Could not %s the climate of %s: %s", service, vehicle.name, error)
                 self.events.add(now, "climate", vehicle=vehicle.name, on=on, call=service, error=error)
@@ -2908,14 +2967,15 @@ class Household(DataUpdateCoordinator[None]):
         domain = entity_id.split(".", 1)[0]
         value = self.car_target_value(vehicle, value)
         try:
-            await self.hass.services.async_call(
-                domain, "set_value", {"entity_id": entity_id, "value": value}, blocking=True
-            )
-        except (HomeAssistantError, ServiceNotFound) as err:
+            async with asyncio.timeout(COMMAND_TIMEOUT):
+                await self.hass.services.async_call(
+                    domain, "set_value", {"entity_id": entity_id, "value": value}, blocking=True
+                )
+        except Exception as err:  # a timeout, or whatever the car's integration raises
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="target_not_set",
-                translation_placeholders={"entity_id": entity_id, "error": str(err)},
+                translation_placeholders={"entity_id": entity_id, "error": str(err) or type(err).__name__},
             ) from err
         vehicle.target_from_car = value
 

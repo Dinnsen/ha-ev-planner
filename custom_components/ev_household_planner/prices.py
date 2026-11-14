@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from itertools import pairwise
 from math import isfinite
 from statistics import median
@@ -103,6 +103,8 @@ def extract_price_slots(state: State | None, now: datetime) -> list[PriceSlot]:
 def _rows(rows: Any) -> Iterable[tuple[datetime, datetime | None, float]]:
     if not isinstance(rows, list):
         return
+    # Times without an offset that have come before: the night winter time begins has 02:00 twice.
+    seen: set[datetime] = set()
     for row in rows:
         if not isinstance(row, Mapping):
             continue
@@ -110,7 +112,7 @@ def _rows(rows: Any) -> Iterable[tuple[datetime, datetime | None, float]]:
         value_key = next((key for key in VALUE_KEYS if row.get(key) is not None), None)
         if start_key is None or value_key is None:
             continue
-        start = _to_datetime(row[start_key])
+        start = _to_datetime(row[start_key], seen)
         price = _to_float(row[value_key])
         if start is None or price is None:
             continue
@@ -134,7 +136,13 @@ def _step_for_day(count: int) -> timedelta:
     return HOUR
 
 
-def _to_datetime(value: Any) -> datetime | None:
+def _to_datetime(value: Any, seen: set[datetime] | None = None) -> datetime | None:
+    """A moment from a sensor's row. A time without an offset is local time.
+
+    With ``seen`` (the local times of the rows before it), a local time that comes a second time is
+    the second of the two hours the night winter time begins, and it gets its own offset: without
+    that the two would be one moment, and one hour and its price would be lost.
+    """
     if isinstance(value, datetime):
         moment: datetime | None = value
     elif value in (None, ""):
@@ -142,7 +150,12 @@ def _to_datetime(value: Any) -> datetime | None:
     else:
         moment = dt_util.parse_datetime(str(value))
     if moment is not None and moment.tzinfo is None:
-        moment = moment.replace(tzinfo=dt_util.get_default_time_zone())
+        again = seen is not None and moment in seen
+        if seen is not None:
+            seen.add(moment)
+        moment = moment.replace(tzinfo=dt_util.get_default_time_zone(), fold=1 if again else 0)
+        if again and (offset := moment.utcoffset()) is not None:
+            moment = moment.astimezone(timezone(offset))
     return moment
 
 

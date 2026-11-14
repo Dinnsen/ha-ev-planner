@@ -604,3 +604,45 @@ def departures_deadline(household: Any, ident: str) -> datetime:
     deadline = departures.deadline(item, dt_util.now())
     assert deadline is not None
     return deadline
+
+
+async def test_the_guard_pauses_the_guest_when_the_house_needs_the_current(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    """A guest charges, no car of the household does, and the house goes over its supply."""
+    from custom_components.ev_household_planner.supply_control import GUARD_PAUSE
+
+    meter = "sensor.house_current"
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass, cable=False)
+    hass.states.async_set(CHARGER_SWITCH, "on")
+    hass.states.async_set(meter, "10", {"unit_of_measurement": "A"})
+    entry = entry_with(
+        charger_sub(carport_data(switch_entity=CHARGER_SWITCH)),
+        vehicle_sub(TESLA, "Tesla", tesla_data()),
+        options={"supply_limit": 23, "supply_phases": "3", "supply_meter": [meter], "supply_guard": True},
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    await settle(hass, freezer)
+    household = entry.runtime_data
+    guest = household.guest
+    await hass.services.async_call("ev_household_planner", "guest_charge_now", {}, blocking=True)
+    await settle(hass, freezer)
+    assert guest.charger_control() == "charge"
+    switches.calls.clear()
+
+    # The oven and the kettle at once: 40 A on a supply of 23 A.
+    hass.states.async_set(meter, "40", {"unit_of_measurement": "A"})
+    await hass.async_block_till_done()
+    assert ("turn_off", CHARGER_SWITCH) in switches.calls
+    assert guest.house_hold is not None and guest.charger_control() == "pause"
+    assert any(item["kind"] == "guard_pause" and item.get("vehicle") == "guest" for item in household.events.items)
+
+    # When the wait is over and the house is quiet, the guest charges on.
+    hass.states.async_set(meter, "8", {"unit_of_measurement": "A"})
+    switches.calls.clear()
+    await move(hass, freezer, dt_util.now() + GUARD_PAUSE + timedelta(minutes=1))
+    assert guest.charger_control() == "charge"
+    assert ("turn_on", CHARGER_SWITCH) in switches.calls

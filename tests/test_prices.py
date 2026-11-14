@@ -101,3 +101,23 @@ def test_what_looks_wrong_with_the_prices() -> None:
     assert price_issue([slot(0), slot(2)], NOW) == "gaps"
     assert price_issue([slot(0), slot(1), slot(30)], NOW) is None  # a hole more than a day ahead
     assert price_issue([slot(0, 250.0), slot(1, 260.0)], NOW) == "unit"
+
+
+def test_the_night_winter_time_begins_keeps_both_hours_without_offsets() -> None:
+    """A sensor with local times and no offset has 02:00 twice that night: both hours and prices are kept."""
+    before = dt_util.get_default_time_zone()
+    dt_util.set_default_time_zone(TZ)
+    try:
+        start = datetime(2026, 10, 24, 22, 0, tzinfo=dt_util.UTC)  # 00:00 local, summer time
+        rows = [
+            {"hour": (start + timedelta(hours=i)).astimezone(TZ).replace(tzinfo=None).isoformat(), "price": float(i)}
+            for i in range(6)
+        ]
+        slots = extract_price_slots(State("sensor.prices", "1", {"raw_today": rows}), start)
+    finally:
+        dt_util.set_default_time_zone(before)
+    assert [slot.price for slot in slots] == [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
+    assert [slot.start.astimezone(dt_util.UTC) for slot in slots] == [start + timedelta(hours=i) for i in range(6)]
+    assert all(
+        slot.end.astimezone(dt_util.UTC) - slot.start.astimezone(dt_util.UTC) == timedelta(hours=1) for slot in slots
+    )

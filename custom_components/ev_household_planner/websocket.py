@@ -567,6 +567,8 @@ def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
         "title": household.config_entry.title,
         "now": now.isoformat(),
         "currency": household.currency,
+        # Home Assistant's time zone: the panel shows every time on the household's clock.
+        "time_zone": str(hass.config.time_zone),
         "prices": [
             {"start": s.start.isoformat(), "end": s.end.isoformat(), "price": s.price, "forecast": s.forecast}
             for s in slots
@@ -669,7 +671,10 @@ async def ws_subscribe(hass: HomeAssistant, connection: websocket_api.ActiveConn
     @callback
     def send() -> None:
         nonlocal last
-        state = panel_state(hass, household)
+        # One state for all that follow it at this update, not one each.
+        if household.ws_state is None:
+            household.ws_state = panel_state(hass, household)
+        state = household.ws_state
         if not msg["changes"] or last is None:
             last = state
             connection.send_message(websocket_api.event_message(msg["id"], state))
@@ -685,9 +690,27 @@ async def ws_subscribe(hass: HomeAssistant, connection: websocket_api.ActiveConn
         # A reload (a car added, options changed) makes a new household; the panel subscribes again.
         connection.send_message(websocket_api.event_message(msg["id"], {"reload": True}))
 
-    connection.subscriptions[msg["id"]] = household.async_add_listener(send)
-    household.config_entry.async_on_unload(reloaded)
+    listeners = household.ws_reload
+    if listeners is None:
+        listeners = household.ws_reload = set()
+
+        @callback
+        def all_reloaded() -> None:
+            for listener in list(listeners or ()):
+                listener()
+
+        household.config_entry.async_on_unload(all_reloaded)
+    listeners.add(reloaded)
+    stop = household.async_add_listener(send)
+
+    @callback
+    def unsubscribe() -> None:
+        stop()
+        listeners.discard(reloaded)
+
+    connection.subscriptions[msg["id"]] = unsubscribe
     connection.send_result(msg["id"])
+    household.ws_state = None
     send()
 
 
@@ -741,7 +764,12 @@ async def ws_vehicle_preview(
         else vehicle.target_from_car
     )
     now = dt_util.now()
-    household.plan_one(trial, now, household.blocked_for(vehicle, now))
+    # A plan that is only tried out: nothing of it is written in the event log.
+    household.events.muted = True
+    try:
+        household.plan_one(trial, now, household.blocked_for(vehicle, now))
+    finally:
+        household.events.muted = False
     connection.send_result(
         msg["id"],
         {

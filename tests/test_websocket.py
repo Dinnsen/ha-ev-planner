@@ -120,6 +120,11 @@ async def test_vehicle_preview(
     )
     assert msg["result"]["plan"] is None
     assert msg["result"]["error"] == "limit_not_above_soc"
+    # A plan that is only tried out leaves nothing in the event log.
+    events = init_integration.runtime_data.events
+    before = len(events.items)
+    await _ws(client, 3, type="ev_household_planner/vehicle_preview", vehicle_id=TESLA, settings={"target_soc": 95})
+    assert len(events.items) == before and events.muted is False
 
 
 async def test_guest_commands(

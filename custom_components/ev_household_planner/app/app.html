@@ -53,7 +53,7 @@
   d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4z"/></svg></div>
 <script type="module">
 import {
-  getAuth, createConnection, ERR_INVALID_AUTH,
+  getAuth, createConnection, subscribeEntities, getUser, ERR_INVALID_AUTH,
 } from "./haws-9.4.0.js"; // bundled in the integration, no CDN
 
 const KEY = "ev-planner-hass-tokens";
@@ -196,7 +196,33 @@ async function start() {
   let language = null;
   try { language = (await ws({ type: "frontend/get_user_data", key: "language" }))?.value?.language || null; } catch {}
   if (!language) { try { language = (await ws({ type: "get_config" })).language; } catch {} }
-  element.hass = { callWS: ws, connection: conn, auth, language, locale: { language } };
+  // What the panel reads from Home Assistant besides its own state: who you are (the house is placed
+  // by an administrator), the entities (calendars, a car's climate, the sun), and files sent as you
+  // (a photo, the support export).
+  let user = null;
+  try { user = await getUser(conn); } catch {}
+  const fetchWithAuth = async (path, init = {}) => {
+    if (auth.expired) await auth.refreshAccessToken();
+    const send = () => fetch(path, { ...init, credentials: "same-origin", headers: { ...(init.headers || {}), authorization: `Bearer ${auth.accessToken}` } });
+    let response = await send();
+    if (response.status === 401) {
+      await auth.refreshAccessToken();
+      response = await send();
+    }
+    return response;
+  };
+  const isDark = () => (typeof selected?.dark === "boolean" ? selected.dark : darkQuery.matches);
+  const hassNow = (states) => ({ callWS: ws, connection: conn, auth, user, states, fetchWithAuth, language, locale: { language }, themes: { darkMode: isDark() } });
+  let states = {};
+  element.hass = hassNow(states);
+  // A new hass when an entity changes, but at most once a second: the panel draws from its own state.
+  let pending = null;
+  subscribeEntities(conn, (entities) => {
+    states = entities;
+    if (pending) return;
+    pending = setTimeout(() => { pending = null; element.hass = hassNow(states); }, 1000);
+  });
+  darkQuery.addEventListener("change", () => { element.hass = hassNow(states); });
   addEventListener("resize", () => { element.narrow = innerWidth < 870; });
   wrap.appendChild(element);
   setupPullToRefresh(() => element.shadowRoot?.querySelector(".content"), async () => {
@@ -232,7 +258,9 @@ function setupPullToRefresh(scroller, refresh) {
     pull.style.opacity = "0";
   };
   wrap.addEventListener("touchstart", (ev) => {
-    start = !busy && atTop() && ev.touches.length === 1
+    // A sheet that is open is pulled down to close it: that pull is not a refresh.
+    const inSheet = ev.composedPath().some((el) => el.classList?.contains("sheet") || el.classList?.contains("scrim"));
+    start = !busy && !inSheet && atTop() && ev.touches.length === 1
       ? { x: ev.touches[0].clientX, y: ev.touches[0].clientY } : null;
     pulling = false;
   }, { passive: true });

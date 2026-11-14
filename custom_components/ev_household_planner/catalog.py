@@ -158,9 +158,9 @@ def _norm(text: object) -> str:
     return re.sub(r"[^a-z0-9]+", " ", str(text or "").casefold()).strip()
 
 
-def match_model(manufacturer: str | None, model: str | None, domains: Iterable[str] = ()) -> ChargerModel | None:
-    """The catalog model that fits a device's manufacturer, model and integration."""
-    maker, model_name = _norm(manufacturer), _norm(model)
+def match_brands(manufacturer: str | None, domains: Iterable[str] = ()) -> list[str]:
+    """The catalog brands a device's manufacturer and integration name."""
+    maker = _norm(manufacturer)
     domain_set = set(domains)
     brands = [
         key
@@ -174,17 +174,29 @@ def match_model(manufacturer: str | None, model: str | None, domains: Iterable[s
     ]
     if not brands and "ocpp" in domain_set:
         brands = ["ocpp"]
+    return brands
+
+
+def match_model(manufacturer: str | None, model: str | None, domains: Iterable[str] = ()) -> ChargerModel | None:
+    """The catalog model that fits a device's manufacturer, model and integration.
+
+    A brand's only model is taken on the brand alone. With several, the device's model must name
+    one of them: an unknown model of a known brand is not shown as the first in the list.
+    """
+    model_name = _norm(model)
+    brands = match_brands(manufacturer, domains)
+    candidates = [candidate for candidate in MODELS if candidate.brand in brands]
     best: ChargerModel | None = None
     best_score = -1
-    for candidate in MODELS:
-        if candidate.brand not in brands:
-            continue
+    for candidate in candidates:
         # "Zaptec Go 2" is model "Go 2" of brand Zaptec.
         name = " ".join(model_name.replace(_norm(BRANDS[candidate.brand].name), " ").split())
         words = [_norm(candidate.model), *(_norm(alias) for alias in candidate.aliases)]
         score = max((len(word) for word in words if word and word in name), default=0)
         if score > best_score:
             best, best_score = candidate, score
+    if best_score <= 0 and model_name and len(candidates) > 1:
+        return None
     return best
 
 
@@ -217,13 +229,20 @@ def _has_word(text: str, words: Iterable[str]) -> bool:
     return any(token.startswith(word) for token in tokens for word in words)
 
 
+# Words that count only as a word of their own: "car" is not in "carport" (a charger's name).
+WHOLE_WORDS = frozenset({"car"})
+
+
 def _score(text: str, good: Iterable[str], bad: Iterable[str] = ()) -> int:
     if _has_word(text, bad):
         return -1
-    return sum(1 for word in good if word in text)
+    tokens = set(re.split("[^a-z0-9]+", text))
+    return sum(1 for word in good if (word in tokens if word in WHOLE_WORDS else word in text))
 
 
-def suggest_entities(hass: HomeAssistant, device_id: str, model: ChargerModel | None) -> dict[str, Any]:
+def suggest_entities(
+    hass: HomeAssistant, device_id: str, model: ChargerModel | None, brand_key: str | None = None
+) -> dict[str, Any]:
     """Guess the switch, energy meter and plugged-in entity of a charger device."""
     registry = er.async_get(hass)
     entries = [entry for entry in er.async_entries_for_device(registry, device_id) if not entry.disabled_by]
@@ -279,7 +298,7 @@ def suggest_entities(hass: HomeAssistant, device_id: str, model: ChargerModel | 
         suggested["connected_entity"] = max(plugs, key=lambda item: item[1])[0].entity_id
         return suggested
 
-    brand = BRANDS.get(model.brand) if model else None
+    brand = BRANDS.get(model.brand) if model else BRANDS.get(brand_key or "")
     statuses = [
         (e, _score(_words(e), STATUS_GOOD) + (1 if (e.device_class or e.original_device_class) == "enum" else 0))
         for e in entries
@@ -373,6 +392,18 @@ def suggest_vehicle_entities(hass: HomeAssistant, device_id: str) -> dict[str, A
     if switch:
         suggested["control"] = "car"
     return suggested
+
+
+def device_brand(hass: HomeAssistant, device_id: str) -> str | None:
+    """The catalog brand of a device, also when its model is not in the catalog."""
+    device = dr.async_get(hass).async_get(device_id)
+    if device is None:
+        return None
+    entry_id: str | None = getattr(device, "config_entry_id", None)
+    entry_ids = [entry_id] if entry_id else list(getattr(device, "config_entries", ()))
+    domains = [entry.domain for eid in entry_ids if (entry := hass.config_entries.async_get_entry(eid)) is not None]
+    brands = match_brands(getattr(device, "manufacturer", None), domains)
+    return brands[0] if brands else None
 
 
 def describe_device(hass: HomeAssistant, device_id: str) -> tuple[str | None, ChargerModel | None]:

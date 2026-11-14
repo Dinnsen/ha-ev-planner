@@ -30,13 +30,13 @@ const PANEL_URL = new URL(`./ev-planner-panel.js${VERSION ? `?v=${encodeURICompo
    panel is fetched the first time a card, the card editor or the pop-up is shown, and not
    before: a page without EV Planner's cards pays only for this file. Until the panel is here
    a card is registered and takes its configuration, but it is empty. */
-let EvPlannerPanel, TEXT, STYLE, ICONS, MODES, MODE_ICONS, chargerArt, esc, clamp, isNum, hasSegments, cssId, ClayScene;
+let EvPlannerPanel, TEXT, STYLE, ICONS, MODES, MODE_ICONS, chargerArt, esc, clamp, isNum, hasSegments, cssId, ClayScene, setZone;
 let panelLoading = null;
 
 function loadPanel() {
   panelLoading ||= import(PANEL_URL).then(
     (panel) => {
-      ({ EvPlannerPanel, TEXT, STYLE, ICONS, MODES, MODE_ICONS, chargerArt, esc, clamp, isNum, hasSegments, cssId, _ClayScene: ClayScene } = panel);
+      ({ EvPlannerPanel, TEXT, STYLE, ICONS, MODES, MODE_ICONS, chargerArt, esc, clamp, isNum, hasSegments, cssId, _ClayScene: ClayScene, setZone } = panel);
     },
     (err) => {
       // Not fetched (offline, or an update on its way): the next card tries again.
@@ -151,6 +151,7 @@ function startStore(store, hass) {
           return;
         }
         store.state = state;
+        setZone?.(state.time_zone);
         store.error = null;
         store.listeners.forEach((listener) => listener());
       },
@@ -295,7 +296,30 @@ class EvPlannerCard extends HTMLElement {
     this.toggleAttribute("dark", !!hass?.themes?.darkMode);
     if (this._r) this._r._hass = hass;
     if (first && this.isConnected) this._follow();
+    // Home Assistant hands every card a new hass at every change of any entity. A card is drawn again
+    // only when what it reads from it changed: the language, and the entities it shows (its car's
+    // climate, the sun). EV Planner's own state comes by its own way (watch).
+    const seen = this._hassSeen(hass);
+    if (!first && seen === this._seen) return;
+    this._seen = seen;
     this._render();
+  }
+
+  /* What this card reads from hass, as one text: drawn again when it changes. */
+  _hassSeen(hass) {
+    const parts = [hass?.locale?.language || hass?.language || "", hass?.themes?.darkMode ? 1 : 0];
+    for (const entity of this._hassEntities()) {
+      const state = hass?.states?.[entity];
+      parts.push(state ? `${state.state}|${state.last_updated}` : "");
+    }
+    return parts.join("~");
+  }
+
+  _hassEntities() {
+    const out = ["sun.sun"];
+    const ids = [this._config?.vehicle].filter(Boolean);
+    for (const v of this._state?.vehicles || []) if ((!ids.length || ids.includes(v.id)) && v.climate?.entity) out.push(v.climate.entity);
+    return out;
   }
 
   get hass() {
@@ -323,6 +347,7 @@ class EvPlannerCard extends HTMLElement {
     this.shadowRoot.adoptedStyleSheets = [cardSheet()];
     this._r = makeRenderer();
     this._r._hass = this._hass;
+    setZone?.(this._state?.time_zone);
     this._render();
   }
 
@@ -369,6 +394,7 @@ class EvPlannerCard extends HTMLElement {
   _wireTempSwipe() {
     const root = this.shadowRoot;
     let drag = null;
+    let wheel = null;
     const model = (id) => {
       const v = this._r?._car(id);
       return v ? { v, m: this._r._climateModel(v) } : null;
@@ -408,8 +434,21 @@ class EvPlannerCard extends HTMLElement {
         if (!found || !ev.deltaY) return;
         ev.preventDefault();
         const { v, m } = found;
-        const temperature = clamp(m.temp + (ev.deltaY < 0 ? m.step : -m.step), m.min, m.max);
-        if (temperature !== m.temp) send(v, m, temperature);
+        // The steps of one turn of the wheel are gathered and sent once, when it has stopped: a car's
+        // cloud takes few commands (the panel waits the same way).
+        const from = wheel && wheel.id === v.id ? wheel.temp : m.temp;
+        const temperature = clamp(from + (ev.deltaY < 0 ? m.step : -m.step), m.min, m.max);
+        clearTimeout(wheel?.timer);
+        const out = box.querySelector("output");
+        if (out?.firstChild) out.firstChild.textContent = m.fmt(temperature);
+        wheel = {
+          id: v.id,
+          temp: temperature,
+          timer: setTimeout(() => {
+            wheel = null;
+            if (temperature !== m.temp) send(v, m, temperature);
+          }, 400),
+        };
       },
       { passive: false },
     );
@@ -1035,7 +1074,7 @@ class ClimateCard extends ClimateBase {
         ".evcl-side": `${m.isClimate ? `<div class="evcl-temp"><button data-act="clim-temp" data-id="${esc(v.id)}" data-d="-1" data-f="minus" aria-label="${esc(r._t("climate_colder"))}"><svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></button><output>${m.fmt(m.temp)}<small>°</small></output><button data-act="clim-temp" data-id="${esc(v.id)}" data-d="1" data-f="plus" aria-label="${esc(r._t("climate_warmer"))}"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button></div>` : ""}
           <div class="evcl-io">${m.inside !== null ? `<div><b>${m.fmt(m.inside)}°</b><small>${esc(r._t("climate_inside_short"))}</small></div>` : ""}${m.outside !== null ? `<div><b>${m.fmt(m.outside)}°</b><small>${esc(r._t("climate_outside_short"))}</small></div>` : ""}</div>
           <button class="evcl-power${m.on ? " on" : ""}" data-act="clim-power" data-id="${esc(v.id)}" data-f="power" aria-pressed="${m.on}" aria-label="${esc(r._t(m.on ? "climate_on_short" : "climate_off_short"))}"><svg viewBox="0 0 24 24"><path d="M12 3v8M6.3 6.8a8 8 0 1 0 11.4 0"/></svg></button>`,
-        ".evcl-foot": `<span>${ICONS.history}${next ? esc(r._t("climate_next_short", { day: r._day(next.start.toISOString()).toLowerCase(), time: r._time(next.start.toISOString()) })) : esc(r._t(v.settings?.climate_auto ? "climate_auto_on" : "climate_auto_off"))}</span><button class="evcl-min" data-act="clim-minutes" data-id="${esc(v.id)}" data-f="minutes">${minutes} min</button>`,
+        ".evcl-foot": `<span>${ICONS.history}${next ? esc(r._t("climate_next_short", { day: r._day(next.start).toLowerCase(), time: r._time(next.start) })) : esc(r._t(v.settings?.climate_auto ? "climate_auto_on" : "climate_auto_off"))}</span><button class="evcl-min" data-act="clim-minutes" data-id="${esc(v.id)}" data-f="minutes">${minutes} min</button>`,
       },
     };
   }

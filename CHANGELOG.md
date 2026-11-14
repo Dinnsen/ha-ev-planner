@@ -2,6 +2,33 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b9] - 2026-11-14
+
+After a review of the whole of EV Planner. Nothing new to learn: what was wrong, and what could go wrong.
+
+### Changed
+
+- **A shared supply follows each car's own rules.** With a supply set up, the cars are planned together, and that plan took every hour before the ready-by time: a car's price ceiling, its earliest start and "published prices only" did not count. They do now, as far as the car's target allows: the hours its rules allow are used first, and only what is still missing comes in the others. The target comes first. A departure that charges at the cheapest prices only (Weekend, Holiday) still never goes over them.
+- **The guard also turns a guest down.** When the house goes over its supply and the household's own cars are at their least (or none of them charges), the guest's charger is turned down, when its current can be set, and else paused for five minutes, when it has a switch. It gets back what was taken when the peak is over.
+- **Every time in the panel is Home Assistant's**, also when the panel is opened from another time zone (on a trip): the times of the plans then fit the ready-by times.
+- **A car within half a percent of its target is full** (99.9 of 100 %): it is not started for a few minutes more.
+
+### Fixed
+
+- **A rule changed just before leaving the car's page was lost**: a change is stored after a moment, and going back, to another car or another tab within that moment threw it away. It is stored at once now.
+- **The guest's preview** showed the old plan after the departure, the price ceiling or the target's step was changed.
+- **The app on the home screen** had no photo upload, no support export, no calendars to choose, no climate to choose and no way to place the house, and its house stood in daylight at night. Pulling a sheet down to close it there no longer refreshes the page as well.
+- **The support export** left the names of calendar events and of zones in (where a car or a person is: at home or not is kept, a zone's name is not).
+- **A calendar that does not answer** no longer takes the trip away: the trip known from before stays until the calendar answers again, and one calendar that is away does not hide the others.
+- **A car's or a charger's integration that fails in its own way** (not as Home Assistant's errors) stopped the whole round of decisions; every command to a car, a charger, a home battery and a phase switch now has a time limit and takes any failure as a failure.
+- **A price ceiling under every price** said "No charging window"; it says that every price is over the ceiling.
+- **The night winter time begins**, with a price sensor whose times have no offset: one of the two hours at 02:00, and its price, was lost.
+- **A charger that is away** was asked to change its current at every check while idle; the guard wrote in the event log at every check while its meter had no reading.
+- **The climate card**: the mouse wheel over the temperature sent a command to the car for every step; the steps of one turn are sent once.
+- **In the panel**: a command that starts or stops something is not sent a second time when the connection was lost for a moment (a setting still is); a household setting that could not be stored no longer stands as if it was; the history of a charger shows the charges that happened at it; the day home for a holiday is counted in local time; the note about waiting for the sun gave 4.1 kW also for a supply of one phase.
+- **Setup**: a supply under 6 A (the least a charger gives) and one battery sensor for two cars are not accepted; a car whose charger was deleted gets a repair that says so; a charger whose model is not known is not shown as the brand's first model; and a charger named "Carport" no longer makes every sensor look like a plug sensor.
+- **Behind the scenes**: the panel and each card left a listener behind every time they were opened; the state was made once for each of them at every update (now once for all); a plan that is only tried out no longer writes in the event log; the status sensor's level and ceiling are not kept in the recorder minute by minute; a stored reminder time that cannot be read no longer stops the start; the event log's times are compared as moments, not as text.
+
 ## [2.5.0b8] - 2026-11-14
 
 ### Added

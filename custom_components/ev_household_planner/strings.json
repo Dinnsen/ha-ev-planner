@@ -224,7 +224,8 @@
       "error": {
         "control_entity_required": "Choose the car's charge switch, or let neither start and stop charging.",
         "charger_required": "Choose the charger, or let the car or neither start and stop charging.",
-        "charger_has_no_switch": "This charger has no switch. Add one to the charger, or choose the car or neither."
+        "charger_has_no_switch": "This charger has no switch. Add one to the charger, or choose the car or neither.",
+        "soc_in_use": "This battery sensor is another car's already. Each car needs its own."
       }
     },
     "charger": {
@@ -412,6 +413,9 @@
             }
           }
         }
+      },
+      "error": {
+        "supply_low": "The supply must be at least 6 A (the least a charger gives), or 0 for none."
       }
     },
     "solar": {
@@ -705,7 +709,8 @@
           "waiting_for_sun": "Waiting for the sun",
           "no_price_data": "No price data",
           "not_enough_prices": "Waiting for prices",
-          "no_window": "No charging window"
+          "no_window": "No charging window",
+          "ceiling_too_low": "Every price is over the ceiling"
         }
       },
       "charger_control": {
@@ -1134,6 +1139,9 @@
     "no_window": {
       "message": "No charging window fits before the deadline."
     },
+    "ceiling_too_low": {
+      "message": "Every price before the deadline is over the car's price ceiling."
+    },
     "entry_not_found": {
       "message": "EV Planner is not set up or not loaded."
     },
@@ -1174,6 +1182,10 @@
     "control_failed": {
       "title": "EV Planner cannot control {name}",
       "description": "The last commands to `{entity_id}` failed ({error}). EV Planner keeps trying, with longer and longer between the tries. Check that the car's or charger's integration works and is logged in. This goes away by itself when a command gets through."
+    },
+    "charger_missing": {
+      "title": "EV Planner: {name} has no charger",
+      "description": "{name} was set up with a charger that is no longer there, so nothing starts and stops its charging. Choose a charger (or the car's own switch) under the car → Reconfigure."
     }
   }
 }

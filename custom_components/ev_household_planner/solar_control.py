@@ -10,14 +10,15 @@ as sun or grid, for the history.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta
 import logging
 from typing import TYPE_CHECKING, Any
 
-from homeassistant.exceptions import HomeAssistantError
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    COMMAND_TIMEOUT,
     CONF_BATTERY_FIRST,
     CONF_BATTERY_HOLD,
     CONF_BATTERY_INVERTED,
@@ -299,13 +300,14 @@ class SolarControl:
     async def _async_phases(self, vehicle: Vehicle, entity: str, phases: int) -> None:
         domain = entity.split(".", 1)[0]
         try:
-            await self.hass.services.async_call(
-                domain if domain in ("switch", "input_boolean") else "homeassistant",
-                "turn_on" if phases == 3 else "turn_off",
-                {"entity_id": entity},
-                blocking=True,
-            )
-        except HomeAssistantError as err:
+            async with asyncio.timeout(COMMAND_TIMEOUT):
+                await self.hass.services.async_call(
+                    domain if domain in ("switch", "input_boolean") else "homeassistant",
+                    "turn_on" if phases == 3 else "turn_off",
+                    {"entity_id": entity},
+                    blocking=True,
+                )
+        except Exception as err:  # a timeout, or whatever the integration raises
             _LOGGER.warning("Could not set %s to %s phases: %s", entity, phases, err)
             return
         self._phases_sent[vehicle.vehicle_id] = phases
@@ -323,13 +325,14 @@ class SolarControl:
             return
         domain = str(entity).split(".", 1)[0]
         try:
-            await self.hass.services.async_call(
-                domain if domain in ("switch", "input_boolean") else "homeassistant",
-                "turn_on" if hold else "turn_off",
-                {"entity_id": str(entity)},
-                blocking=True,
-            )
-        except HomeAssistantError as err:
+            async with asyncio.timeout(COMMAND_TIMEOUT):
+                await self.hass.services.async_call(
+                    domain if domain in ("switch", "input_boolean") else "homeassistant",
+                    "turn_on" if hold else "turn_off",
+                    {"entity_id": str(entity)},
+                    blocking=True,
+                )
+        except Exception as err:  # a timeout, or whatever the integration raises
             _LOGGER.warning("Could not %s the home battery hold %s: %s", "turn on" if hold else "turn off", entity, err)
             return
         self._hold = hold

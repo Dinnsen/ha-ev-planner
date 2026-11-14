@@ -78,6 +78,10 @@ SCHEDULE_DEFAULT = "default"
 SCHEDULE_NONE = "none"
 
 
+# How close to the target counts as there (percent of the battery).
+FULL_WITHIN = 0.5
+
+
 @dataclass(frozen=True, slots=True)
 class Rules:
     """EV Smart Charging's rules, all optional."""
@@ -740,7 +744,8 @@ def plan_vehicle(
             hours = segments_hours(segments)
         limited = ceiling is not None and not short
         if not segments:
-            raise PlanError("no_window")
+            # There is time, but every price is over the ceiling (and no minimum level asks for more).
+            raise PlanError("ceiling_too_low" if ceiling is not None and window else "no_window")
 
     planned = _need_for_hours(need, hours) if abs(hours - need.hours) > EPSILON else need
     cost = segments_cost(window, segments, car.power)
@@ -899,7 +904,9 @@ def decide(
         return Decision(CONTROL_RELEASED, "away")
     if mode == MODE_PAUSE:
         return Decision(CONTROL_PAUSE, "paused")
-    full = soc is not None and soc + EPSILON >= target
+    # Full within half a percent: a car that shows 99.9 of 100 is not planned on (it would be
+    # started for a few minutes, and many cars never show the last decimal).
+    full = soc is not None and soc + FULL_WITHIN >= target
     if mode == MODE_CHARGE_NOW:
         if full:
             return Decision(CONTROL_CHARGE, "keep_on") if rules.keep_on else Decision(CONTROL_PAUSE, "full")

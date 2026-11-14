@@ -276,7 +276,7 @@ async def async_setup_entry(
 
 class VehicleSensor(VehicleEntity, SensorEntity):
     entity_description: VehicleSensorDescription
-    _unrecorded_attributes = frozenset({"segments"})
+    _unrecorded_attributes = frozenset({"segments", "soc", "measured_rise", "price_ceiling"})
 
     def __init__(self, household: Household, vehicle_id: str, description: VehicleSensorDescription) -> None:
         super().__init__(household, vehicle_id, description.key)
@@ -317,7 +317,7 @@ class VehicleSensor(VehicleEntity, SensorEntity):
                 "connected": vehicle.connected,
                 "deadline": vehicle.deadline.isoformat() if vehicle.deadline else None,
                 "calendar_trip": vehicle.calendar_summary,
-                "price_ceiling": plan.ceiling if plan else None,
+                "price_ceiling": round(plan.ceiling, 2) if plan and plan.ceiling is not None else None,
                 "opportunistic": plan.opportunistic if plan else False,
                 "limited_by_ceiling": plan.limited if plan else False,
                 "minimum_only": plan.min_only if plan else False,

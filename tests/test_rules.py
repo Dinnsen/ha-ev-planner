@@ -662,3 +662,18 @@ def test_a_ceiling_that_follows_the_prices() -> None:
         for slot in dear
         if any(s["start"] <= slot.start < s["end"] for s in following.segments)
     )
+
+
+def test_a_ceiling_under_every_price_says_so() -> None:
+    with pytest.raises(PlanError, match="ceiling_too_low"):
+        plan_vehicle(slots(NIGHT), CAR, Rules(ceiling=-10.0), NOW, deadline=DEADLINE)
+
+
+def test_a_car_within_half_a_percent_of_its_target_is_full() -> None:
+    def at(soc: float) -> str:
+        return decide(
+            NOW, mode="smart", connected=True, soc=soc, target=100, segments=[], rules=Rules(), price_now=1.0, late=True
+        ).reason
+
+    assert at(99.9) == "full" and at(99.5) == "full"
+    assert at(99.4) == "late"

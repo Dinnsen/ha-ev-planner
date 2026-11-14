@@ -224,7 +224,8 @@
       "error": {
         "control_entity_required": "Vælg bilens ladekontakt, eller lad ingen af dem starte og stoppe ladningen.",
         "charger_required": "Vælg ladepunktet, eller lad bilen eller ingen af dem starte og stoppe ladningen.",
-        "charger_has_no_switch": "Ladepunktet har ingen kontakt. Tilføj en til ladepunktet, eller vælg bilen eller ingen."
+        "charger_has_no_switch": "Ladepunktet har ingen kontakt. Tilføj en til ladepunktet, eller vælg bilen eller ingen.",
+        "soc_in_use": "Denne batterisensor er allerede en anden bils. Hver bil skal have sin egen."
       }
     },
     "charger": {
@@ -412,6 +413,9 @@
             }
           }
         }
+      },
+      "error": {
+        "supply_low": "Forsyningen skal være mindst 6 A (det mindste en lader giver), eller 0 for ingen."
       }
     },
     "solar": {
@@ -705,7 +709,8 @@
           "waiting_for_sun": "Venter på solen",
           "no_price_data": "Ingen prisdata",
           "not_enough_prices": "Venter på priser",
-          "no_window": "Intet ladevindue"
+          "no_window": "Intet ladevindue",
+          "ceiling_too_low": "Alle priser er over prisloftet"
         }
       },
       "charger_control": {
@@ -1134,6 +1139,9 @@
     "no_window": {
       "message": "Der er ikke et ladevindue før fristen."
     },
+    "ceiling_too_low": {
+      "message": "Alle priser før fristen er over bilens prisloft."
+    },
     "entry_not_found": {
       "message": "EV Planner er ikke sat op eller ikke indlæst."
     },
@@ -1174,6 +1182,10 @@
     "control_failed": {
       "title": "EV Planner kan ikke styre {name}",
       "description": "De seneste kommandoer til `{entity_id}` fejlede ({error}). EV Planner prøver igen, med længere og længere imellem. Tjek at bilens eller laderens integration virker og er logget ind. Beskeden forsvinder af sig selv, når en kommando går igennem."
+    },
+    "charger_missing": {
+      "title": "EV Planner: {name} har ingen lader",
+      "description": "{name} blev sat op med en lader, der ikke findes længere, så intet starter og stopper ladningen. Vælg en lader (eller bilens egen kontakt) under bilen → Omkonfigurer."
     }
   }
 }

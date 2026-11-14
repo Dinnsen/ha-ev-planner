@@ -574,3 +574,59 @@ test("the climate's sheet is closed by a swipe down, and its temperature is set 
     assert.equal(await read(".sheet.pop-climate"), null);
   });
 });
+
+test("a rule changed just before leaving the car's page is still stored", async () => {
+  await withPanel("two-cars", { size: PHONE }, async ({ page, tap, read, calls, waitForCall }) => {
+    await tap('[data-act="open-car"][data-id="tesla_model_y"]');
+    await tap('[data-act="car-view"][data-view="rules"]');
+    await tap('[data-act="tile"][data-tile="price"]');
+    const key = await read('.sheet .switch[data-act="toggle"]', "data-key");
+    const before = (await read(`.switch[data-key="${key}"]`, "aria-checked")) === "true";
+    // The switch and, at once (before the change would be stored by itself), back to the cars.
+    await page.evaluate((k) => {
+      const panel = window.harness.panel;
+      panel.shadowRoot.querySelector(`.switch[data-key="${k}"]`).click();
+      panel._openCar(null);
+    }, key);
+    await waitForCall("vehicle_set");
+    const sets = await calls("vehicle_set");
+    assert.equal(sets.length, 1, "stored once");
+    assert.deepEqual(sets[0].settings, { [key]: !before });
+    // And not a second time, when the wait that was running is over.
+    await page.waitForTimeout(900);
+    assert.equal((await calls("vehicle_set")).length, 1);
+  });
+});
+
+test("the guest's preview is made with the departure, the ceiling and the step that were just chosen", async () => {
+  await withPanel("guest-charging", { size: PHONE }, async ({ page, waitForCall, calls }) => {
+    await page.evaluate(() => window.harness.panel._setTab("guest"));
+    await page.waitForTimeout(300);
+    await page.evaluate(() => {
+      window.harness.calls.length = 0;
+      window.harness.panel._gchange({ departure: "evening", price_ceiling: 1.2, target_step: 5 });
+    });
+    await waitForCall("guest_preview");
+    const inputs = (await calls("guest_preview")).at(-1).inputs;
+    assert.equal(inputs.departure, "evening");
+    assert.equal(inputs.price_ceiling, 1.2);
+    assert.equal(inputs.target_step, 5);
+  });
+});
+
+test("every time is shown on Home Assistant's clock, also from another time zone", async () => {
+  const state = fixture("two-cars");
+  await withPanel({ ...state, time_zone: "Asia/Tokyo" }, { size: PHONE }, async ({ page }) => {
+    // The browser is in Copenhagen (the tests' time zone); Home Assistant is in Tokyo, eight hours ahead in winter.
+    const shown = await page.evaluate(() => {
+      const panel = window.harness.panel;
+      return { time: panel._time("2026-01-15T07:00:00+09:00"), day: panel._day(new Date(Date.now()).toISOString()) };
+    });
+    assert.equal(shown.time, "07:00");
+    assert.equal(shown.day, "Today");
+  });
+  await withPanel({ ...state, time_zone: "Europe/Copenhagen" }, { size: PHONE }, async ({ page }) => {
+    assert.equal(await page.evaluate(() => window.harness.panel._time("2026-01-15T07:00:00+01:00")), "07:00");
+    assert.equal(await page.evaluate(() => window.harness.panel._time("2026-01-15T07:00:00+09:00")), "23:00");
+  });
+});

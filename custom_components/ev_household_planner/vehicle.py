@@ -363,6 +363,7 @@ class Vehicle:
     meter_kwh: float | None = None
     meter_at: datetime | None = None
     other_cost: float | None = None  # the plan's cost on the other prices (known or forecast), when they differ
+    trip_cap: float | None = None  # the price a departure at the cheapest prices only never goes over
     # The plan came from storage (Home Assistant restarted) and has not been acted on yet.
     plan_restored: bool = False
 
@@ -790,7 +791,7 @@ class Vehicle:
             return STATUS_COMPLETED
         if self.plan_error in ("solar_only", "solar_expected"):
             return STATUS_WAITING_SUN
-        if self.plan_error in ("no_price_data", "not_enough_prices", "no_window"):
+        if self.plan_error in ("no_price_data", "not_enough_prices", "no_window", "ceiling_too_low"):
             return self.plan_error
         return STATUS_NO_PLAN
 
@@ -1019,7 +1020,10 @@ class Vehicle:
         sent = data.get("reminders_sent")
         self.reminders_sent = int(sent) if isinstance(sent, int) else (1 if self.reminded_on else 0)
         at = data.get("reminded_at")
-        self.reminded_at = datetime.fromisoformat(at) if isinstance(at, str) else None
+        try:
+            self.reminded_at = datetime.fromisoformat(at) if isinstance(at, str) else None
+        except ValueError:
+            self.reminded_at = None
         self.plan_done = bool(data.get("plan_done"))
         self.late_target = to_float(data.get("late_target"))
         self.plan = VehiclePlan.from_dict(data.get("plan"))

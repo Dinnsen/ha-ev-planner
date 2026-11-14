@@ -439,6 +439,7 @@ ERROR_LIMIT_NOT_ABOVE_SOC: Final = "limit_not_above_soc"
 ERROR_NO_PRICE_DATA: Final = "no_price_data"
 ERROR_NOT_ENOUGH_PRICES: Final = "not_enough_prices"
 ERROR_NO_WINDOW: Final = "no_window"
+ERROR_CEILING_TOO_LOW: Final = "ceiling_too_low"
 VEHICLE_STATUS_OPTIONS: Final = [
     STATUS_OFF,
     STATUS_PAUSED,
@@ -458,6 +459,7 @@ VEHICLE_STATUS_OPTIONS: Final = [
     ERROR_NO_PRICE_DATA,
     ERROR_NOT_ENOUGH_PRICES,
     ERROR_NO_WINDOW,
+    ERROR_CEILING_TOO_LOW,
 ]
 
 # Guest (EV Guest's statuses)
@@ -592,6 +594,7 @@ ACTION_FOLLOW_PLAN: Final = "EV_PLANNER_FOLLOW_PLAN"
 ISSUE_PRICE_ENTITY_MISSING: Final = "price_entity_missing"
 ISSUE_ENTITY_MISSING: Final = "entity_missing"
 ISSUE_CONTROL_FAILED: Final = "control_failed"
+ISSUE_CHARGER_MISSING: Final = "charger_missing"
 
 DATASET_CACHE_KEY: Final = f"{DOMAIN}_open_ev_data_cache"
 DATASET_CACHE_TTL: Final = timedelta(hours=24)

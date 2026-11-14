@@ -112,3 +112,28 @@ async def test_the_households_calendars_find_each_car_by_its_word(
     await household.async_set_vehicle(MERCEDES, {"calendar_keyword": "Elroq"})
     await household._async_calendar_tick()
     assert mercedes.calendar_event is None
+
+
+async def test_a_trip_stays_when_the_calendar_stops_answering(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory
+) -> None:
+    trip = (now + timedelta(days=1)).replace(hour=5, minute=0)
+    answers = {"fail": False}
+
+    async def get_events(call: ServiceCall) -> ServiceResponse:
+        if answers["fail"]:
+            raise RuntimeError("the calendar's cloud is away")
+        return {CALENDAR: {"events": [{"start": trip.isoformat(), "summary": "Mercedes Aarhus 90 %"}]}}
+
+    hass.services.async_register("calendar", "get_events", get_events, supports_response=SupportsResponse.ONLY)
+    await _setup(hass, freezer, now, calendar_keyword="mercedes")
+    status = hass.states.get("sensor.mercedes_status")
+    assert status is not None and status.attributes["target_soc"] == 90
+    ready = hass.states.get("sensor.mercedes_ready_by").state
+
+    # The calendar does not answer at the next reading: the trip, its time and its target stay.
+    answers["fail"] = True
+    await move(hass, freezer, now + timedelta(minutes=16))
+    status = hass.states.get("sensor.mercedes_status")
+    assert status is not None and status.attributes["target_soc"] == 90
+    assert hass.states.get("sensor.mercedes_ready_by").state == ready

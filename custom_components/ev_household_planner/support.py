@@ -55,7 +55,40 @@ SECRET_KEYS = {
     "secret",
     "user_id",
     "device_trackers",
+    "calendar_trip",
+    "calendar_summary",
 }
+# Where a car or a person is: at home or not is kept (the plan depends on it), a zone's name is not.
+PLACE_DOMAINS = ("device_tracker", "person")
+PLACE_STATES = ("home", "not_home", "unknown", "unavailable")
+ELSEWHERE = "not_home (a zone)"
+
+
+def _place(entity_id: str, value: str) -> str:
+    """A tracker's state without the name of the zone it is in."""
+    if entity_id.split(".", 1)[0] in PLACE_DOMAINS and value not in PLACE_STATES:
+        return ELSEWHERE
+    return value
+
+
+def _events(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The event log without what a calendar event is called (its time and target are kept)."""
+    out = []
+    for item in items:
+        if item.get("kind") == "calendar" and item.get("title"):
+            item = {**item, "title": REDACTED}
+        out.append(redact(item))
+    return out
+
+
+def _panel(state: dict[str, Any]) -> dict[str, Any]:
+    """The panel's state without the calendar events' names."""
+    cleaned: dict[str, Any] = redact(state)
+    for vehicle in cleaned.get("vehicles") or []:
+        calendar = vehicle.get("calendar") if isinstance(vehicle, dict) else None
+        if isinstance(calendar, dict) and calendar.get("summary"):
+            calendar["summary"] = REDACTED
+    return cleaned
 
 
 def redact(value: Any) -> Any:
@@ -128,7 +161,7 @@ def _state(state: State | None) -> dict[str, Any] | None:
     if state.domain in ("device_tracker", "person", "zone"):
         attributes = {key: value for key, value in attributes.items() if key in ("source_type", "friendly_name")}
     return {
-        "state": state.state,
+        "state": _place(state.entity_id, state.state),
         "attributes": redact(attributes),
         "last_changed": state.last_changed.isoformat(),
         "last_updated": state.last_updated.isoformat(),
@@ -209,6 +242,7 @@ async def async_history(
                 value = item.get("state", item.get("s"))
                 if isinstance(moment, datetime) and value is not None:
                     rows.append((moment, str(value)))
+        rows = [(moment, _place(entity_id, value)) for moment, value in rows]
         out[entity_id] = [[at, REDACTED] for at, _value in _thin(rows)] if secret_entity(entity_id) else _thin(rows)
     return out
 
@@ -257,7 +291,7 @@ async def async_bundle(hass: HomeAssistant, household: Household, hours: int = H
             "home_assistant": HA_VERSION,
             "ev_planner": version,
             "history_from": start.isoformat(),
-            "note": "Locations, number plates, VINs and keys are left out.",
+            "note": "Locations, zone names, calendar event names, number plates, VINs and keys are left out.",
         },
         "config": redact(
             {
@@ -269,7 +303,7 @@ async def async_bundle(hass: HomeAssistant, household: Household, hours: int = H
                 },
             }
         ),
-        "panel": redact(panel_state(hass, household)),
+        "panel": _panel(panel_state(hass, household)),
         # What is kept on disk: settings, plans, history, what was learned about the cars and places.
         "stored": redact(stored),
         "learning": redact(
@@ -282,7 +316,7 @@ async def async_bundle(hass: HomeAssistant, household: Household, hours: int = H
                 for vehicle in household.vehicles.values()
             }
         ),
-        "events": household.events.since(start),
+        "events": _events(household.events.since(start)),
         "log": list(LOG_CAPTURE.lines),
         "system_log": _system_log(hass),
         "entities": {

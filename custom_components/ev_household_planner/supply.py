@@ -176,6 +176,12 @@ class SharedCar:
     phases: int = 3
     adjustable: bool = True  # False: the charger can only be on (at full current) or off
     min_amps: float = MIN_AMPS
+    # The car's own rules: True for a slot it would rather not charge in (over its price ceiling, before
+    # its earliest start, a forecast when it plans on published prices only).
+    avoid: Callable[[PriceSlot], bool] | None = None
+    # True for a slot the car never charges in beyond what it must have (a departure that charges at
+    # the cheapest prices only).
+    never: Callable[[PriceSlot], bool] | None = None
 
 
 @dataclass(slots=True)
@@ -248,8 +254,11 @@ def plan_supply(
 ) -> SupplyPlan:
     """Share ``limit`` amps (per phase) between ``cars`` over ``slots``, the house first.
 
-    Two rounds over the slots, cheapest first (earlier first at the same
-    price): every car's ``must_kwh``, then the rest up to ``want_kwh``. In a
+    Rounds over the slots, cheapest first (earlier first at the same price):
+    every car's ``must_kwh``, then the rest up to ``want_kwh``. Each of the
+    two first in the slots the car's own rules allow, then what is still
+    missing in the slots it would rather ``avoid``: its rules are followed as
+    far as its target allows, and the target comes first. In a
     slot the cars take their turn by priority, then by the earliest ready-by
     time. A car takes what it still needs, at most its own maximum, and never
     less than a charger can give; a car that can only be on or off takes its
@@ -310,7 +319,7 @@ def _plan_supply(
         capacity[slot.start] -= wanted
         left[vid] = max(0.0, left[vid] - kw(wanted, car.phases) * hours)
 
-    for left in (left_must, left_want):
+    for left, strict in ((left_must, True), (left_must, False), (left_want, True), (left_want, False)):
         for slot in ranked:
             start = max(slot.start, now)
             hours = (slot.end - start).total_seconds() / 3600
@@ -321,6 +330,8 @@ def _plan_supply(
                 for car in order
                 if left[car.vehicle_id] > EPSILON
                 and not (car.deadline is not None and slot.end > car.deadline + timedelta(seconds=1))
+                and not (strict and car.avoid is not None and car.avoid(slot))
+                and not (left is left_want and car.never is not None and car.never(slot))
             ]
             if not by_need:
                 for car in takers:

@@ -304,6 +304,7 @@ const TEXT = {
     vstatus_no_price_data: "Ingen priser",
     vstatus_not_enough_prices: "Venter på priser",
     vstatus_no_window: "Ingen ladeperiode før fristen",
+    vstatus_ceiling_too_low: "Alle priser er over prisloftet",
     vstatus_limit_not_above_soc: "Allerede ved målet",
     vstatus_invalid_input: "Indstillingerne kan ikke bruges",
 
@@ -584,6 +585,7 @@ const TEXT = {
     err_no_price_data: "Prissensoren har ingen priser lige nu.",
     err_not_enough_prices: "Der er endnu ikke priser nok før fristen. EV Planner beregner selv, når priserne kommer (typisk efter kl. 13).",
     err_no_window: "Opladningen kan ikke nå at blive færdig før fristen. Hæv ladeeffekten, sænk målet eller flyt fristen.",
+    err_ceiling_too_low: "Alle priser før fristen er over bilens prisloft. Hæv prisloftet, eller sæt et mindste ladeniveau.",
     err_license_plate_required: "Skriv en nummerplade først.",
     err_motorapi_key_missing: "Opslag kræver en MotorAPI-nøgle.",
     err_invalid_api_key: "MotorAPI afviste nøglen. Home Assistant beder dig om en ny.",
@@ -895,6 +897,7 @@ const TEXT = {
     vstatus_no_price_data: "No prices",
     vstatus_not_enough_prices: "Waiting for prices",
     vstatus_no_window: "No charging window before the deadline",
+    vstatus_ceiling_too_low: "Every price is over the ceiling",
     vstatus_limit_not_above_soc: "Already at the target",
     vstatus_invalid_input: "The settings cannot be used",
 
@@ -1170,6 +1173,7 @@ const TEXT = {
     err_no_price_data: "The price sensor has no prices right now.",
     err_not_enough_prices: "Not enough prices before the deadline yet. EV Planner plans by itself when they arrive (usually after 13:00).",
     err_no_window: "Charging can't finish before the deadline. Raise the charger power, lower the target or move the deadline.",
+    err_ceiling_too_low: "Every price before the deadline is over the car's price ceiling. Raise the ceiling, or set a minimum charge level.",
     err_license_plate_required: "Enter a license plate first.",
     err_motorapi_key_missing: "Lookup needs a MotorAPI key.",
     err_invalid_api_key: "MotorAPI rejected the key. Home Assistant asks you for a new one.",
@@ -1410,6 +1414,60 @@ Object.assign(TEXT.en, {
   label_more: "Tap for the name",
 });
 
+/* The household's clock. The panel shows every time as Home Assistant has it, also when it is opened
+   somewhere with another time zone: the times of the plans then fit the ready-by times, which are
+   Home Assistant's. A time from Home Assistant is made into a Date whose own hours, days and
+   weekday are the household's (ZD), "now" likewise (znow), and unwall is the way back to the
+   moment itself, for what is sent to Home Assistant. In the household's own time zone they change nothing. */
+let ZONE = null;
+const ZONE_FORMATS = {};
+const ZONE_OFFSETS = new Map();
+function zoneOffset(zone, ms) {
+  const key = `${zone}|${Math.floor(ms / 900000)}`;
+  let offset = ZONE_OFFSETS.get(key);
+  if (offset === undefined) {
+    const format = (ZONE_FORMATS[zone] ||= new Intl.DateTimeFormat("en-US", { timeZone: zone, hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" }));
+    const p = {};
+    for (const part of format.formatToParts(new Date(ms))) p[part.type] = Number(part.value);
+    offset = Math.round((Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - Math.floor(ms / 1000) * 1000) / 60000);
+    if (ZONE_OFFSETS.size > 5000) ZONE_OFFSETS.clear();
+    ZONE_OFFSETS.set(key, offset);
+  }
+  return offset;
+}
+/* How far the household's clock is from this browser's at a moment (ms). */
+function wallShift(ms) {
+  if (!ZONE || !Number.isFinite(ms)) return 0;
+  return (zoneOffset(ZONE, ms) + new Date(ms).getTimezoneOffset()) * 60000;
+}
+function setZone(zone) {
+  let next = null;
+  try {
+    if (zone && zone !== new Intl.DateTimeFormat().resolvedOptions().timeZone) {
+      new Intl.DateTimeFormat("en-US", { timeZone: zone });
+      next = zone;
+    }
+  } catch {
+    next = null;
+  }
+  ZONE = next;
+}
+/* A Date on the household's clock: now, a time from Home Assistant (a text), or one that is on it already (a number or a Date). */
+function ZD(value) {
+  if (value === undefined) {
+    const now = Date.now();
+    return new Date(now + wallShift(now));
+  }
+  if (typeof value !== "string") return new Date(value);
+  const ms = new Date(value).getTime();
+  return new Date(ms + wallShift(ms));
+}
+const znow = () => ZD().getTime();
+function unwall(date) {
+  const ms = date.getTime();
+  return new Date(ms - wallShift(ms - wallShift(ms)));
+}
+
 const CHARGER_PRESETS = [3.7, 7.4, 11, 22];
 const DEADLINE_PRESETS = ["06:00", "07:00", "08:00"];
 const MODES = ["smart", "charge_now", "pause", "off"];
@@ -1424,6 +1482,8 @@ const PREVIEW_DELAY = 140;
 const COMMIT_DELAY = 600;
 const HISTORY_PAGE = 12;
 const CAR_VIEWS = ["now", "rules", "history"];
+/* Commands that may be sent again when the connection was lost: they set or ask, and twice is as once. */
+const RESEND = new Set(["vehicle_set", "vehicle_preview", "guest_set", "guest_preview", "settings", "layout", "history", "state"]);
 const HIST_PERIODS = ["day", "week", "month", "year"];
 
 /* Vehicle status → tone of the pill and the status line. */
@@ -1823,6 +1883,7 @@ const STATUS_TONE = {
   no_soc: "coral",
   no_price_data: "coral",
   no_window: "coral",
+  ceiling_too_low: "sand",
   off: "grey",
   paused: "grey",
 };
@@ -2048,7 +2109,8 @@ function removePlainBackground(img) {
     }
     sizes.push(tail);
   }
-  const largest = Math.max(...sizes);
+  let largest = 0;
+  for (const size of sizes) if (size > largest) largest = size;
   const keep = sizes.map((size) => size >= largest * 0.02 && size >= n * 0.0005);
   for (let p = 0; p < n; p++) if (!removed[p] && !keep[piece[p]]) removed[p] = 1;
 
@@ -2185,9 +2247,9 @@ function arcPath(cx, cy, r, fromH, toH) {
 }
 
 /* The next moment at HH:MM (today, or tomorrow when it has passed). */
-function nextAt(hhmm, from = new Date()) {
+function nextAt(hhmm, from = ZD()) {
   const [hh, mm] = String(hhmm || "07:00").split(":").map(Number);
-  const moment = new Date(from);
+  const moment = ZD(from);
   moment.setHours(hh || 0, mm || 0, 0, 0);
   if (moment <= from) moment.setDate(moment.getDate() + 1);
   return moment;
@@ -4738,6 +4800,7 @@ class EvPlannerPanel extends HTMLElement {
 
   disconnectedCallback() {
     clearInterval(this._tick);
+    this._dropDraft();
     this._unsubscribe();
   }
 
@@ -4814,6 +4877,7 @@ class EvPlannerPanel extends HTMLElement {
       return;
     }
     this._state = state;
+    setZone(state.time_zone);
     if (this._carId && !this._car(this._carId)) this._openCar(null, { render: false });
     if (this._chargerId && !this._charger(this._chargerId)) this._chargerId = null;
     if (first) {
@@ -4866,7 +4930,9 @@ class EvPlannerPanel extends HTMLElement {
     } catch (err) {
       // 3: the connection to Home Assistant was lost (a phone waking up, a network change).
       // It comes back by itself in a moment: send the command once more then.
-      if ((err?.code ?? err) !== 3) throw err;
+      // Only what can be sent twice without doing something twice (a setting, a question): not a
+      // command that starts or stops something, or deletes.
+      if ((err?.code ?? err) !== 3 || !RESEND.has(type.split("/")[1])) throw err;
       await new Promise((resolve) => setTimeout(resolve, 2500));
       return this._hass.callWS(message);
     }
@@ -5035,6 +5101,10 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   _dropDraft() {
+    // A change that waits to be stored is stored now: leaving the page must not lose it.
+    if (this._vdraftId && Object.keys(this._vdraft).length && !this._vcommitting && this._hass) {
+      this._ws("ev_household_planner/vehicle_set", { vehicle_id: this._vdraftId, settings: { ...this._vdraft } }).catch((err) => this._showError(err));
+    }
     clearTimeout(this._vcommitTimer);
     clearTimeout(this._vpreviewTimer);
     this._vdraft = {};
@@ -5113,9 +5183,16 @@ class EvPlannerPanel extends HTMLElement {
 
   /* A household setting shown at once, and stored (without a "saved" note, for many small changes). */
   _setHousehold(settings) {
-    this._state = { ...this._state, settings: { ...(this._state.settings || {}), ...settings } };
+    const before = this._state.settings || {};
+    this._state = { ...this._state, settings: { ...before, ...settings } };
     this._render();
-    this._run("settings", "ev_household_planner/settings", { settings });
+    this._run("settings", "ev_household_planner/settings", { settings }).then((ok) => {
+      if (ok || !this._state) return;
+      // Not stored: show what Home Assistant still has, not what was tried.
+      const back = Object.fromEntries(Object.keys(settings).map((key) => [key, before[key]]));
+      this._state = { ...this._state, settings: { ...(this._state.settings || {}), ...back } };
+      this._render();
+    });
   }
 
   /* The departures, with one changed by ``fn`` (or the list by ``fn`` when no id is given). */
@@ -5187,7 +5264,7 @@ class EvPlannerPanel extends HTMLElement {
 
   _time(iso) {
     if (!iso) return "–";
-    const date = new Date(iso);
+    const date = ZD(iso);
     if (Number.isNaN(date.getTime())) return "–";
     return new Intl.DateTimeFormat(this._locale, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(date);
   }
@@ -5201,8 +5278,8 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   _day(iso) {
-    const date = new Date(iso);
-    const today = new Date();
+    const date = ZD(iso);
+    const today = ZD();
     const start = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
     const diff = Math.round((start(date) - start(today)) / 86400000);
     if (diff === 0) return this._t("today");
@@ -5212,7 +5289,7 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   _date(iso) {
-    return new Intl.DateTimeFormat(this._locale, { day: "numeric", month: "short", year: "numeric" }).format(new Date(iso));
+    return new Intl.DateTimeFormat(this._locale, { day: "numeric", month: "short", year: "numeric" }).format(ZD(iso));
   }
 
   _duration(minutes) {
@@ -5227,7 +5304,7 @@ class EvPlannerPanel extends HTMLElement {
   /* "klar kl. 07.00" – with the day when it is not within the next day. */
   _readyText(deadline) {
     if (!deadline) return this._t("no_deadline_short");
-    const ms = new Date(deadline).getTime() - Date.now();
+    const ms = ZD(deadline).getTime() - znow();
     if (ms > 20 * 3600000) return this._t("ready_at_day", { day: this._day(deadline).toLowerCase(), time: this._time(deadline) });
     return this._t("ready_at", { time: this._time(deadline) });
   }
@@ -5740,7 +5817,7 @@ class EvPlannerPanel extends HTMLElement {
         const amps = isNum(now.amps) ? `${Math.round(now.amps)} A` : "";
         notes.push(["info", this._t("solar_note_on", { amps, phases: now.phases === 1 ? this._t("solar_phase_1") : "" })]);
       } else if (v.plan_error === "solar_expected") notes.push(["info", this._t("solar_note_expected")]);
-      else if (v.reason === "waiting") notes.push(["info", this._t("solar_note_waiting", { kw: v.has_current ? "4,1 kW" : `${String(v.charge_power ?? 11).replace(".", ",")} kW` })]);
+      else if (v.reason === "waiting") notes.push(["info", this._t("solar_note_waiting", { kw: `${this._num(v.has_current ? 6 * 0.23 * (Number(this._state.supply?.phases) || 3) : v.charge_power ?? 11, 1)} kW` })]);
     }
     const supply = this._state.supply;
     if (!compact && supply && v.connected && plan) {
@@ -5872,6 +5949,8 @@ class EvPlannerPanel extends HTMLElement {
     if (busyText) this._message = { kind: "ok", text: this._t(busyText) };
     this._refreshPhotos();
     try {
+      // Let the page show that it works before the photo is cut (which takes a moment on a phone).
+      await new Promise((resolve) => (typeof requestAnimationFrame === "function" ? requestAnimationFrame(() => setTimeout(resolve, 0)) : setTimeout(resolve, 0)));
       this._toast(this._t(await work()));
     } catch (err) {
       this._message = { kind: "error", text: this._t("photo_failed", { detail: err?.message || String(err) }) };
@@ -5975,17 +6054,17 @@ class EvPlannerPanel extends HTMLElement {
 
   /* The car that charges next on a charger: the earliest plan still to come. */
   _chargerNext(c) {
-    const now = Date.now();
+    const now = znow();
     const plans = this._cars
       .filter((v) => v.charger?.id === c.id && hasSegments(v.plan))
-      .map((v) => ({ name: v.name, start: v.plan.segments.find((seg) => new Date(seg.end).getTime() > now)?.start }))
+      .map((v) => ({ name: v.name, start: v.plan.segments.find((seg) => ZD(seg.end).getTime() > now)?.start }))
       .filter((item) => item.start);
     const g = this._guest;
     if (g && g.charger?.id === c.id && hasSegments(g.plan) && g.status === "planned") {
-      const start = g.plan.segments.find((seg) => new Date(seg.end).getTime() > now)?.start;
+      const start = g.plan.segments.find((seg) => ZD(seg.end).getTime() > now)?.start;
       if (start) plans.push({ name: this._t("holder_guest"), start });
     }
-    plans.sort((a, b) => new Date(a.start) - new Date(b.start));
+    plans.sort((a, b) => ZD(a.start) - ZD(b.start));
     return plans[0] || null;
   }
 
@@ -6021,9 +6100,9 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   _dayPrices() {
-    const now = Date.now();
+    const now = znow();
     const end = now + 24 * 3600 * 1000;
-    return this._prices().filter((p) => new Date(p.end).getTime() > now && new Date(p.start).getTime() < end);
+    return this._prices().filter((p) => ZD(p.end).getTime() > now && ZD(p.start).getTime() < end);
   }
 
   /* The ceiling to draw: the one the plan used (after opportunistic charging), or the setting. */
@@ -6036,7 +6115,7 @@ class EvPlannerPanel extends HTMLElement {
   /* The inside of a 24-hour price clock: ticks, price bars, the charging arcs, the deadline and the hand.
      The same drawing makes the big clock and the small ones on the car cards. */
   _dialMarkup({ plan, deadline, flow = false, ceiling = null, mini = false, intro = false }) {
-    const now = new Date();
+    const now = ZD();
     const nowMs = now.getTime();
     const nowH = now.getHours() + now.getMinutes() / 60;
     const end = nowMs + 24 * 3600 * 1000;
@@ -6067,8 +6146,8 @@ class EvPlannerPanel extends HTMLElement {
     const inner = 142;
     const outer = 184;
     prices.forEach((p, i) => {
-      const from = Math.max(new Date(p.start).getTime(), nowMs);
-      const to = Math.min(new Date(p.end).getTime(), end);
+      const from = Math.max(ZD(p.start).getTime(), nowMs);
+      const to = Math.min(ZD(p.end).getTime(), end);
       const fromH = nowH + (from - nowMs) / 3600000;
       const toH = nowH + (to - nowMs) / 3600000;
       if (toH <= fromH) return;
@@ -6093,11 +6172,11 @@ class EvPlannerPanel extends HTMLElement {
     // The charging windows as the lit arc of the logo.
     if (hasSegments(plan)) {
       plan.segments.forEach((seg, index) => {
-        const startMs = new Date(seg.start).getTime();
-        const endMs = Math.min(new Date(seg.end).getTime(), startMs + 23.9 * 3600000);
+        const startMs = ZD(seg.start).getTime();
+        const endMs = Math.min(ZD(seg.end).getTime(), startMs + 23.9 * 3600000);
         if (startMs >= end) return;
         const past = endMs <= nowMs;
-        const fromH = new Date(startMs).getHours() + new Date(startMs).getMinutes() / 60;
+        const fromH = ZD(startMs).getHours() + ZD(startMs).getMinutes() / 60;
         const d = arcPath(cx, cy, 128, fromH, fromH + (endMs - startMs) / 3600000);
         const sweep = this._animatePlan && !plan.preview && !reducedMotion() ? " sweep" : "";
         const cls = plan.preview ? "window preview" : `window${past ? " past" : ""}${sweep}`;
@@ -6108,7 +6187,7 @@ class EvPlannerPanel extends HTMLElement {
     }
 
     // Deadline flag, when it falls within the coming day.
-    const dl = deadline ? new Date(deadline) : null;
+    const dl = deadline ? ZD(deadline) : null;
     if (dl && !Number.isNaN(dl.getTime()) && dl.getTime() > nowMs && dl.getTime() <= end) {
       const h = dl.getHours() + dl.getMinutes() / 60;
       const [x1, y1] = polar(cx, cy, 116, h);
@@ -6178,13 +6257,13 @@ class EvPlannerPanel extends HTMLElement {
 
   /* "Starts in 3 h", "Charging – done at 05.40" or "Paused – charging again at 02.00". */
   _planTiming(segments, charging) {
-    const now = Date.now();
-    const segs = (segments || []).map((seg) => ({ start: new Date(seg.start).getTime(), end: new Date(seg.end).getTime() }));
+    const now = znow();
+    const segs = (segments || []).map((seg) => ({ start: ZD(seg.start).getTime(), end: ZD(seg.end).getTime() }));
     if (!segs.length) return "";
     if (charging) return this._t("charging_until", { time: this._time(segments.at(-1).end) });
     const next = segs.find((seg) => seg.start > now);
     const started = segs.some((seg) => seg.start <= now);
-    if (started && next) return this._t("paused_until", { time: this._time(new Date(next.start).toISOString()) });
+    if (started && next) return this._t("paused_until", { time: this._time(next.start) });
     if (next) return this._t("starts_in", { time: this._duration((next.start - now) / 60000) });
     return "";
   }
@@ -6254,8 +6333,8 @@ class EvPlannerPanel extends HTMLElement {
     const top = 26;
     const bottom = 30;
     svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-    const t0 = new Date(prices[0].start).getTime();
-    const t1 = new Date(prices.at(-1).end).getTime();
+    const t0 = ZD(prices[0].start).getTime();
+    const t1 = ZD(prices.at(-1).end).getTime();
     const x = (ms) => ((ms - t0) / (t1 - t0 || 1)) * W;
     const values = prices.map((p) => p.price);
     const lo = Math.min(...values);
@@ -6270,12 +6349,12 @@ class EvPlannerPanel extends HTMLElement {
     // Day bands.
     const days = new Map();
     for (const p of prices) {
-      const d = new Date(p.start);
+      const d = ZD(p.start);
       const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
       if (!days.has(key)) days.set(key, p.start);
     }
     [...days.values()].forEach((iso, i) => {
-      const startMs = Math.max(new Date(new Date(iso).setHours(0, 0, 0, 0)).getTime(), t0);
+      const startMs = Math.max(ZD(ZD(iso).setHours(0, 0, 0, 0)).getTime(), t0);
       const xs = x(startMs);
       if (i % 2) html += `<rect x="${xs}" y="0" width="${Math.max(0, Math.min(W - xs, x(startMs + 86400000) - xs))}" height="${H - bottom}" class="day-band"/>`;
       html += `<text x="${xs + 8}" y="16" class="day">${esc(this._day(iso))}</text>`;
@@ -6284,8 +6363,8 @@ class EvPlannerPanel extends HTMLElement {
     // Charging windows under the bars.
     if (hasSegments(plan)) {
       for (const seg of plan.segments) {
-        const a = clamp(x(new Date(seg.start).getTime()), 0, W);
-        const b = clamp(x(new Date(seg.end).getTime()), 0, W);
+        const a = clamp(x(ZD(seg.start).getTime()), 0, W);
+        const b = clamp(x(ZD(seg.end).getTime()), 0, W);
         if (b <= a) continue;
         html += `<rect x="${a}" y="${top - 6}" width="${Math.max(2, b - a)}" height="${H - bottom - top + 6}" rx="6" class="tl-window ${plan.preview ? "preview" : ""}"/>`;
       }
@@ -6294,8 +6373,8 @@ class EvPlannerPanel extends HTMLElement {
     // When it really charged: a band along the bottom.
     let charged = 0;
     for (const period of actual) {
-      const a = clamp(x(new Date(period.start).getTime()), 0, W);
-      const b = clamp(x(new Date(period.end).getTime()), 0, W);
+      const a = clamp(x(ZD(period.start).getTime()), 0, W);
+      const b = clamp(x(ZD(period.end).getTime()), 0, W);
       if (b <= a) continue;
       charged += 1;
       html += `<rect x="${a}" y="${H - bottom + 3}" width="${Math.max(3, b - a)}" height="6" rx="3" class="tl-done"/>`;
@@ -6303,8 +6382,8 @@ class EvPlannerPanel extends HTMLElement {
 
     // Bars: the forecast's paler, after a line where it starts.
     prices.forEach((p, i) => {
-      const a = x(new Date(p.start).getTime());
-      const b = x(new Date(p.end).getTime());
+      const a = x(ZD(p.start).getTime());
+      const b = x(ZD(p.end).getTime());
       const w = Math.max(1, b - a - (b - a > 6 ? 1.5 : 0.4));
       const t = hi > lo ? (p.price - lo) / (hi - lo) : 0.5;
       const yy = y(Math.max(p.price, min));
@@ -6312,7 +6391,7 @@ class EvPlannerPanel extends HTMLElement {
     });
     const firstForecast = prices.find((p) => p.forecast);
     if (firstForecast && firstForecast !== prices[0]) {
-      const xf = x(new Date(firstForecast.start).getTime());
+      const xf = x(ZD(firstForecast.start).getTime());
       html += `<line x1="${xf}" x2="${xf}" y1="${top - 8}" y2="${H - bottom}" class="tl-fc-line"/><text x="${xf + 5}" y="${top + 8}" class="tl-fc-label">${esc(this._t("tl_forecast"))} →</text>`;
     }
     // The average, to see what is cheap.
@@ -6323,7 +6402,7 @@ class EvPlannerPanel extends HTMLElement {
 
     // Axis hours.
     for (let ms = Math.ceil(t0 / 3600000) * 3600000; ms <= t1; ms += 3600000) {
-      const d = new Date(ms);
+      const d = ZD(ms);
       const every = W < 600 ? 12 : 6;
       if (d.getMinutes() !== 0 || d.getHours() % every || x(ms) < 14 || x(ms) > W - 14) continue;
       html += `<text x="${x(ms)}" y="${H - 9}" class="axis" text-anchor="middle">${String(d.getHours()).padStart(2, "0")}</text>`;
@@ -6334,11 +6413,11 @@ class EvPlannerPanel extends HTMLElement {
       const yc = y(ceiling);
       html += `<line x1="0" x2="${W}" y1="${yc}" y2="${yc}" class="tl-ceiling"/><text x="${W - 6}" y="${yc - 6}" class="tl-ceiling-label" text-anchor="end">${esc(this._t("ceiling_line"))} ${esc(this._money(ceiling))}</text>`;
     }
-    const dl = deadline ? new Date(deadline).getTime() : NaN;
+    const dl = deadline ? ZD(deadline).getTime() : NaN;
     if (Number.isFinite(dl) && dl >= t0 && dl <= t1) {
       html += `<line x1="${x(dl)}" x2="${x(dl)}" y1="${top - 8}" y2="${H - bottom}" class="tl-deadline"/>`;
     }
-    const nowMs = Date.now();
+    const nowMs = znow();
     if (nowMs >= t0 && nowMs <= t1) {
       html += `<line x1="${x(nowMs)}" x2="${x(nowMs)}" y1="${top - 8}" y2="${H - bottom}" class="tl-now"/><text x="${x(nowMs) + 5}" y="${top - 1}" class="tl-now-label">${this._t("now")}</text>`;
     }
@@ -6352,13 +6431,13 @@ class EvPlannerPanel extends HTMLElement {
   _bindScrub(svg, prices, t0, t1, { x, y, avg, plan, min }) {
     const scrub = this.shadowRoot.querySelector(".scrub");
     const pick = svg.querySelector(".tl-pick");
-    const windows = (hasSegments(plan) ? plan.segments : []).map((seg) => [new Date(seg.start).getTime(), new Date(seg.end).getTime()]);
-    const at = (ms) => prices.find((item) => new Date(item.start).getTime() <= ms && ms < new Date(item.end).getTime());
+    const windows = (hasSegments(plan) ? plan.segments : []).map((seg) => [ZD(seg.start).getTime(), ZD(seg.end).getTime()]);
+    const at = (ms) => prices.find((item) => ZD(item.start).getTime() <= ms && ms < ZD(item.end).getTime());
     const show = (p) => {
       if (!p) return hide();
       const i = prices.indexOf(p);
-      const a = new Date(p.start).getTime();
-      const b = new Date(p.end).getTime();
+      const a = ZD(p.start).getTime();
+      const b = ZD(p.end).getTime();
       const mid = x((a + b) / 2);
       const W = svg.viewBox.baseVal.width || 1;
       const share = mid / W;
@@ -6853,7 +6932,8 @@ class EvPlannerPanel extends HTMLElement {
       // A trip set before its departure was removed, or by an action with a kind the list does not have.
       trip && !kinds.includes(trip.kind) ? `<option value="${esc(trip.kind)}" selected>${esc(this._depName({ id: trip.kind }))}</option>` : "",
     ].join("");
-    const min = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const tomorrow = ZD(znow() + 86400000);
+    const min = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
     const date =
       current === "holiday"
         ? `<label class="go-date"><span>${this._t("trip_home_day")}</span><input type="date" min="${min}" data-trip-date="1" value="${esc(trip?.day || "")}"></label>`
@@ -6913,8 +6993,8 @@ class EvPlannerPanel extends HTMLElement {
 
   /* Where the next ready-by time comes from: the calendar, a preset or the week plan. */
   _nextSource(v) {
-    const at = v.deadline ? new Date(v.deadline).getTime() : null;
-    const same = (iso) => iso && at !== null && Math.abs(new Date(iso).getTime() - at) < 60000;
+    const at = v.deadline ? ZD(v.deadline).getTime() : null;
+    const same = (iso) => iso && at !== null && Math.abs(ZD(iso).getTime() - at) < 60000;
     if (same(v.calendar?.start)) return { kind: "calendar", label: this._t("src_calendar") };
     if (v.trip && same(v.trip.at)) {
       const dep = (this._state.settings?.departures || []).find((d) => d.id === v.trip.kind) || { id: v.trip.kind };
@@ -6927,9 +7007,9 @@ class EvPlannerPanel extends HTMLElement {
   /* The climate before the next departure, if any: when it starts and at what. */
   _nextClimate(v, s) {
     if (!v.climate || !v.deadline) return null;
-    const at = new Date(v.deadline);
+    const at = ZD(v.deadline);
     const minutes = Number(s.climate_minutes) || 15;
-    const start = new Date(at.getTime() - minutes * 60000);
+    const start = ZD(at.getTime() - minutes * 60000);
     const source = this._nextSource(v).kind;
     const usual = Number(s.climate_temperature) || 21;
     if (source === "calendar" && v.calendar?.climate) {
@@ -6989,8 +7069,8 @@ class EvPlannerPanel extends HTMLElement {
 
   _nextPopupHtml(v, s) {
     const source = this._nextSource(v);
-    const at = new Date(v.deadline);
-    const now = Date.now();
+    const at = ZD(v.deadline);
+    const now = znow();
     const left = Math.max(0, Math.round((at.getTime() - now) / 60000));
     const plan = v.plan;
     const target = plan && isNum(plan.end_soc) ? plan.end_soc : v.target;
@@ -7004,7 +7084,7 @@ class EvPlannerPanel extends HTMLElement {
     const span = Math.max(1, at.getTime() - now);
     const pos = (t) => clamp(((t - now) / span) * 100, 0, 100);
     const segs = (plan?.segments || [])
-      .map((seg) => [pos(new Date(seg.start).getTime()), pos(new Date(seg.end).getTime())])
+      .map((seg) => [pos(ZD(seg.start).getTime()), pos(ZD(seg.end).getTime())])
       .filter(([a, b]) => b > a)
       .map(([a, b]) => `<i class="seg" style="left:${a.toFixed(2)}%;width:${(b - a).toFixed(2)}%"></i>`)
       .join("");
@@ -7013,7 +7093,7 @@ class EvPlannerPanel extends HTMLElement {
       [ICONS.charge, this._pct(target)],
       plan && isNum(plan.cost) && !plan.fallback ? [ICONS.receipt, this._money(plan.cost)] : null,
       plan && isNum(plan.energy) ? [ICONS.plan, this._kwh(plan.energy)] : null,
-      climate ? [ICONS.climate, `${String(climate.temp).replace(".", this._lang === "da" ? "," : ".")}° · ${this._time(climate.start.toISOString())}`] : null,
+      climate ? [ICONS.climate, `${String(climate.temp).replace(".", this._lang === "da" ? "," : ".")}° · ${this._time(climate.start)}`] : null,
     ].filter(Boolean);
     return `<div class="next-hero">
         <span class="src src-${source.kind}">${source.kind === "trip" ? ICONS.history : ICONS.calendar}${esc(source.label)}</span>
@@ -7197,7 +7277,7 @@ class EvPlannerPanel extends HTMLElement {
         <div class="row"><span>${this._t("rule_climate_minutes")}</span><div class="segmented">${[5, 10, 15, 30]
           .map((m) => `<button data-pop="minutes" data-m="${m}" class="${m === minutes ? "on" : ""}" aria-pressed="${m === minutes}">${m}</button>`)
           .join("")}</div></div>
-        ${next ? `<p class="clim-next">${ICONS.history}<span>${esc(this._t("climate_next", { day: this._day(next.start.toISOString()).toLowerCase(), time: this._time(next.start.toISOString()), temp: fmt(next.temp), why: next.why }))}</span></p>` : ""}
+        ${next ? `<p class="clim-next">${ICONS.history}<span>${esc(this._t("climate_next", { day: this._day(next.start).toLowerCase(), time: this._time(next.start), temp: fmt(next.temp), why: next.why }))}</span></p>` : ""}
       </div>`;
   }
 
@@ -7322,7 +7402,7 @@ class EvPlannerPanel extends HTMLElement {
     const price = isNum(e.cost) && Number(e.energy) > 0 ? `${this._money(e.cost / e.energy)}/kWh` : "";
     return `<h2>${ICONS.history}<span>${this._t("last_charge")}</span></h2>
       <div class="last-row">
-        <div class="when"><b>${new Date(e.start).getDate()}</b><span>${new Intl.DateTimeFormat(this._locale, { month: "short" }).format(new Date(e.start))}</span></div>
+        <div class="when"><b>${ZD(e.start).getDate()}</b><span>${new Intl.DateTimeFormat(this._locale, { month: "short" }).format(ZD(e.start))}</span></div>
         <div class="what"><strong>${this._time(e.start)}–${this._time(e.end)}</strong><span>${esc([soc, price].filter(Boolean).join(" · "))}</span></div>
         <div class="nums"><b>${this._money(e.cost)}</b><span>${this._kwh(e.energy)}</span></div>
       </div>`;
@@ -7333,12 +7413,12 @@ class EvPlannerPanel extends HTMLElement {
     const plan = shown.plan;
     const start = isNum(v.soc) ? Number(v.soc) : null;
     if (!plan || start === null || !isNum(plan.end_soc) || !(plan.segments || []).length) return null;
-    const now = Date.now();
+    const now = znow();
     const segs = plan.segments
-      .map((seg) => [Math.max(now, new Date(seg.start).getTime()), new Date(seg.end).getTime()])
+      .map((seg) => [Math.max(now, ZD(seg.start).getTime()), ZD(seg.end).getTime()])
       .filter(([a, b]) => b > a);
     if (!segs.length) return null;
-    const end = Math.max(segs.at(-1)[1], shown.deadline ? new Date(shown.deadline).getTime() : 0);
+    const end = Math.max(segs.at(-1)[1], shown.deadline ? ZD(shown.deadline).getTime() : 0);
     const total = segs.reduce((sum, [a, b]) => sum + (b - a), 0);
     const rise = Math.max(0, Number(plan.end_soc) - start);
     const points = [[now, start]];
@@ -7368,7 +7448,7 @@ class EvPlannerPanel extends HTMLElement {
       .map((v) => `<line x1="${pad.l}" x2="${w - pad.r}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/><text x="${pad.l - 6}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end">${v}%</text>`)
       .join("");
     const ticks = [t0, (t0 + t1) / 2, t1]
-      .map((t, i) => `<text x="${x(t).toFixed(1)}" y="${h - 6}" text-anchor="${["start", "middle", "end"][i]}">${esc(this._time(new Date(t).toISOString()))}</text>`)
+      .map((t, i) => `<text x="${x(t).toFixed(1)}" y="${h - 6}" text-anchor="${["start", "middle", "end"][i]}">${esc(this._time(t))}</text>`)
       .join("");
     const lastPoint = points.at(-1);
     return `<h2>${ICONS.charge}<span>${this._t("forecast_title")}</span></h2>
@@ -7423,7 +7503,7 @@ class EvPlannerPanel extends HTMLElement {
     else if (reason === "planned") {
       text = isNum(now) && deadline ? this._t("why_planned", { price: this._money(now), time: deadline }) : this._t("why_planned_plain");
     } else if (reason === "waiting" && plan) {
-      const upcoming = plan.segments.filter((seg) => new Date(seg.end).getTime() > Date.now());
+      const upcoming = plan.segments.filter((seg) => ZD(seg.end).getTime() > znow());
       const window = this._windows(upcoming);
       if (plan.fallback) text = this._t("why_fallback", { window });
       else if (plan.topup && isNum(s.topup_level)) {
@@ -7441,7 +7521,7 @@ class EvPlannerPanel extends HTMLElement {
     const periods = [...(v.session?.periods || [])];
     const last = (v.history || [])[0];
     if (last?.periods) periods.push(...last.periods);
-    const nowIso = new Date().toISOString();
+    const nowIso = new Date(Date.now()).toISOString();
     return periods.filter((p) => p && p.start).map((p) => ({ start: p.start, end: p.end || nowIso }));
   }
 
@@ -7452,7 +7532,7 @@ class EvPlannerPanel extends HTMLElement {
     if (v.problem) return ["error", this._statusText(v)];
     const charging = v.control === "charge";
     let text = this._statusText(v);
-    if (["no_price_data", "not_enough_prices", "no_window"].includes(v.status)) text = this._t(`err_${v.status}`);
+    if (["no_price_data", "not_enough_prices", "no_window", "ceiling_too_low"].includes(v.status)) text = this._t(`err_${v.status}`);
     const plan = shown.plan;
     if (plan && (v.status === "planned" || (v.status === "charging" && charging))) {
       const timing = this._planTiming(plan.segments, v.status === "charging");
@@ -7471,7 +7551,7 @@ class EvPlannerPanel extends HTMLElement {
     const off = s.use_ready_by === false;
     const targets = s.day_targets || {};
     const climates = s.day_climate || {};
-    const today = WEEKDAYS[(new Date().getDay() + 6) % 7];
+    const today = WEEKDAYS[(ZD().getDay() + 6) % 7];
     const day = WEEKDAYS.includes(this._schedDay) ? this._schedDay : today;
     const valueOf = (d) => (off ? "none" : schedule[d] || "default");
     const usual = this._hhmm(s.ready_by || "07:00");
@@ -7527,7 +7607,7 @@ class EvPlannerPanel extends HTMLElement {
   /* "Fredag" / "Friday". */
   _weekdayName(day) {
     const monday = new Date(2026, 0, 5);
-    const date = new Date(monday.getTime() + WEEKDAYS.indexOf(day) * 86400000);
+    const date = ZD(monday.getTime() + WEEKDAYS.indexOf(day) * 86400000);
     const name = new Intl.DateTimeFormat(this._locale, { weekday: "long" }).format(date);
     return name.charAt(0).toUpperCase() + name.slice(1);
   }
@@ -8271,11 +8351,12 @@ class EvPlannerPanel extends HTMLElement {
   _guestDeadline(plan) {
     const inputs = this._gin;
     const dep = inputs.departure ? this._guestDepartures().find((d) => d.id === inputs.departure) : null;
-    if (dep) return this._depNext(dep)?.toISOString?.() || null;
+    const next = dep ? this._depNext(dep) : null;
+    if (dep) return next ? unwall(next).toISOString() : null;
     if (inputs.use_completion_time === false) return null;
     // The first ready-by time at or after the plan's end (EV Guest), or after now without a plan.
-    const from = hasSegments(plan) ? new Date(new Date(plan.segments.at(-1).end).getTime() - 1) : new Date();
-    return nextAt(inputs.charge_completion_time || "07:00", from).toISOString();
+    const from = hasSegments(plan) ? ZD(ZD(plan.segments.at(-1).end).getTime() - 1) : ZD();
+    return unwall(nextAt(inputs.charge_completion_time || "07:00", from)).toISOString();
   }
 
   _renderGuestLive() {
@@ -8365,11 +8446,11 @@ class EvPlannerPanel extends HTMLElement {
       if (est) est.textContent = this._t("est_level_measured", { pct: `${Math.round(pct)} %` });
       return;
     }
-    const now = Date.now();
+    const now = znow();
     let hours = 0;
     for (const seg of g.plan.segments) {
-      const a = new Date(seg.start).getTime();
-      const b = new Date(seg.end).getTime();
+      const a = ZD(seg.start).getTime();
+      const b = ZD(seg.end).getTime();
       hours += Math.max(0, Math.min(now, b) - a) / 3600000;
     }
     const pct = clamp(Number(info.soc) + hours * g.plan.speed, 0, Number(info.limit));
@@ -8454,8 +8535,13 @@ class EvPlannerPanel extends HTMLElement {
       "use_completion_time",
       "continuous_charging_preferred",
       "charger",
+      "departure",
+      "target_step",
     ];
-    return Object.fromEntries(keys.filter((key) => inputs[key] !== undefined && inputs[key] !== null).map((key) => [key, inputs[key]]));
+    const out = Object.fromEntries(keys.filter((key) => inputs[key] !== undefined && inputs[key] !== null).map((key) => [key, inputs[key]]));
+    // No ceiling is an answer too (null): the preview must not fall back on the stored one.
+    if (inputs.price_ceiling !== undefined) out.price_ceiling = inputs.price_ceiling;
+    return out;
   }
 
   // ------------------------------------------------------------------ history
@@ -8646,8 +8732,8 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   _priceNow() {
-    const now = Date.now();
-    const slot = (this._state.prices || []).find((p) => new Date(p.start).getTime() <= now && new Date(p.end).getTime() > now);
+    const now = znow();
+    const slot = (this._state.prices || []).find((p) => ZD(p.start).getTime() <= now && ZD(p.end).getTime() > now);
     return slot && isNum(slot.price) ? Number(slot.price) : null;
   }
 
@@ -8656,19 +8742,19 @@ class EvPlannerPanel extends HTMLElement {
     const cars = this._cars.filter((v) => hasSegments(v.plan) && (!siteId || (v.site ?? "home") === siteId));
     const head = `<div class="panel-head"><h2>${ICONS.plan}<span>${esc(this._t("home_tonight"))}</span></h2></div>`;
     if (!cars.length) return `<section class="panel tonight">${head}<p class="hint">${esc(this._t("home_tonight_none"))}</p></section>`;
-    const t0 = Date.now();
-    const ends = cars.map((v) => new Date(v.plan.segments.at(-1).end).getTime());
+    const t0 = znow();
+    const ends = cars.map((v) => ZD(v.plan.segments.at(-1).end).getTime());
     const t1 = Math.max(t0 + 8 * 3600e3, ...ends) + 1800e3;
     const span = t1 - t0;
     const x = (t) => ((clamp(t, t0, t1) - t0) / span) * 100;
-    const prices = (this._state.prices || []).filter((p) => new Date(p.end).getTime() > t0 && new Date(p.start).getTime() < t1);
+    const prices = (this._state.prices || []).filter((p) => ZD(p.end).getTime() > t0 && ZD(p.start).getTime() < t1);
     const values = prices.map((p) => p.price);
     const min = Math.min(...values);
     const max = Math.max(...values);
     const bars = prices
       .map((p, i) => {
-        const a = x(new Date(p.start).getTime());
-        const b = x(new Date(p.end).getTime());
+        const a = x(ZD(p.start).getTime());
+        const b = x(ZD(p.end).getTime());
         const t = max > min ? (p.price - min) / (max - min) : 0.5;
         return `<i style="left:${a.toFixed(2)}%;width:${Math.max(0.2, b - a - 0.25).toFixed(2)}%;height:${(25 + t * 75).toFixed(0)}%;background:${priceColor(t)};--d:${i * 25}ms" title="${esc(`${this._time(p.start)}: ${this._money(p.price)}`)}"></i>`;
       })
@@ -8677,8 +8763,8 @@ class EvPlannerPanel extends HTMLElement {
       .map((v, i) => {
         const segs = v.plan.segments
           .map((seg, k) => {
-            const a = x(new Date(seg.start).getTime());
-            const b = x(new Date(seg.end).getTime());
+            const a = x(ZD(seg.start).getTime());
+            const b = x(ZD(seg.end).getTime());
             return `<i style="left:${a.toFixed(2)}%;width:${Math.max(0.6, b - a).toFixed(2)}%;background:${this._carColor(i)};--d:${200 + k * 80}ms"></i>`;
           })
           .join("");
@@ -8691,7 +8777,7 @@ class EvPlannerPanel extends HTMLElement {
     const dayName = new Intl.DateTimeFormat(this._locale, { weekday: "short" });
     const ticks = [];
     for (let t = Math.ceil(t0 / 3600e3) * 3600e3; t < t1; t += 3600e3) {
-      const date = new Date(t);
+      const date = ZD(t);
       const hour = date.getHours();
       if (hour % every !== 0 || x(t) > 96) continue;
       const label = hour === 0 && every >= 6 ? dayName.format(date).replace(".", "") : String(hour).padStart(2, "0");
@@ -8768,7 +8854,7 @@ class EvPlannerPanel extends HTMLElement {
     const share = kwh > 0 ? Math.min(100, (cars / kwh) * 100) : 0;
     const peak = Math.max(0.01, ...data.rows.map((r) => Number(r.kwh) || 0));
     const hours = Array.from({ length: 24 }, (_, h) => {
-      const row = data.rows.find((r) => new Date(r.start).getHours() === h);
+      const row = data.rows.find((r) => ZD(r.start).getHours() === h);
       const value = row ? Number(row.kwh) || 0 : 0;
       return `<i style="height:${((value / peak) * 100).toFixed(1)}%;--d:${h * 20}ms" title="${esc(`${String(h).padStart(2, "0")}: ${this._kwh(value, 2)}`)}"></i>`;
     }).join("");
@@ -8785,7 +8871,7 @@ class EvPlannerPanel extends HTMLElement {
     this._countAll();
     if (!this._state.home?.history) return;
     const key = this._histKey("day", 0);
-    const fresh = this._houseAt?.[key] && Date.now() - this._houseAt[key] < 10 * 60e3;
+    const fresh = this._houseAt?.[key] && znow() - this._houseAt[key] < 10 * 60e3;
     if (fresh) return;
     await this._loadHouse("day", 0);
     this._patch(this.shadowRoot.querySelector(".home-today .today-body"), `today:${this._houseAt?.[key]}:${this._lang}`, this._todayBodyHtml());
@@ -8795,7 +8881,7 @@ class EvPlannerPanel extends HTMLElement {
 
   /* Where a period begins and ends: ``offset`` periods back from the current one. */
   _histRange(period, offset = 0) {
-    const now = new Date();
+    const now = ZD();
     let start;
     let end;
     if (period === "day") {
@@ -8823,13 +8909,13 @@ class EvPlannerPanel extends HTMLElement {
   /* The buckets of a period: hours of a day, days of a week or month, months of a year. */
   _buckets(period, start, end) {
     const out = [];
-    let t = new Date(start);
+    let t = ZD(start);
     while (t < end) {
       const next =
         period === "day" ? new Date(t.getFullYear(), t.getMonth(), t.getDate(), t.getHours() + 1)
         : period === "year" ? new Date(t.getFullYear(), t.getMonth() + 1, 1)
         : new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1);
-      out.push([new Date(t), next]);
+      out.push([ZD(t), next]);
       t = next;
     }
     return out;
@@ -8849,7 +8935,7 @@ class EvPlannerPanel extends HTMLElement {
       const thursday = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 3);
       const first = new Date(thursday.getFullYear(), 0, 4);
       const week = 1 + Math.round(((thursday - first) / 86400e3 - 3 + ((first.getDay() + 6) % 7)) / 7);
-      return `${this._t("hist_week_of", { week })} · ${f({ day: "numeric", month: "short" }, start)}–${f({ day: "numeric", month: "short" }, new Date(end - 1))}`;
+      return `${this._t("hist_week_of", { week })} · ${f({ day: "numeric", month: "short" }, start)}–${f({ day: "numeric", month: "short" }, ZD(end - 1))}`;
     }
     if (period === "year") return String(start.getFullYear());
     return f({ month: "long", year: "numeric" }, start);
@@ -8864,8 +8950,14 @@ class EvPlannerPanel extends HTMLElement {
     const charger = chargerId ? this._charger(chargerId) : null;
     cars.forEach((v, i) => {
       if (scope.startsWith("car:") && scope !== `car:${v.id}`) return;
-      if (chargerId && v.charger?.id !== chargerId) return;
       if (scope === "guests") return;
+      if (charger) {
+        // The charges that happened at this charger (an old one without a charger: where the car charges now).
+        const sessions = (v.history || []).filter((e) => (e.charger ? e.charger === charger.name : v.charger?.id === chargerId));
+        if (sessions.length) series.push({ key: v.id, name: v.name, color: this._carColor(i), sessions, months: null, car: v });
+        return;
+      }
+      if (chargerId) return;
       series.push({ key: v.id, name: v.name, color: this._carColor(i), sessions: v.history || [], months: v.months || {}, car: v });
     });
     if (scope === "all" || scope === "guests" || scope === "house" || (charger && guestEntries.some((e) => e.charger === charger.name))) {
@@ -8878,10 +8970,10 @@ class EvPlannerPanel extends HTMLElement {
   _sessionsIn(start, end, scope = "all") {
     const out = [];
     for (const s of this._scopeSeries(scope)) for (const e of s.sessions) {
-      const t = new Date(e.start).getTime();
+      const t = ZD(e.start).getTime();
       if (t >= start.getTime() && t < end.getTime()) out.push({ ...e, series: s });
     }
-    return out.sort((a, b) => new Date(b.start) - new Date(a.start));
+    return out.sort((a, b) => ZD(b.start) - ZD(a.start));
   }
 
   async _loadHouse(period, offset) {
@@ -8890,11 +8982,11 @@ class EvPlannerPanel extends HTMLElement {
     this._houseData = this._houseData || {};
     this._houseAt = this._houseAt || {};
     try {
-      this._houseData[key] = await this._ws("ev_household_planner/history", { period, start: start.toISOString(), end: end.toISOString() });
+      this._houseData[key] = await this._ws("ev_household_planner/history", { period, start: unwall(start).toISOString(), end: unwall(end).toISOString() });
     } catch (_err) {
       this._houseData[key] = { rows: [], typical_day: [] };
     }
-    this._houseAt[key] = Date.now();
+    this._houseAt[key] = znow();
     return this._houseData[key];
   }
 
@@ -8953,7 +9045,7 @@ class EvPlannerPanel extends HTMLElement {
         continue;
       }
       for (const e of s.sessions) {
-        const i = indexOf(new Date(e.start).getTime());
+        const i = indexOf(ZD(e.start).getTime());
         if (i < 0) continue;
         grid[i][s.key] = (grid[i][s.key] || 0) + (Number(e.energy) || 0);
         energy += Number(e.energy) || 0;
@@ -8964,7 +9056,7 @@ class EvPlannerPanel extends HTMLElement {
     }
     let houseRows = null;
     if (house) {
-      houseRows = buckets.map(([a, b]) => house.rows.filter((r) => { const t = new Date(r.start).getTime(); return t >= a.getTime() && t < b.getTime(); }).reduce((sum, r) => sum + (Number(r.kwh) || 0), 0));
+      houseRows = buckets.map(([a, b]) => house.rows.filter((r) => { const t = ZD(r.start).getTime(); return t >= a.getTime() && t < b.getTime(); }).reduce((sum, r) => sum + (Number(r.kwh) || 0), 0));
     }
     const houseKwh = houseRows ? houseRows.reduce((a, b) => a + b, 0) : null;
     const houseCost = house ? house.rows.map((r) => r.cost).filter(isNum).reduce((a, b) => a + Number(b), 0) : null;
@@ -9019,7 +9111,7 @@ class EvPlannerPanel extends HTMLElement {
     if (period === "year" && scope !== "house") {
       const days = new Map();
       for (const s of series) for (const e of s.sessions) {
-        const d = new Date(e.start);
+        const d = ZD(e.start);
         if (d < start || d >= end) continue;
         const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
         days.set(key, (days.get(key) || 0) + (Number(e.energy) || 0));
@@ -9027,7 +9119,7 @@ class EvPlannerPanel extends HTMLElement {
       const most = Math.max(0.1, ...days.values());
       const first = (start.getDay() + 6) % 7;
       let cells = "";
-      for (let k = 0, t = new Date(start); t < end; k += 1, t = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1)) {
+      for (let k = 0, t = ZD(start); t < end; k += 1, t = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1)) {
         const value = days.get(`${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`) || 0;
         const col = Math.floor((k + first) / 7);
         const row = (k + first) % 7;
@@ -9058,7 +9150,7 @@ class EvPlannerPanel extends HTMLElement {
     const pad = (n) => String(n).padStart(2, "0");
     const day = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     const when = (iso) => {
-      const d = new Date(iso);
+      const d = ZD(iso);
       return !iso || Number.isNaN(d.getTime()) ? "" : `${day(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     };
     const num = (value, digits = 2) => (isNum(value) ? Number(value).toFixed(digits).replace(".", danish ? "," : ".") : "");
@@ -9088,7 +9180,7 @@ class EvPlannerPanel extends HTMLElement {
         word(source),
       ].join(sep);
     });
-    return { name: `ev-planner-${day(start)}-${day(new Date(end.getTime() - 1))}.csv`, text: [head.join(sep), ...rows].join("\r\n") + "\r\n" };
+    return { name: `ev-planner-${day(start)}-${day(ZD(end.getTime() - 1))}.csv`, text: [head.join(sep), ...rows].join("\r\n") + "\r\n" };
   }
 
   /* The support export: the integration's diagnostics (everything EV Planner knows, see support.py), as a file. */
@@ -9103,7 +9195,7 @@ class EvPlannerPanel extends HTMLElement {
       const response = await this._hass.fetchWithAuth(`/api/diagnostics/config_entry/${entry}`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const blob = await response.blob();
-      const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
+      const stamp = ZD().toISOString().slice(0, 16).replace(/[-:T]/g, "");
       this._download(blob, `ev-planner-support-${stamp}.json`);
     } catch (err) {
       this._exportError = String(err?.message || err);
@@ -9141,7 +9233,7 @@ class EvPlannerPanel extends HTMLElement {
 
   _guestSessionHtml(e) {
     return `<li>
-      <div class="when"><b>${new Date(e.start).getDate()}</b><span>${new Intl.DateTimeFormat(this._locale, { month: "short" }).format(new Date(e.start))}</span></div>
+      <div class="when"><b>${ZD(e.start).getDate()}</b><span>${new Intl.DateTimeFormat(this._locale, { month: "short" }).format(ZD(e.start))}</span></div>
       <div class="what"><strong>${esc(e.car || this._t("unknown_car"))}</strong><span>${e.plate ? `<em class="mini-plate">${esc(e.plate)}</em>` : ""}${this._time(e.start)}–${this._time(e.end)}</span></div>
       <div class="nums"><b>${this._money(e.cost)}</b><span>${this._kwh(e.energy)}</span></div>
       <div class="row-actions"><button class="icon" data-act="bill" data-id="${esc(e.id)}" aria-label="${this._t("bill")}">${ICONS.receipt}</button></div>
@@ -9164,7 +9256,7 @@ class EvPlannerPanel extends HTMLElement {
     const period = HIST_PERIODS.includes(this._histPeriod) ? this._histPeriod : "month";
     const offset = Math.min(0, this._histOffset || 0);
     const key = this._histKey(period, offset);
-    if (this._houseData?.[key] && Date.now() - this._houseAt[key] < 10 * 60e3) return;
+    if (this._houseData?.[key] && znow() - this._houseAt[key] < 10 * 60e3) return;
     await this._loadHouse(period, offset);
     if (this._tab === "history" && this._histScope === "house") this._render();
   }
@@ -9242,7 +9334,7 @@ class EvPlannerPanel extends HTMLElement {
       for (const e of history) {
         const periods = e.periods?.length ? e.periods : [{ start: e.start, end: e.end }];
         for (const p of periods) {
-          for (let t = new Date(p.start).getTime(); t < new Date(p.end).getTime(); t += 1800e3) hours[new Date(t).getHours()] += 0.5;
+          for (let t = ZD(p.start).getTime(); t < ZD(p.end).getTime(); t += 1800e3) hours[ZD(t).getHours()] += 0.5;
         }
       }
       const most = Math.max(0.5, ...hours);
@@ -9259,11 +9351,11 @@ class EvPlannerPanel extends HTMLElement {
         const sorted = list.filter(isNum).map(Number).sort((a, b) => a - b);
         return sorted.length ? sorted[Math.floor(sorted.length / 2)] : null;
       };
-      const startMinutes = median(history.map((e) => { const d = new Date(e.start); return d.getHours() * 60 + d.getMinutes(); }));
+      const startMinutes = median(history.map((e) => { const d = ZD(e.start); return d.getHours() * 60 + d.getMinutes(); }));
       const arrive = median(history.map((e) => e.start_soc));
       const perSession = history.reduce((sum, e) => sum + (Number(e.energy) || 0), 0) / history.length;
-      const first = Math.min(...history.map((e) => new Date(e.start).getTime()));
-      const weeks = Math.max(1, (Date.now() - first) / (7 * 86400e3));
+      const first = Math.min(...history.map((e) => ZD(e.start).getTime()));
+      const weeks = Math.max(1, (znow() - first) / (7 * 86400e3));
       const hhmm = startMinutes === null ? "–" : `${String(Math.floor(startMinutes / 60)).padStart(2, "0")}:${String(Math.round(startMinutes % 60 / 15) * 15 % 60).padStart(2, "0")}`;
       cards.push(`<div class="learn-card wide">
         <svg class="hour-clock" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="12" class="hc-face"/>${spokes}
@@ -9376,7 +9468,7 @@ class EvPlannerPanel extends HTMLElement {
     if (isNum(e.solar) && e.solar > 0.05 && e.energy > 0) parts.push(this._t("history_solar", { pct: this._pct(Math.min(100, (e.solar / e.energy) * 100)) }));
     const soc = parts.join(" · ");
     return `<li>
-      <div class="when"><b>${new Date(e.start).getDate()}</b><span>${new Intl.DateTimeFormat(this._locale, { month: "short" }).format(new Date(e.start))}</span></div>
+      <div class="when"><b>${ZD(e.start).getDate()}</b><span>${new Intl.DateTimeFormat(this._locale, { month: "short" }).format(ZD(e.start))}</span></div>
       <div class="what">
         <strong>${this._time(e.start)}–${this._time(e.end)}</strong>
         <span>${esc(soc)}</span>
@@ -9415,7 +9507,7 @@ class EvPlannerPanel extends HTMLElement {
       <ul class="sessions">${history
         .map(
           (e) => `<li>
-            <div class="when"><b>${new Date(e.start).getDate()}</b><span>${new Intl.DateTimeFormat(this._locale, { month: "short" }).format(new Date(e.start))}</span></div>
+            <div class="when"><b>${ZD(e.start).getDate()}</b><span>${new Intl.DateTimeFormat(this._locale, { month: "short" }).format(ZD(e.start))}</span></div>
             <div class="what">
               <strong>${esc(e.car || this._t("unknown_car"))}</strong>
               <span>${e.plate ? `<em class="mini-plate">${esc(e.plate)}</em>` : ""}${e.mode === "now" ? `<em class="tag-now">${ICONS.boost}${this._t("charge_now_tag")}</em>` : ""}${e.stopped ? `<em class="tag-now stopped">${this._t("stopped_tag")}</em>` : ""}${this._time(e.start)}–${this._time(e.end)}</span>
@@ -9582,11 +9674,11 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   /* When a departure set now must be ready (as departures.deadline in EV Planner); null for the holiday. */
-  _depNext(d, now = new Date()) {
+  _depNext(d, now = ZD()) {
     const [h, m] = String(d?.time || "06:00").split(":").map(Number);
     const at = (base) => new Date(base.getFullYear(), base.getMonth(), base.getDate(), h, m || 0);
     const today = at(now);
-    const days = (n) => new Date(today.getTime() + n * 86400000);
+    const days = (n) => ZD(today.getTime() + n * 86400000);
     const weekdays = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
     if (d?.day === "today") return today > now ? today : null;
     if (d?.day === "tomorrow") return at(days(1));
@@ -9972,7 +10064,7 @@ class EvPlannerPanel extends HTMLElement {
         this.shadowRoot.querySelector(`[data-f="dep-${this._depOpen || button.closest(".dep-row")?.querySelector(".dep-head")?.dataset.f?.slice(4) || ""}"]`)?.focus();
         break;
       case "dep-add": {
-        const id = `d${Date.now().toString(36)}`;
+        const id = `d${znow().toString(36)}`;
         this._depOpen = id;
         this._changeDeps(null, (list) => {
           const at = list.findIndex((d) => d.id === "holiday");
@@ -10063,7 +10155,7 @@ class EvPlannerPanel extends HTMLElement {
         break;
       case "sched-kind":
         if (s) {
-          const day = WEEKDAYS.includes(this._schedDay) ? this._schedDay : WEEKDAYS[(new Date().getDay() + 6) % 7];
+          const day = WEEKDAYS.includes(this._schedDay) ? this._schedDay : WEEKDAYS[(ZD().getDay() + 6) % 7];
           const now = (s.schedule || {})[day];
           const own = now && now !== "default" && now !== "none" ? now : s.ready_by || "07:00";
           const value = button.dataset.value === "other" ? own : button.dataset.value;
@@ -10074,7 +10166,7 @@ class EvPlannerPanel extends HTMLElement {
         // The time as it is in the field now, also when it was just changed and not yet saved.
         const time = (this.shadowRoot.querySelector(".schedule-box [data-sched]")?.value || button.dataset.time || "").slice(0, 5);
         if (s && time) {
-          const day = WEEKDAYS.includes(this._schedDay) ? this._schedDay : WEEKDAYS[(new Date().getDay() + 6) % 7];
+          const day = WEEKDAYS.includes(this._schedDay) ? this._schedDay : WEEKDAYS[(ZD().getDay() + 6) % 7];
           this._vchange({ use_ready_by: true, ready_by: time, schedule: { ...(s.schedule || {}), [day]: "default" } });
           this._toast(this._t("sched_default_set", { time: this._hhmm(time) }));
         }
@@ -11484,6 +11576,6 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 if (!customElements.get("ev-planner-panel")) customElements.define("ev-planner-panel", EvPlannerPanel);
 
 // Shared with the dashboard cards (ev-planner-cards.js), so they look and read exactly like the panel.
-export { EvPlannerPanel, TEXT, STYLE, ICONS, MARK, MODES, MODE_ICONS, chargerArt, esc, clamp, isNum, hasSegments, cssId };
+export { EvPlannerPanel, TEXT, STYLE, ICONS, MARK, MODES, MODE_ICONS, chargerArt, esc, clamp, isNum, hasSegments, cssId, setZone };
 // For the tests of the house's picture; nothing else uses it.
 export { ClayScene as _ClayScene };

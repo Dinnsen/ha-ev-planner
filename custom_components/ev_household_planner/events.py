@@ -52,6 +52,8 @@ class EventLog:
         self._store: Store[dict[str, Any]] = Store(hass, 1, EVENTS_STORAGE_KEY.format(entry_id=entry_id))
         # The last event of a kind for a car or charger, so a repeat of the same is not written again.
         self._last: dict[tuple[str, str], tuple[Any, ...]] = {}
+        # True while a plan is only tried out (the panel's preview): nothing of it is written.
+        self.muted = False
 
     async def async_load(self) -> None:
         try:
@@ -71,18 +73,24 @@ class EventLog:
     @callback
     def add(self, now: datetime, kind: str, **data: Any) -> None:
         """Write an event: what happened, and the figures it was decided on."""
+        if self.muted:
+            return
         item = {"at": now.isoformat(), "kind": kind}
         item.update({key: _plain(value) for key, value in data.items() if value is not None})
         self.items.append(item)
-        since = (now - EVENTS_KEEP).isoformat()
-        while self.items and str(self.items[0].get("at", "")) < since:
+        # Compared as moments, not as text: the text changes its offset with summer and winter time.
+        since = now - EVENTS_KEEP
+        while self.items:
+            moment = dt_util.parse_datetime(str(self.items[0].get("at", "")))
+            if moment is not None and moment >= since:
+                break
             self.items.popleft()
         self._store.async_delay_save(self._to_store, EVENTS_SAVE_DELAY)
 
     @callback
     def changed(self, now: datetime, kind: str, subject: str, key: tuple[Any, ...], **data: Any) -> None:
         """Write an event only when it differs from the last one of its kind for this subject."""
-        if self._last.get((kind, subject)) == key:
+        if self.muted or self._last.get((kind, subject)) == key:
             return
         self._last[(kind, subject)] = key
         self.add(now, kind, **data)
@@ -100,8 +108,12 @@ class EventLog:
     def since(self, moment: datetime | None = None) -> list[dict[str, Any]]:
         if moment is None:
             return list(self.items)
-        start = moment.isoformat()
-        return [item for item in self.items if str(item.get("at", "")) >= start]
+        out = []
+        for item in self.items:
+            at = dt_util.parse_datetime(str(item.get("at", "")))
+            if at is not None and at >= moment:
+                out.append(item)
+        return out
 
 
 class _LogCapture(logging.Handler):

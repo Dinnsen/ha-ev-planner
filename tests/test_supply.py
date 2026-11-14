@@ -123,3 +123,47 @@ def test_the_house_forecast_learns_cheap_hours_apart() -> None:
 def test_cheap_hours_are_the_cheapest_third_of_each_day() -> None:
     # 22-23 on one day, 00-05 on the next: the cheapest of each.
     assert {start.hour for start in cheap_hours(NIGHT)} == {23, 1, 2}
+
+
+def test_a_cars_rules_are_followed_as_far_as_its_target_allows() -> None:
+    """A price ceiling: the hours under it first, and dearer ones only for what is still missing."""
+    ruled = SharedCar("a", 0, 20, max_amps=16, deadline=DEADLINE, avoid=lambda slot: slot.price > 2.0)
+    plan = plan_supply(NIGHT, [ruled], NOW, limit=25, house=lambda slot: 5)
+    # 20 kWh fits in the two hours at 2.0 and 1.9 (11 kW each): nothing dearer is used.
+    assert {start.hour for start, _end, _amps in plan.amps["a"]} == {1, 2}
+    assert plan.short_kwh["a"] == 0
+
+    more = SharedCar("a", 0, 30, max_amps=16, deadline=DEADLINE, avoid=lambda slot: slot.price > 2.0)
+    plan = plan_supply(NIGHT, [more], NOW, limit=25, house=lambda slot: 5)
+    hours = {start.hour: amps for start, _end, amps in plan.amps["a"]}
+    # The two hours under the ceiling are filled, and the rest comes in the cheapest hour over it (2.1).
+    assert hours[1] == 16 and hours[2] == 16 and set(hours) == {1, 2, 3}
+    assert plan.short_kwh["a"] == 0
+
+
+def test_what_a_car_must_have_follows_its_rules_first_too() -> None:
+    ruled = SharedCar("a", 30, 30, max_amps=16, deadline=DEADLINE, avoid=lambda slot: slot.price > 2.0)
+    plan = plan_supply(NIGHT, [ruled], NOW, limit=25, house=lambda slot: 5)
+    hours = {start.hour: amps for start, _end, amps in plan.amps["a"]}
+    assert hours[1] == 16 and hours[2] == 16 and set(hours) == {1, 2, 3}
+
+
+def test_an_earliest_start_holds_until_the_target_needs_more() -> None:
+    late = SharedCar(
+        "a", 0, 20, max_amps=16, deadline=DEADLINE, avoid=lambda slot: slot.start < NOW + timedelta(hours=5)
+    )
+    plan = plan_supply(NIGHT, [late], NOW, limit=25, house=lambda slot: 5)
+    assert min(start for start, _end, _amps in plan.amps["a"]) >= NOW + timedelta(hours=5)
+
+
+def test_what_a_car_must_have_comes_whatever_its_rules() -> None:
+    ruled = SharedCar("a", 20, 20, max_amps=16, deadline=DEADLINE, avoid=lambda slot: True, never=lambda slot: True)
+    plan = plan_supply(NIGHT, [ruled], NOW, limit=25, house=lambda slot: 5)
+    assert delivered(plan, "a") >= 20 and plan.short_kwh["a"] == 0
+
+
+def test_a_departure_at_the_cheapest_prices_never_goes_over_them() -> None:
+    cheap = SharedCar("a", 0, 30, max_amps=16, deadline=DEADLINE, never=lambda slot: slot.price > 2.0)
+    plan = plan_supply(NIGHT, [cheap], NOW, limit=25, house=lambda slot: 5)
+    assert {start.hour for start, _end, _amps in plan.amps["a"]} == {1, 2}
+    assert plan.short_kwh["a"] > 5
