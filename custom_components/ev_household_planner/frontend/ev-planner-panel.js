@@ -6832,21 +6832,22 @@ class EvPlannerPanel extends HTMLElement {
   /* The car from above, its roof off as in Tesla's app: hood, windshield, the cabin with its seats,
      rear window and boot; and the air (a plume from each side vent, rays streaming through it). */
   _cabinSvg() {
-    const rays = [];
-    const fan = (x0, spread, n, len) => {
-      for (let i = 0; i < n; i += 1) {
-        const t = n === 1 ? 0.5 : i / (n - 1);
-        const x1 = x0 - spread / 2 + spread * t;
-        const bend = (t - 0.5) * 16;
-        rays.push(`M${(x0 + (t - 0.5) * 18).toFixed(1)} 170 C ${(x0 + (t - 0.5) * 24).toFixed(1)} 214, ${(x1 - bend).toFixed(1)} ${(236 + (len - 270) * 0.4).toFixed(1)}, ${x1.toFixed(1)} ${len}`);
-      }
+    // The air: wide soft ribbons from each side vent, swaying slowly, fanning out over the seats.
+    const ribbon = (x0, dir, i) => {
+      const x1 = x0 + dir * (8 + i * 12);
+      return `M${(x0 + dir * i * 4).toFixed(1)} 170 C ${(x0 + dir * i * 7).toFixed(1)} 220, ${(x1 - dir * 10).toFixed(1)} 250, ${x1.toFixed(1)} 304`;
     };
-    fan(129, 60, 6, 304);
-    fan(191, 60, 6, 304);
-    fan(160, 26, 3, 268);
-    const rayPaths = rays
-      .map((d, i) => `<path class="cab-ray${i % 3 === 2 ? " thin" : ""}" d="${d}" pathLength="100" stroke="url(#cab-ray)" stroke-width="${i % 3 === 2 ? 1.2 : 2}" style="--d:${(1.5 + (i % 4) * 0.22).toFixed(2)}s;--o:${(-(i * 0.29) % 1.6).toFixed(2)}s"/>`)
-      .join("");
+    let bands = "";
+    for (const [x0, side] of [[129, "a"], [191, "b"]]) {
+      let band = "";
+      [-1, 0, 1].forEach((dir, j) => {
+        for (let i = 0; i < 2; i += 1) {
+          const t = (j * 2 + i) * 0.37;
+          band += `<path class="cab-ribbon" d="${ribbon(x0, dir || (i ? 1 : -1) * 0.3, i + 1)}" pathLength="100" stroke="url(#cab-ray)" stroke-width="${12 - i * 4}" opacity="${(0.22 + i * 0.08).toFixed(2)}" filter="url(#cab-soft)" style="--d:${(2.6 + i * 0.5).toFixed(1)}s;--o:${(-t).toFixed(2)}s"/>`;
+        }
+      });
+      bands += `<g class="cab-sway ${side}">${band}</g>`;
+    }
     const body = "M160 18 C 196 18, 228 26, 236 60 C 242 86, 244 120, 244 160 L 244 300 C 244 340, 238 362, 220 372 C 204 380, 184 382, 160 382 C 136 382, 116 380, 100 372 C 82 362, 76 340, 76 300 L 76 160 C 76 120, 78 86, 84 60 C 92 26, 124 18, 160 18 Z";
     const shield = "M100 112 Q160 96 220 112 L 228 152 Q160 144 92 152 Z";
     const cabin = "M92 152 Q160 144 228 152 L 230 300 Q160 310 90 300 Z";
@@ -6890,7 +6891,7 @@ class EvPlannerPanel extends HTMLElement {
           <path class="cab-plume" d="M114 168 L 144 168 C 152 210, 164 260, 168 306 L 100 306 C 100 260, 108 210, 114 168 Z" fill="url(#cab-plume)" filter="url(#cab-soft)"/>
           <path class="cab-plume b" d="M176 168 L 206 168 C 212 210, 220 260, 220 306 L 152 306 C 156 260, 168 210, 176 168 Z" fill="url(#cab-plume)" filter="url(#cab-soft)"/>
           <ellipse cx="160" cy="172" rx="56" ry="9" fill="url(#cab-plume)" filter="url(#cab-softer)" opacity=".8"/>
-          <g filter="url(#cab-glow)">${rayPaths}</g>
+          <g filter="url(#cab-glow)">${bands}</g>
         </g>
       </g>
       <path class="cab-sill" d="${cabin}"/>
@@ -10836,9 +10837,11 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 .cabin .cab-plume { animation: cab-breathe calc(4.2s * var(--k, 1)) ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 0; }
 .cabin .cab-plume.b { animation-delay: -2.1s; }
 @keyframes cab-breathe { 0%, 100% { opacity: .55; transform: scaleY(.94); } 50% { opacity: .9; transform: scaleY(1.04); } }
-.cabin .cab-ray { fill: none; stroke-linecap: round; stroke-dasharray: 26 74; animation: cab-stream calc(var(--d, 1.6s) * var(--k, 1)) linear infinite; animation-delay: calc(var(--o, 0s) * var(--k, 1)); }
-.cabin .cab-ray.thin { stroke-dasharray: 14 86; }
+.cabin .cab-ribbon { fill: none; stroke-linecap: round; stroke-dasharray: 48 52; animation: cab-stream calc(var(--d, 2.6s) * var(--k, 1)) linear infinite; animation-delay: calc(var(--o, 0s) * var(--k, 1)); }
 @keyframes cab-stream { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+.cabin .cab-sway { animation: cab-sway calc(5s * var(--k, 1)) ease-in-out infinite alternate; transform-box: view-box; transform-origin: 160px 170px; }
+.cabin .cab-sway.b { animation-delay: -2.5s; }
+@keyframes cab-sway { from { transform: skewX(-2.5deg); } to { transform: skewX(2.5deg); } }
 .cabin-ctl { display: grid; grid-template-columns: 64px minmax(0, 1fr) 64px; align-items: center; gap: 4px; }
 .cabin-ctl .ctl-btn { display: grid; justify-items: center; gap: 1px; border: 0; background: none; color: var(--evp-soft); font: 500 12px/1.2 inherit; padding: 6px 0; border-radius: 14px; }
 .cabin-ctl button.ctl-btn { cursor: pointer; }
@@ -10854,7 +10857,7 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 .cabin-temp .num { font-size: 44px; font-weight: 300; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; min-width: 3.6ch; text-align: center; }
 .cabin-temp .num small { font-size: 20px; vertical-align: top; margin-left: 1px; }
 .cabin-temp.plain small { color: var(--evp-soft); font-size: 13px; text-align: center; }
-@media (prefers-reduced-motion: reduce) { .cabin .cab-ray, .cabin .cab-plume { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .cabin .cab-ribbon, .cabin .cab-plume, .cabin .cab-sway { animation: none; } }
 @media (min-width: 861px) {
   .sheet { bottom: auto; top: 50%; transform: translate(-50%, -50%); border-radius: 22px; max-height: min(86vh, 86dvh); padding-bottom: 22px; animation: fade .2s; box-shadow: 0 24px 80px rgba(0,0,0,.35); }
 }

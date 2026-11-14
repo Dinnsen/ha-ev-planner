@@ -2,6 +2,22 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b3] - 2026-11-14
+
+### Changed
+
+- **The climate** is the car seen from above, its roof off as in Tesla's app: soft bands of air stream from the vents over the seats and sway slowly, warm orange (with the windshield glowing) while it heats, ice blue while it cools, calmer as the cabin nears the temperature. Under it: on/off, the temperature with arrows, and the car's own inside temperature. Changing the temperature no longer starts the picture over.
+- **The price graph** can be used: tap an hour and it stays picked (tap it again to let go), drag along it to move; the bubble shows the price, the time, how far below or above the average it is, and whether the car charges then. The forecast is paler, after a line where it starts, and *Known prices* / *With forecast* switches between them. A long press no longer selects text.
+- **A car's card** shows which charger it is plugged in at, keeps its status badge top right (the name and its line wrap beside it), shows the whole *Charge now*, and, with nothing planned, the latest charge: kWh, what it cost and when.
+- **The guest:** *Plan again* stays on top, and under it *Smart*, *Charge now*, *Stop* and *Remove*, as on a car.
+- **Settings → Places:** the long explanations are behind a small *?*; *House shape* has a heading and a picture of each house, two in a row.
+- **Settings → Calendar:** *Which word belongs to which car?*, the words to write in bold, and examples with your cars' own words.
+
+### Fixed
+
+- A settings sheet no longer jumps to the top (and slides in again) when something in it is changed, e.g. a departure.
+- The calendar trip in a car's *Details* stayed inside the card; the week plan in the dropdown is just *Week plan*, so the dropdown does not widen the card.
+
 ## [2.5.0b2] - 2026-11-13
 
 ### Added
