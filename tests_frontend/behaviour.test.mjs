@@ -412,8 +412,13 @@ test("a charger with an unknown car asks which car it is, and stores the answer"
     const list = await page.locator("ev-planner-panel .chargers").innerText();
     assert.match(list, /Unknown car/);
     assert.match(list, /Tesla Model Y is plugged in/);
-    // The charger at the summer house says where it is.
-    assert.match(list, /Sommerhus/);
+    // Each place shows its own chargers: the summer house's is under the summer house, not the home.
+    assert.doesNotMatch(list, /Skur/);
+    await tap('[data-act="place"][data-id="summer"]');
+    const there = await page.locator("ev-planner-panel .chargers").innerText();
+    assert.match(there, /Skur/);
+    assert.doesNotMatch(there, /Carport/);
+    await tap('[data-act="place"][data-id="home"]');
     await tap('[data-act="open-charger"][data-id="carport"]');
     const who = page.locator("ev-planner-panel .who");
     assert.match(await who.innerText(), /cannot tell which one/);

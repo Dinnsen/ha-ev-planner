@@ -108,6 +108,17 @@ const TEXT = {
     climate_warmer: "Varmere",
     climate_inside_label: "Temperaturen i bilen",
     climate_inside_short: "Inde",
+    climate_outside_short: "Ude",
+    rule_target_step: "Trin for mål",
+    g_departure: "Eller en afgang",
+    g_departure_hint: "Samme afgange som husets biler. En afgang med pris lader kun i de billigste timer.",
+    g_no_ceiling: "Intet loft",
+    target_step_auto: "Bilens",
+    rule_target_step_auto: "Målet følger bilens egen ladegrænse.",
+    rule_target_step_car: "Målet går i bilens egne trin på {n} %, og bilen stopper selv.",
+    rule_target_step_own: "Målet går i trin på {n} %. EV Planner stopper bilen ved målet og sætter bilens egen grænse til trinnet over, for en sikkerheds skyld.",
+    rule_pause_floor: "Lader straks til {pct}",
+    rule_pause_floor_hint: "Bilen kan ikke sættes på pause under {pct}: dens ladegrænse går ikke lavere. Planen regner med, at den lader dertil, så snart den sættes til.",
     tl_known: "Kendte priser",
     tl_with_forecast: "Med prognose",
     tl_charging: "Lader her",
@@ -676,6 +687,17 @@ const TEXT = {
     climate_warmer: "Warmer",
     climate_inside_label: "The temperature in the car",
     climate_inside_short: "Inside",
+    climate_outside_short: "Outside",
+    rule_target_step: "Target steps",
+    g_departure: "Or a departure",
+    g_departure_hint: "The same departures as the household's cars. One with a price charges only in the cheapest hours.",
+    g_no_ceiling: "No ceiling",
+    target_step_auto: "The car's",
+    rule_target_step_auto: "The target follows the car's own charge limit.",
+    rule_target_step_car: "The target goes in the car's own steps of {n} %, and the car stops by itself.",
+    rule_target_step_own: "The target goes in steps of {n} %. EV Planner stops the car at the target, and sets the car's own limit to the step above, to be safe.",
+    rule_pause_floor: "Charges at once to {pct}",
+    rule_pause_floor_hint: "The car cannot be paused under {pct}: its charge limit goes no lower. The plan counts on it charging there as soon as it is plugged in.",
     tl_known: "Known prices",
     tl_with_forecast: "With forecast",
     tl_charging: "Charges here",
@@ -5179,12 +5201,19 @@ class EvPlannerPanel extends HTMLElement {
         <div class="toast" role="status" aria-live="polite"></div>
         <div class="sheet-root"></div>
       </div>`;
-    if (customElements.get("ha-menu-button")) {
+    // Home Assistant's own menu button (it shows itself only where Home Assistant would: on a phone,
+    // or with the sidebar hidden). Opened straight at /ev-planner it may not be loaded yet: then it is
+    // added the moment it is. Outside Home Assistant (the web app) it never is, and nothing is added.
+    const addMenu = () => {
+      const slot = this.shadowRoot.querySelector(".menu");
+      if (this._menu || !slot || this._embed) return;
       this._menu = document.createElement("ha-menu-button");
       this._menu.hass = this._hass;
       this._menu.narrow = this._narrow;
-      this.shadowRoot.querySelector(".menu").appendChild(this._menu);
-    }
+      slot.appendChild(this._menu);
+    };
+    if (customElements.get("ha-menu-button")) addMenu();
+    else customElements.whenDefined("ha-menu-button").then(addMenu, () => {});
     const content = this.shadowRoot.querySelector(".content");
     content.addEventListener("click", (ev) => this._onClick(ev));
     content.addEventListener("change", (ev) => this._onChange(ev));
@@ -5650,8 +5679,8 @@ class EvPlannerPanel extends HTMLElement {
     for (const imageId of imageIds || []) this._hass.callWS({ type: "image/delete", image_id: imageId }).catch(() => {});
   }
 
-  _chargersHtml() {
-    const chargers = this._chargers;
+  _chargersHtml(siteId = null) {
+    const chargers = siteId ? this._chargers.filter((c) => (c.site ?? "home") === siteId) : this._chargers;
     if (!chargers.length) return "";
     return `<section class="panel chargers">
       <h2>${ICONS.charger}<span>${this._t("chargers")}</span></h2>
@@ -6193,6 +6222,7 @@ class EvPlannerPanel extends HTMLElement {
         capacity: Number(inputs.battery_capacity ?? 0),
         nowKey: "soc",
         targetKey: "charge_limit",
+        targetSteps: Number(inputs.target_step) > 1 ? [0, 100, Number(inputs.target_step)] : null,
         canNow: true,
         canTarget: true,
         set: (changes, opts) => this._gchange(changes, opts),
@@ -6779,7 +6809,8 @@ class EvPlannerPanel extends HTMLElement {
     const step = isClimate && isNum(a.target_temp_step) ? Number(a.target_temp_step) : 0.5;
     const temp = clamp(this._popTemp ?? (Number(s.climate_temperature) || 21), min, max);
     const on = c?.on === true;
-    const inside = isNum(a.current_temperature) ? Number(a.current_temperature) : null;
+    const inside = isNum(c?.inside) ? Number(c.inside) : isNum(a.current_temperature) ? Number(a.current_temperature) : null;
+    const outside = isNum(c?.outside) ? Number(c.outside) : isNum(this._placeEnergy(v)?.temperature) ? Number(this._placeEnergy(v).temperature) : null;
     const fmt = (t) => (Math.round(t * 10) / 10).toFixed(1).replace(".", this._lang === "da" ? "," : ".");
     const cooling = inside !== null ? temp < inside - 0.2 : state?.state === "cool";
     const left = inside !== null ? Math.abs(temp - inside) : null;
@@ -6802,9 +6833,21 @@ class EvPlannerPanel extends HTMLElement {
               <button data-pop="plus" data-f="pop-plus" aria-label="${this._t("climate_warmer")}"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button></div>`
               : `<div class="cabin-temp plain"><small>${esc(this._t("climate_car_temp"))}</small></div>`
           }
-          <div class="ctl-btn inside" aria-label="${esc(this._t("climate_inside_label"))}">${ICONS.temp || ICONS.climate}<span>${inside !== null ? `${fmt(inside)}°` : "–"}</span><small>${this._t("climate_inside_short")}</small></div>
+          ${this._cabinTempsHtml(inside, outside, fmt)}
         </div>
       </div>${this._climateAutoHtml(v, s, fmt)}`;
+  }
+
+  /* Inside the car and outside it, one above the other (only what is known). */
+  _cabinTempsHtml(inside, outside, fmt) {
+    const row = (value, key) => (value === null ? "" : `<div><b>${fmt(value)}°</b><small>${esc(this._t(key))}</small></div>`);
+    return `<div class="cabin-temps" aria-label="${esc(this._t("climate_inside_label"))}">${row(inside, "climate_inside_short")}${row(outside, "climate_outside_short")}</div>`;
+  }
+
+  /* What the place the car is at knows (its outside temperature), for the climate. */
+  _placeEnergy(v) {
+    const site = (this._state?.sites || []).find((one) => one.id === v?.site);
+    return site?.energy || (site?.home ? this._state?.home : null) || this._state?.home || null;
   }
 
   /* The climate drawn again in place: the cabin and its air keep going (their animations do not start over),
@@ -6829,10 +6872,11 @@ class EvPlannerPanel extends HTMLElement {
     return true;
   }
 
-  /* The car from above, its roof off as in Tesla's app: hood, windshield, the cabin with its seats,
-     rear window and boot; and the air (a plume from each side vent, rays streaming through it). */
-  _cabinSvg() {
-    // The air: wide soft ribbons from each side vent, swaying slowly, fanning out over the seats.
+  /* The car from above as a clay model, like the houses, its roof off as in Tesla's app: hood, windshield,
+     the cabin with its seats, rear window and boot; and the air (a plume from each side vent, soft bands
+     streaming through it, orange or blue). The gradients are on the shapes, not in the style, so a page
+     with two of them (a card and the panel) keeps each its own. */
+  _cabinSvg(prefix = "cab") {
     const ribbon = (x0, dir, i) => {
       const x1 = x0 + dir * (8 + i * 12);
       return `M${(x0 + dir * i * 4).toFixed(1)} 170 C ${(x0 + dir * i * 7).toFixed(1)} 220, ${(x1 - dir * 10).toFixed(1)} 250, ${x1.toFixed(1)} 304`;
@@ -6843,7 +6887,7 @@ class EvPlannerPanel extends HTMLElement {
       [-1, 0, 1].forEach((dir, j) => {
         for (let i = 0; i < 2; i += 1) {
           const t = (j * 2 + i) * 0.37;
-          band += `<path class="cab-ribbon" d="${ribbon(x0, dir || (i ? 1 : -1) * 0.3, i + 1)}" pathLength="100" stroke="url(#cab-ray)" stroke-width="${12 - i * 4}" opacity="${(0.22 + i * 0.08).toFixed(2)}" filter="url(#cab-soft)" style="--d:${(2.6 + i * 0.5).toFixed(1)}s;--o:${(-t).toFixed(2)}s"/>`;
+          band += `<path class="cab-ribbon" d="${ribbon(x0, dir || (i ? 1 : -1) * 0.3, i + 1)}" pathLength="100" stroke="url(#cab-ray)" stroke-width="${10 - i * 3}" opacity="${(0.32 + i * 0.1).toFixed(2)}" filter="url(#cab-soft)" style="--d:${(2.6 + i * 0.5).toFixed(1)}s;--o:${(-t).toFixed(2)}s"/>`;
         }
       });
       bands += `<g class="cab-sway ${side}">${band}</g>`;
@@ -6852,50 +6896,56 @@ class EvPlannerPanel extends HTMLElement {
     const shield = "M100 112 Q160 96 220 112 L 228 152 Q160 144 92 152 Z";
     const cabin = "M92 152 Q160 144 228 152 L 230 300 Q160 310 90 300 Z";
     const rear = "M90 300 Q160 310 230 300 L 222 330 Q160 340 98 330 Z";
-    return `<svg class="cabin" viewBox="0 0 320 400" aria-hidden="true">
+    const seat = (x, y, w, h, r) => `<rect class="cab-drop" x="${x + 3}" y="${y + 4}" width="${w}" height="${h}" rx="${r}" filter="url(#cab-blur)"/><rect class="cab-seat-side" x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}"/><rect class="cab-seat" x="${x}" y="${y}" width="${w - 3}" height="${h - 3}" rx="${r}"/>`;
+    const svg = `<svg class="cabin" viewBox="0 0 320 400" aria-hidden="true">
       <defs>
-        <filter id="cab-soft" x="-40%" y="-20%" width="180%" height="140%"><feGaussianBlur stdDeviation="7"/></filter>
-        <filter id="cab-softer" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="14"/></filter>
-        <filter id="cab-glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-        <filter id="cab-shadow" x="-20%" y="-10%" width="140%" height="120%"><feGaussianBlur stdDeviation="8"/></filter>
-        <linearGradient id="cab-paintg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#cfd5da"/><stop offset=".18" stop-color="#eef1f3"/><stop offset=".5" stop-color="#fbfcfd"/><stop offset=".82" stop-color="#eef1f3"/><stop offset="1" stop-color="#cfd5da"/></linearGradient>
-        <linearGradient id="cab-glass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a4248"/><stop offset=".35" stop-color="#15191c"/><stop offset="1" stop-color="#0b0d0f"/></linearGradient>
-        <linearGradient id="cab-plume" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="p0" stop-opacity=".95"/><stop offset=".45" class="p1" stop-opacity=".45"/><stop offset="1" class="p2" stop-opacity="0"/></linearGradient>
-        <linearGradient id="cab-ray" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset=".6" class="r1" stop-opacity=".8"/><stop offset="1" class="r2" stop-opacity="0"/></linearGradient>
-        <radialGradient id="cab-wind" cx="50%" cy="100%" r="90%"><stop offset="0" class="w" stop-opacity=".8"/><stop offset="1" class="w" stop-opacity="0"/></radialGradient>
-        <radialGradient id="cab-tint" cx="50%" cy="40%" r="60%"><stop offset="0" class="c" stop-opacity=".35"/><stop offset="1" class="c" stop-opacity="0"/></radialGradient>
+        <filter id="cab-soft" x="-40%" y="-20%" width="180%" height="140%"><feGaussianBlur stdDeviation="6"/></filter>
+        <filter id="cab-softer" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="12"/></filter>
+        <filter id="cab-blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter>
+        <filter id="cab-shadow" x="-30%" y="-20%" width="160%" height="140%"><feGaussianBlur stdDeviation="12"/></filter>
+        <linearGradient id="cab-paintg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e9ecf0"/><stop offset=".22" stop-color="#ffffff"/><stop offset=".62" stop-color="#fafbfc"/><stop offset=".86" stop-color="#e4e8ed"/><stop offset="1" stop-color="#d3d8e0"/></linearGradient>
+        <linearGradient id="cab-glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#eef2f6"/><stop offset=".55" stop-color="#d6dde6"/><stop offset="1" stop-color="#c9d1db"/></linearGradient>
+        <linearGradient id="cab-plume" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="p0" stop-opacity=".85"/><stop offset=".45" class="p1" stop-opacity=".35"/><stop offset="1" class="p2" stop-opacity="0"/></linearGradient>
+        <linearGradient id="cab-ray" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="r0" stop-opacity="1"/><stop offset=".6" class="r1" stop-opacity=".7"/><stop offset="1" class="r2" stop-opacity="0"/></linearGradient>
+        <radialGradient id="cab-wind" cx="50%" cy="100%" r="90%"><stop offset="0" class="w" stop-opacity=".6"/><stop offset="1" class="w" stop-opacity="0"/></radialGradient>
+        <radialGradient id="cab-tint" cx="50%" cy="40%" r="60%"><stop offset="0" class="c" stop-opacity=".28"/><stop offset="1" class="c" stop-opacity="0"/></radialGradient>
         <clipPath id="cab-in"><path d="${cabin}"/></clipPath>
       </defs>
-      <ellipse cx="160" cy="206" rx="92" ry="186" fill="#000" opacity=".45" filter="url(#cab-shadow)"/>
+      <path class="cab-cast" d="${body}" transform="translate(10 14)" filter="url(#cab-shadow)"/>
       <g class="cab-mirrors"><ellipse cx="66" cy="150" rx="12" ry="7" transform="rotate(-18 66 150)"/><ellipse cx="254" cy="150" rx="12" ry="7" transform="rotate(18 254 150)"/></g>
-      <path class="cab-paint" d="${body}"/>
+      <path class="cab-paint" d="${body}" fill="url(#cab-paintg)"/>
       <path class="cab-crease" d="M124 34 Q 132 70 130 106 M196 34 Q 188 70 190 106 M112 340 Q 160 352 208 340"/>
       <path class="cab-head" d="M90 54 Q 102 30 130 24 M230 54 Q 218 30 190 24"/>
       <path class="cab-tail" d="M86 346 Q 98 368 128 374 M234 346 Q 222 368 192 374"/>
-      <path class="cab-window" d="${shield}"/>
+      <path class="cab-window" d="${shield}" fill="url(#cab-glass)"/>
       <path class="cab-shield" d="${shield}" fill="url(#cab-wind)"/>
-      <path class="cab-window" d="${rear}"/>
+      <path class="cab-window" d="${rear}" fill="url(#cab-glass)"/>
       <g clip-path="url(#cab-in)">
         <rect class="cab-floor" x="86" y="140" width="148" height="174"/>
         <rect class="cab-tint" x="86" y="140" width="148" height="174" fill="url(#cab-tint)"/>
+        <rect class="cab-drop" x="86" y="168" width="148" height="10" filter="url(#cab-blur)"/>
         <rect class="cab-dash" x="86" y="140" width="148" height="32"/>
-        <rect class="cab-dash-top" x="86" y="140" width="148" height="12"/>
+        <rect class="cab-dash-top" x="86" y="140" width="148" height="14"/>
         <rect class="cab-vent" x="112" y="165" width="34" height="4" rx="2"/><rect class="cab-vent" x="174" y="165" width="34" height="4" rx="2"/><rect class="cab-vent" x="151" y="165" width="18" height="3" rx="1.5"/>
         <circle class="cab-wheel" cx="129" cy="188" r="12"/>
+        <rect class="cab-drop" x="154" y="182" width="18" height="74" rx="6" filter="url(#cab-blur)"/>
         <rect class="cab-console" x="151" y="178" width="18" height="74" rx="6"/>
-        <rect class="cab-seat" x="110" y="200" width="36" height="48" rx="11"/><rect class="cab-cushion" x="114" y="204" width="28" height="18" rx="7"/>
-        <rect class="cab-seat" x="174" y="200" width="36" height="48" rx="11"/><rect class="cab-cushion" x="178" y="204" width="28" height="18" rx="7"/>
-        <rect class="cab-seat" x="106" y="262" width="36" height="40" rx="10"/><rect class="cab-seat" x="142" y="262" width="36" height="40" rx="10"/><rect class="cab-seat" x="178" y="262" width="36" height="40" rx="10"/>
-        <rect class="cab-cushion" x="110" y="266" width="100" height="14" rx="6"/>
+        ${seat(110, 200, 36, 48, 11)}<rect class="cab-cushion" x="114" y="204" width="26" height="17" rx="7"/>
+        ${seat(174, 200, 36, 48, 11)}<rect class="cab-cushion" x="178" y="204" width="26" height="17" rx="7"/>
+        ${seat(106, 262, 108, 40, 10)}
+        <rect class="cab-cushion" x="110" y="266" width="98" height="13" rx="6"/>
+        <path class="cab-rim" d="${cabin}" filter="url(#cab-blur)"/>
         <g class="cab-air">
           <path class="cab-plume" d="M114 168 L 144 168 C 152 210, 164 260, 168 306 L 100 306 C 100 260, 108 210, 114 168 Z" fill="url(#cab-plume)" filter="url(#cab-soft)"/>
           <path class="cab-plume b" d="M176 168 L 206 168 C 212 210, 220 260, 220 306 L 152 306 C 156 260, 168 210, 176 168 Z" fill="url(#cab-plume)" filter="url(#cab-soft)"/>
-          <ellipse cx="160" cy="172" rx="56" ry="9" fill="url(#cab-plume)" filter="url(#cab-softer)" opacity=".8"/>
-          <g filter="url(#cab-glow)">${bands}</g>
+          <ellipse cx="160" cy="172" rx="56" ry="9" fill="url(#cab-plume)" filter="url(#cab-softer)" opacity=".7"/>
+          <g>${bands}</g>
         </g>
       </g>
       <path class="cab-sill" d="${cabin}"/>
     </svg>`;
+    // Ids of its own, when there are more than one in the same place (the cards).
+    return prefix === "cab" ? svg : svg.replaceAll('id="cab-', `id="${prefix}-`).replaceAll("url(#cab-", `url(#${prefix}-`);
   }
 
   _climateAutoHtml(v, s, fmt) {
@@ -7303,7 +7353,7 @@ class EvPlannerPanel extends HTMLElement {
       value="${isNum(value) ? esc(value) : ""}" aria-label="${esc(label)}"><span>${esc(unit)}</span></label>`;
   }
 
-  _ruleRow({ icon, title, hint, help, control, extra = "", off = false }) {
+  _ruleRow({ icon, title, hint, help, control = "", extra = "", off = false }) {
     return `<div class="rule ${off ? "off" : ""}">
       <span class="rule-icon">${ICONS[icon] || ""}</span>
       <div class="rule-text"><strong>${esc(title)}${help ? this._helpButton(help.key, title) : ""}</strong>${hint ? `<small>${esc(hint)}</small>` : ""}${help ? this._helpBubble(help.key, help.text) : ""}${extra}</div>
@@ -7360,6 +7410,34 @@ class EvPlannerPanel extends HTMLElement {
         control: `${s.low_price_charging ? this._valueHtml("low_price_level", s.low_price_level, { unit: price, step: 0.01, min: -5, max: 20, label: this._t("rule_low_price") }) : ""}${this._switchHtml("low_price_charging", s.low_price_charging, this._t("rule_low_price"))}`,
       }),
     );
+    {
+      // The steps the target moves in: the car's own limit's (as before), or EV Planner's own.
+      const step = String(s.target_step || "auto");
+      const carSteps = Array.isArray(v?.target_steps) && step === "auto" ? Number(v.target_steps[2]) : null;
+      groups.battery.push(
+        this._ruleRow({
+          icon: "charge",
+          title: this._t("rule_target_step"),
+          hint: step === "auto"
+            ? carSteps && carSteps > 1
+              ? this._t("rule_target_step_car", { n: carSteps })
+              : this._t("rule_target_step_auto")
+            : this._t("rule_target_step_own", { n: step }),
+          extra: `<div class="rule-under"><div class="segmented opp" role="radiogroup" aria-label="${esc(this._t("rule_target_step"))}">${["auto", "1", "5", "10"]
+            .map((o) => `<button role="radio" data-act="tstep" data-value="${o}" data-f="tstep-${o}" aria-checked="${o === step}" class="${o === step ? "on" : ""}">${o === "auto" ? esc(this._t("target_step_auto")) : `${o} %`}</button>`)
+            .join("")}</div></div>`,
+        }),
+      );
+    }
+    if (isNum(v?.pause_floor)) {
+      groups.battery.push(
+        this._ruleRow({
+          icon: "boost",
+          title: this._t("rule_pause_floor", { pct: this._pct(v.pause_floor) }),
+          hint: this._t("rule_pause_floor_hint", { pct: this._pct(v.pause_floor) }),
+        }),
+      );
+    }
     groups.battery.push(
       this._ruleRow({
         icon: "boost",
@@ -7776,6 +7854,26 @@ class EvPlannerPanel extends HTMLElement {
           ${this._readyChipsHtml("g")}
         </div>
 
+        <div class="field g-deps">
+          <span>${this._t("g_departure")}</span>
+          <div class="chips">${this._guestDepartures()
+            .map((d) => `<button data-act="g-dep" data-id="${esc(d.id)}" data-f="gd-${esc(d.id)}">${esc(this._depName(d))} ${esc(this._hhmm(d.time))}</button>`)
+            .join("")}</div>
+          <small class="hint">${this._t("g_departure_hint")}</small>
+        </div>
+
+        <div class="field">
+          <span>${this._t("rule_ceiling")}</span>
+          <label class="chip-input kw g-ceil"><input type="number" step="0.01" min="-10" max="100" inputmode="decimal" data-gceil="1" placeholder="${esc(this._t("g_no_ceiling"))}" aria-label="${esc(this._t("rule_ceiling"))}"><span>${esc(this._unit)}/kWh</span></label>
+        </div>
+
+        <div class="field">
+          <span>${this._t("rule_target_step")}</span>
+          <div class="segmented g-step" role="radiogroup" aria-label="${esc(this._t("rule_target_step"))}">${[1, 5, 10]
+            .map((n) => `<button role="radio" data-act="g-step" data-value="${n}" data-f="gstep-${n}">${n} %</button>`)
+            .join("")}</div>
+        </div>
+
         <div class="field">
           <span>${this._t("mode")}</span>
           ${this._planTypeHtml("g")}
@@ -7864,7 +7962,20 @@ class EvPlannerPanel extends HTMLElement {
     if (custom && root.activeElement !== custom) custom.value = preset || !isNum(kw) ? "" : kw;
     custom?.parentElement.classList.toggle("on", !preset);
 
-    this._renderReadyChips("g", inputs.use_completion_time !== false, inputs.charge_completion_time);
+    this._renderReadyChips("g", inputs.use_completion_time !== false && !inputs.departure, inputs.charge_completion_time);
+    root.querySelectorAll('[data-act="g-dep"]').forEach((b) => {
+      const on = b.dataset.id === inputs.departure;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-pressed", on);
+    });
+    const ceil = root.querySelector("[data-gceil]");
+    if (ceil && root.activeElement !== ceil) ceil.value = isNum(inputs.price_ceiling) ? inputs.price_ceiling : "";
+    const gstep = Number(inputs.target_step) || 1;
+    root.querySelectorAll('[data-act="g-step"]').forEach((b) => {
+      const on = Number(b.dataset.value) === gstep;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-checked", on);
+    });
     this._renderSegmented('.plan-type[data-scope="g"]', inputs.continuous_charging_preferred !== false);
     root.querySelector(".split-note")?.toggleAttribute("hidden", inputs.continuous_charging_preferred !== false);
 
@@ -7909,9 +8020,16 @@ class EvPlannerPanel extends HTMLElement {
     return null;
   }
 
+  /* The household's departures a guest can be ready by (not the holiday: it needs a day). */
+  _guestDepartures() {
+    return (this._state?.settings?.departures || []).filter((d) => d.id !== "holiday");
+  }
+
   /* The guest's deadline as a moment: after the plan's end when there is one. */
   _guestDeadline(plan) {
     const inputs = this._gin;
+    const dep = inputs.departure ? this._guestDepartures().find((d) => d.id === inputs.departure) : null;
+    if (dep) return this._depNext(dep)?.toISOString?.() || null;
     if (inputs.use_completion_time === false) return null;
     // The first ready-by time at or after the plan's end (EV Guest), or after now without a plan.
     const from = hasSegments(plan) ? new Date(new Date(plan.segments.at(-1).end).getTime() - 1) : new Date();
@@ -8254,13 +8372,16 @@ class EvPlannerPanel extends HTMLElement {
       : "";
     const scene = `<section class="panel home-flow">${places}<div class="scene-slot" role="img" aria-label="${esc(this._t("home_title"))}"></div>`;
     const now = this._homeNowHtml();
-    const tonight = this._tonightHtml();
-    const today = this._state.home?.history ? `<section class="panel home-today"><div class="panel-head"><h2>${ICONS.history}<span>${esc(this._t("home_today"))}</span></h2></div><div class="today-body">${this._todayBodyHtml()}</div></section>` : "";
-    const chargers = this._chargersHtml();
+    // With more than one place, everything below the picture is the chosen place's: its cars,
+    // its chargers and its supply (the summer house's charger is not under the home).
+    const only = sites.length > 1 ? place.id : null;
+    const tonight = this._tonightHtml(only);
+    const today = place.home && this._state.home?.history ? `<section class="panel home-today"><div class="panel-head"><h2>${ICONS.history}<span>${esc(this._t("home_today"))}</span></h2></div><div class="today-body">${this._todayBodyHtml()}</div></section>` : "";
+    const chargers = this._chargersHtml(only);
     let shared = "";
-    if (supply) shared = this._supplyHtml(supply);
-    // The household's other places, each with its own supply.
-    for (const site of this._state.sites || []) if (site.supply && !site.home) shared += this._supplyHtml(site.supply, site);
+    if (place.home || !only) {
+      if (supply) shared = this._supplyHtml(supply);
+    } else if (place.supply) shared = this._supplyHtml(place.supply, place);
     return `<div class="home-page">${scene}${now}</section>${tonight}${shared}${today}${chargers}</div>`;
   }
 
@@ -8289,8 +8410,8 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   /* Tonight: every car's plan on one line of time, over the prices. */
-  _tonightHtml() {
-    const cars = this._cars.filter((v) => hasSegments(v.plan));
+  _tonightHtml(siteId = null) {
+    const cars = this._cars.filter((v) => hasSegments(v.plan) && (!siteId || (v.site ?? "home") === siteId));
     const head = `<div class="panel-head"><h2>${ICONS.plan}<span>${esc(this._t("home_tonight"))}</span></h2></div>`;
     if (!cars.length) return `<section class="panel tonight">${head}<p class="hint">${esc(this._t("home_tonight_none"))}</p></section>`;
     const t0 = Date.now();
@@ -9005,6 +9126,7 @@ class EvPlannerPanel extends HTMLElement {
   _carSessionHtml(v, e, { name = false } = {}) {
     const parts = [];
     if (name) parts.push(v.name);
+    if (e.charger) parts.push(e.charger);
     if (isNum(e.start_soc) || isNum(e.end_soc)) parts.push(`${this._pct(e.start_soc)} → ${this._pct(e.end_soc)}`);
     const periods = (e.periods || []).length;
     if (periods > 1) parts.push(this._t("periods_n", { n: periods }));
@@ -9017,7 +9139,9 @@ class EvPlannerPanel extends HTMLElement {
         <strong>${this._time(e.start)}–${this._time(e.end)}</strong>
         <span>${esc(soc)}</span>
       </div>
-      <div class="nums"><b>${this._money(e.cost)}</b><span>${this._kwh(e.energy)}</span></div>
+      <div class="nums"><b>${this._money(e.cost)}</b><span>${this._kwh(e.energy)}</span>${
+        isNum(e.cost) && Number(e.energy) > 0.05 ? `<span class="per-kwh">${this._money(e.cost / e.energy)}/kWh</span>` : ""
+      }</div>
       <div class="row-actions">
         <button class="icon" data-act="del" data-vid="${esc(v.id)}" data-id="${esc(e.id)}" aria-label="${this._t("delete")}">${ICONS.trash}</button>
       </div>
@@ -9213,6 +9337,24 @@ class EvPlannerPanel extends HTMLElement {
     if (own) return this._t(own);
     const key = `trip_${d?.id}`;
     return TEXT[this._lang]?.[key] || TEXT.en[key] ? this._t(key) : String(d?.id || "");
+  }
+
+  /* When a departure set now must be ready (as departures.deadline in EV Planner); null for the holiday. */
+  _depNext(d, now = new Date()) {
+    const [h, m] = String(d?.time || "06:00").split(":").map(Number);
+    const at = (base) => new Date(base.getFullYear(), base.getMonth(), base.getDate(), h, m || 0);
+    const today = at(now);
+    const days = (n) => new Date(today.getTime() + n * 86400000);
+    const weekdays = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+    if (d?.day === "today") return today > now ? today : null;
+    if (d?.day === "tomorrow") return at(days(1));
+    if (weekdays.includes(d?.day)) {
+      const ahead = (weekdays.indexOf(d.day) - ((now.getDay() + 6) % 7) + 7) % 7;
+      const first = at(days(ahead));
+      return first > now ? first : at(days(ahead + 7));
+    }
+    if (d?.day === "date") return null;
+    return today > now ? today : at(days(1));
   }
 
   /* When a departure is: "next time 06.00", "tomorrow 17.00", "Monday 06.00", "on the day chosen". */
@@ -9771,6 +9913,9 @@ class EvPlannerPanel extends HTMLElement {
       case "ceilmode":
         this._vchange({ price_ceiling_relative: button.dataset.value === "1" });
         break;
+      case "tstep":
+        this._vchange({ target_step: button.dataset.value });
+        break;
       case "level":
         this._level = LEVELS.includes(button.dataset.level) ? button.dataset.level : "smart";
         this._write(LEVEL_KEY, this._level === "smart" ? null : this._level);
@@ -9829,8 +9974,16 @@ class EvPlannerPanel extends HTMLElement {
         break;
       case "g-ready":
         this._readyClick("g", button, (time) =>
-          time === "none" ? { use_completion_time: false } : { use_completion_time: true, charge_completion_time: time },
+          time === "none"
+            ? { use_completion_time: false, departure: "" }
+            : { use_completion_time: true, charge_completion_time: time, departure: "" },
         );
+        break;
+      case "g-dep":
+        this._gchange({ departure: this._gin.departure === id ? "" : id });
+        break;
+      case "g-step":
+        this._gchange({ target_step: Number(button.dataset.value) });
         break;
       case "g-cont":
         this._gchange({ continuous_charging_preferred: button.dataset.mode === "continuous" });
@@ -9919,6 +10072,8 @@ class EvPlannerPanel extends HTMLElement {
     } else if (el.dataset.gpower) {
       const value = Number(el.value);
       if (value > 0) this._gchange({ charger_power: value });
+    } else if (el.dataset.gceil) {
+      this._gchange({ price_ceiling: el.value === "" ? null : Number(el.value) });
     } else if (el.dataset.ready === "car") {
       if (el.value) this._vchange({ use_ready_by: true, ready_by: el.value });
     } else if (el.dataset.ready === "g") {
@@ -10780,6 +10935,7 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 .mini-plate { font-style: normal; font-size: 12px; font-weight: 700; letter-spacing: .06em; color: #111; background: #fff; border: 1.5px solid #C8102E; border-left: 6px solid #003399; border-radius: 4px; padding: 0 5px; white-space: nowrap; }
 .nums { display: grid; justify-items: end; font-variant-numeric: tabular-nums; }
 .nums span { color: var(--evp-soft); font-size: 13px; }
+.nums .per-kwh { font-size: 12px; font-variant-numeric: tabular-nums; }
 .row-actions { display: flex; }
 
 /* ---------- settings */
@@ -10802,41 +10958,48 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 .sheet header { display: flex; justify-content: space-between; align-items: center; }
 .sheet.stay, .scrim.stay { animation: none; }
 /* ---------- the climate: the cabin from above (as in Tesla's app) */
-.cabin-pop { display: grid; gap: 10px; margin-top: 8px; }
-.cabin-stage { position: relative; border-radius: 22px; overflow: hidden; background: radial-gradient(90% 70% at 50% 40%, #1b1f1e, #0e1110); }
-.cabin { display: block; width: 100%; max-width: 360px; height: auto; margin: 0 auto; max-height: 46vh; }
-.cabin-status { position: absolute; left: 12px; top: 12px; font-size: 12.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.08); color: #c8d0cd; }
-.cabin-pop.on.heat .cabin-status { color: #fdba74; background: rgba(249,115,22,.16); }
-.cabin-pop.on.cool .cabin-status { color: #7dd3fc; background: rgba(14,165,233,.16); }
-.cabin-pop.on.reached .cabin-status { color: #6ee7b7; background: rgba(52,211,158,.16); }
-.cabin .cab-paint { fill: url(#cab-paintg); stroke: #b9c0c6; stroke-width: 1; }
-.cabin .cab-mirrors ellipse { fill: #e9ecef; stroke: #b9c0c6; stroke-width: 1; }
-.cabin .cab-crease { fill: none; stroke: #c9cfd4; stroke-width: 1.2; stroke-linecap: round; }
-.cabin .cab-head { fill: none; stroke: #9fb4c8; stroke-width: 3; stroke-linecap: round; }
-.cabin .cab-tail { fill: none; stroke: #c0392b; stroke-width: 3.5; stroke-linecap: round; }
-.cabin .cab-window { fill: url(#cab-glass); }
-.cabin .cab-sill { fill: none; stroke: #c4cacf; stroke-width: 2; }
-.cabin .cab-floor { fill: #16191b; }
-.cabin .cab-dash { fill: #22262a; }
-.cabin .cab-dash-top { fill: #2c3135; }
-.cabin .cab-vent { fill: #0d0f10; }
-.cabin .cab-seat { fill: #1f2326; stroke: #2c3135; stroke-width: 1; }
-.cabin .cab-cushion { fill: #191c1f; }
-.cabin .cab-console { fill: #24282c; stroke: #30353a; stroke-width: 1; }
-.cabin .cab-wheel { fill: none; stroke: #3a4046; stroke-width: 5; }
-.cabin .p0 { stop-color: #fff3e8; } .cabin .p1 { stop-color: #ffd2ad; } .cabin .p2 { stop-color: #ffb37a; }
-.cabin .r1 { stop-color: #ffb37a; } .cabin .r2 { stop-color: #f97316; } .cabin .w { stop-color: #ef4444; } .cabin .c { stop-color: #f97316; }
-.cool .cabin .p0 { stop-color: #f0fbff; } .cool .cabin .p1 { stop-color: #bfe9ff; } .cool .cabin .p2 { stop-color: #7dd3fc; }
-.cool .cabin .r1 { stop-color: #7dd3fc; } .cool .cabin .r2 { stop-color: #0ea5e9; } .cool .cabin .w { stop-color: #38bdf8; } .cool .cabin .c { stop-color: #0ea5e9; }
+.cabin-pop { display: grid; gap: 10px; margin-top: 8px; --cab-cast: #46506a; --cab-cast-o: .3; }
+:host([dark]) .cabin-pop, .cabin-pop.dark { --cab-cast: #000; --cab-cast-o: .55; }
+/* The car as a clay model, like the houses: white planes, soft shadows, light glass; no background. */
+.cabin-stage { position: relative; }
+.cabin { display: block; width: 100%; max-width: 360px; height: auto; margin: 0 auto; max-height: 46vh; overflow: visible; }
+.cabin-status { position: absolute; left: 4px; top: 4px; font-size: 12.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: color-mix(in srgb, var(--evp-ink) 7%, transparent); color: var(--evp-soft); }
+.cabin-pop.on.heat .cabin-status { color: color-mix(in srgb, #f97316 72%, var(--evp-ink)); background: color-mix(in srgb, #f97316 15%, transparent); }
+.cabin-pop.on.cool .cabin-status { color: color-mix(in srgb, #0ea5e9 72%, var(--evp-ink)); background: color-mix(in srgb, #0ea5e9 15%, transparent); }
+.cabin-pop.on.reached .cabin-status { color: color-mix(in srgb, #10b981 72%, var(--evp-ink)); background: color-mix(in srgb, #10b981 15%, transparent); }
+.cabin .cab-cast { fill: var(--cab-cast); opacity: var(--cab-cast-o); }
+.cabin .cab-paint { stroke: #c3c9d3; stroke-width: .8; }
+.cabin .cab-mirrors ellipse { fill: #f4f5f7; stroke: #c3c9d3; stroke-width: .8; }
+.cabin .cab-crease { fill: none; stroke: #dde1e7; stroke-width: 1.2; stroke-linecap: round; }
+.cabin .cab-head { fill: none; stroke: #c9d1db; stroke-width: 3; stroke-linecap: round; }
+.cabin .cab-tail { fill: none; stroke: #e7a1a1; stroke-width: 3; stroke-linecap: round; }
+.cabin .cab-window { stroke: #c3c9d3; stroke-width: .6; }
+.cabin .cab-floor { fill: #e1e5eb; }
+.cabin .cab-dash { fill: #f4f5f7; }
+.cabin .cab-dash-top { fill: #ffffff; }
+.cabin .cab-vent { fill: #b4bcc8; }
+.cabin .cab-seat { fill: #ffffff; }
+.cabin .cab-seat-side { fill: #d3d8e0; }
+.cabin .cab-cushion { fill: #f4f5f7; }
+.cabin .cab-console { fill: #f4f5f7; stroke: #dde1e7; stroke-width: .8; }
+.cabin .cab-wheel { fill: none; stroke: #c3c9d3; stroke-width: 4.5; }
+.cabin .cab-drop { fill: #46506a; opacity: .22; }
+.cabin .cab-rim { fill: none; stroke: #46506a; stroke-width: 10; opacity: .16; }
+.cabin .cab-sill { fill: none; stroke: #ffffff; stroke-width: 2.4; }
+/* The air: coloured, since there is no dark to glow against. */
+.cabin .p0 { stop-color: #fdba74; } .cabin .p1 { stop-color: #fb923c; } .cabin .p2 { stop-color: #f97316; }
+.cabin .r0 { stop-color: #fb923c; } .cabin .r1 { stop-color: #f97316; } .cabin .r2 { stop-color: #ea580c; } .cabin .w { stop-color: #f97316; } .cabin .c { stop-color: #fb923c; }
+.cool .cabin .p0 { stop-color: #7dd3fc; } .cool .cabin .p1 { stop-color: #38bdf8; } .cool .cabin .p2 { stop-color: #0ea5e9; }
+.cool .cabin .r0 { stop-color: #38bdf8; } .cool .cabin .r1 { stop-color: #0ea5e9; } .cool .cabin .r2 { stop-color: #0284c7; } .cool .cabin .w { stop-color: #38bdf8; } .cool .cabin .c { stop-color: #38bdf8; }
 .cabin .cab-air, .cabin .cab-tint, .cabin .cab-shield { opacity: 0; transition: opacity 1s ease; }
 .cabin-pop.on .cab-air { opacity: 1; }
-.cabin-pop.on.reached .cab-air { opacity: .55; }
-.cabin-pop.on .cab-tint { opacity: .6; }
-.cabin-pop.on.heat .cab-shield { opacity: .9; }
-.cabin-pop.on.heat.reached .cab-shield { opacity: .35; }
+.cabin-pop.on.reached .cab-air { opacity: .5; }
+.cabin-pop.on .cab-tint { opacity: .55; }
+.cabin-pop.on.heat .cab-shield { opacity: .7; }
+.cabin-pop.on.heat.reached .cab-shield { opacity: .3; }
 .cabin .cab-plume { animation: cab-breathe calc(4.2s * var(--k, 1)) ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 0; }
 .cabin .cab-plume.b { animation-delay: -2.1s; }
-@keyframes cab-breathe { 0%, 100% { opacity: .55; transform: scaleY(.94); } 50% { opacity: .9; transform: scaleY(1.04); } }
+@keyframes cab-breathe { 0%, 100% { opacity: .45; transform: scaleY(.94); } 50% { opacity: .75; transform: scaleY(1.04); } }
 .cabin .cab-ribbon { fill: none; stroke-linecap: round; stroke-dasharray: 48 52; animation: cab-stream calc(var(--d, 2.6s) * var(--k, 1)) linear infinite; animation-delay: calc(var(--o, 0s) * var(--k, 1)); }
 @keyframes cab-stream { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
 .cabin .cab-sway { animation: cab-sway calc(5s * var(--k, 1)) ease-in-out infinite alternate; transform-box: view-box; transform-origin: 160px 170px; }
@@ -10847,8 +11010,11 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 .cabin-ctl button.ctl-btn { cursor: pointer; }
 .cabin-ctl .ctl-btn svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .cabin-ctl .ctl-btn.on { color: var(--evp-a); }
-.cabin-ctl .ctl-btn.inside span { font-size: 15px; font-weight: 600; color: var(--evp-ink); font-variant-numeric: tabular-nums; }
-.cabin-ctl .ctl-btn.inside small { font-size: 11px; }
+/* Inside and outside, one above the other. */
+.cabin-temps { display: grid; gap: 6px; justify-items: end; padding-right: 2px; }
+.cabin-temps div { display: grid; justify-items: end; line-height: 1.1; }
+.cabin-temps b { font-size: 15px; font-weight: 600; color: var(--evp-ink); font-variant-numeric: tabular-nums; }
+.cabin-temps small { font-size: 11px; color: var(--evp-soft); }
 .cabin-ctl .ctl-btn:focus-visible, .cabin-temp button:focus-visible { outline: 2px solid var(--evp-accent); outline-offset: 2px; }
 .cabin-temp { display: flex; align-items: center; justify-content: center; gap: 6px; }
 .cabin-temp button { border: 0; background: none; color: var(--evp-soft); width: 46px; height: 46px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; }
