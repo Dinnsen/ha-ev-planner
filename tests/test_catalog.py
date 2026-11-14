@@ -12,6 +12,7 @@ from custom_components.ev_household_planner.catalog import (
     MODELS,
     STYLES,
     describe_device,
+    device_brand,
     get_model,
     match_model,
     model_options,
@@ -63,6 +64,9 @@ def test_match_model() -> None:
     assert _key("Unknown", "Box", ["ocpp"]) == "ocpp_charger"
     assert _key("ABB", "Terra AC W22", ["ocpp"]) == "abb_terra_ac"
     assert _key("Unknown", "Box") is None
+    # A model the catalog does not have, of a brand with several: not shown as the brand's first.
+    assert _key("Easee", "Something New") is None
+    assert _key("Easee", None) is not None
 
 
 async def _device(hass: HomeAssistant, domain: str, manufacturer: str, model: str) -> tuple[MockConfigEntry, str]:
@@ -110,6 +114,9 @@ async def test_suggest_entities_with_a_status_sensor(hass: HomeAssistant) -> Non
 
 async def test_describe_a_missing_device(hass: HomeAssistant) -> None:
     assert describe_device(hass, "nope") == (None, None)
+    assert device_brand(hass, "nope") is None
+    _entry, easee = await _device(hass, "easee", "Easee", "Something New")
+    assert describe_device(hass, easee)[1] is None and device_brand(hass, easee) == "easee"
 
 
 async def test_suggest_a_cars_entities(hass: HomeAssistant) -> None:

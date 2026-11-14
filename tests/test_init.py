@@ -118,11 +118,12 @@ async def test_missing_price_sensor_raises_a_repair(hass: HomeAssistant, now: da
 async def test_a_car_whose_charger_is_gone_and_cars_on_one_battery_sensor_get_repairs(
     hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory
 ) -> None:
-    from .conftest import set_tesla, tesla_data
+    from .conftest import charger_sub, set_tesla, tesla_data
 
     set_prices(hass, now, NIGHT)
     set_tesla(hass)
     entry = entry_with(
+        charger_sub(),
         vehicle_sub(TESLA, "Tesla", tesla_data(charger="a_charger_that_was_deleted")),
         vehicle_sub("twin_id", "Twin", tesla_data(control_entity="switch.twin_charge")),
     )
@@ -137,3 +138,19 @@ async def test_a_car_whose_charger_is_gone_and_cars_on_one_battery_sensor_get_re
     shared = issues.async_get_issue(DOMAIN, f"soc_shared_{entry.entry_id}")
     assert shared is not None and shared.translation_placeholders is not None
     assert shared.translation_placeholders["names"] == "Tesla, Twin"
+
+
+async def test_the_event_log_is_read_from_a_moment_on(hass: HomeAssistant, now: datetime) -> None:
+    from datetime import timedelta
+
+    from custom_components.ev_household_planner.events import EventLog
+
+    log = EventLog(hass, "an_entry")
+    log.add(now - timedelta(hours=3), "plan", vehicle="Tesla")
+    log.add(now - timedelta(hours=1), "command", entity="switch.tesla_charge")
+    log.muted = True
+    log.add(now, "plan", vehicle="Tesla")
+    log.changed(now, "plan", "Tesla", (1,), vehicle="Tesla")
+    log.muted = False
+    assert [item["kind"] for item in log.since()] == ["plan", "command"]
+    assert [item["kind"] for item in log.since(now - timedelta(hours=2))] == ["command"]
