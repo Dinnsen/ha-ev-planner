@@ -99,6 +99,15 @@ const TEXT = {
     connected: "Tilsluttet",
     connected_at: "Tilsluttet ved {charger}",
     tl_forecast: "Prognose",
+    climate_ready: "Klar",
+    climate_heating: "Varmer op",
+    climate_cooling: "Køler ned",
+    climate_on_short: "Til",
+    climate_off_short: "Fra",
+    climate_colder: "Koldere",
+    climate_warmer: "Varmere",
+    climate_inside_label: "Temperaturen i bilen",
+    climate_inside_short: "Inde",
     tl_known: "Kendte priser",
     tl_with_forecast: "Med prognose",
     tl_charging: "Lader her",
@@ -658,6 +667,15 @@ const TEXT = {
     connected: "Plugged in",
     connected_at: "Plugged in at {charger}",
     tl_forecast: "Forecast",
+    climate_ready: "Ready",
+    climate_heating: "Heating",
+    climate_cooling: "Cooling",
+    climate_on_short: "On",
+    climate_off_short: "Off",
+    climate_colder: "Colder",
+    climate_warmer: "Warmer",
+    climate_inside_label: "The temperature in the car",
+    climate_inside_short: "Inside",
     tl_known: "Known prices",
     tl_with_forecast: "With forecast",
     tl_charging: "Charges here",
@@ -6685,7 +6703,12 @@ class EvPlannerPanel extends HTMLElement {
     const key = JSON.stringify([popup.kind, html.length, html]);
     if (root.dataset.key === key && root.firstChild) return;
     if (this._dialDragging) return; // not while a finger is on the dial
+    if (popup.kind === "climate" && this._patchCabin(root, html)) {
+      root.dataset.key = key;
+      return;
+    }
     const hadFocus = root.contains(this.shadowRoot.activeElement) ? this.shadowRoot.activeElement?.dataset?.f : null;
+    const same = root.querySelector(`.sheet.pop-${popup.kind}`);
     root.dataset.key = key;
     root.innerHTML = `<div class="scrim" data-pop="close"></div>
       <div class="sheet pop-${popup.kind}" role="dialog" aria-modal="true" aria-label="${esc(popup.kind === "climate" ? this._t("climate_label") : this._t("next_title"))}">
@@ -6693,6 +6716,7 @@ class EvPlannerPanel extends HTMLElement {
           <button class="icon close" data-pop="close" data-f="pop-close" aria-label="${this._t("close")}">${ICONS.close}</button></header>
         ${html}
       </div>`;
+    if (same) root.querySelectorAll(".sheet, .scrim").forEach((el) => el.classList.add("stay"));
     root.onclick = (ev) => this._onPopupClick(ev, v);
     root.onkeydown = (ev) => ev.key === "Escape" && this._closePopup();
     if (popup.kind === "climate") this._wireDial(root, v);
@@ -6743,7 +6767,8 @@ class EvPlannerPanel extends HTMLElement {
       ${source.kind === "trip" ? `<div class="actions"><button class="btn ghost" data-pop="week">${ICONS.calendar}<span>${this._t("back_to_week")}</span></button></div>` : ""}`;
   }
 
-  /* The climate: a dial for the temperature, a big start/stop, and when it starts by itself. */
+  /* The climate: the car seen from above, the air streaming from the vents as it heats or cools,
+     and under it on/off, the temperature and the cabin's own temperature (as in Tesla's app). */
   _climatePopupHtml(v, s) {
     const c = v.climate;
     const state = c?.entity ? this._hass?.states?.[c.entity] : null;
@@ -6755,34 +6780,121 @@ class EvPlannerPanel extends HTMLElement {
     const temp = clamp(this._popTemp ?? (Number(s.climate_temperature) || 21), min, max);
     const on = c?.on === true;
     const inside = isNum(a.current_temperature) ? Number(a.current_temperature) : null;
-    const fmt = (t) => String(Math.round(t * 10) / 10).replace(".", this._lang === "da" ? "," : ".");
-    const g = dialGeometry(min, max, temp);
-    const cx = 120;
-    const cy = 118;
-    if (!isClimate) {
-      // A switch, button or script starts the car's climate at the car's own temperature.
-      return `<div class="dial plain${on ? " on" : ""}">
-        <div class="plain-state">${ICONS.climate}<b>${esc(this._t(on ? "climate_running" : c?.on === false ? "climate_off" : "climate_label"))}</b><small>${esc(this._t("climate_car_temp"))}</small></div>
-        <div class="dial-steps">
-          <button class="power${on ? " on" : ""}" data-pop="power" data-f="pop-power" aria-pressed="${on}"${this._busy === "climate" ? " disabled" : ""}>${ICONS.climate}<span>${this._t(on ? "climate_stop" : "climate_start")}</span></button>
+    const fmt = (t) => (Math.round(t * 10) / 10).toFixed(1).replace(".", this._lang === "da" ? "," : ".");
+    const cooling = inside !== null ? temp < inside - 0.2 : state?.state === "cool";
+    const left = inside !== null ? Math.abs(temp - inside) : null;
+    const reached = left !== null && left < 0.5;
+    // The air streams fast while far from the temperature, and breathes calmly once there.
+    // In a few steps only: a new speed makes a running animation jump, so it changes seldom.
+    const k = reached ? 2.4 : left === null ? 1 : left > 10 ? 0.6 : left > 4 ? 0.85 : 1.2;
+    const mode = cooling ? "cool" : "heat";
+    const status = !on ? this._t("climate_off") : reached ? this._t("climate_ready") : this._t(cooling ? "climate_cooling" : "climate_heating");
+    return `<div class="cabin-pop${on ? " on" : ""} ${mode}${reached ? " reached" : ""}" data-clim data-min="${min}" data-max="${max}" data-step="${step}" style="--k:${k.toFixed(2)}">
+        <div class="cabin-stage">${this._cabinSvg()}<span class="cabin-status">${esc(status)}</span></div>
+        <div class="cabin-ctl">
+          <button class="ctl-btn power${on ? " on" : ""}" data-pop="power" data-f="pop-power" aria-pressed="${on}"${this._busy === "climate" ? " disabled" : ""}>
+            <svg viewBox="0 0 24 24"><path d="M12 3v8M6.3 6.8a8 8 0 1 0 11.4 0"/></svg><span>${this._t(on ? "climate_on_short" : "climate_off_short")}</span></button>
+          ${
+            isClimate
+              ? `<div class="cabin-temp" role="group" aria-label="${this._t("rule_climate_temp")}">
+              <button data-pop="minus" data-f="pop-minus" aria-label="${this._t("climate_colder")}"><svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></button>
+              <output class="num" aria-live="polite">${fmt(temp)}<small>°</small></output>
+              <button data-pop="plus" data-f="pop-plus" aria-label="${this._t("climate_warmer")}"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button></div>`
+              : `<div class="cabin-temp plain"><small>${esc(this._t("climate_car_temp"))}</small></div>`
+          }
+          <div class="ctl-btn inside" aria-label="${esc(this._t("climate_inside_label"))}">${ICONS.temp || ICONS.climate}<span>${inside !== null ? `${fmt(inside)}°` : "–"}</span><small>${this._t("climate_inside_short")}</small></div>
         </div>
       </div>${this._climateAutoHtml(v, s, fmt)}`;
-    }
-    return `<div class="dial${on ? " on" : ""}" data-min="${min}" data-max="${max}" data-step="${step}">
-        <svg viewBox="0 0 240 220" role="slider" tabindex="0" aria-label="${this._t("rule_climate_temp")}" aria-valuemin="${min}" aria-valuemax="${max}" aria-valuenow="${temp}" data-f="dial">
-          <defs><linearGradient id="clim-g" x1="0" x2="1"><stop offset="0" stop-color="#3B82F6"/><stop offset=".5" stop-color="#F59E0B"/><stop offset="1" stop-color="#EF4444"/></linearGradient></defs>
-          <path class="rail" d="${g.rail}"/>
-          <path class="fill" d="${g.fill}"/>
-          <circle class="knob" cx="${g.knob[0].toFixed(1)}" cy="${g.knob[1].toFixed(1)}" r="13"/>
-          <text class="t" x="${cx}" y="${cy + 6}" text-anchor="middle">${fmt(temp)}°</text>
-          <text class="sub" x="${cx}" y="${cy + 34}" text-anchor="middle">${esc(on ? this._t("climate_running") : inside !== null ? this._t("climate_inside", { t: fmt(inside) }) : this._t("climate_off"))}</text>
-        </svg>
-        <div class="dial-steps">
-          <button class="round" data-pop="minus" data-f="pop-minus" aria-label="−">−</button>
-          <button class="power${on ? " on" : ""}" data-pop="power" data-f="pop-power" aria-pressed="${on}"${this._busy === "climate" ? " disabled" : ""}>${ICONS.climate}<span>${this._t(on ? "climate_stop" : "climate_start")}</span></button>
-          <button class="round" data-pop="plus" data-f="pop-plus" aria-label="+">+</button>
-        </div>
-      </div>${this._climateAutoHtml(v, s, fmt)}`;
+  }
+
+  /* The climate drawn again in place: the cabin and its air keep going (their animations do not start over),
+     only the state, the controls and the rows under them change. */
+  _patchCabin(root, html) {
+    const old = root.querySelector(".cabin-pop");
+    if (!old) return false;
+    const tpl = document.createElement("template");
+    tpl.innerHTML = html;
+    const fresh = tpl.content.querySelector(".cabin-pop");
+    if (!fresh) return false;
+    const focus = root.contains(this.shadowRoot.activeElement) ? this.shadowRoot.activeElement?.dataset?.f : null;
+    old.className = fresh.className;
+    old.setAttribute("style", fresh.getAttribute("style") || "");
+    for (const key of ["min", "max", "step"]) old.dataset[key] = fresh.dataset[key];
+    old.querySelector(".cabin-status").textContent = fresh.querySelector(".cabin-status")?.textContent || "";
+    old.querySelector(".cabin-ctl").innerHTML = fresh.querySelector(".cabin-ctl")?.innerHTML || "";
+    const auto = root.querySelector(".clim-auto");
+    const freshAuto = tpl.content.querySelector(".clim-auto");
+    if (auto && freshAuto) auto.replaceWith(freshAuto);
+    if (focus) root.querySelector(`[data-f="${cssId(focus)}"]`)?.focus({ preventScroll: true });
+    return true;
+  }
+
+  /* The car from above, its roof off as in Tesla's app: hood, windshield, the cabin with its seats,
+     rear window and boot; and the air (a plume from each side vent, rays streaming through it). */
+  _cabinSvg() {
+    const rays = [];
+    const fan = (x0, spread, n, len) => {
+      for (let i = 0; i < n; i += 1) {
+        const t = n === 1 ? 0.5 : i / (n - 1);
+        const x1 = x0 - spread / 2 + spread * t;
+        const bend = (t - 0.5) * 16;
+        rays.push(`M${(x0 + (t - 0.5) * 18).toFixed(1)} 170 C ${(x0 + (t - 0.5) * 24).toFixed(1)} 214, ${(x1 - bend).toFixed(1)} ${(236 + (len - 270) * 0.4).toFixed(1)}, ${x1.toFixed(1)} ${len}`);
+      }
+    };
+    fan(129, 60, 6, 304);
+    fan(191, 60, 6, 304);
+    fan(160, 26, 3, 268);
+    const rayPaths = rays
+      .map((d, i) => `<path class="cab-ray${i % 3 === 2 ? " thin" : ""}" d="${d}" pathLength="100" stroke="url(#cab-ray)" stroke-width="${i % 3 === 2 ? 1.2 : 2}" style="--d:${(1.5 + (i % 4) * 0.22).toFixed(2)}s;--o:${(-(i * 0.29) % 1.6).toFixed(2)}s"/>`)
+      .join("");
+    const body = "M160 18 C 196 18, 228 26, 236 60 C 242 86, 244 120, 244 160 L 244 300 C 244 340, 238 362, 220 372 C 204 380, 184 382, 160 382 C 136 382, 116 380, 100 372 C 82 362, 76 340, 76 300 L 76 160 C 76 120, 78 86, 84 60 C 92 26, 124 18, 160 18 Z";
+    const shield = "M100 112 Q160 96 220 112 L 228 152 Q160 144 92 152 Z";
+    const cabin = "M92 152 Q160 144 228 152 L 230 300 Q160 310 90 300 Z";
+    const rear = "M90 300 Q160 310 230 300 L 222 330 Q160 340 98 330 Z";
+    return `<svg class="cabin" viewBox="0 0 320 400" aria-hidden="true">
+      <defs>
+        <filter id="cab-soft" x="-40%" y="-20%" width="180%" height="140%"><feGaussianBlur stdDeviation="7"/></filter>
+        <filter id="cab-softer" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="14"/></filter>
+        <filter id="cab-glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <filter id="cab-shadow" x="-20%" y="-10%" width="140%" height="120%"><feGaussianBlur stdDeviation="8"/></filter>
+        <linearGradient id="cab-paintg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#cfd5da"/><stop offset=".18" stop-color="#eef1f3"/><stop offset=".5" stop-color="#fbfcfd"/><stop offset=".82" stop-color="#eef1f3"/><stop offset="1" stop-color="#cfd5da"/></linearGradient>
+        <linearGradient id="cab-glass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a4248"/><stop offset=".35" stop-color="#15191c"/><stop offset="1" stop-color="#0b0d0f"/></linearGradient>
+        <linearGradient id="cab-plume" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="p0" stop-opacity=".95"/><stop offset=".45" class="p1" stop-opacity=".45"/><stop offset="1" class="p2" stop-opacity="0"/></linearGradient>
+        <linearGradient id="cab-ray" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset=".6" class="r1" stop-opacity=".8"/><stop offset="1" class="r2" stop-opacity="0"/></linearGradient>
+        <radialGradient id="cab-wind" cx="50%" cy="100%" r="90%"><stop offset="0" class="w" stop-opacity=".8"/><stop offset="1" class="w" stop-opacity="0"/></radialGradient>
+        <radialGradient id="cab-tint" cx="50%" cy="40%" r="60%"><stop offset="0" class="c" stop-opacity=".35"/><stop offset="1" class="c" stop-opacity="0"/></radialGradient>
+        <clipPath id="cab-in"><path d="${cabin}"/></clipPath>
+      </defs>
+      <ellipse cx="160" cy="206" rx="92" ry="186" fill="#000" opacity=".45" filter="url(#cab-shadow)"/>
+      <g class="cab-mirrors"><ellipse cx="66" cy="150" rx="12" ry="7" transform="rotate(-18 66 150)"/><ellipse cx="254" cy="150" rx="12" ry="7" transform="rotate(18 254 150)"/></g>
+      <path class="cab-paint" d="${body}"/>
+      <path class="cab-crease" d="M124 34 Q 132 70 130 106 M196 34 Q 188 70 190 106 M112 340 Q 160 352 208 340"/>
+      <path class="cab-head" d="M90 54 Q 102 30 130 24 M230 54 Q 218 30 190 24"/>
+      <path class="cab-tail" d="M86 346 Q 98 368 128 374 M234 346 Q 222 368 192 374"/>
+      <path class="cab-window" d="${shield}"/>
+      <path class="cab-shield" d="${shield}" fill="url(#cab-wind)"/>
+      <path class="cab-window" d="${rear}"/>
+      <g clip-path="url(#cab-in)">
+        <rect class="cab-floor" x="86" y="140" width="148" height="174"/>
+        <rect class="cab-tint" x="86" y="140" width="148" height="174" fill="url(#cab-tint)"/>
+        <rect class="cab-dash" x="86" y="140" width="148" height="32"/>
+        <rect class="cab-dash-top" x="86" y="140" width="148" height="12"/>
+        <rect class="cab-vent" x="112" y="165" width="34" height="4" rx="2"/><rect class="cab-vent" x="174" y="165" width="34" height="4" rx="2"/><rect class="cab-vent" x="151" y="165" width="18" height="3" rx="1.5"/>
+        <circle class="cab-wheel" cx="129" cy="188" r="12"/>
+        <rect class="cab-console" x="151" y="178" width="18" height="74" rx="6"/>
+        <rect class="cab-seat" x="110" y="200" width="36" height="48" rx="11"/><rect class="cab-cushion" x="114" y="204" width="28" height="18" rx="7"/>
+        <rect class="cab-seat" x="174" y="200" width="36" height="48" rx="11"/><rect class="cab-cushion" x="178" y="204" width="28" height="18" rx="7"/>
+        <rect class="cab-seat" x="106" y="262" width="36" height="40" rx="10"/><rect class="cab-seat" x="142" y="262" width="36" height="40" rx="10"/><rect class="cab-seat" x="178" y="262" width="36" height="40" rx="10"/>
+        <rect class="cab-cushion" x="110" y="266" width="100" height="14" rx="6"/>
+        <g class="cab-air">
+          <path class="cab-plume" d="M114 168 L 144 168 C 152 210, 164 260, 168 306 L 100 306 C 100 260, 108 210, 114 168 Z" fill="url(#cab-plume)" filter="url(#cab-soft)"/>
+          <path class="cab-plume b" d="M176 168 L 206 168 C 212 210, 220 260, 220 306 L 152 306 C 156 260, 168 210, 176 168 Z" fill="url(#cab-plume)" filter="url(#cab-soft)"/>
+          <ellipse cx="160" cy="172" rx="56" ry="9" fill="url(#cab-plume)" filter="url(#cab-softer)" opacity=".8"/>
+          <g filter="url(#cab-glow)">${rayPaths}</g>
+        </g>
+      </g>
+      <path class="cab-sill" d="${cabin}"/>
+    </svg>`;
   }
 
   _climateAutoHtml(v, s, fmt) {
@@ -6866,7 +6978,7 @@ class EvPlannerPanel extends HTMLElement {
     const target = ev.target.closest("[data-pop]");
     if (!target) return;
     const s = this._vs(v);
-    const dial = this.shadowRoot.querySelector(".sheet-root .dial");
+    const dial = this.shadowRoot.querySelector(".sheet-root [data-clim]") || this.shadowRoot.querySelector(".sheet-root .dial");
     const step = Number(dial?.dataset.step) || 0.5;
     const nudge = (d) => {
       const t = clamp((this._popTemp ?? (Number(s.climate_temperature) || 21)) + d, Number(dial?.dataset.min) || 10, Number(dial?.dataset.max) || 32);
@@ -10688,6 +10800,61 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
   padding: 18px 20px calc(22px + var(--evp-safe-bottom)); animation: up .3s cubic-bezier(.2,.8,.2,1); max-height: 90vh; overflow: auto; }
 .sheet header { display: flex; justify-content: space-between; align-items: center; }
 .sheet.stay, .scrim.stay { animation: none; }
+/* ---------- the climate: the cabin from above (as in Tesla's app) */
+.cabin-pop { display: grid; gap: 10px; margin-top: 8px; }
+.cabin-stage { position: relative; border-radius: 22px; overflow: hidden; background: radial-gradient(90% 70% at 50% 40%, #1b1f1e, #0e1110); }
+.cabin { display: block; width: 100%; max-width: 360px; height: auto; margin: 0 auto; max-height: 46vh; }
+.cabin-status { position: absolute; left: 12px; top: 12px; font-size: 12.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.08); color: #c8d0cd; }
+.cabin-pop.on.heat .cabin-status { color: #fdba74; background: rgba(249,115,22,.16); }
+.cabin-pop.on.cool .cabin-status { color: #7dd3fc; background: rgba(14,165,233,.16); }
+.cabin-pop.on.reached .cabin-status { color: #6ee7b7; background: rgba(52,211,158,.16); }
+.cabin .cab-paint { fill: url(#cab-paintg); stroke: #b9c0c6; stroke-width: 1; }
+.cabin .cab-mirrors ellipse { fill: #e9ecef; stroke: #b9c0c6; stroke-width: 1; }
+.cabin .cab-crease { fill: none; stroke: #c9cfd4; stroke-width: 1.2; stroke-linecap: round; }
+.cabin .cab-head { fill: none; stroke: #9fb4c8; stroke-width: 3; stroke-linecap: round; }
+.cabin .cab-tail { fill: none; stroke: #c0392b; stroke-width: 3.5; stroke-linecap: round; }
+.cabin .cab-window { fill: url(#cab-glass); }
+.cabin .cab-sill { fill: none; stroke: #c4cacf; stroke-width: 2; }
+.cabin .cab-floor { fill: #16191b; }
+.cabin .cab-dash { fill: #22262a; }
+.cabin .cab-dash-top { fill: #2c3135; }
+.cabin .cab-vent { fill: #0d0f10; }
+.cabin .cab-seat { fill: #1f2326; stroke: #2c3135; stroke-width: 1; }
+.cabin .cab-cushion { fill: #191c1f; }
+.cabin .cab-console { fill: #24282c; stroke: #30353a; stroke-width: 1; }
+.cabin .cab-wheel { fill: none; stroke: #3a4046; stroke-width: 5; }
+.cabin .p0 { stop-color: #fff3e8; } .cabin .p1 { stop-color: #ffd2ad; } .cabin .p2 { stop-color: #ffb37a; }
+.cabin .r1 { stop-color: #ffb37a; } .cabin .r2 { stop-color: #f97316; } .cabin .w { stop-color: #ef4444; } .cabin .c { stop-color: #f97316; }
+.cool .cabin .p0 { stop-color: #f0fbff; } .cool .cabin .p1 { stop-color: #bfe9ff; } .cool .cabin .p2 { stop-color: #7dd3fc; }
+.cool .cabin .r1 { stop-color: #7dd3fc; } .cool .cabin .r2 { stop-color: #0ea5e9; } .cool .cabin .w { stop-color: #38bdf8; } .cool .cabin .c { stop-color: #0ea5e9; }
+.cabin .cab-air, .cabin .cab-tint, .cabin .cab-shield { opacity: 0; transition: opacity 1s ease; }
+.cabin-pop.on .cab-air { opacity: 1; }
+.cabin-pop.on.reached .cab-air { opacity: .55; }
+.cabin-pop.on .cab-tint { opacity: .6; }
+.cabin-pop.on.heat .cab-shield { opacity: .9; }
+.cabin-pop.on.heat.reached .cab-shield { opacity: .35; }
+.cabin .cab-plume { animation: cab-breathe calc(4.2s * var(--k, 1)) ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 0; }
+.cabin .cab-plume.b { animation-delay: -2.1s; }
+@keyframes cab-breathe { 0%, 100% { opacity: .55; transform: scaleY(.94); } 50% { opacity: .9; transform: scaleY(1.04); } }
+.cabin .cab-ray { fill: none; stroke-linecap: round; stroke-dasharray: 26 74; animation: cab-stream calc(var(--d, 1.6s) * var(--k, 1)) linear infinite; animation-delay: calc(var(--o, 0s) * var(--k, 1)); }
+.cabin .cab-ray.thin { stroke-dasharray: 14 86; }
+@keyframes cab-stream { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+.cabin-ctl { display: grid; grid-template-columns: 64px minmax(0, 1fr) 64px; align-items: center; gap: 4px; }
+.cabin-ctl .ctl-btn { display: grid; justify-items: center; gap: 1px; border: 0; background: none; color: var(--evp-soft); font: 500 12px/1.2 inherit; padding: 6px 0; border-radius: 14px; }
+.cabin-ctl button.ctl-btn { cursor: pointer; }
+.cabin-ctl .ctl-btn svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.cabin-ctl .ctl-btn.on { color: var(--evp-a); }
+.cabin-ctl .ctl-btn.inside span { font-size: 15px; font-weight: 600; color: var(--evp-ink); font-variant-numeric: tabular-nums; }
+.cabin-ctl .ctl-btn.inside small { font-size: 11px; }
+.cabin-ctl .ctl-btn:focus-visible, .cabin-temp button:focus-visible { outline: 2px solid var(--evp-accent); outline-offset: 2px; }
+.cabin-temp { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.cabin-temp button { border: 0; background: none; color: var(--evp-soft); width: 46px; height: 46px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; }
+.cabin-temp button:active { background: color-mix(in srgb, var(--evp-ink) 8%, transparent); }
+.cabin-temp button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.cabin-temp .num { font-size: 44px; font-weight: 300; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; min-width: 3.6ch; text-align: center; }
+.cabin-temp .num small { font-size: 20px; vertical-align: top; margin-left: 1px; }
+.cabin-temp.plain small { color: var(--evp-soft); font-size: 13px; text-align: center; }
+@media (prefers-reduced-motion: reduce) { .cabin .cab-ray, .cabin .cab-plume { animation: none; } }
 @media (min-width: 861px) {
   .sheet { bottom: auto; top: 50%; transform: translate(-50%, -50%); border-radius: 22px; max-height: min(86vh, 86dvh); padding-bottom: 22px; animation: fade .2s; box-shadow: 0 24px 80px rgba(0,0,0,.35); }
 }
