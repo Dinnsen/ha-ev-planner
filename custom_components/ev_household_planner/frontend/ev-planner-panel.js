@@ -4066,8 +4066,33 @@ const ClayScene = (() => {
         const arrow = label.dir && !open ? `<svg class="cs-icon cs-dir" viewBox="0 0 20 20" aria-hidden="true" style="stroke:${color}"><path d="${label.dir === "in" ? "M10 4 L10 16 M5 11 L10 16 L15 11" : "M10 16 L10 4 M5 9 L10 4 L15 9"}"/></svg>` : "";
         html += `<button class="cs-label ${label.on ? "on" : ""} ${label.key === "sun" ? "sun" : ""} ${open ? "open" : ""} ${dragging ? "drag" : ""}" ${this.edit ? "" : 'data-act="scene-label"'} data-key="${label.key}" data-dir="${label.dir || ""}" style="left:${left}%;top:${topPc}%" title="${esc(label.title)}" aria-expanded="${open}" aria-label="${esc(`${label.title}: ${label.value}`)}">${ring}${arrow}<span class="cs-t">${esc(label.title)}</span><span class="cs-v">${esc(open ? label.value : (label.short ?? label.value))}</span></button>`;
       }
-      this.el.querySelector(".cs-leaders").innerHTML = lines;
-      this.el.querySelector(".cs-labels").innerHTML = html;
+      const leaders = this.el.querySelector(".cs-leaders");
+      if (leaders.__html !== lines) {
+        leaders.innerHTML = lines;
+        leaders.__html = lines;
+      }
+      // Only what changed: a label that stays is kept (so it does not pop in again at each update
+      // a dashboard card gets, several a second); a new one pops in, a gone one goes.
+      const box = this.el.querySelector(".cs-labels");
+      if (box.__html === html) return;
+      box.__html = html;
+      const tpl = document.createElement("template");
+      tpl.innerHTML = html;
+      const old = new Map([...box.children].map((el) => [el.dataset.key, el]));
+      const fresh = [...tpl.content.children];
+      for (const el of fresh) {
+        const was = old.get(el.dataset.key);
+        old.delete(el.dataset.key);
+        if (!was) continue;
+        for (const name of was.getAttributeNames()) if (!el.hasAttribute(name)) was.removeAttribute(name);
+        for (const name of el.getAttributeNames()) if (was.getAttribute(name) !== el.getAttribute(name)) was.setAttribute(name, el.getAttribute(name));
+        if (was.innerHTML !== el.innerHTML) was.innerHTML = el.innerHTML;
+        fresh[fresh.indexOf(el)] = was;
+      }
+      for (const el of old.values()) el.remove();
+      fresh.forEach((el, i) => {
+        if (box.children[i] !== el) box.insertBefore(el, box.children[i] || null);
+      });
     }
 
     /* ---------------------------------------------------------------- the editor */

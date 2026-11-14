@@ -2,6 +2,12 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b7] - 2026-11-14
+
+### Fixed
+
+- **The place card's labels** (what the grid, the house and the cars draw) no longer jump: a dashboard gets an update for every entity that changes anywhere in the house, and each one drew the labels anew, so they popped in again several times a second. A label that stays is now kept, and only its text changes.
+
 ## [2.5.0b6] - 2026-11-14
 
 ### Fixed

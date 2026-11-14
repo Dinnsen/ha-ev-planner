@@ -270,3 +270,24 @@ test("the climate cards' clay car finds its colours and shadows, also for a car 
     assert.deepEqual(missing, []);
   });
 });
+
+test("the place card's labels stay put when Home Assistant sends an update (they do not pop in again)", async () => {
+  await withPage({ size: DESKTOP }, async ({ page, state }) => {
+    await page.evaluate(mountAll, [state, [["ev-planner-place-card", {}]], "en"]);
+    await page.waitForFunction(() => document.querySelector("ev-planner-place-card")?.shadowRoot?.querySelector(".cs-label"), null, { timeout: 8000 });
+    const same = await page.evaluate(async () => {
+      const card = document.querySelector("ev-planner-place-card");
+      const labels = () => [...card.shadowRoot.querySelectorAll(".cs-label")];
+      const before = labels();
+      // A dashboard gets a new hass for every entity that changes anywhere in the house.
+      for (let i = 0; i < 3; i += 1) {
+        card.hass = { ...card.hass };
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      const after = labels();
+      return { count: before.length, kept: after.length === before.length && after.every((el, i) => el === before[i]) };
+    });
+    assert.ok(same.count > 0, "the picture has labels");
+    assert.equal(same.kept, true);
+  });
+});
