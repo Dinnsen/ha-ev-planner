@@ -24,13 +24,16 @@ from .const import (
     DOMAIN,
     FORGET_RESUME,
     GUEST_BATTERY,
+    GUEST_CEILING,
     GUEST_CHARGER,
     GUEST_CONTINUOUS,
+    GUEST_DEPARTURE,
     GUEST_LIMIT,
     GUEST_PLATE,
     GUEST_POWER,
     GUEST_READY_BY,
     GUEST_SOC,
+    GUEST_STEP,
     GUEST_USE_READY_BY,
     MODES,
     OCCUPANT_GUEST,
@@ -96,6 +99,7 @@ from .const import (
     SET_SOLAR,
     SET_SPOT,
     SET_TARGET_SOC,
+    SET_TARGET_STEP,
     SET_TOPUP_ENABLED,
     SET_TOPUP_LEVEL,
     SET_USE_EARLIEST_START,
@@ -103,6 +107,7 @@ from .const import (
     SHARE_OPTIONS,
     SOLAR_OPTIONS,
     SPOT_OPTIONS,
+    TARGET_STEPS,
     WEEKDAYS,
 )
 from .departures import DAYS as DEPARTURE_DAYS, PRICES as DEPARTURE_PRICES, departures as household_departures
@@ -137,6 +142,7 @@ VEHICLE_SCHEMA = vol.Schema(
     {
         vol.Optional(SET_MODE): vol.In(MODES),
         vol.Optional(SET_TARGET_SOC): PERCENT,
+        vol.Optional(SET_TARGET_STEP): vol.All(cv.string, vol.In(TARGET_STEPS)),
         vol.Optional(SET_MANUAL_SOC): PERCENT,
         vol.Optional(SET_MIN_SOC): PERCENT,
         vol.Optional(SET_READY_BY): _hhmm,
@@ -210,6 +216,9 @@ GUEST_SCHEMA = vol.Schema(
         vol.Optional(GUEST_USE_READY_BY): cv.boolean,
         vol.Optional(GUEST_CONTINUOUS): cv.boolean,
         vol.Optional(GUEST_CHARGER): vol.Any(None, cv.string),
+        vol.Optional(GUEST_DEPARTURE): vol.Any(None, vol.All(cv.string, vol.Length(max=40))),
+        vol.Optional(GUEST_CEILING): vol.Any(None, vol.All(vol.Coerce(float), vol.Range(min=-10, max=100))),
+        vol.Optional(GUEST_STEP): vol.All(vol.Coerce(int), vol.In([1, 5, 10])),
     }
 )
 SETTINGS_SCHEMA = vol.Schema(
@@ -297,6 +306,14 @@ def _errors(func: _Handler) -> _Handler:
     return wrapper
 
 
+def _target_steps(household: Household, vehicle: Vehicle) -> list[float] | None:
+    """The steps the target moves in: the car's own limit's, or the car's chosen steps (within the car's range)."""
+    steps = household.car_target_steps(vehicle)
+    if (own := vehicle.own_step) is not None:
+        return [steps[0] if steps else 10.0, steps[1] if steps else 100.0, own]
+    return list(steps) if steps else None
+
+
 def _r(value: float | None, digits: int = 2) -> float | None:
     return None if value is None else round(value, digits)
 
@@ -381,7 +398,8 @@ def vehicle_state(household: Household, vehicle: Vehicle) -> dict[str, Any]:
         "target": _r(vehicle.target, 1),
         "target_editable": target_entity is None or target_entity.split(".", 1)[0] in ("number", "input_number"),
         # The steps the car's own limit takes (a Skoda: 50-100 % in tens), for the slider.
-        "target_steps": list(steps) if (steps := household.car_target_steps(vehicle)) else None,
+        "target_steps": _target_steps(household, vehicle),
+        "pause_floor": vehicle.pause_floor,
         # The car's own charge limit, when it has one: it stops there, whatever the plan says.
         "car_limit": _r(vehicle.target_from_car, 1) if target_entity else None,
         "day_target": vehicle.day_target,
@@ -428,6 +446,7 @@ def vehicle_state(household: Household, vehicle: Vehicle) -> dict[str, Any]:
             "entity": vehicle.climate_entity,
             "on": household.climate_running(vehicle),
             "started_at": vehicle.climate_on_at.isoformat() if vehicle.climate_on_at else None,
+            **household.climate_temps(vehicle),
         },
         "settings": dict(vehicle.settings),
         "plan": plan_state(vehicle.plan),

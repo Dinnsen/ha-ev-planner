@@ -127,6 +127,9 @@ class ChargeMeter:
     power_seconds: float = 0.0
     # Every rise of the level with the charging time at that moment, for the speed per band.
     readings: list[tuple[float, float]] = field(default_factory=list)
+    # The car was turned down below its full current while it charged (for the house): its speed and
+    # power then say what it was given, not what it can take, and are not learned from.
+    throttled: bool = False
 
     def tick(self, seconds: float, charging: bool, power_kw: float | None = None) -> None:
         """Count ``seconds`` of time, and the reported power while charging."""
@@ -168,6 +171,7 @@ class ChargeMeter:
         self.first_soc = self.last_soc = None
         self.power_kwh = self.power_seconds = 0.0
         self.readings = []
+        self.throttled = False
 
     @property
     def rise(self) -> float:
@@ -201,6 +205,7 @@ class ChargeMeter:
             "power_kwh": round(self.power_kwh, 4),
             "power_seconds": round(self.power_seconds, 1),
             "readings": [[soc, round(seconds, 1)] for soc, seconds in self.readings],
+            "throttled": self.throttled,
         }
 
     @classmethod
@@ -216,6 +221,7 @@ class ChargeMeter:
             power_kwh=_float(data.get("power_kwh")) or 0.0,
             power_seconds=_float(data.get("power_seconds")) or 0.0,
             readings=_readings(data.get("readings")),
+            throttled=bool(data.get("throttled")),
         )
 
 
@@ -244,8 +250,10 @@ class Learned:
     on_time: int = 0
 
     def add(self, meter: ChargeMeter) -> bool:
-        """Fold in a measurement; True when the speed was part of it."""
+        """Fold in a measurement; True when the speed was part of it. A turned-down charge teaches nothing."""
         learned_speed = False
+        if meter.throttled:
+            return False
         if (speed := meter.speed) is not None:
             self.speed = blend(self.speed, speed)
             self.speed_count += 1

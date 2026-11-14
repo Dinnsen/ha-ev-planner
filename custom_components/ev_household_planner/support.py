@@ -136,16 +136,38 @@ def _state(state: State | None) -> dict[str, Any] | None:
 
 
 def _thin(rows: list[tuple[datetime, str]]) -> list[list[str]]:
-    """The history with one value a minute at most, and no repeats."""
-    by_minute: dict[datetime, tuple[datetime, str]] = {}
+    """The history with one value a minute at most (the last), and no repeats.
+
+    A number that went higher within the minute than where it ended keeps its peak too: a meter's
+    short burst is what the guard acted on, and must be seen in the export.
+    """
+    by_minute: dict[datetime, list[tuple[datetime, str]]] = {}
     for moment, value in rows:
-        by_minute[moment.replace(second=0, microsecond=0)] = (moment, value)
+        by_minute.setdefault(moment.replace(second=0, microsecond=0), []).append((moment, value))
+    picked: list[tuple[datetime, str]] = []
+    for minute in sorted(by_minute):
+        items = by_minute[minute]
+        last = items[-1]
+        numbers = [(float(value), moment, value) for moment, value in items if _is_number(value)]
+        if numbers and _is_number(last[1]):
+            top = max(numbers, key=lambda item: item[0])
+            if top[0] > float(last[1]) and top[1] != last[0]:
+                picked.append((top[1], top[2]))
+        picked.append(last)
     out: list[list[str]] = []
-    for moment, value in sorted(by_minute.values()):
+    for moment, value in picked:
         if out and out[-1][1] == value:
             continue
         out.append([moment.isoformat(timespec="seconds"), value])
     return out[-HISTORY_POINTS:]
+
+
+def _is_number(value: str) -> bool:
+    try:
+        float(value)
+    except (TypeError, ValueError):
+        return False
+    return True
 
 
 async def async_history(

@@ -194,6 +194,12 @@ CONF_ENERGY_ENTITY: Final = "energy_entity"
 
 SET_MODE: Final = "mode"
 SET_TARGET_SOC: Final = "target_soc"
+# The steps the target moves in: "auto" (the car's own charge limit's, as before), or 1, 5 or 10 %.
+# With 1, 5 or 10 EV Planner stops the car at the target itself, and sets the car's limit to the
+# step above it as a safety net (80 % for 75 % on a car that takes tens).
+SET_TARGET_STEP: Final = "target_step"
+TARGET_STEP_AUTO: Final = "auto"
+TARGET_STEPS: Final = [TARGET_STEP_AUTO, "1", "5", "10"]
 SET_MANUAL_SOC: Final = "manual_soc"
 SET_MIN_SOC: Final = "min_soc"
 SET_READY_BY: Final = "ready_by"
@@ -323,6 +329,7 @@ FORGET_RESUME: Final = "forget_resume"
 DEFAULT_VEHICLE_SETTINGS: Final[dict[str, object]] = {
     SET_MODE: MODE_SMART,
     SET_TARGET_SOC: 80.0,
+    SET_TARGET_STEP: TARGET_STEP_AUTO,
     SET_MANUAL_SOC: 50.0,
     SET_MIN_SOC: 0.0,
     SET_READY_BY: "07:00",
@@ -483,12 +490,20 @@ GUEST_READY_BY: Final = "charge_completion_time"
 GUEST_USE_READY_BY: Final = "use_completion_time"
 GUEST_CONTINUOUS: Final = "continuous_charging_preferred"
 GUEST_CHARGER: Final = "charger"
+# The guest's ready-by time as one of the household's departures (its id; empty: the guest's own time).
+GUEST_DEPARTURE: Final = "departure"
+# The most the guest's charge may cost per kWh (None: no ceiling).
+GUEST_CEILING: Final = "price_ceiling"
+# The steps the guest's target moves in (1, 5 or 10 %).
+GUEST_STEP: Final = "target_step"
 
 RELEASE_PLAN_END: Final = "plan_end"
 RELEASE_NEW_GUEST: Final = "new_guest"
 RELEASE_UNPLUGGED: Final = "unplugged"
 RELEASE_CLEARED: Final = "cleared"
 RELEASE_STOPPED: Final = "stopped"
+# A car of the household was plugged in at the guest's charger: the guest has gone.
+RELEASE_HOUSEHOLD: Final = "household_car"
 
 # ----------------------------------------------------------------------
 # Timing

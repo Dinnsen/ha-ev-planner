@@ -536,3 +536,63 @@ async def test_a_guest_unplugged_while_charging_without_a_meter_pays_for_what_wa
     assert entry["energy"] == pytest.approx(planned["energy"] / 2, abs=0.05)
     assert entry["cost"] == pytest.approx(planned["cost"] / 2, abs=0.05)
     assert entry["end"][11:16] == "02:45"
+
+
+async def test_a_car_of_the_household_plugged_in_takes_the_charger_from_a_guest(
+    hass: HomeAssistant, guest_household: MockConfigEntry, freezer: FrozenDateTimeFactory
+) -> None:
+    """A guest's plan left over (the guest drove off at a charger that cannot tell) does not block the household."""
+    household = guest_household.runtime_data
+    hass.states.async_set(CHARGER_CAR, "on")
+    await hass.async_block_till_done()
+    await _press(hass, "make_plan")
+    guest = household.guest
+    assert guest.session_active()
+    # The guest's car leaves unseen; the Tesla is plugged in at the carport later.
+    freezer.tick(timedelta(minutes=5))
+    set_tesla(hass, cable=True)
+    await hass.async_block_till_done()
+    await household.async_recalculate(force=True)
+    assert not guest.session_active()
+    assert guest.release_info()["reason"] == "household_car"
+    assert any(e["kind"] == "guest_released" for e in household.events.items)
+
+
+async def test_forgetting_a_guest_who_drove_off_happens_once(
+    hass: HomeAssistant, guest_household: MockConfigEntry, freezer: FrozenDateTimeFactory
+) -> None:
+    """After the guest is forgotten, a new plate is not wiped again a minute later."""
+    household = guest_household.runtime_data
+    guest = household.guest
+    guest._release = {"at": dt_util.now().isoformat(), "reason": "unplugged", "seen": dt_util.now().isoformat()}
+    hass.states.async_set(CHARGER_CAR, "off")
+    await hass.async_block_till_done()
+    now = dt_util.now() + timedelta(hours=1)
+    assert guest.finished_long_ago(now)
+    await guest.async_new_guest()
+    assert not guest.finished_long_ago(now)
+    guest.inputs["license_plate"] = "AB12345"
+    assert not guest.finished_long_ago(now + timedelta(minutes=1))
+
+
+async def test_a_guest_can_be_ready_by_a_departure_of_the_household(
+    hass: HomeAssistant, guest_household: MockConfigEntry, now: datetime
+) -> None:
+    household = guest_household.runtime_data
+    guest = household.guest
+    plan, _slots = guest.make_plan({**guest.inputs, "soc": 60.0, "charge_limit": 70.0, "departure": "morning"})
+    deadline = departures_deadline(household, "morning")
+    assert plan.segments and plan.segments[-1]["end"] <= deadline
+    # A ceiling no hour is under: the cheapest hours all the same.
+    capped, _slots = guest.make_plan({**guest.inputs, "soc": 60.0, "charge_limit": 70.0, "price_ceiling": -5.0})
+    assert capped.segments
+
+
+def departures_deadline(household: Any, ident: str) -> datetime:
+    from custom_components.ev_household_planner import departures
+
+    item = departures.find(household.settings.get("departures"), ident)
+    assert item is not None
+    deadline = departures.deadline(item, dt_util.now())
+    assert deadline is not None
+    return deadline

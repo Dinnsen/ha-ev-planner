@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any
 from homeassistant.core import CALLBACK_TYPE, Event, EventStateChangedData, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.event import async_call_later, async_track_state_change_event
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -74,6 +74,17 @@ GUARD_HOLD = timedelta(minutes=2)
 METER_STALE = timedelta(minutes=5)
 # A cut the guard has sent counts as done for this long, while the charger and the meter catch up.
 GUARD_SETTLE = timedelta(seconds=60)
+# A small overload (up to this share above the limit) must last this long before the guard cuts:
+# an oven's element or a kettle that peaks for a few seconds is not worth turning a car down for.
+# A fuse carries a little more than its rating for many minutes; a large overload is cut at once.
+GUARD_CONFIRM = timedelta(seconds=30)
+GUARD_SMALL = 0.2
+# After the guard turned a car down, it goes back up as soon as the meter has shown room for this long
+# (and not only after the place's usual window): the cut was for a peak that is over.
+GUARD_RESTORE = timedelta(minutes=3)
+# Without a car charging, the charger is set to what the place has room for now (at most its full
+# current), so a car that is plugged in later starts at what it may take; not more often than this.
+IDLE_EVERY = timedelta(minutes=5)
 # A car the guard had to stop waits at least this long, then until the meter shows room for it.
 GUARD_PAUSE = timedelta(minutes=5)
 # The plan raises a car the guard watches only into what has been free on the meter, less this:
@@ -122,6 +133,13 @@ class SupplyControl:
         self._guard_again = False
         # The heat pump was held back when Home Assistant stopped: it is let go at the start.
         self._release_at_start = False
+        # When the meter first showed a small overload that is still there (the guard waits GUARD_CONFIRM).
+        self._over_since: datetime | None = None
+        self._confirm_unsub: CALLBACK_TYPE | None = None
+        # What each car had before the guard turned it down, to go back to when the peak is over.
+        self._before_cut: dict[str, float] = {}
+        # The current each idle charger was last set to (entity: (amps, when)).
+        self._idle_sent: dict[str, tuple[float, datetime]] = {}
 
     @property
     def hass(self) -> HomeAssistant:
@@ -201,13 +219,53 @@ class SupplyControl:
     # ------------------------------------------------------------------
     # The house
 
+    def car_kw(self, vehicle: Vehicle) -> float | None:
+        """What the car draws now (kW): its charger's power sensor when the car is the one at it, else the car's.
+
+        A charger's sensor reports often (a Shelly every few seconds); a car's own reading comes from its
+        cloud and can be minutes old, which is too old for the guard.
+        """
+        charger = self.household.chargers.get(vehicle.charger_id or "")
+        if (
+            charger is not None
+            and charger.power_entity
+            and self.household.pairing.occupant(charger) == vehicle.vehicle_id
+        ):
+            reading = self.household.charger_power(charger)
+            if reading is not None:
+                return reading
+        return self.household.power_reading(vehicle)
+
+    def full_amps(self, vehicle: Vehicle, entity: str | None = None) -> float:
+        """The most the car takes at its charger (A per phase): its setup and the charger's, within the setting's range.
+
+        Not what it has been measured at: a car that was turned down for the house would otherwise be
+        planned at that from then on, and never be given its full current again.
+        """
+        charger = self.household.chargers.get(vehicle.charger_id or "")
+        power = vehicle.configured_power if charger is None else min(vehicle.configured_power, charger.power)
+        amps = min(MAX_AMPS, amps_for(power, self.phases))
+        entity = entity or self.current_entity(vehicle)
+        if entity:
+            low, high = self.bounds(entity)
+            amps = max(low, min(high, amps))
+        return amps
+
+    def throttled(self, vehicle: Vehicle) -> bool:
+        """The car charges at less than its full current, because EV Planner turned it down."""
+        if not self.active or (entity := self.current_entity(vehicle)) is None:
+            return False
+        last = self._sent.get(vehicle.vehicle_id)
+        value = last[0] if last is not None else to_float(self.household.state_of(entity))
+        return value is not None and value < self.full_amps(vehicle, entity) - 1
+
     def cars_amps(self) -> float:
         """What the cars charging now draw per phase, from their power readings or the plan."""
         total = 0.0
         for vehicle in self.cars():
             if not self.household.is_charging(vehicle):
                 continue
-            reading = self.household.power_reading(vehicle)
+            reading = self.car_kw(vehicle)
             if reading is None:
                 reading = (
                     kw(self.plan.amps_at(vehicle.vehicle_id, self._now()) or 0.0, self.phases) if self.plan else 0.0
@@ -252,11 +310,19 @@ class SupplyControl:
         cutoff = now - self.headroom_window
         return max([house, *(amps for moment, amps in self._house_peaks.items() if moment >= cutoff)])
 
+    def house_peak_within(self, now: datetime, window: timedelta) -> float | None:
+        """The most the house has drawn in the last ``window`` (a shorter look back than the raises')."""
+        house = self.note_house(now)
+        if house is None:
+            return None
+        cutoff = now - window
+        return max([house, *(amps for moment, amps in self._house_peaks.items() if moment >= cutoff)])
+
     def _others_amps(self, vehicle: Vehicle, sent: float) -> float:
         """What the other cars draw now: all the cars, less this one."""
         own = 0.0
         if self.household.is_charging(vehicle):
-            reading = self.household.power_reading(vehicle)
+            reading = self.car_kw(vehicle)
             own = amps_for(reading, self.phases) if reading is not None else sent
         return max(0.0, self.cars_amps() - own)
 
@@ -289,10 +355,23 @@ class SupplyControl:
                 self._temps.append(temperature)
         return saved
 
-    def house_at(self, slot: PriceSlot, cheap: set[datetime]) -> float:
+    def house_at(self, slot: PriceSlot, cheap: set[datetime], fallback: float | None = None) -> float:
         return self.forecast.predict(
-            slot.start.hour, slot.start in cheap, self.reserve, self.temperature_at(slot.start)
+            slot.start.hour,
+            slot.start in cheap,
+            self.reserve if fallback is None else fallback,
+            self.temperature_at(slot.start),
         )
+
+    def house_fallback(self, now: datetime) -> float:
+        """What the house is planned with in an hour the forecast does not know yet.
+
+        The reserve, the first days. With the guard and a meter, what the house has drawn of late
+        instead, when that is less: the guard turns the cars down if the house takes more after all.
+        """
+        if self.guard and (peak := self.house_peak(now)) is not None:
+            return min(self.reserve, max(1.0, peak))
+        return self.reserve
 
     # ------------------------------------------------------------------
     # The weather
@@ -395,7 +474,11 @@ class SupplyControl:
             vehicle.vehicle_id,
             must_kwh=must,
             want_kwh=max(must, want),
-            max_amps=min(MAX_AMPS, amps_for(power, self.phases)),
+            # A car whose current is set gets its full current (not what it was last measured at, which
+            # may be what the guard turned it down to); one that is only switched takes what it takes.
+            max_amps=self.full_amps(vehicle)
+            if self.current_entity(vehicle)
+            else min(MAX_AMPS, amps_for(power, self.phases)),
             deadline=deadline,
             priority=0 if vehicle.settings.get(SET_PRIORITY) == PRIORITY_FIRST else 1,
             phases=self.phases,
@@ -421,8 +504,9 @@ class SupplyControl:
         cheap = cheap_hours(slots)
         # With the guard, the cars never get its margin: the plan leaves it out, so it is long enough.
         limit = self.limit - (HEADROOM_MARGIN if self.guard else 0.0)
+        fallback = self.house_fallback(now)
         self.plan = plan_supply(
-            slots, cars, now, limit=limit, house=lambda slot: self.house_at(slot, cheap), share=self.share
+            slots, cars, now, limit=limit, house=lambda slot: self.house_at(slot, cheap, fallback), share=self.share
         )
         for car in cars:
             vehicle = self.household.vehicles[car.vehicle_id]
@@ -440,13 +524,21 @@ class SupplyControl:
                 * (price_at(slots, start) or 0.0)
                 for start, end, amps in shares
             )
+            # Short only when what is missing is worth saying: a percent of the battery, at least half a kWh
+            # (not the rounding between the plan's slots and the car's own estimate).
+            missing = self.plan.short_kwh.get(car.vehicle_id, 0.0)
+            short = missing > max(0.5, vehicle.capacity / 100)
+            end_soc = vehicle.plan.end_soc
+            if short:
+                end_soc = min(end_soc, vehicle.target - missing / max(1.0, vehicle.capacity) * 100)
             vehicle.plan = replace(
                 vehicle.plan,
                 segments=self.plan.segments(car.vehicle_id),
                 energy=round(energy, 3),
                 cost=round(cost, 2),
                 minutes=round(sum(elapsed(end, max(start, now)).total_seconds() for start, end, _amps in shares) / 60),
-                short=self.plan.short_kwh.get(car.vehicle_id, 0.0) > 0.1,
+                short=short,
+                end_soc=end_soc,
             )
 
     # ------------------------------------------------------------------
@@ -631,6 +723,8 @@ class SupplyControl:
         if self.plan is None:
             return
         for vehicle in self.cars():
+            if not self.household.is_charging(vehicle):
+                self._before_cut.pop(vehicle.vehicle_id, None)
             entity = self.current_entity(vehicle)
             amps = self.plan.amps_at(vehicle.vehicle_id, now)
             if entity is None or amps is None or amps <= 0:
@@ -646,26 +740,91 @@ class SupplyControl:
             held = self._held.get(vehicle.vehicle_id)
             if held is not None and now < held and (last is None or value > last[0]):
                 continue  # the guard lowered it a moment ago
+            restoring = False
             if self.guard and last is not None and value > last[0]:
-                # Up only into what has been free on the meter all the last ten minutes.
-                room = self.room_for_cars(now)
+                # Up only into what has been free on the meter all the last ten minutes; back to what the
+                # guard took away as soon as the peak has been over for a few minutes.
+                restoring = vehicle.vehicle_id in self._before_cut
+                peak = self.house_peak_within(now, GUARD_RESTORE) if restoring else self.house_peak(now)
+                held_amps = self._held_amps if self._held_until is not None else 0.0
+                room = None if peak is None else self.limit - peak - held_amps - HEADROOM_MARGIN
                 allowed = 0.0 if room is None else room - self._others_amps(vehicle, last[0])
                 value = min(value, float(int(max(last[0], allowed))))
                 if value < last[0] + 1:
                     continue
             renew = easee and last is not None and elapsed(now, last[1]) >= EASEE_RENEW
+            # A charger that may only be raised seldom (a Zaptec) still gets back what the guard took.
+            every = GUARD_HOLD if restoring else self._raise_every(entity)
             if (
                 last is not None
                 and not renew
-                and (
-                    abs(last[0] - value) < 1 or (value > last[0] and elapsed(now, last[1]) < self._raise_every(entity))
-                )
+                and (abs(last[0] - value) < 1 or (value > last[0] and elapsed(now, last[1]) < every))
             ):
                 continue
             if not easee and not renew and to_float(self.hass.states.get(entity).state) == value:  # type: ignore[union-attr]
                 self._sent[vehicle.vehicle_id] = (value, now)
                 continue
-            await self.async_set_current(vehicle, entity, value, now)
+            if (
+                await self.async_set_current(vehicle, entity, value, now)
+                and restoring
+                and value >= self._before_cut.get(vehicle.vehicle_id, 0.0) - 0.5
+            ):
+                self._before_cut.pop(vehicle.vehicle_id, None)
+
+    async def async_idle(self, now: datetime) -> None:
+        """Chargers with no car of the household charging at them: set to what the place has room for.
+
+        At most the charger's full current, so a car plugged in later starts at what it may take: the
+        full current when the house is quiet, less while the oven is on. A charger the guest charges at
+        (or something else draws from) is left as it is.
+        """
+        if not self.active:
+            return
+        busy = {
+            vehicle.charger_id
+            for vehicle in self.cars()
+            if vehicle.charger_id and (self.household.is_charging(vehicle) or (self.plan_amps(vehicle, now) or 0) > 0)
+        }
+        for charger in self.household.chargers.values():
+            entity = charger.config.get(CONF_CURRENT_ENTITY)
+            if not entity or charger.charger_id in busy or self.household.pairing.site_of(charger) is not self.site:
+                continue
+            if self._easee_device(str(entity)) is not None or self.hass.states.get(str(entity)) is None:
+                continue  # an Easee limit runs out by itself
+            if self.household.pairing.occupant(charger) == "guest":
+                continue
+            if (power := self.household.charger_power(charger)) is not None and power > 0.5:
+                continue
+            entity = str(entity)
+            low, high = self.bounds(entity)
+            value = max(low, min(high, float(round(amps_for(charger.power, self.phases)))))
+            if self.guard:
+                room = self.room_for_cars(now)
+                if room is not None:
+                    value = max(low, min(value, float(int(room - self.cars_amps()))))
+            shown = to_float(self.household.state_of(entity))
+            if shown is not None and abs(shown - value) < 1:
+                continue
+            last = self._idle_sent.get(entity)
+            if last is not None and elapsed(now, last[1]) < max(IDLE_EVERY, self._raise_every(entity)):
+                continue
+            try:
+                async with asyncio.timeout(COMMAND_TIMEOUT):
+                    await self.hass.services.async_call(
+                        entity.split(".", 1)[0], "set_value", {"entity_id": entity, "value": value}, blocking=True
+                    )
+            except (TimeoutError, HomeAssistantError) as err:
+                _LOGGER.debug("Could not set %s to %s A while idle: %s", entity, value, err)
+                continue
+            self._idle_sent[entity] = (value, now)
+            self.household.events.add(
+                now,
+                "current_idle",
+                site=self.site.site_id if self.site else None,
+                entity=entity,
+                amps=value,
+                before=shown,
+            )
 
     # ------------------------------------------------------------------
     # The guard: the house first, now
@@ -685,6 +844,9 @@ class SupplyControl:
         if self._unsub is not None:
             self._unsub()
             self._unsub = None
+        if self._confirm_unsub is not None:
+            self._confirm_unsub()
+            self._confirm_unsub = None
         if self._held_until is not None and self.heat_pump_block:
             # Never leave the heat pump held back.
             self.hass.async_create_task(self.household._async_switch(self.heat_pump_block, False))
@@ -706,6 +868,18 @@ class SupplyControl:
             return
         self._guard_running = True
         self.household.config_entry.async_create_task(self.hass, self._async_guard_runs(), "ev planner guard")
+
+    def _confirm_later(self) -> None:
+        """Look at the meter again when a small overload has had its time to pass."""
+        if self._confirm_unsub is not None:
+            self._confirm_unsub()
+
+        @callback
+        def _again(_now: datetime) -> None:
+            self._confirm_unsub = None
+            self._handle_meter(None)
+
+        self._confirm_unsub = async_call_later(self.hass, GUARD_CONFIRM.total_seconds() + 1, _again)
 
     async def _async_guard_runs(self) -> None:
         try:
@@ -762,7 +936,16 @@ class SupplyControl:
         self._cuts = [(at, amps) for at, amps in self._cuts if elapsed(now, at) < GUARD_SETTLE]
         over = reading - self.limit - sum(amps for _at, amps in self._cuts) if reading is not None else None
         if over is not None and over <= 0:
+            self._over_since = None
             return
+        if reading is not None and reading <= self.limit * (1 + GUARD_SMALL):
+            # A small overload: cut only when it lasts (the meter is looked at again when the time is up).
+            if self._over_since is None:
+                self._over_since = now
+                self._confirm_later()
+            if elapsed(now, self._over_since) < GUARD_CONFIRM:
+                return
+        self._over_since = None
         self.household.events.add(
             now,
             "guard",
@@ -783,6 +966,7 @@ class SupplyControl:
                 continue
             if await self.async_set_current(vehicle, entity, target, now):
                 self._held[vehicle.vehicle_id] = now + GUARD_HOLD
+                self._before_cut.setdefault(vehicle.vehicle_id, current)
                 self._cuts.append((now, current - target))
                 self.guard_events += 1
                 if over is not None:
@@ -834,7 +1018,7 @@ class SupplyControl:
             "house_now": None if (house := self.house_now()) is None else round(house, 1),
             "house_expected": None if expected is None else round(expected, 1),
             "cars": {vid: plan.amps_at(vid, now) for vid in plan.amps} if plan else {},
-            "short": {vid: kwh for vid, kwh in plan.short_kwh.items() if kwh > 0.1} if plan else {},
+            "short": {vid: kwh for vid, kwh in plan.short_kwh.items() if kwh > 0.5} if plan else {},
             "cars_now": self.cars_now(),
             "guard": self.guard,
             "timeline": self.timeline(now),

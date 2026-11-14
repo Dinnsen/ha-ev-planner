@@ -8,7 +8,7 @@ when the guest has gone. Ported from EV Guest 0.10.2.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from datetime import datetime, time, timedelta
 import logging
 from typing import TYPE_CHECKING, Any, NoReturn
@@ -20,6 +20,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_call_later, async_track_point_in_time, async_track_time_interval
 from homeassistant.util import dt as dt_util
 
+from . import departures
 from .api import (
     PlateAuthError,
     PlateLookupFailed,
@@ -41,11 +42,13 @@ from .const import (
     ERROR_MOTORAPI_KEY_MISSING,
     ERROR_VEHICLE_NOT_FOUND,
     GUEST_BATTERY,
+    GUEST_CEILING,
     GUEST_CHARGER,
     GUEST_CHARGING,
     GUEST_CLEAR_AFTER,
     GUEST_COMPLETED,
     GUEST_CONTINUOUS,
+    GUEST_DEPARTURE,
     GUEST_LIMIT,
     GUEST_PAUSE_UNPLUG_CHECK,
     GUEST_PLANNED,
@@ -54,6 +57,7 @@ from .const import (
     GUEST_READY,
     GUEST_READY_BY,
     GUEST_SOC,
+    GUEST_STEP,
     GUEST_STOPPED,
     GUEST_USE_READY_BY,
     HISTORY_LIMIT,
@@ -62,6 +66,7 @@ from .const import (
     POST_PLAN_HOLD,
     PROGRESS_INTERVAL,
     RELEASE_CLEARED,
+    RELEASE_HOUSEHOLD,
     RELEASE_NEW_GUEST,
     RELEASE_PLAN_END,
     RELEASE_STOPPED,
@@ -82,9 +87,11 @@ from .planner import (
 )
 from .progress import Progress, plan_progress
 from .rules import cut_slots, parse_hhmm
+from .vehicle import to_float
 
 if TYPE_CHECKING:
     from .household import Charger, Household
+    from .vehicle import Vehicle
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -120,6 +127,8 @@ PLAN_INPUT_KEYS = (
     GUEST_READY_BY,
     GUEST_USE_READY_BY,
     GUEST_CONTINUOUS,
+    GUEST_DEPARTURE,
+    GUEST_CEILING,
 )
 
 
@@ -163,6 +172,9 @@ class GuestSession:
             GUEST_USE_READY_BY: True,
             GUEST_CONTINUOUS: True,
             GUEST_CHARGER: None,
+            GUEST_DEPARTURE: "",
+            GUEST_CEILING: None,
+            GUEST_STEP: 1,
         }
         self.results: dict[str, Any] = {
             **dict.fromkeys(PLAN_RESULTS),
@@ -183,6 +195,8 @@ class GuestSession:
         self._auto_recalculate = False
         self._recorded = True
         self._release: dict[str, str] | None = None
+        # When the guest's plan was made: a car of the household plugged in after that has taken the charger.
+        self._session_start: datetime | None = None
         self._car_present = False
         # After "Stop": the charger stays paused for the guest until then
         # (or until the guest car is unplugged, when the charger can tell).
@@ -232,6 +246,7 @@ class GuestSession:
             "recorded": self._recorded,
             "meter_last": self._meter_last,
             "release": self._release,
+            "session_start": self._session_start.isoformat() if self._session_start else None,
             "car_present": self._car_present,
             "hold_until": self._hold_until.isoformat() if self._hold_until else None,
             "carried": self._carried,
@@ -256,6 +271,8 @@ class GuestSession:
         release = stored.get("release")
         self._release = release if isinstance(release, dict) else None
         self._car_present = bool(stored.get("car_present", False))
+        start = stored.get("session_start")
+        self._session_start = dt_util.parse_datetime(start) if isinstance(start, str) else None
         hold = stored.get("hold_until")
         self._hold_until = dt_util.parse_datetime(hold) if isinstance(hold, str) else None
         meter = stored.get("meter_last")
@@ -296,6 +313,8 @@ class GuestSession:
             value = (moment or time(7)).strftime("%H:%M")
         if key == GUEST_PLATE:
             value = str(value or "").strip().upper()
+        if key == GUEST_STEP:
+            value = int(value) if value in (1, 5, 10, "1", "5", "10") else 1
         self.inputs[key] = value
         self._changed()
 
@@ -440,15 +459,39 @@ class GuestSession:
         now = now or dt_util.now()
         slots = self.household.price_slots(now)
         completion = None
-        if bool(inputs.get(GUEST_USE_READY_BY, True)):
+        departure = self.departure(inputs)
+        if departure is not None:
+            completion = departures.deadline(departure, now)
+        elif bool(inputs.get(GUEST_USE_READY_BY, True)):
             completion = next_completion(now, parse_hhmm(inputs.get(GUEST_READY_BY)) or time(7))
         blocked = self.household.blocked_for_guest(self.charger_id)
         if blocked:
             slots = cut_slots(slots, blocked)
-        plan = make_plan(
-            slots, need, power, now, completion, PLANNING_HORIZON, bool(inputs.get(GUEST_CONTINUOUS, True))
-        )
+        continuous = bool(inputs.get(GUEST_CONTINUOUS, True))
+        ceilings = [
+            value
+            for value in (
+                to_float(inputs.get(GUEST_CEILING)),
+                departures.ceiling(departure, slots, completion) if departure is not None else None,
+            )
+            if value is not None
+        ]
+        if ceilings:
+            # Only the hours at or under the ceiling; when they are too few, the cheapest hours after all.
+            cheap = [slot for slot in slots if slot.price <= min(ceilings) + 1e-9]
+            try:
+                return make_plan(cheap, need, power, now, completion, PLANNING_HORIZON, continuous), slots
+            except PlanError:
+                pass
+        plan = make_plan(slots, need, power, now, completion, PLANNING_HORIZON, continuous)
         return plan, slots
+
+    def departure(self, inputs: Mapping[str, Any] | None = None) -> dict[str, Any] | None:
+        """The household's departure the guest's plan is ready by (None: the guest's own time)."""
+        ident = str((inputs or self.inputs).get(GUEST_DEPARTURE) or "")
+        if not ident or ident == departures.HOLIDAY:
+            return None
+        return departures.find(self.household.settings.get("departures"), ident)
 
     async def async_calculate(self, manual: bool = True) -> None:
         """Make the cheapest plan; the plan is locked once it has started (EV Guest)."""
@@ -599,6 +642,7 @@ class GuestSession:
     def _start_session(self) -> None:
         self._recorded = False
         self._release = None
+        self._session_start = dt_util.now()
         self._hold_until = None
         self._carried = []
         self._unplugged_at = None
@@ -634,6 +678,9 @@ class GuestSession:
         now = dt_util.now()
         self._maybe_record(now, ended=True)
         self._clear_plan(now, RELEASE_NEW_GUEST)
+        if self._release is not None and self._release.get("reason") == RELEASE_UNPLUGGED:
+            # The guest who drove off is forgotten now: not again every minute (that wiped a new plate).
+            self._release = {"at": now.isoformat(), "reason": RELEASE_NEW_GUEST}
         self.error = self.error_detail = None
         self._auto_recalculate = False
         self.inputs[GUEST_PLATE] = ""
@@ -753,6 +800,34 @@ class GuestSession:
             reason = RELEASE_STOPPED if self._hold_until is not None else RELEASE_PLAN_END
             self._release = {"at": now.isoformat(), "reason": reason}
             self.household.async_save()
+
+    def yield_to_household(self, now: datetime, vehicles: Iterable[Vehicle]) -> str | None:
+        """A car of the household plugged in at the guest's charger after the guest's plan was made: the guest has gone.
+
+        One cable, one car: the guest's plan no longer holds the charger (a plan left over from a guest who
+        drove off at a charger that cannot tell, kept a car of the household waiting). The name of the car,
+        when the guest let go.
+        """
+        charger_id = self.charger_id
+        if charger_id is None or not self.session_active(now):
+            return None
+        for vehicle in vehicles:
+            since = vehicle.connected_since
+            if (
+                vehicle.charger_id != charger_id
+                or vehicle.connected_car is not True  # its own sensor, not the charger's say-so
+                or vehicle.at_home is False
+                or since is None
+                or (self._session_start is not None and since <= self._session_start)
+            ):
+                continue
+            self._release = {"at": now.isoformat(), "reason": RELEASE_HOUSEHOLD, "car": vehicle.name}
+            self._auto_recalculate = False
+            self._maybe_record(now, released=True)
+            self._stop_tick()
+            self._changed()
+            return vehicle.name
+        return None
 
     @property
     def car_connected(self) -> bool | None:

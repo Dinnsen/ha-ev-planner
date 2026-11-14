@@ -132,6 +132,7 @@ from .const import (
     SET_REMINDER_TIME,
     SET_SCHEDULE,
     SET_TARGET_SOC,
+    SET_TARGET_STEP,
     SET_TRIP,
     SITE_HOME,
     STORAGE_KEY,
@@ -139,6 +140,8 @@ from .const import (
     SUBENTRY_CHARGER,
     SUBENTRY_SITE,
     SUBENTRY_VEHICLE,
+    TARGET_STEP_AUTO,
+    TARGET_STEPS,
     UNPLUG_CONFIRM,
     VERIFY_BACKOFF,
     VERIFY_DELAY,
@@ -353,6 +356,34 @@ def device_climate(hass: HomeAssistant, vehicle: Vehicle) -> str | None:
         if found:
             return found[0]
     return None
+
+
+# Words in a car's temperature sensors: inside the car, and outside it.
+INSIDE_WORDS = ("inside", "interior", "cabin", "indoor", "inde", "innen")
+OUTSIDE_WORDS = ("outside", "exterior", "ambient", "outdoor", "ude", "aussen", "außen")
+
+
+def device_temperatures(hass: HomeAssistant, vehicle: Vehicle) -> tuple[str | None, str | None]:
+    """The car's own inside and outside temperature sensors (on the device its charge level comes from)."""
+    registry = er.async_get(hass)
+    inside = outside = None
+    for entity_id in (vehicle.soc_entity, vehicle.climate_entity):
+        entry = registry.async_get(entity_id) if isinstance(entity_id, str) else None
+        if entry is None or entry.device_id is None:
+            continue
+        for item in sorted(er.async_entries_for_device(registry, entry.device_id), key=lambda e: e.entity_id):
+            if item.domain != "sensor" or item.disabled_by:
+                continue
+            if (item.device_class or item.original_device_class) != "temperature":
+                continue
+            text = f"{item.entity_id} {item.original_name or ''} {item.translation_key or ''}".lower()
+            if inside is None and any(word in text for word in INSIDE_WORDS):
+                inside = item.entity_id
+            elif outside is None and any(word in text for word in OUTSIDE_WORDS):
+                outside = item.entity_id
+        if inside or outside:
+            break
+    return inside, outside
 
 
 def climate_temperature(wanted: float, attributes: Mapping[str, Any]) -> float:
@@ -961,11 +992,48 @@ class Household(DataUpdateCoordinator[None]):
     # ------------------------------------------------------------------
     # Reading the cars
 
+    def climate_temps(self, vehicle: Vehicle) -> dict[str, float | None]:
+        """Inside the car (its climate's own reading, else its inside sensor) and outside it (its sensor, else the place's)."""
+        inside = outside = None
+        if vehicle.climate_entity and vehicle.climate_entity.startswith("climate."):
+            state = self.hass.states.get(vehicle.climate_entity)
+            inside = to_float(state.attributes.get("current_temperature")) if state is not None else None
+        inside_entity, outside_entity = device_temperatures(self.hass, vehicle)
+        if inside is None and inside_entity:
+            inside = state_float(self.hass.states.get(inside_entity))
+        if outside_entity:
+            outside = state_float(self.hass.states.get(outside_entity))
+        if outside is None:
+            outside = self.supply_of(vehicle).temperature_now()
+        return {
+            "inside": None if inside is None else round(inside, 1),
+            "outside": None if outside is None else round(outside, 1),
+        }
+
+    def _pause_floor(self, vehicle: Vehicle) -> float | None:
+        """The level under which the car's own switch cannot pause it (see ``Vehicle.pause_floor``).
+
+        A Mercedes (mbapi2020) pauses by lowering its charge limit, which goes no lower than the
+        ``maxSocLowerLimit`` it reports. With the charger as a backup that can pause it, there is none.
+        """
+        if vehicle.control != CONTROL_CAR or not vehicle.soc_entity:
+            return None
+        if (
+            vehicle.control_backup
+            and (charger := self.chargers.get(vehicle.charger_id or ""))
+            and charger.switch_entity
+        ):
+            return None
+        state = self.hass.states.get(vehicle.soc_entity)
+        floor = to_float(state.attributes.get("maxSocLowerLimit")) if state is not None else None
+        return floor if floor is not None and 0 < floor < 100 else None
+
     def _read_vehicle(self, vehicle: Vehicle) -> None:
         if vehicle.soc_entity:
             vehicle.soc = state_float(self.hass.states.get(vehicle.soc_entity))
         if vehicle.target_entity:
             vehicle.target_from_car = state_float(self.hass.states.get(vehicle.target_entity))
+        vehicle.pause_floor = self._pause_floor(vehicle)
         if vehicle.capacity_entity:
             vehicle.capacity_from_car = meter_value(self.hass.states.get(vehicle.capacity_entity))
         if vehicle.connected_entity:
@@ -1471,6 +1539,8 @@ class Household(DataUpdateCoordinator[None]):
         plan, deadline = vehicle.plan, vehicle.deadline
         if plan is None or deadline is None or not plan.short or vehicle.connected is not True:
             return
+        if round(plan.end_soc) >= round(vehicle.target):
+            return  # "cannot reach 80 %: about 80 %" says nothing
         key = deadline.isoformat()
         if vehicle.warned_for == key:
             return
@@ -1541,6 +1611,8 @@ class Household(DataUpdateCoordinator[None]):
         now = dt_util.now()
         if self.pairing.resolve(now):
             self.async_save()
+        if (car := self.guest.yield_to_household(now, self.vehicles.values())) is not None:
+            self.events.add(now, "guest_released", reason="household_car", vehicle=car)
         taken: dict[str, list[Segment]] = {}
         for vehicle in self._vehicle_order(now):
             charger_id = vehicle.charger_id
@@ -1593,6 +1665,8 @@ class Household(DataUpdateCoordinator[None]):
             # The guard acts when the meter moves; a meter that stays too high is looked at again here.
             supply.async_check()
             await supply.async_release_heat_pump(now)
+            if self._started:
+                await supply.async_idle(now)
             if await supply.async_refresh_weather(now):
                 replan = True
         await self.home.async_refresh(now)
@@ -1678,6 +1752,10 @@ class Household(DataUpdateCoordinator[None]):
             return
         seconds = min(max(0.0, elapsed(now, since).total_seconds()), 2 * TICK.total_seconds())
         vehicle.meter.tick(seconds, True, reading)
+        if self.supply_of(vehicle).throttled(vehicle):
+            vehicle.meter.throttled = True
+        if vehicle.session is not None and (charger := self.chargers.get(vehicle.charger_id or "")) is not None:
+            vehicle.session.charger = charger.name
         self._count_energy(vehicle, now, seconds, reading, metered)
 
     def _metered_kwh(self, vehicle: Vehicle, now: datetime) -> float | None:
@@ -2571,6 +2649,7 @@ class Household(DataUpdateCoordinator[None]):
         mode_changed = False
         changes = dict(changes)
         self.events.add(dt_util.now(), "settings", vehicle=vehicle.name, changes=changes)
+        target_before = vehicle.target
         if changes.pop(FORGET_RESUME, False):
             # "Try again": the car may charge again after a pause after all (e.g. a new charger).
             vehicle.learned.forget_resume()
@@ -2581,12 +2660,24 @@ class Household(DataUpdateCoordinator[None]):
                 value = {day: str(entry) for day, entry in dict(value or {}).items() if day in WEEKDAYS}
             if key == SET_DAY_TARGETS:
                 value = {day: float(entry) for day, entry in dict(value or {}).items() if day in WEEKDAYS}
-            if key == SET_TARGET_SOC and vehicle.target_entity:
-                value = self.car_target_value(vehicle, float(value))
-                await self._async_set_car_target(vehicle, value)
+            if key == SET_TARGET_STEP:
+                value = str(value) if str(value) in TARGET_STEPS else TARGET_STEP_AUTO
+            if key == SET_TARGET_SOC:
+                step = vehicle.own_step if SET_TARGET_STEP not in changes else Vehicle.step_of(changes[SET_TARGET_STEP])
+                if step is not None:
+                    # EV Planner's own steps: the target as asked, the car's limit the step above it.
+                    value = float(max(10.0, min(100.0, round(float(value) / step) * step)))
+                    if vehicle.target_entity:
+                        await self._async_set_car_target(vehicle, value)
+                elif vehicle.target_entity:
+                    value = self.car_target_value(vehicle, float(value))
+                    await self._async_set_car_target(vehicle, value)
             if key == SET_MODE and value != vehicle.mode:
                 mode_changed = True
             vehicle.settings[key] = value
+        if SET_TARGET_STEP in changes and SET_TARGET_SOC not in changes:
+            # New steps: the target stays where it was (the car's own limit becomes EV Planner's target).
+            vehicle.settings[SET_TARGET_SOC] = target_before
         if mode_changed:
             vehicle.last_sent = None
             # Asked for by hand: at once, whatever went before.
@@ -2767,7 +2858,7 @@ class Household(DataUpdateCoordinator[None]):
             if at is None
             else {"kind": kind, "at": at.isoformat(), "target": target, "day": day.isoformat() if day else None}
         )
-        self.events.add(now, "trip", vehicle=vehicle.name, preset=kind, at=at, target=target)
+        self.events.add(now, "trip", vehicle=vehicle.name, preset=kind, deadline=at, target=target)
         self.async_save()
         await self.async_recalculate(force=True)
         return at

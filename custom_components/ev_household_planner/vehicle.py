@@ -81,6 +81,7 @@ from .const import (
     SET_READY_BY,
     SET_SCHEDULE,
     SET_TARGET_SOC,
+    SET_TARGET_STEP,
     SET_TOPUP_ENABLED,
     SET_TOPUP_LEVEL,
     SET_TRIP,
@@ -101,6 +102,8 @@ from .const import (
     STATUS_SOLAR,
     STATUS_UNPLUGGED,
     STATUS_WAITING_SUN,
+    TARGET_STEP_AUTO,
+    TARGET_STEPS,
     WEEKDAYS,
 )
 from .learning import SOURCE_ESTIMATED, SOURCE_IMPORTED, SOURCE_LEARNED, SOURCE_MEASURING, ChargeMeter, Learned
@@ -200,6 +203,8 @@ class Session:
     periods: list[Period] = field(default_factory=list)
     # The session's energy when the running (or last) period began.
     period_energy: float = 0.0
+    # The charger the car charged at (its name, for the history).
+    charger: str | None = None
     # kWh by how they were counted: power, soc (the rising level) or time.
     sources: dict[str, float] = field(default_factory=dict)
     # kWh of it that came from the sun.
@@ -256,6 +261,7 @@ class Session:
             "period_energy": self.period_energy,
             "sources": dict(self.sources),
             "solar": self.solar,
+            "charger": self.charger,
         }
 
     @classmethod
@@ -285,6 +291,7 @@ class Session:
             if isinstance(sources, Mapping)
             else {},
             solar=float(data.get("solar") or 0.0),
+            charger=str(data["charger"]) if data.get("charger") else None,
         )
 
 
@@ -306,6 +313,9 @@ class Vehicle:
     # Live values, read from the car's entities.
     soc: float | None = None
     target_from_car: float | None = None
+    # The level under which the car cannot be paused (a Mercedes: its charge limit goes no lower than 50 %,
+    # so "pause" by the limit does nothing below it). None: it can be paused at any level.
+    pause_floor: float | None = None
     # Battery capacity in kWh as the car reports it, when it does.
     capacity_from_car: float | None = None
     connected: bool | None = None
@@ -483,7 +493,7 @@ class Vehicle:
         """
         if self.meter.speed is None and not unplugged:
             return False
-        learned_power = self.meter.power is not None
+        learned_power = self.meter.power is not None and not self.meter.throttled
         learned_speed = self.learned.add(self.meter)
         self.meter = ChargeMeter()
         return learned_speed or learned_power
@@ -660,9 +670,19 @@ class Vehicle:
             return wanted
         if (day := self.day_target) is not None:
             return day
-        if self.target_entity and self.target_from_car is not None:
+        if self.target_entity and self.target_from_car is not None and self.own_step is None:
             return self.target_from_car
         return to_float(self.settings.get(SET_TARGET_SOC)) or 80.0
+
+    @staticmethod
+    def step_of(value: object) -> float | None:
+        text = str(value or TARGET_STEP_AUTO)
+        return float(text) if text in TARGET_STEPS and text != TARGET_STEP_AUTO else None
+
+    @property
+    def own_step(self) -> float | None:
+        """The steps the target moves in, when chosen (1, 5 or 10 %); None: the car's own limit decides."""
+        return self.step_of(self.settings.get(SET_TARGET_STEP))
 
     @property
     def stops_itself(self) -> bool:
@@ -698,12 +718,21 @@ class Vehicle:
             opportunistic_level=to_float(s.get(SET_OPPORTUNISTIC_LEVEL)) or 50.0,
             follow_level=to_float(s.get(SET_FOLLOW_LEVEL)) or 90.0,
             low_price_level=to_float(s.get(SET_LOW_PRICE_LEVEL)) if s.get(SET_LOW_PRICE_ENABLED) else None,
-            low_soc_level=to_float(s.get(SET_LOW_SOC_LEVEL)) if s.get(SET_LOW_SOC_ENABLED) else None,
+            low_soc_level=self._low_soc_level(),
             keep_on=bool(s.get(SET_KEEP_ON)) and self.stops_itself,
             join_within=max(0.0, to_float(s.get(SET_JOIN_WITHIN)) or 0.0) if s.get(SET_JOIN_ENABLED) else None,
             early_within=max(0.0, to_float(s.get(SET_EARLY_WITHIN)) or 0.0) if s.get(SET_EARLY_ENABLED) else None,
             topup_level=to_float(s.get(SET_TOPUP_LEVEL)) if s.get(SET_TOPUP_ENABLED) else None,
         )
+
+    def _low_soc_level(self) -> float | None:
+        """Charge at once below this: the setting, or where the car cannot be paused anyway (it charges there)."""
+        s = self.settings
+        level = to_float(s.get(SET_LOW_SOC_LEVEL)) if s.get(SET_LOW_SOC_ENABLED) else None
+        if self.pause_floor is not None:
+            floor = min(self.pause_floor, self.target)
+            level = floor if level is None else max(level, floor)
+        return level
 
     @property
     def ready_by(self) -> time | None:
@@ -888,6 +917,7 @@ class Vehicle:
             "plugged": self.plug_sessions,
             "source": source,
             "solar": round(session.solar, 2),
+            "charger": session.charger,
         }
         self.history = [entry, *self.history][:HISTORY_LIMIT]
         return entry

@@ -546,3 +546,30 @@ def test_the_night_the_clocks_go_back_has_25_hours() -> None:
     before = datetime(2026, 3, 29, 1, 50, tzinfo=TZ)
     after = datetime(2026, 3, 29, 3, 10, tzinfo=TZ)
     assert elapsed(after, before) == timedelta(minutes=20)
+
+
+def test_own_steps_keep_the_target_and_leave_the_car_its_limit_above() -> None:
+    """Steps of 1 %: EV Planner's target, not the car's limit (a Skoda's, in tens), and it stops the car itself."""
+    vehicle = make(target_entity="number.car_limit")
+    vehicle.target_from_car = 80.0
+    vehicle.settings["target_soc"] = 75.0
+    assert vehicle.target == 80  # as before: the car's own limit
+    vehicle.settings["target_step"] = "1"
+    assert vehicle.own_step == 1.0
+    assert vehicle.target == 75
+    assert not vehicle.stops_itself  # the car's limit is above: EV Planner pauses it at 75
+    assert Vehicle.step_of("auto") is None and Vehicle.step_of("10") == 10.0
+
+
+def test_a_car_that_cannot_be_paused_low_charges_there_at_once() -> None:
+    """A Mercedes pauses by its charge limit, which goes no lower than 50 %: below that it charges, so plan so."""
+    vehicle = make()
+    vehicle.settings["target_soc"] = 80.0
+    assert vehicle.rules().low_soc_level is None
+    vehicle.pause_floor = 50.0
+    assert vehicle.rules().low_soc_level == 50.0
+    vehicle.settings.update({"low_soc_charging": True, "low_soc_level": 60.0})
+    assert vehicle.rules().low_soc_level == 60.0
+    vehicle.settings["target_soc"] = 40.0
+    vehicle.settings["low_soc_charging"] = False
+    assert vehicle.rules().low_soc_level == 40.0

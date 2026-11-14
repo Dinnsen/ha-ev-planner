@@ -241,3 +241,17 @@ def test_a_late_morning_teaches_a_margin() -> None:
     again = Learned.from_dict(learned.to_dict())
     assert again.margin == 45 and again.on_time == 0
     assert Learned.from_dict({"margin": 500}).margin == 60
+
+
+def test_a_turned_down_charge_teaches_nothing() -> None:
+    """A car the guard held below its full current shows what it was given, not what it can take."""
+    meter = ChargeMeter()
+    meter.tick(3600, True, 7.0)
+    meter.reading(40)
+    meter.tick(3600, True, 7.0)
+    meter.reading(50)
+    meter.throttled = True
+    learned = Learned()
+    assert learned.add(meter) is False
+    assert learned.power is None and learned.speed is None
+    assert ChargeMeter.from_dict(meter.to_dict()).throttled is True
