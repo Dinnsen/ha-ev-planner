@@ -97,6 +97,17 @@ const TEXT = {
     setup_notify: "Beskeder",
     setup_notify_text: "Under Konfigurer: de mobiler, der får besked om planen og om problemer.",
     connected: "Tilsluttet",
+    connected_at: "Tilsluttet ved {charger}",
+    tl_forecast: "Prognose",
+    tl_known: "Kendte priser",
+    tl_with_forecast: "Med prognose",
+    tl_charging: "Lader her",
+    tl_below: "{pct} under gennemsnit",
+    tl_above: "{pct} over gennemsnit",
+    g_mode_stop: "Stop",
+    g_mode_remove: "Fjern",
+    card_last: "Sidst ladet",
+    card_paid: "Betalt",
     not_connected: "Ikke tilsluttet",
     away: "Ikke hjemme",
     ready_at: "klar kl. {time}",
@@ -645,6 +656,17 @@ const TEXT = {
     setup_notify: "Notifications",
     setup_notify_text: "Under Configure: the phones that are told about the plan and about problems.",
     connected: "Plugged in",
+    connected_at: "Plugged in at {charger}",
+    tl_forecast: "Forecast",
+    tl_known: "Known prices",
+    tl_with_forecast: "With forecast",
+    tl_charging: "Charges here",
+    tl_below: "{pct} below average",
+    tl_above: "{pct} above average",
+    g_mode_stop: "Stop",
+    g_mode_remove: "Remove",
+    card_last: "Last charged",
+    card_paid: "Paid",
     not_connected: "Not plugged in",
     away: "Away",
     ready_at: "ready by {time}",
@@ -1386,16 +1408,19 @@ Object.assign(TEXT.da, {
   cal_intro: "Vælg de kalendere, jeres ture står i. Hver bil finder sine egne ture på sit ord i begivenheden.",
   cal_example: "klar kl. 7.15 med 80 %, bilen varmet op til 21,5°",
   cal_calendars: "Kalendere",
-  cal_cars: "Bilernes ord",
+  cal_cars: "Hvilket ord hører til hvilken bil?",
   cal_word: "Ord",
   cal_no_trip: "Ingen tur de næste 36 timer",
   cal_none: "Home Assistant har ingen kalendere endnu. Tilføj fx Google Kalender eller en lokal kalender under Enheder og tjenester.",
   cal_guide: "Hvad kan man skrive?",
-  cal_g_time: "Et klokkeslæt (7:15 eller 7.15) er afgangen. Uden står bilen klar ved begivenhedens start.",
-  cal_g_target: "80% lader til 80 % til denne tur.",
-  cal_g_full: "fuld lader til 100 %.",
-  cal_g_climate: "klima varmer bilen op inden afgang, klima 21,5 til 21,5°.",
-  cal_g_allday: "En heldagsbegivenhed tæller kun med et klokkeslæt. Ordet * betyder alle begivenheder.",
+  cal_g_time: "**7:15** eller **7.15** er afgangen. Uden klokkeslæt er bilen klar, når begivenheden starter.",
+  cal_g_target: "**80%** lader til 80 % til denne tur.",
+  cal_g_full: "**fuld** lader til 100 %.",
+  cal_g_climate: "**klima** varmer bilen op inden afgang; **klima 21,5** varmer til 21,5°.",
+  cal_g_allday: "En heldagsbegivenhed tæller kun, hvis der står et klokkeslæt. Står ordet **{word}** ikke i titlen, er turen ikke for bilen. Ordet **\*** betyder alle begivenheder.",
+  cal_cars_hint: "En begivenhed hører til en bil, når bilens ord står i titlen, fx **{word}**. Tomt felt: bilens første navn.",
+  cal_ex_title: "Med jeres biler",
+  cal_ex_line: "{car} klar kl. 9.00 med 100 %",
   src_calendar: "Kalender",
   src_trip: "Forvalg",
   src_week: "Ugeplan",
@@ -1481,16 +1506,19 @@ Object.assign(TEXT.en, {
   cal_intro: "Choose the calendars your trips are in. Each car finds its own trips by its word in the event.",
   cal_example: "ready at 7.15 with 80 %, the car warmed to 21.5°",
   cal_calendars: "Calendars",
-  cal_cars: "The cars' words",
+  cal_cars: "Which word belongs to which car?",
   cal_word: "Word",
   cal_no_trip: "No trip in the next 36 hours",
   cal_none: "Home Assistant has no calendars yet. Add e.g. Google Calendar or a local calendar under Devices & services.",
   cal_guide: "What can I write?",
-  cal_g_time: "A time (7:15 or 7.15) is the departure. Without one, the car is ready at the event's start.",
-  cal_g_target: "80% charges to 80 % for this trip.",
-  cal_g_full: "full charges to 100 %.",
-  cal_g_climate: "climate warms the car before leaving, climate 21,5 to 21.5°.",
-  cal_g_allday: "An all-day event counts only with a time. The word * means every event.",
+  cal_g_time: "**7:15** or **7.15** is the departure. Without a time, the car is ready when the event starts.",
+  cal_g_target: "**80%** charges to 80 % for this trip.",
+  cal_g_full: "**full** charges to 100 %.",
+  cal_g_climate: "**climate** warms the car before leaving; **climate 21.5** warms to 21.5°.",
+  cal_g_allday: "An all-day event counts only with a time in it. Without the word **{word}** in the title, the trip is not this car's. The word **\*** means every event.",
+  cal_cars_hint: "An event belongs to a car when the car's word is in its title, e.g. **{word}**. Empty: the car's first name.",
+  cal_ex_title: "With your cars",
+  cal_ex_line: "{car} ready at 9.00 with 100 %",
   src_calendar: "Calendar",
   src_trip: "Preset",
   src_week: "Week plan",
@@ -1622,6 +1650,11 @@ Object.assign(TEXT.da, {
   climate_entity_none: "Ingen klima fundet på bilens enhed. Vælg det, der starter bilens klima (en klima-entitet, en knap eller et script).",
   climate_auto_found: "Bilens egen",
   climate_auto_pick: "Automatisk (ingen fundet)",
+  help: "Hjælp",
+  house_shape: "Husets form",
+  phases_word: "faser",
+  place_needs_meter: "Kræver måler",
+  place_no_supply_help: "Ingen fælles forsyning er sat op for stedet. Den sættes op under integrationen → stedet → Forsyning (sikring, faser og måler). Så kan vagten og deling mellem bilerne slås til her.",
   place_open: "Fremmede biler lader med det samme",
   place_open_short: "åben for lejere",
   place_open_hint: "Til et sommerhus, I lejer ud: laderen står tændt, så en bil, der ikke er jeres, lader, så snart den sættes i, og I bliver ikke spurgt, hvilken bil det er. Jeres egne biler kendes stadig og følger deres plan. Kræver at laderen har en kontakt.",
@@ -1700,6 +1733,11 @@ Object.assign(TEXT.en, {
   climate_entity_none: "No climate found on the car's device. Choose what starts the car's climate (a climate entity, a button or a script).",
   climate_auto_found: "The car's own",
   climate_auto_pick: "Automatic (none found)",
+  help: "Help",
+  house_shape: "House shape",
+  phases_word: "phases",
+  place_needs_meter: "Needs a meter",
+  place_no_supply_help: "No shared supply is set up for the place. It is set up under the integration → the place → Supply (fuse, phases and meter). Then the guard and how the cars share it can be turned on here.",
   place_open: "Other cars charge at once",
   place_open_short: "open to renters",
   place_open_hint: "For a summer house you let out: the charger is left on, so a car that is not yours charges as soon as it is plugged in, and you are not asked which car it is. Your own cars are still found and follow their plans. Needs a switch on the charger.",
@@ -4358,6 +4396,31 @@ const ClayScene = (() => {
     const [cx, cy] = P(8.5, 2.6 + body.L / 2, 0.75);
     return `<svg viewBox="${f1(cx - 95)} ${f1(cy - 62)} 190 124" xmlns="http://www.w3.org/2000/svg">${defs()}<rect x="${f1(cx - 95)}" y="${f1(cy - 62)}" width="190" height="124" fill="url(#cs-bg)"/>${car(8.5 - body.Wd / 2, 2.6, kind, paint)}</svg>`;
   };
+  // A small picture of a house by day, for choosing one (Settings → Places); painted with paintPreview().
+  Scene.housePreview = (kind) => {
+    const L = LAYOUTS[kind] || CLASSIC;
+    const m = { cars: [], chargers: [], heat: null, solar: false, battery: null, flows: {}, light: 0 };
+    let body = "";
+    try {
+      LIGHTS = [];
+      body = L.scene(m, resolve(L, {}));
+    } catch (_err) {
+      return "";
+    }
+    const xy = L.corners(m).map((c) => P(...c));
+    const x0 = Math.min(...xy.map((p) => p[0])) - 10;
+    const x1 = Math.max(...xy.map((p) => p[0])) + 10;
+    const y0 = Math.min(...xy.map((p) => p[1])) - 10;
+    const y1 = Math.max(...xy.map((p) => p[1])) + 6;
+    let w = x1 - x0;
+    let h = y1 - y0;
+    if (w / h < 1.6) w = h * 1.6;
+    else h = w / 1.6;
+    const cx = (x0 + x1) / 2;
+    const cy = (y0 + y1) / 2;
+    return `<svg viewBox="${[cx - w / 2, cy - h / 2, w, h].map((v) => Math.round(v)).join(" ")}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${defs()}${body}</svg>`;
+  };
+  Scene.paintPreview = (root) => paint([...root.querySelectorAll("[data-r]")], modeAt(0));
   return Scene;
 })();
 
@@ -5124,6 +5187,7 @@ class EvPlannerPanel extends HTMLElement {
     this._renderTabs();
     // Keep the focus on the same control across a fresh render.
     const focus = this.shadowRoot.activeElement?.dataset?.f;
+    const sheet = this._sheetState(content);
     const car = this._currentCar;
     if (this._tab === "home" && !this._homeShown) this._tab = "cars";
     if (this._tab === "guest") content.innerHTML = this._guestHtml();
@@ -5148,6 +5212,8 @@ class EvPlannerPanel extends HTMLElement {
       this._renderCarPage();
     }
     this._animatePlan = false;
+    if (this._tab === "settings" && content.querySelector(".house-pic")) ClayScene.paintPreview(content);
+    this._sheetRestore(content, sheet);
     if (focus) content.querySelector(`[data-f="${cssId(focus)}"]`)?.focus({ preventScroll: true });
     this._renderToast();
   }
@@ -5198,9 +5264,26 @@ class EvPlannerPanel extends HTMLElement {
     if (active && box.contains(active) && active.matches("input, select, textarea")) return false;
     const focus = active && box.contains(active) ? active.dataset.f : null;
     box.dataset.key = key;
+    const sheet = this._sheetState(box);
     box.innerHTML = html;
-    if (focus) box.querySelector(`[data-f="${cssId(focus)}"]`)?.focus();
+    this._sheetRestore(box, sheet);
+    if (focus) box.querySelector(`[data-f="${cssId(focus)}"]`)?.focus({ preventScroll: true });
     return true;
+  }
+
+  /* An open sheet that is drawn again stays where it was: no slide in, the same scroll. */
+  _sheetState(box) {
+    const sheet = box?.querySelector(".sheet.in-page");
+    return sheet ? { label: sheet.getAttribute("aria-label"), top: sheet.scrollTop } : null;
+  }
+
+  _sheetRestore(box, was) {
+    if (!was) return;
+    const sheet = box.querySelector(".sheet.in-page");
+    if (!sheet || sheet.getAttribute("aria-label") !== was.label) return;
+    sheet.classList.add("stay");
+    box.querySelector(".scrim.in-page")?.classList.add("stay");
+    sheet.scrollTop = was.top;
   }
 
   // ------------------------------------------------------------------ cars (overview)
@@ -5275,6 +5358,7 @@ class EvPlannerPanel extends HTMLElement {
               ${plan ? `<div><dt>${this._t("energy")}</dt><dd>${this._kwh(plan.energy)}</dd></div>` : ""}
               ${plan && plan.savings > 0.005 ? `<div><dt>${this._t("savings")}</dt><dd class="good">${this._money(plan.savings)}</dd></div>` : ""}
               ${!plan && v.plan_error && TEXT.en[`vstatus_${v.plan_error}`] ? `<div class="wide"><dd class="soft">${esc(this._t(`vstatus_${v.plan_error}`))}</dd></div>` : ""}
+              ${this._cardLastHtml(v, plan)}
             </dl>
           </div>
         </div>
@@ -5282,6 +5366,16 @@ class EvPlannerPanel extends HTMLElement {
       ${this._modesHtml(v)}
       ${this._notesHtml(v, plan, { compact: true })}
     </article>`;
+  }
+
+  /* With nothing planned: the car's latest charge, what it took and cost. */
+  _cardLastHtml(v, plan) {
+    const last = plan ? null : (v.history || [])[0];
+    if (!last) return "";
+    const when = `${this._day(last.start)} ${this._time(last.start)}–${this._time(last.end)}`;
+    return `<div><dt>${this._t("card_last")}</dt><dd>${this._kwh(last.energy)}</dd></div>
+      ${isNum(last.cost) ? `<div><dt>${this._t("card_paid")}</dt><dd>${this._money(last.cost)}</dd></div>` : ""}
+      <div class="wide"><dd class="soft">${esc(when)}${isNum(last.start_soc) && isNum(last.end_soc) ? ` · ${this._pct(last.start_soc)} → ${this._pct(last.end_soc)}` : ""}</dd></div>`;
   }
 
   _miniCenterHtml(plan) {
@@ -5298,7 +5392,7 @@ class EvPlannerPanel extends HTMLElement {
   _carSubline(v) {
     const parts = [];
     if (v.home === false) parts.push(this._t("away"));
-    else if (v.connected === true) parts.push(this._t("connected"));
+    else if (v.connected === true) parts.push(v.charger?.name ? this._t("connected_at", { charger: v.charger.name }) : this._t("connected"));
     else if (v.connected === false) parts.push(this._t("not_connected"));
     if (v.mode !== "off") parts.push(this._readyText(v.deadline));
     return parts.join(" · ");
@@ -5854,7 +5948,18 @@ class EvPlannerPanel extends HTMLElement {
   _renderTimeline(plan, { deadline = null, ceiling = null, actual = [] } = {}) {
     const svg = this.shadowRoot.querySelector(".timeline");
     if (!svg) return;
-    const prices = this._prices();
+    const every = this._prices();
+    const hasForecast = every.some((p) => p.forecast);
+    const prices = this._tlKnownOnly ? every.filter((p) => !p.forecast) : every;
+    const toggle = this.shadowRoot.querySelector(".tl-toggle");
+    if (toggle) {
+      toggle.hidden = !hasForecast;
+      toggle.querySelectorAll("button").forEach((b) => {
+        const on = (b.dataset.tl === "known") === Boolean(this._tlKnownOnly);
+        b.classList.toggle("on", on);
+        b.setAttribute("aria-pressed", String(on));
+      });
+    }
     const empty = this.shadowRoot.querySelector(".prices .empty-note");
     if (empty) empty.hidden = prices.length > 0;
     svg.closest(".timeline-wrap")?.toggleAttribute("hidden", !prices.length);
@@ -5915,15 +6020,25 @@ class EvPlannerPanel extends HTMLElement {
       html += `<rect x="${a}" y="${H - bottom + 3}" width="${Math.max(3, b - a)}" height="6" rx="3" class="tl-done"/>`;
     }
 
-    // Bars.
+    // Bars: the forecast's paler, after a line where it starts.
     prices.forEach((p, i) => {
       const a = x(new Date(p.start).getTime());
       const b = x(new Date(p.end).getTime());
       const w = Math.max(1, b - a - (b - a > 6 ? 1.5 : 0.4));
       const t = hi > lo ? (p.price - lo) / (hi - lo) : 0.5;
       const yy = y(Math.max(p.price, min));
-      html += `<rect x="${a}" y="${Math.min(yy, y(0))}" width="${w}" height="${Math.abs(y(0) - yy)}" rx="${Math.min(3, w / 3)}" class="tl-bar" style="fill:${priceColor(t)};--d:${i * 4}ms" data-i="${i}"/>`;
+      html += `<rect x="${a}" y="${Math.min(yy, y(0))}" width="${w}" height="${Math.abs(y(0) - yy)}" rx="${Math.min(3, w / 3)}" class="tl-bar${p.forecast ? " fc" : ""}" style="fill:${priceColor(t)};--d:${i * 4}ms" data-i="${i}"/>`;
     });
+    const firstForecast = prices.find((p) => p.forecast);
+    if (firstForecast && firstForecast !== prices[0]) {
+      const xf = x(new Date(firstForecast.start).getTime());
+      html += `<line x1="${xf}" x2="${xf}" y1="${top - 8}" y2="${H - bottom}" class="tl-fc-line"/><text x="${xf + 5}" y="${top + 8}" class="tl-fc-label">${esc(this._t("tl_forecast"))} →</text>`;
+    }
+    // The average, to see what is cheap.
+    const avg = values.reduce((sum, v) => sum + v, 0) / values.length;
+    html += `<line x1="0" x2="${W}" y1="${y(avg)}" y2="${y(avg)}" class="tl-avg"/>`;
+    // What is picked: a line and a dot that follow the finger (or the mouse).
+    html += `<g class="tl-pick" opacity="0"><line class="tl-pick-line" x1="0" x2="0" y1="${top - 8}" y2="${H - bottom}"/><circle class="tl-pick-dot" r="5" cx="0" cy="0"/></g>`;
 
     // Axis hours.
     for (let ms = Math.ceil(t0 / 3600000) * 3600000; ms <= t1; ms += 3600000) {
@@ -5949,30 +6064,78 @@ class EvPlannerPanel extends HTMLElement {
     svg.innerHTML = html;
     this.shadowRoot.querySelector(".done-key")?.toggleAttribute("hidden", !charged);
     svg.classList.toggle("intro", this._intro(`tl:${this._viewKey()}`));
-    this._bindScrub(svg, prices, t0, t1);
+    this._bindScrub(svg, prices, t0, t1, { x, y, avg, plan, min });
   }
 
-  _bindScrub(svg, prices, t0, t1) {
+  /* Tap a bar and it stays picked (tap it again to let go); drag along the graph to move it; a mouse shows as it moves. */
+  _bindScrub(svg, prices, t0, t1, { x, y, avg, plan, min }) {
     const scrub = this.shadowRoot.querySelector(".scrub");
-    const show = (clientX) => {
-      const rect = svg.getBoundingClientRect();
-      const k = clamp((clientX - rect.left) / rect.width, 0, 1);
-      const ms = t0 + k * (t1 - t0);
-      const p = prices.find((item) => new Date(item.start).getTime() <= ms && ms < new Date(item.end).getTime());
-      if (!p) return;
+    const pick = svg.querySelector(".tl-pick");
+    const windows = (hasSegments(plan) ? plan.segments : []).map((seg) => [new Date(seg.start).getTime(), new Date(seg.end).getTime()]);
+    const at = (ms) => prices.find((item) => new Date(item.start).getTime() <= ms && ms < new Date(item.end).getTime());
+    const show = (p) => {
+      if (!p) return hide();
+      const i = prices.indexOf(p);
+      const a = new Date(p.start).getTime();
+      const b = new Date(p.end).getTime();
+      const mid = x((a + b) / 2);
+      const W = svg.viewBox.baseVal.width || 1;
+      const share = mid / W;
+      const diff = avg ? Math.round(((p.price - avg) / Math.abs(avg)) * 100) : 0;
+      const charging = windows.some(([s0, s1]) => s0 < b && a < s1);
+      const tags = [
+        p.forecast ? `<i class="tag fc">${esc(this._t("tl_forecast"))}</i>` : "",
+        charging ? `<i class="tag ch">${esc(this._t("tl_charging"))}</i>` : "",
+      ].join("");
       scrub.hidden = false;
-      scrub.style.left = `${clamp(k * 100, 8, 92)}%`;
-      scrub.innerHTML = `<b>${this._money(p.price)}</b><span>${esc(this._day(p.start))} ${this._time(p.start)}–${this._time(p.end)}</span>`;
+      scrub.style.left = `${clamp(share * 100, 12, 88)}%`;
+      scrub.innerHTML = `<b>${this._money(p.price)}<small>/kWh</small></b>
+        <span>${esc(this._day(p.start))} ${this._time(p.start)}–${this._time(p.end)}</span>
+        <span class="${diff <= 0 ? "good" : "bad"}">${esc(this._t(diff <= 0 ? "tl_below" : "tl_above", { pct: `${Math.abs(diff)} %` }))}</span>${tags ? `<span class="tags">${tags}</span>` : ""}`;
+      pick.setAttribute("opacity", "1");
+      pick.style.transform = `translateX(${mid}px)`;
+      pick.querySelector(".tl-pick-dot").setAttribute("cy", String(y(Math.max(p.price, min))));
       svg.querySelectorAll(".tl-bar.hot").forEach((el) => el.classList.remove("hot"));
-      svg.querySelector(`.tl-bar[data-i="${prices.indexOf(p)}"]`)?.classList.add("hot");
+      svg.querySelector(`.tl-bar[data-i="${i}"]`)?.classList.add("hot");
     };
     const hide = () => {
       scrub.hidden = true;
+      pick.setAttribute("opacity", "0");
       svg.querySelectorAll(".tl-bar.hot").forEach((el) => el.classList.remove("hot"));
     };
-    svg.onpointermove = (ev) => show(ev.clientX);
-    svg.onpointerdown = (ev) => show(ev.clientX);
-    svg.onpointerleave = hide;
+    const msAt = (clientX) => {
+      const rect = svg.getBoundingClientRect();
+      return t0 + clamp((clientX - rect.left) / rect.width, 0, 1) * (t1 - t0);
+    };
+    const sticky = () => (this._tlPick ? show(at(this._tlPick)) : hide());
+    let down = null;
+    svg.onpointerdown = (ev) => {
+      down = { x: ev.clientX, ms: msAt(ev.clientX), moved: false, was: this._tlPick };
+      show(at(down.ms));
+    };
+    svg.onpointermove = (ev) => {
+      if (down) {
+        if (Math.abs(ev.clientX - down.x) > 6) down.moved = true;
+        if (down.moved) {
+          this._tlPick = msAt(ev.clientX);
+          show(at(this._tlPick));
+        }
+      } else if (ev.pointerType === "mouse") show(at(msAt(ev.clientX)));
+    };
+    svg.onpointerup = (ev) => {
+      if (!down) return;
+      const ms = msAt(ev.clientX);
+      const same = down.was && at(down.was) === at(ms);
+      this._tlPick = down.moved || !same ? ms : null; // a tap on the picked bar lets it go
+      down = null;
+      sticky();
+    };
+    svg.onpointercancel = () => {
+      down = null;
+      sticky();
+    };
+    svg.onpointerleave = (ev) => ev.pointerType === "mouse" && !down && sticky();
+    sticky();
   }
 
   _pricesHtml({ ceiling = false } = {}) {
@@ -5984,6 +6147,7 @@ class EvPlannerPanel extends HTMLElement {
           <div class="scrub" hidden></div>
         </div>
         <div class="legend">
+          <div class="segmented tl-toggle" role="group" aria-label="${this._t("tl_forecast")}" hidden><button data-act="tl-show" data-tl="known" aria-pressed="false">${this._t("tl_known")}</button><button data-act="tl-show" data-tl="all" aria-pressed="true">${this._t("tl_with_forecast")}</button></div>
           <span><i class="sw window"></i>${this._t("charging_window")}</span>
           <span class="done-key"><i class="sw done"></i>${this._t("legend_charged")}</span>
           <span><i class="sw scale"></i>${this._t("per_kwh")}</span>
@@ -6402,7 +6566,7 @@ class EvPlannerPanel extends HTMLElement {
     if (this._tripPick !== undefined && (trip?.kind || "") === this._tripPick && (this._tripPick !== "holiday" || trip)) this._tripPick = undefined;
     const current = this._tripPick !== undefined ? this._tripPick : trip?.kind || "";
     const options = [
-      `<option value=""${current ? "" : " selected"}>${esc(`${this._t("trip_week")} · ${this._weekSummary(s)}`)}</option>`,
+      `<option value=""${current ? "" : " selected"}>${esc(this._t("trip_week"))}</option>`,
       ...deps.map((d) => `<option value="${esc(d.id)}"${d.id === current ? " selected" : ""}>${esc(label(d))}</option>`),
       // A trip set before its departure was removed, or by an action with a kind the list does not have.
       trip && !kinds.includes(trip.kind) ? `<option value="${esc(trip.kind)}" selected>${esc(this._depName({ id: trip.kind }))}</option>` : "",
@@ -7026,12 +7190,22 @@ class EvPlannerPanel extends HTMLElement {
       value="${isNum(value) ? esc(value) : ""}" aria-label="${esc(label)}"><span>${esc(unit)}</span></label>`;
   }
 
-  _ruleRow({ icon, title, hint, control, extra = "", off = false }) {
+  _ruleRow({ icon, title, hint, help, control, extra = "", off = false }) {
     return `<div class="rule ${off ? "off" : ""}">
       <span class="rule-icon">${ICONS[icon] || ""}</span>
-      <div class="rule-text"><strong>${esc(title)}</strong>${hint ? `<small>${esc(hint)}</small>` : ""}${extra}</div>
+      <div class="rule-text"><strong>${esc(title)}${help ? this._helpButton(help.key, title) : ""}</strong>${hint ? `<small>${esc(hint)}</small>` : ""}${help ? this._helpBubble(help.key, help.text) : ""}${extra}</div>
       <div class="rule-ctl">${control}</div>
     </div>`;
+  }
+
+  /* A small "?" that shows a longer explanation under it (one at a time). */
+  _helpButton(key, label) {
+    const on = this._helpOpen === key;
+    return `<button class="help-q${on ? " on" : ""}" data-act="help" data-help="${esc(key)}" data-f="help-${esc(key)}" aria-expanded="${on}" aria-label="${esc(`${this._t("help")}: ${label}`)}">?</button>`;
+  }
+
+  _helpBubble(key, text) {
+    return this._helpOpen === key ? `<small class="help-pop" role="note">${esc(text)}</small>` : "";
   }
 
   /* The car's rules in groups: each group is a tile with a short summary, and opens as a sheet. */
@@ -7499,9 +7673,8 @@ class EvPlannerPanel extends HTMLElement {
 
         <div class="actions g-actions">
           <button class="btn primary calc" data-act="g-plan">${ICONS.charge}<span></span></button>
-          <button class="btn ghost charge-now" data-act="g-now">${ICONS.boost}<span>${this._t("guest_charge_now")}</span></button>
-          <button class="btn ghost new-guest" data-act="g-new">${ICONS.plus}<span>${this._t("new_guest")}</span></button>
         </div>
+        <div class="segmented modes g-modes large" role="group" aria-label="${this._t("mode_label")}"></div>
         <p class="note"></p>
       </section>
       </div>
@@ -7586,27 +7759,31 @@ class EvPlannerPanel extends HTMLElement {
     calc.querySelector("span").textContent =
       this._busy === "calculate" ? this._t("calculating") : hasSegments(g.plan) ? this._t("recalculate") : this._t("calculate");
     calc.disabled = this._busy === "calculate" || this._busy === "charge_now";
-    // While the guest charges, the button stops it; otherwise it starts charging now.
-    const now = root.querySelector(".charge-now");
-    const stop = Boolean(g.charge_now);
-    const label =
-      this._busy === "charge_now"
-        ? this._t("charging_now_busy")
-        : this._busy === "stop"
-          ? this._t("stopping")
-          : this._t(stop ? "guest_stop" : "guest_charge_now");
-    this._patch(now, JSON.stringify([stop, label]), `${ICONS[stop ? "pause" : "boost"]}<span>${esc(label)}</span>`);
-    now.dataset.act = stop ? "g-stop" : "g-now";
-    now.classList.toggle("stop", stop);
-    now.disabled = Boolean(this._busy);
-    calc.classList.toggle("pulse", this._gstale);
-    // With a guest filled in, the button takes them away (their charge stays in the history).
-    const fresh = root.querySelector(".new-guest");
-    if (fresh) {
-      const someone = Boolean(inputs.license_plate || hasSegments(g.plan) || g.car?.name || g.results?.car_name);
-      const word = this._t(someone ? "remove_guest" : "new_guest");
-      this._patch(fresh, word, `${ICONS[someone ? "close" : "plus"] || ICONS.plus}<span>${esc(word)}</span>`);
+    // Under the plan, as on a car: follow the plan, charge now, stop, and take the guest away.
+    const modes = root.querySelector(".g-modes");
+    if (modes) {
+      const planned = hasSegments(g.plan);
+      const someone = Boolean(inputs.license_plate || planned || g.car?.name || g.results?.car_name);
+      const current = g.charge_now ? "charge_now" : ["stopped", "completed"].includes(g.status) ? "stop" : planned ? "smart" : "";
+      const busy = this._busy;
+      const buttons = [
+        ["smart", "g-smart", ICONS[MODE_ICONS.smart], this._t("mode_smart"), !planned && !this._gpreview],
+        ["charge_now", "g-now", ICONS[MODE_ICONS.charge_now], busy === "charge_now" ? this._t("charging_now_busy") : this._t("mode_charge_now"), false],
+        ["stop", "g-stop", ICONS.pause, busy === "stop" ? this._t("stopping") : this._t("g_mode_stop"), !planned || ["stopped", "completed"].includes(g.status)],
+        ["remove", "g-new", ICONS[someone ? "close" : "plus"] || ICONS.plus, this._t(someone ? "g_mode_remove" : "new_guest"), false],
+      ];
+      this._patch(
+        modes,
+        JSON.stringify([current, busy, planned, someone, Boolean(this._gpreview), this._lang]),
+        buttons
+          .map(
+            ([key, act, icon, label, disabled]) =>
+              `<button data-act="${act}" data-f="gm-${key}" aria-pressed="${current === key}" class="${current === key ? "on" : ""} m-${key === "stop" ? "pause" : key}"${disabled || busy ? " disabled" : ""}>${icon}<span>${esc(label)}</span></button>`,
+          )
+          .join(""),
+      );
     }
+    calc.classList.toggle("pulse", this._gstale);
     root.querySelector(".guest-page .note").textContent = this._gstale ? this._t("changed") : "";
   }
 
@@ -9072,49 +9249,54 @@ class EvPlannerPanel extends HTMLElement {
     const many = sites.length > 1;
     const body = sites
       .map((site) => {
+        const id = esc(site.id);
         const now = this._houseOf(site);
-        const house = ClayScene.HOUSES.map((code) => `<button data-act="house-look" data-site="${esc(site.id)}" data-house="${code}" data-f="hl-${esc(site.id)}-${code}" class="${now === code ? "on" : ""}" aria-pressed="${now === code}">${this._t(`house_${code}`)}</button>`).join("");
-        const supply = site.supply;
+        const houses = ClayScene.HOUSES.map(
+          (code) => `<button class="house-pick${now === code ? " on" : ""}" data-act="house-look" data-site="${id}" data-house="${code}" data-f="hl-${id}-${code}" aria-pressed="${now === code}">
+            <span class="house-pic">${ClayScene.housePreview(code)}</span><span>${this._t(`house_${code}`)}</span></button>`,
+        ).join("");
+        const sup = site.supply;
         const wait = Number(site.wait) || 10;
         const share = site.share === "need" ? "need" : "queue";
-        const guard = supply
+        const supplyRows = sup
           ? `${this._ruleRow({
               icon: "rules",
               title: this._t("place_guard"),
-              hint: site.has_meter ? this._t("place_guard_hint") : this._t("place_guard_no_meter"),
+              help: { key: `guard-${site.id}`, text: site.has_meter ? this._t("place_guard_hint") : this._t("place_guard_no_meter") },
               off: !site.guard,
-              control: site.has_meter ? `<button class="switch" role="switch" data-act="place-set" data-site="${esc(site.id)}" data-key="supply_guard" data-value="${site.guard ? "" : "1"}" data-f="pg-${esc(site.id)}" aria-checked="${Boolean(site.guard)}" aria-label="${esc(this._t("place_guard"))}"><i></i></button>` : "",
+              control: site.has_meter ? `<button class="switch" role="switch" data-act="place-set" data-site="${id}" data-key="supply_guard" data-value="${site.guard ? "" : "1"}" data-f="pg-${id}" aria-checked="${Boolean(site.guard)}" aria-label="${esc(this._t("place_guard"))}"><i></i></button>` : `<span class="soft">${this._t("place_needs_meter")}</span>`,
               extra: site.guard
-                ? `<div class="rule-under"><div class="inline-values"><span>${this._t("place_wait")}</span><div class="chips">${[5, 10, 15, 20, 30]
-                    .map((m) => `<button data-act="place-set" data-site="${esc(site.id)}" data-key="supply_wait" data-value="${m}" data-f="pw-${esc(site.id)}-${m}" class="${wait === m ? "on" : ""}" aria-pressed="${wait === m}">${m} ${this._t("minutes_short")}</button>`)
-                    .join("")}</div></div><small class="hint">${this._t("place_wait_hint")}</small></div>`
+                ? `<div class="rule-under"><div class="inline-values"><span>${this._t("place_wait")}${this._helpButton(`wait-${site.id}`, this._t("place_wait"))}</span><div class="chips">${[5, 10, 15, 20, 30]
+                    .map((m) => `<button data-act="place-set" data-site="${id}" data-key="supply_wait" data-value="${m}" data-f="pw-${id}-${m}" class="${wait === m ? "on" : ""}" aria-pressed="${wait === m}">${m} ${this._t("minutes_short")}</button>`)
+                    .join("")}</div></div>${this._helpBubble(`wait-${site.id}`, this._t("place_wait_hint"))}</div>`
                 : "",
             })}
             ${this._ruleRow({
               icon: "plan",
               title: this._t("place_share"),
-              hint: this._t(`place_share_${share}_hint`),
+              help: { key: `share-${site.id}`, text: `${this._t("place_share_queue")}: ${this._t("place_share_queue_hint")} ${this._t("place_share_need")}: ${this._t("place_share_need_hint")}` },
               control: "",
               extra: `<div class="rule-under"><div class="segmented opp" role="radiogroup" aria-label="${esc(this._t("place_share"))}">${["queue", "need"]
-                .map((v) => `<button role="radio" data-act="place-set" data-site="${esc(site.id)}" data-key="supply_share" data-value="${v}" data-f="ps-${esc(site.id)}-${v}" aria-checked="${v === share}" class="${v === share ? "on" : ""}">${this._t(`place_share_${v}`)}</button>`)
+                .map((v) => `<button role="radio" data-act="place-set" data-site="${id}" data-key="supply_share" data-value="${v}" data-f="ps-${id}-${v}" aria-checked="${v === share}" class="${v === share ? "on" : ""}">${this._t(`place_share_${v}`)}</button>`)
                 .join("")}</div></div>`,
             })}`
-          : `<p class="hint">${this._t("place_no_supply")}</p>`;
+          : "";
         return `<div class="place-card">
           ${many ? `<h3 class="sheet-sub">${esc(site.name || this._t("place_home"))}</h3>` : ""}
           <dl class="sources">
             <div><dt>${this._t("price_sensor")}</dt><dd>${esc(this._entityName(site.price_entity || this._state.config?.price_entity))}${site.own_price ? ` <span class="tag">${this._t("place_own_price")}</span>` : ""}</dd></div>
-            <div><dt>${this._t("tile_supply")}</dt><dd>${supply ? `${Math.round(supply.limit)} A · ${supply.phases} ${this._lang === "da" ? "faser" : "phases"}` : this._t("off")}</dd></div>
+            <div><dt>${this._t("tile_supply")}${sup ? "" : this._helpButton(`supply-${site.id}`, this._t("tile_supply"))}</dt><dd>${sup ? `${Math.round(sup.limit)} A · ${sup.phases} ${this._t("phases_word")}` : this._t("off")}</dd></div>
           </dl>
+          ${sup ? "" : this._helpBubble(`supply-${site.id}`, this._t("place_no_supply_help"))}
           ${this._ruleRow({
             icon: "charger",
             title: this._t("place_open"),
-            hint: this._t("place_open_hint"),
+            help: { key: `open-${site.id}`, text: this._t("place_open_hint") },
             off: !site.open,
-            control: `<button class="switch" role="switch" data-act="place-set" data-site="${esc(site.id)}" data-key="open_charging" data-value="${site.open ? "" : "1"}" data-f="po-${esc(site.id)}" aria-checked="${Boolean(site.open)}" aria-label="${esc(this._t("place_open"))}"><i></i></button>`,
+            control: `<button class="switch" role="switch" data-act="place-set" data-site="${id}" data-key="open_charging" data-value="${site.open ? "" : "1"}" data-f="po-${id}" aria-checked="${Boolean(site.open)}" aria-label="${esc(this._t("place_open"))}"><i></i></button>`,
           })}
-          ${guard}
-          <div class="field col"><span>${this._t("house_look")}</span><div class="chips">${house}</div></div>
+          ${supplyRows}
+          <div class="field col"><span>${this._t("house_shape")}</span><div class="house-grid">${houses}</div></div>
         </div>`;
       })
       .join("");
@@ -9147,6 +9329,10 @@ class EvPlannerPanel extends HTMLElement {
           })
           .join("")
       : `<p class="hint">${this._t("cal_none")}</p>`;
+    const word = (v) => {
+      const own = String(this._vs(v).calendar_keyword || "").trim();
+      return own || String(v.name || "").split(/\s+/).find((w) => w.length >= 2) || "";
+    };
     const cars = this._cars
       .map((v) => {
         const own = String(this._vs(v).calendar_keyword || "");
@@ -9157,17 +9343,26 @@ class EvPlannerPanel extends HTMLElement {
           <small>${ICONS.history}${esc(next)}</small></div>`;
       })
       .join("");
-    const example = `${(this._cars[0]?.name || "Elroq").split(/\s+/)[0]} 7:15 80% klima 21,5`;
+    const first = this._cars[0];
+    const w1 = first ? word(first) : "Elroq";
+    const example = `${w1 === "*" ? "Tur" : w1} 7:15 80% klima 21,5`;
+    // **word** in a text is shown bold: the words to write.
+    const bold = (text) => esc(text).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+    const examples = this._cars
+      .filter((v) => word(v) && word(v) !== "*")
+      .map((v) => `<li><code>${esc(word(v))} 9:00 100%</code><span>${esc(this._t("cal_ex_line", { car: v.name }))}</span></li>`)
+      .join("");
     return {
       icon: "calendar",
       title: this._t("cal_title"),
       summary: chosen.size ? [...chosen].map(name).join(", ") : this._t("not_set"),
       body: `<p class="hint">${esc(this._t("cal_intro"))}</p>
-        <div class="cal-example"><code>${esc(example)}</code><small>${esc(this._t("cal_example"))}</small></div>
+        <div class="cal-example"><code>${esc(example)}</code><small>${esc(this._t("cal_example", { car: first?.name || "" }))}</small></div>
         <div class="field col"><span>${this._t("cal_calendars")}</span>${list}</div>
-        <div class="field col"><span>${this._t("cal_cars")}</span>${cars}</div>
+        <div class="field col"><span>${this._t("cal_cars")}</span><small class="hint">${bold(this._t("cal_cars_hint", { word: w1 }))}</small>${cars}</div>
         <details class="more"><summary>${ICONS.info}<span>${this._t("cal_guide")}</span></summary>
-          <ul class="cal-guide">${["cal_g_time", "cal_g_target", "cal_g_full", "cal_g_climate", "cal_g_allday"].map((k) => `<li>${this._t(k)}</li>`).join("")}</ul></details>`,
+          <ul class="cal-guide">${["cal_g_time", "cal_g_target", "cal_g_full", "cal_g_climate", "cal_g_allday"].map((k) => `<li>${bold(this._t(k, { word: w1 }))}</li>`).join("")}</ul>
+          ${examples ? `<p class="cal-ex-title">${this._t("cal_ex_title")}</p><ul class="cal-ex">${examples}</ul>` : ""}</details>`,
     };
   }
 
@@ -9265,6 +9460,15 @@ class EvPlannerPanel extends HTMLElement {
         this._saveSettings({ [key]: !now });
         break;
       }
+      case "tl-show":
+        this._tlKnownOnly = button.dataset.tl === "known";
+        this._tlPick = null;
+        this._render();
+        break;
+      case "help":
+        this._helpOpen = this._helpOpen === button.dataset.help ? null : button.dataset.help;
+        this._render();
+        break;
       case "dep-open":
         this._depOpen = button.dataset.depId || null;
         this._render();
@@ -9481,6 +9685,10 @@ class EvPlannerPanel extends HTMLElement {
         break;
       case "g-new":
         this._newGuest();
+        break;
+      case "g-smart":
+        // Back to the plan: charging now (or stopped) makes way for the cheapest hours again.
+        if (!hasSegments(this._guest?.plan) || this._guest?.charge_now || ["stopped", "completed"].includes(this._guest?.status)) this._guestPlan();
         break;
       case "g-now":
         this._guestChargeNow();
@@ -9846,8 +10054,9 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .vcard.tone-sand { --tone: var(--evp-sand); }
 .vcard.tone-coral { --tone: var(--evp-coral); }
 .vcard-open { display: grid; gap: 10px; width: 100%; padding: 0; border: 0; background: transparent; text-align: left; cursor: pointer; border-radius: 12px; }
-.vcard-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-.vcard-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.vcard-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px 10px; flex-wrap: wrap; }
+.vcard-title { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 210px; }
+.vcard-head > .pill { flex: none; margin-left: auto; }
 .vcard-title > svg { width: 26px; height: 26px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; color: var(--evp-soft); }
 .vcard-title div { display: grid; min-width: 0; }
 .vcard-title .avatar { width: 68px; height: 46px; flex: none; border-radius: 12px; object-fit: contain; padding: 2px; box-sizing: border-box; background: var(--evp-photo-bg); filter: drop-shadow(0 2px 3px rgba(0,0,0,.18)); }
@@ -9927,12 +10136,14 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .chargers li b { font-weight: 500; font-size: 14px; text-align: right; }
 
 /* ---------- mode control */
-.segmented.modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; width: 100%; }
+.segmented.modes { display: grid; grid-template-columns: auto auto auto min-content; width: 100%; }
 .segmented.modes button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 8px; min-width: 0; white-space: nowrap; }
 .modes button span { overflow: hidden; text-overflow: ellipsis; }
 .modes button svg { width: 17px; height: 17px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .segmented.modes .m-off { font-size: 13px; padding: 8px 10px; }
 .vcard .modes .m-off span { display: none; }
+.vcard .modes button { gap: 5px; padding-inline: 6px; }
+@media (max-width: 440px) { .vcard .modes button:not(.m-off) svg { display: none; } }
 .modes .m-off svg { width: 15px; height: 15px; }
 .modes button.on.m-smart { color: #0B8A6F; }
 .modes button.on.m-charge_now { color: #4D7C0F; }
@@ -10102,7 +10313,11 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .go-date { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 6px 12px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--evp-ink) 14%, transparent); background: var(--evp-card); color: var(--evp-ink); }
 .go-date span { color: var(--evp-soft); font-size: 14px; }
 .go-date input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--evp-ink); font: inherit; font-size: 15px; font-weight: 600; outline: 0; }
-.actions.g-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+.actions.g-actions { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 16px; }
+.segmented.g-modes { margin-top: 8px; grid-template-columns: repeat(4, auto); }
+@media (max-width: 480px) { .g-modes button svg { display: none; } .segmented.g-modes button { padding-inline: 4px; } }
+.g-modes button.on.m-remove { color: var(--evp-bad); }
+.g-modes button:disabled { opacity: .45; cursor: default; }
 .g-actions .calc { grid-column: 1 / -1; }
 .g-actions .btn { justify-content: center; }
 .guest-page .g-more { margin-top: 12px; }
@@ -10129,6 +10344,17 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .sheet-sub { margin: 6px 0 0; font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--evp-soft); }
 .place-card { display: grid; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid color-mix(in srgb, var(--evp-ink) 7%, transparent); }
 .place-card:last-of-type { border-bottom: 0; }
+.help-q { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-left: 6px; border-radius: 50%; border: 1px solid var(--evp-line); background: none; color: var(--evp-soft); font: 700 12px/1 inherit; cursor: pointer; vertical-align: 1px; padding: 0; }
+.help-q.on, .help-q:hover { background: color-mix(in srgb, var(--evp-a) 16%, transparent); color: var(--evp-ink); border-color: transparent; }
+.help-q:focus-visible { outline: 2px solid var(--evp-accent); outline-offset: 2px; }
+.help-pop { display: block; margin-top: 6px; padding: 9px 12px; border-radius: 12px; background: color-mix(in srgb, var(--evp-a) 9%, transparent); color: var(--evp-ink); font-size: 13px; line-height: 1.45; animation: fade .15s; }
+.place-card > .help-pop { margin: -4px 0 0; }
+.house-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.house-pick { display: grid; gap: 4px; justify-items: center; padding: 8px 6px 9px; border-radius: 14px; border: 1px solid var(--evp-line); background: color-mix(in srgb, var(--evp-ink) 2%, transparent); color: var(--evp-ink); font-size: 13px; cursor: pointer; }
+.house-pick.on { border-color: var(--evp-a); background: color-mix(in srgb, var(--evp-a) 12%, transparent); font-weight: 600; }
+.house-pick:focus-visible { outline: 2px solid var(--evp-accent); outline-offset: 2px; }
+.house-pic { display: block; width: 100%; aspect-ratio: 1.6; border-radius: 10px; overflow: hidden; background: #eef1f4; }
+.house-pic svg { display: block; width: 100%; height: 100%; }
 .tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--evp-a) 16%, transparent); color: var(--evp-ink); }
 .select-wrap { display: block; }
 .select-wrap select { width: 100%; max-width: 100%; padding: 9px 12px; border: 1px solid var(--evp-line); border-radius: 10px; background: var(--evp-card); }
@@ -10141,11 +10367,18 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .cal-car small { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; color: var(--evp-soft); }
 .cal-word { display: flex; align-items: center; gap: 8px; }
 .cal-word span { color: var(--evp-soft); font-size: 13px; }
-.cal-car > b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-car > b { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 520px) { .cal-car { grid-template-columns: minmax(0, 1fr); } .cal-word input { flex: 1; width: auto; min-width: 0; } }
 .cal-word input { width: 110px; padding: 7px 10px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--evp-ink) 14%, transparent); background: var(--evp-card); color: var(--evp-ink); font: inherit; }
 .cal-example { display: grid; gap: 4px; margin: 4px 0 10px; padding: 12px; border-radius: 12px; background: color-mix(in srgb, var(--evp-a) 9%, transparent); }
 .cal-example code { font-size: 16px; font-weight: 600; font-family: inherit; background: none; padding: 0; }
 .cal-example small { color: var(--evp-soft); }
+.cal-guide b, .field .hint b { color: var(--evp-ink); font-weight: 650; }
+.cal-ex-title { margin: 12px 0 4px; font-size: 13px; font-weight: 600; color: var(--evp-soft); }
+.cal-ex { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.cal-ex li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 14px; }
+.cal-ex code { font: 600 14px/1.3 inherit; padding: 2px 8px; border-radius: 8px; background: color-mix(in srgb, var(--evp-a) 12%, transparent); }
+.cal-ex span { color: var(--evp-soft); }
 .cal-guide { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 6px; color: var(--evp-soft); font-size: 14px; }
 .go-when { margin: 6px 4px 0; color: var(--evp-soft); font-size: 13px; }
 .go-when.as-link { display: flex; align-items: center; gap: 8px; width: 100%; margin: 8px 0 0; padding: 9px 12px; border: 0; border-radius: 12px; background: color-mix(in srgb, var(--evp-a) 9%, transparent); color: var(--evp-ink); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
@@ -10215,6 +10448,8 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .day-val.soft, .day-row .soft { color: var(--evp-soft); font-weight: 400; }
 .icon-x { border: 0; background: transparent; color: var(--evp-soft); padding: 4px; cursor: pointer; display: grid; place-items: center; }
 .icon-x svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; }
+.car-page .col, .panel.charging, details.more, .car-info, .go-box { min-width: 0; }
+.go-box select { min-width: 0; max-width: 100%; }
 details.more { margin-top: 14px; border-top: 1px solid color-mix(in srgb, var(--evp-ink) 9%, transparent); }
 details.more > summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 12px 2px 4px; cursor: pointer; font-weight: 600; }
 details.more > summary::-webkit-details-marker { display: none; }
@@ -10374,8 +10609,25 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 .timeline .tl-deadline { stroke: var(--evp-ink); stroke-width: 1.5; stroke-dasharray: 4 4; opacity: .55; }
 .timeline .tl-ceiling { stroke: var(--evp-coral); stroke-width: 1.5; stroke-dasharray: 7 5; }
 .timeline .tl-ceiling-label { font-size: 12px; font-weight: 600; fill: var(--evp-coral); }
-.scrub { position: absolute; top: 2px; transform: translateX(-50%); background: var(--evp-ink); color: var(--evp-card); border-radius: 10px; padding: 6px 10px; display: grid; font-size: 12px; pointer-events: none; white-space: nowrap; }
-.scrub b { font-size: 14px; }
+.timeline-wrap { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+.scrub { position: absolute; top: 2px; transform: translateX(-50%); background: var(--evp-ink); color: var(--evp-card); border-radius: 12px; padding: 7px 11px; display: grid; gap: 1px; font-size: 12px; pointer-events: none; white-space: nowrap; box-shadow: 0 8px 24px rgba(0,0,0,.25); transition: left .12s ease-out; animation: fade .15s; z-index: 2; }
+.scrub b { font-size: 16px; font-variant-numeric: tabular-nums; }
+.scrub b small { font-size: 11px; font-weight: 500; opacity: .7; margin-left: 2px; }
+.scrub .good { color: #4ADE80; }
+.scrub .bad { color: #FCA5A5; }
+.scrub .tags { display: flex; gap: 4px; margin-top: 3px; }
+.scrub .tag { font-style: normal; font-size: 10.5px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: rgba(255,255,255,.16); }
+.scrub .tag.ch { background: color-mix(in srgb, var(--evp-a) 55%, transparent); }
+.timeline .tl-bar.fc { opacity: .42; }
+.timeline .tl-bar.fc.hot { opacity: .9; }
+.timeline .tl-fc-line { stroke: var(--evp-soft); stroke-width: 1; stroke-dasharray: 2 4; }
+.timeline .tl-fc-label { font-size: 11px; fill: var(--evp-soft); font-weight: 600; }
+.timeline .tl-avg { stroke: var(--evp-soft); stroke-width: 1; stroke-dasharray: 3 5; opacity: .6; }
+.timeline .tl-pick { transition: opacity .15s, transform .12s ease-out; pointer-events: none; }
+.timeline .tl-pick-line { stroke: var(--evp-ink); stroke-width: 1.5; opacity: .5; }
+.timeline .tl-pick-dot { fill: var(--evp-card); stroke: var(--evp-ink); stroke-width: 2.5; transition: cy .12s ease-out; }
+.legend .tl-toggle { font-size: 12px; }
+.legend .tl-toggle button { padding: 4px 10px; }
 [hidden] { display: none !important; }
 .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--evp-soft); font-size: 13px; margin-top: 6px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
@@ -10432,6 +10684,7 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 .sheet { position: fixed; z-index: 21; left: 50%; bottom: 0; transform: translateX(-50%); width: min(520px, 100%); background: var(--evp-solid); border-radius: 22px 22px 0 0;
   padding: 18px 20px calc(22px + var(--evp-safe-bottom)); animation: up .3s cubic-bezier(.2,.8,.2,1); max-height: 90vh; overflow: auto; }
 .sheet header { display: flex; justify-content: space-between; align-items: center; }
+.sheet.stay, .scrim.stay { animation: none; }
 @media (min-width: 861px) {
   .sheet { bottom: auto; top: 50%; transform: translate(-50%, -50%); border-radius: 22px; max-height: min(86vh, 86dvh); padding-bottom: 22px; animation: fade .2s; box-shadow: 0 24px 80px rgba(0,0,0,.35); }
 }

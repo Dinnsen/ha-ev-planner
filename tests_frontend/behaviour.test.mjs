@@ -478,3 +478,26 @@ test("a car's messages are set in Settings → Messages, and the phones for all 
     assert.deepEqual((await calls("settings")).at(-1).settings.phones, ["notify.mobile_app_pixel_9", "notify.mobile_app_iphone_15"]);
   });
 });
+
+test("a settings sheet stays where it is scrolled to when something in it changes", async () => {
+  await withPanel("two-cars", { size: { width: 390, height: 700 } }, async ({ page, tap }) => {
+    await tap('.tabs button[data-tab="settings"]');
+    await tap('[data-act="tile"][data-tile="departures"]');
+    await tap('[data-act="dep-open"][data-dep-id="weekend"]');
+    const before = await page.evaluate(() => {
+      const sheet = window.harness.panel.shadowRoot.querySelector(".sheet.in-page");
+      sheet.scrollTop = 400;
+      return sheet.scrollTop;
+    });
+    assert.ok(before > 100, "the sheet can scroll");
+    // Clicked where it is (a real tap would first scroll it into view).
+    await page.evaluate(() => window.harness.panel.shadowRoot.querySelector('[data-act="dep-set"][data-field="price"][data-value="cheapest"]').click());
+    await page.waitForTimeout(100);
+    const after = await page.evaluate(() => {
+      const sheet = window.harness.panel.shadowRoot.querySelector(".sheet.in-page");
+      return { top: sheet.scrollTop, stay: sheet.classList.contains("stay") };
+    });
+    assert.equal(after.top, before, "not back at the top");
+    assert.ok(after.stay, "and it does not slide in again");
+  });
+});

@@ -419,7 +419,7 @@ def vehicle_state(household: Household, vehicle: Vehicle) -> dict[str, Any]:
         "prices": None
         if household.site_price_entity(household.site_id_of(vehicle)) == household.price_entity
         else [
-            {"start": s.start.isoformat(), "end": s.end.isoformat(), "price": s.price}
+            {"start": s.start.isoformat(), "end": s.end.isoformat(), "price": s.price, "forecast": s.forecast}
             for s in household.visible_slots(household.vehicle_prices(vehicle, now))
         ],
         "climate": None
@@ -546,7 +546,10 @@ def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
         "title": household.config_entry.title,
         "now": now.isoformat(),
         "currency": household.currency,
-        "prices": [{"start": s.start.isoformat(), "end": s.end.isoformat(), "price": s.price} for s in slots],
+        "prices": [
+            {"start": s.start.isoformat(), "end": s.end.isoformat(), "price": s.price, "forecast": s.forecast}
+            for s in slots
+        ],
         "price_issue": price_issue(household.price_slots(now), now),
         "supply": household.supply.state(now),
         # The household's places, the home first: each with its own supply, sun and house.

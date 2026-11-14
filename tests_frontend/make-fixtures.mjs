@@ -37,7 +37,8 @@ function prices() {
   for (let h = 12; h < 48; h += 1) {
     const day = Math.floor(h / 24);
     const price = round(BY_HOUR[h % 24] * (day ? 1.07 : 1), 4);
-    out.push({ start: at(day, `${pad(h % 24)}:00`), end: at(h % 24 === 23 ? day + 1 : day, `${pad((h + 1) % 24)}:00`), price });
+    // Tomorrow from 13:00 is the forecast: the published prices end there.
+    out.push({ start: at(day, `${pad(h % 24)}:00`), end: at(h % 24 === 23 ? day + 1 : day, `${pad((h + 1) % 24)}:00`), price, forecast: h >= 37 });
   }
   return out;
 }
