@@ -331,14 +331,14 @@
             "supply": {
               "name": "Fælles forsyning",
               "data": {
-                "supply_limit": "Grænse pr. fase",
+                "supply_limit": "Hovedsikring pr. fase (A)",
                 "supply_phases": "Faser",
                 "supply_meter": "Måler: strøm pr. fase",
                 "supply_reserve": "Huset uden måler",
                 "weather_entity": "Vejret"
               },
               "data_description": {
-                "supply_limit": "Det mest, huset må trække pr. fase, fx 23 A på en 25 A stikledning, eller det kredsløb laderne deler. 0 slår det fra.",
+                "supply_limit": "Hovedsikringens størrelse pr. fase, fx 25 A (eller det kredsløb laderne deler). Med måler og vagt holder EV Planner selv 2 A fri, når den skruer en bil op; uden måler sættes den lidt lavere. 0 slår det fra.",
                 "supply_phases": "Hvor mange faser forsyningen og bilerne lader på.",
                 "supply_meter": "Strømsensorer (A) for faserne, fx fra en HAN/P1-læser, en Shelly EM eller en Equalizer. EV Planner lærer, hvad huset trækker time for time.",
                 "supply_reserve": "Uden måler: hvad huset forventes at trække pr. fase.",
@@ -380,14 +380,14 @@
             "supply": {
               "name": "Fælles forsyning",
               "data": {
-                "supply_limit": "Grænse pr. fase",
+                "supply_limit": "Hovedsikring pr. fase (A)",
                 "supply_phases": "Faser",
                 "supply_meter": "Måler: strøm pr. fase",
                 "supply_reserve": "Huset uden måler",
                 "weather_entity": "Vejret"
               },
               "data_description": {
-                "supply_limit": "Det mest, huset må trække pr. fase, fx 23 A på en 25 A stikledning, eller det kredsløb laderne deler. 0 slår det fra.",
+                "supply_limit": "Hovedsikringens størrelse pr. fase, fx 25 A (eller det kredsløb laderne deler). Med måler og vagt holder EV Planner selv 2 A fri, når den skruer en bil op; uden måler sættes den lidt lavere. 0 slår det fra.",
                 "supply_phases": "Hvor mange faser forsyningen og bilerne lader på.",
                 "supply_meter": "Strømsensorer (A) for faserne, fx fra en HAN/P1-læser, en Shelly EM eller en Equalizer. EV Planner lærer, hvad huset trækker time for time.",
                 "supply_reserve": "Uden måler: hvad huset forventes at trække pr. fase.",
@@ -806,6 +806,15 @@
       },
       "guest_car_battery": {
         "name": "Batteri"
+      },
+      "last_charge_energy": {
+        "name": "Sidste ladning: energi"
+      },
+      "last_charge_cost": {
+        "name": "Sidste ladning: pris"
+      },
+      "last_charge_price": {
+        "name": "Sidste ladning: pris pr. kWh"
       }
     },
     "switch": {
@@ -868,6 +877,9 @@
       },
       "quiet_hours": {
         "name": "Stille timer"
+      },
+      "notify_away": {
+        "name": "Notifikationer når bilen er ude"
       }
     },
     "text": {

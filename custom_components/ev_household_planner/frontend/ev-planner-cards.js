@@ -276,6 +276,7 @@ class EvPlannerCard extends HTMLElement {
     this._config = {};
     this._html = null;
     this.shadowRoot.addEventListener("click", (ev) => this._onClick(ev));
+    this._wireTempSwipe();
   }
 
   setConfig(config) {
@@ -364,7 +365,57 @@ class EvPlannerCard extends HTMLElement {
     return `<p class="evc-msg">${esc(this._t("card_unknown", { id: id || "–" }))}</p>`;
   }
 
-  _onClick(ev) {
+// The climate card's temperature: a finger (or the mouse) across the number, a step at a time; the wheel too.
+  _wireTempSwipe() {
+    const root = this.shadowRoot;
+    let drag = null;
+    const model = (id) => {
+      const v = this._r?._car(id);
+      return v ? { v, m: this._r._climateModel(v) } : null;
+    };
+    const idOf = (el) => el.closest(".evcl-temp")?.querySelector("[data-id]")?.dataset.id;
+    const send = (v, m, temperature) => {
+      this._call("ev_household_planner/vehicle_set", { vehicle_id: v.id, settings: { climate_temperature: temperature } });
+      if (m.on && m.isClimate) this._call("ev_household_planner/vehicle_climate", { vehicle_id: v.id, on: true, temperature });
+    };
+    root.addEventListener("pointerdown", (ev) => {
+      const out = ev.target.closest?.(".evcl-temp output");
+      const found = out && model(idOf(out));
+      if (found) drag = { ...found, x: ev.clientX, id: ev.pointerId, temp: found.m.temp, moved: false };
+    });
+    root.addEventListener("pointermove", (ev) => {
+      if (!drag || ev.pointerId !== drag.id) return;
+      const steps = Math.trunc((ev.clientX - drag.x) / 16);
+      if (!steps && !drag.moved) return;
+      drag.moved = true;
+      drag.temp = clamp(drag.m.temp + steps * drag.m.step, drag.m.min, drag.m.max);
+      const out = root.querySelector(".evcl-temp output");
+      if (out?.firstChild) out.firstChild.textContent = drag.m.fmt(drag.temp);
+    });
+    const drop = (ev) => {
+      if (!drag || ev.pointerId !== drag.id) return;
+      const was = drag;
+      drag = null;
+      if (was.moved && was.temp !== was.m.temp) send(was.v, was.m, was.temp);
+    };
+    root.addEventListener("pointerup", drop);
+    root.addEventListener("pointercancel", drop);
+    root.addEventListener(
+      "wheel",
+      (ev) => {
+        const box = ev.target.closest?.(".evcl-temp");
+        const found = box && model(idOf(box));
+        if (!found || !ev.deltaY) return;
+        ev.preventDefault();
+        const { v, m } = found;
+        const temperature = clamp(m.temp + (ev.deltaY < 0 ? m.step : -m.step), m.min, m.max);
+        if (temperature !== m.temp) send(v, m, temperature);
+      },
+      { passive: false },
+    );
+  }
+
+    _onClick(ev) {
     const el = ev.target.closest("[data-act], [data-view]");
     if (!el || el.disabled) return;
     const act = el.dataset.act;
@@ -1314,6 +1365,7 @@ class EvPlannerDialog extends HTMLElement {
       setTimeout(() => navigate(path), 60);
     });
     this._dragToClose(this.shadowRoot.querySelector("header"));
+    this._pullToClose(this.shadowRoot.querySelector(".body"), panel);
     document.addEventListener("keydown", this._onKey);
     requestAnimationFrame(() => this.shadowRoot.querySelector(".sheet")?.focus({ preventScroll: true }));
   }
@@ -1363,6 +1415,54 @@ class EvPlannerDialog extends HTMLElement {
     };
     handle.addEventListener("touchend", end, { passive: true });
     handle.addEventListener("touchcancel", end, { passive: true });
+  }
+
+  /* ... and from anywhere in it, when the page inside is at its top (and no sheet of its own is open:
+     that one takes the pull itself). */
+  _pullToClose(body, panel) {
+    const sheetEl = this.shadowRoot.querySelector(".sheet");
+    let g = null;
+    const taken = (path) =>
+      path.some((el) => el instanceof Element && (el.onpointerdown || el.matches("input, select, textarea, [role=slider], .handle, .cells, .cabin-temp, .cscene.editing, .sheet-root, .sheet")));
+    body.addEventListener(
+      "touchstart",
+      (ev) => {
+        g = null;
+        const inner = panel.shadowRoot;
+        const path = ev.composedPath();
+        const own = path.slice(0, path.indexOf(body));
+        if (ev.touches.length !== 1 || !inner || taken(own)) return;
+        if (own.some((el) => el instanceof Element && el.scrollTop > 0)) return;
+        g = { x: ev.touches[0].clientX, y: ev.touches[0].clientY, at: ev.timeStamp };
+      },
+      { passive: true },
+    );
+    body.addEventListener(
+      "touchmove",
+      (ev) => {
+        if (!g) return;
+        const [dx, dy] = [ev.touches[0].clientX - g.x, ev.touches[0].clientY - g.y];
+        if (!g.pull) {
+          if (dy < -6 || (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy))) return void (g = null);
+          if (dy < 8) return;
+          g.pull = true;
+        }
+        if (ev.cancelable) ev.preventDefault();
+        g.dy = Math.max(0, dy);
+        sheetEl.style.transform = `translateY(${g.dy}px)`;
+      },
+      { passive: false },
+    );
+    const end = (ev) => {
+      const was = g;
+      g = null;
+      if (!was?.pull) return;
+      sheetEl.style.transform = "";
+      const speed = (was.dy || 0) / Math.max(1, ev.timeStamp - was.at);
+      if (ev.type !== "touchcancel" && ((was.dy || 0) > 110 || ((was.dy || 0) > 40 && speed > 0.55))) this._close();
+    };
+    body.addEventListener("touchend", end, { passive: true });
+    body.addEventListener("touchcancel", end, { passive: true });
   }
 }
 
@@ -1600,6 +1700,7 @@ ha-card > .vcard { border: 0; border-radius: 0; background: none; box-shadow: no
 .evcl-temp svg, .evcl-power svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .evcl-temp output { font-size: 36px; font-weight: 300; letter-spacing: -.02em; min-width: 3.2ch; text-align: center; font-variant-numeric: tabular-nums; }
 .evcl-temp output small { font-size: 17px; vertical-align: top; }
+.evcl-temp output { touch-action: pan-y; cursor: ew-resize; user-select: none; -webkit-user-select: none; }
 .evcl-io { display: flex; gap: 14px; }
 .evcl-io div { display: grid; line-height: 1.15; }
 .evcl-io b { font-size: 16px; font-variant-numeric: tabular-nums; }

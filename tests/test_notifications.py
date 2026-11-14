@@ -281,6 +281,14 @@ async def test_live_notification_while_charging_and_message_when_done(
     assert len(history[0]["periods"]) == 1
     # Only one message for the stop: unplugging does not send another.
     assert len([c for c in notify.calls if c.get("data", {}).get("tag") == f"evp_done_{TESLA}"]) == 1
+    # The last charge as sensors, for use elsewhere in Home Assistant.
+    await settle(hass, freezer)
+    assert float(hass.states.get("sensor.tesla_last_charge_energy").state) == history[0]["energy"]
+    assert float(hass.states.get("sensor.tesla_last_charge_cost").state) == history[0]["cost"]
+    per_kwh = hass.states.get("sensor.tesla_last_charge_price_per_kwh")
+    assert per_kwh.attributes["unit_of_measurement"].endswith("/kWh")
+    if history[0]["energy"] > 0.05:
+        assert float(per_kwh.state) == pytest.approx(history[0]["cost"] / history[0]["energy"], abs=0.001)
 
 
 async def test_notification_actions_set_the_mode(
@@ -373,3 +381,42 @@ async def test_quiet_hours_and_the_switch_hold_notifications_back(
     await _switch(hass, switch, on=True)
     await planner.notifier.send(title="Test", message="Now", tag="t", icon="mdi:car")
     assert notify.calls
+
+
+async def test_no_messages_about_a_car_that_is_away_when_that_is_turned_off(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    notify = NotifyCalls(hass)
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass)
+    hass.states.async_set("binary_sensor.tesla_home", "on")
+    entry = entry_with(
+        vehicle_sub(TESLA, "Tesla", tesla_data(home_entity="binary_sensor.tesla_home", charger=None)),
+        options={"notify_services": ["notify.mobile_app_phone"]},
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    await settle(hass, freezer)
+    household = entry.runtime_data
+    tesla = household.vehicles[TESLA]
+    await household.async_set_vehicle(TESLA, {"live_notification": True, "notify_done": True})
+    # At home: never muted, whatever the setting.
+    assert household.notify_muted(tesla) is False
+    await household.async_set_vehicle(TESLA, {"notify_away": False})
+    assert household.notify_muted(tesla) is False
+
+    # Away, charging on the road: nothing is sent.
+    hass.states.async_set("binary_sensor.tesla_home", "off")
+    await settle(hass, freezer)
+    assert household.notify_muted(tesla) is True
+    before = len(notify.calls)
+    hass.states.async_set(CHARGING, "on")
+    await settle(hass, freezer)
+    hass.states.async_set(CHARGING, "off")
+    await settle(hass, freezer)
+    assert [c for c in notify.calls[before:] if c.get("message") != "clear_notification"] == []
+
+    # Turned on again (as it is from the start): away is not muted.
+    await household.async_set_vehicle(TESLA, {"notify_away": True})
+    assert household.notify_muted(tesla) is False

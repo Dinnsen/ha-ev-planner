@@ -390,6 +390,8 @@ const TEXT = {
     reminder_price_hint: "Billigste pris det næste døgn skal være under grænsen.",
     live: "Live-notifikation mens den lader",
     notify_done: "Besked når den er ladet",
+    notify_away: "Beskeder når bilen er ude",
+    notify_away_hint: "Slå fra, og der kommer ingen beskeder om bilen, mens den ikke er ved et af jeres steder (fx når den lader på farten). Kræver, at bilen har en placering.",
     notify_missing: "Vælg mobiler under integrationens indstillinger.",
     ceiling_line: "Prisloft",
 
@@ -978,6 +980,8 @@ const TEXT = {
     reminder_price_hint: "The cheapest price in the coming day must be below the limit.",
     live: "Live notification while charging",
     notify_done: "Message when charged",
+    notify_away: "Messages while the car is away",
+    notify_away_hint: "Turn it off, and no messages about the car come while it is at none of your places (charging on the road, say). Needs a location for the car.",
     notify_missing: "Choose phones in the integration's options.",
     ceiling_line: "Ceiling",
 
@@ -5266,6 +5270,189 @@ class EvPlannerPanel extends HTMLElement {
     content.addEventListener("change", (ev) => this._onChange(ev));
     content.addEventListener("input", (ev) => this._onInput(ev));
     content.addEventListener("keydown", (ev) => this._onKey(ev));
+    this._wireGestures();
+  }
+
+  /* Touch: a sheet is closed by a swipe down, the tabs are changed by a swipe to the side, and the
+     climate's temperature by a swipe (or the mouse's wheel) across its number. */
+  _wireGestures() {
+    const app = this.shadowRoot.querySelector(".app");
+    const content = this.shadowRoot.querySelector(".content");
+    let g = null;
+    // What takes a finger itself: the dial, the battery's handles, the price curve, sliders, the house while it is edited.
+    const busy = (el) => {
+      for (let node = el; node && node !== app; node = node.parentNode || node.host) {
+        if (node.nodeType !== 1) continue;
+        if (node.onpointerdown || node.matches("input, select, textarea, [role=slider], .handle, .battery .cells, .cabin-temp, .cscene.editing, [data-noswipe]")) return true;
+      }
+      return false;
+    };
+    const scrollsSideways = (el) => {
+      for (let node = el; node && node !== content; node = node.parentNode || node.host) {
+        if (node.nodeType !== 1) continue;
+        if (node.scrollWidth > node.clientWidth + 8 && /auto|scroll/.test(getComputedStyle(node).overflowX)) return true;
+      }
+      return false;
+    };
+    const scrolledDown = (el, sheet) => {
+      for (let node = el; node; node = node.parentNode) {
+        if (node.nodeType === 1 && node.scrollTop > 0) return true;
+        if (node === sheet) break;
+      }
+      return false;
+    };
+    app.addEventListener(
+      "touchstart",
+      (ev) => {
+        if (g?.pull) {
+          // A second finger: the sheet goes back.
+          g.sheet.style.translate = g.sheet.style.transition = "";
+          this._sheetDrag = false;
+        }
+        g = null;
+        if (ev.touches.length !== 1) return;
+        const t = ev.touches[0];
+        const target = ev.composedPath()[0];
+        if (!(target instanceof Element) || busy(target)) return;
+        const sheet = target.closest(".sheet");
+        if (sheet) g = { kind: "sheet", sheet, x: t.clientX, y: t.clientY, at: ev.timeStamp, top: !scrolledDown(target, sheet) };
+        else if (content.contains(target) && !this.shadowRoot.querySelector(".sheet") && !scrollsSideways(target)) {
+          // Not from the screen's edge: that is the phone's own "back" and Home Assistant's menu.
+          if (t.clientX > 28 && t.clientX < window.innerWidth - 28) g = { kind: "tabs", x: t.clientX, y: t.clientY, at: ev.timeStamp };
+        }
+      },
+      { passive: true },
+    );
+    app.addEventListener(
+      "touchmove",
+      (ev) => {
+        if (!g || ev.touches.length !== 1) return;
+        const t = ev.touches[0];
+        const [dx, dy] = [t.clientX - g.x, t.clientY - g.y];
+        if (g.kind === "tabs") {
+          // Up and down is the page's own scroll: then it is no swipe.
+          if (!g.sure && Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) g = null;
+          else if (Math.abs(dx) > 16 && Math.abs(dx) > 2 * Math.abs(dy)) g.sure = true;
+          return;
+        }
+        if (!g.pull) {
+          if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) return void (g = null);
+          if (dy < -6 || !g.top) return void (g = null);
+          if (dy < 8) return;
+          g.pull = true;
+          g.sheet.style.transition = "none";
+          this._sheetDrag = true;
+        }
+        if (ev.cancelable) ev.preventDefault();
+        g.dy = Math.max(0, dy);
+        g.sheet.style.translate = `0 ${g.dy}px`;
+      },
+      { passive: false },
+    );
+    const end = (ev) => {
+      const was = g;
+      g = null;
+      if (!was) return;
+      const t = ev.changedTouches?.[0];
+      if (was.kind === "tabs") {
+        if (!was.sure || !t || ev.type === "touchcancel") return;
+        const dx = t.clientX - was.x;
+        const fast = ev.timeStamp - was.at < 600;
+        if (Math.abs(dx) < (fast ? 60 : 110) || Math.abs(dx) < 2 * Math.abs(t.clientY - was.y)) return;
+        this._swipeTab(dx < 0 ? 1 : -1);
+        return;
+      }
+      if (!was.pull) return;
+      this._sheetDrag = false;
+      const sheet = was.sheet;
+      const speed = (was.dy || 0) / Math.max(1, ev.timeStamp - was.at);
+      if (ev.type !== "touchcancel" && ((was.dy || 0) > 110 || ((was.dy || 0) > 40 && speed > 0.55))) {
+        // Out through the bottom, then closed the way its own button closes it.
+        sheet.style.transition = "translate .18s ease-in";
+        sheet.style.translate = "0 100vh";
+        setTimeout(() => {
+          const close = sheet.querySelector('[data-pop="close"], [data-act="sheet-close"], .icon.close, [data-close]');
+          if (close) close.click();
+          else sheet.parentNode?.querySelector(".scrim")?.click();
+          if (sheet.isConnected) sheet.style.translate = sheet.style.transition = "";
+        }, 170);
+      } else {
+        sheet.style.transition = "translate .2s cubic-bezier(.2,.8,.2,1)";
+        sheet.style.translate = "0 0";
+        setTimeout(() => sheet.isConnected && (sheet.style.translate = sheet.style.transition = ""), 220);
+      }
+    };
+    app.addEventListener("touchend", end, { passive: true });
+    app.addEventListener("touchcancel", end, { passive: true });
+
+    // The climate's temperature: a finger (or the mouse) across the number, half a degree a step; the wheel too.
+    const root = this.shadowRoot.querySelector(".sheet-root");
+    let drag = null;
+    const tempOf = () => {
+      const v = this._cars.find((car) => car.id === this._popup?.car);
+      const dial = root.querySelector("[data-clim]") || root.querySelector(".dial");
+      if (!v || this._popup?.kind !== "climate") return null;
+      const [min, max, step] = [Number(dial?.dataset.min) || 10, Number(dial?.dataset.max) || 32, Number(dial?.dataset.step) || 0.5];
+      return { v, min, max, step, now: this._popTemp ?? (Number(this._vs(v).climate_temperature) || 21) };
+    };
+    const show = (temp) => {
+      this._popTemp = temp;
+      const out = root.querySelector(".cabin-temp output");
+      const text = String(temp.toFixed(1)).replace(".", this._lang === "da" ? "," : ".");
+      if (out?.firstChild) out.firstChild.textContent = text;
+    };
+    root.addEventListener("pointerdown", (ev) => {
+      if (!ev.target.closest?.(".cabin-temp output")) return;
+      const t = tempOf();
+      if (!t) return;
+      drag = { ...t, x: ev.clientX, id: ev.pointerId, moved: false };
+      root.setPointerCapture?.(ev.pointerId);
+    });
+    root.addEventListener("pointermove", (ev) => {
+      if (!drag || ev.pointerId !== drag.id) return;
+      const steps = Math.trunc((ev.clientX - drag.x) / 16);
+      if (!steps && !drag.moved) return;
+      drag.moved = true;
+      this._dialDragging = true;
+      show(clamp(drag.now + steps * drag.step, drag.min, drag.max));
+    });
+    const drop = (ev) => {
+      if (!drag || ev.pointerId !== drag.id) return;
+      const was = drag;
+      drag = null;
+      root.releasePointerCapture?.(ev.pointerId);
+      if (!was.moved) return;
+      this._dialDragging = false;
+      this._saveClimateTemp(was.v, this._popTemp);
+      this._renderPopup();
+    };
+    root.addEventListener("pointerup", drop);
+    root.addEventListener("pointercancel", drop);
+    root.addEventListener(
+      "wheel",
+      (ev) => {
+        if (!ev.target.closest?.(".cabin-temp")) return;
+        const t = tempOf();
+        if (!t || !ev.deltaY) return;
+        ev.preventDefault();
+        show(clamp(t.now + (ev.deltaY < 0 ? t.step : -t.step), t.min, t.max));
+        this._saveClimateTemp(t.v, this._popTemp);
+      },
+      { passive: false },
+    );
+  }
+
+  // The tab to the side of this one (a swipe); from a car's or a charger's page first back to its tab's front.
+  _swipeTab(step) {
+    const tabs = TABS.filter((tab) => tab !== "home" || this._homeShown);
+    const at = tabs.indexOf(this._tab);
+    const next = tabs[at + step];
+    if (at < 0 || !next) return;
+    this._setTab(next);
+    const content = this.shadowRoot.querySelector(".content");
+    content.classList.remove("slide-next", "slide-prev");
+    void content.offsetWidth;
+    content.classList.add(step > 0 ? "slide-next" : "slide-prev");
   }
 
   _render() {
@@ -6779,7 +6966,7 @@ class EvPlannerPanel extends HTMLElement {
     const html = popup.kind === "climate" ? this._climatePopupHtml(v, s) : this._nextPopupHtml(v, s);
     const key = JSON.stringify([popup.kind, html.length, html]);
     if (root.dataset.key === key && root.firstChild) return;
-    if (this._dialDragging) return; // not while a finger is on the dial
+    if (this._dialDragging || this._sheetDrag) return; // not while a finger is on the dial, or pulls the sheet down
     if (popup.kind === "climate" && this._patchCabin(root, html)) {
       root.dataset.key = key;
       return;
@@ -7726,7 +7913,7 @@ class EvPlannerPanel extends HTMLElement {
     const body = !open || open.key === "notify" ? "" : open.rows.join("");
     this._patch(
       root.querySelector(".car-page .sheet-slot"),
-      JSON.stringify([this._sheet, this._ruleValues(s), s.reminder, s.reminder_time, s.reminder_soc, s.reminder_price_enabled, s.reminder_price, s.reminder_days, s.reminder_repeat, s.reminder_horizon, s.notify_targets, s.live_notification, s.notify_done, s.notify_receipt, this._state.config?.notify, this._currency, lang]),
+      JSON.stringify([this._sheet, this._ruleValues(s), s.reminder, s.reminder_time, s.reminder_soc, s.reminder_price_enabled, s.reminder_price, s.reminder_days, s.reminder_repeat, s.reminder_horizon, s.notify_targets, s.live_notification, s.notify_done, s.notify_receipt, s.notify_away, this._state.config?.notify, this._currency, lang]),
       open
         ? `<div class="scrim in-page" data-act="sheet-close"></div>
           <div class="sheet in-page" role="dialog" aria-modal="true" aria-label="${esc(open.title)}">
@@ -7806,6 +7993,7 @@ class EvPlannerPanel extends HTMLElement {
       ${this._ruleRow({ icon: "receipt", title: this._t("notify_receipt"), hint: this._t("notify_receipt_hint"), off: s.notify_receipt === false, control: this._switchHtml("notify_receipt", s.notify_receipt !== false, this._t("notify_receipt")) })}
       ${this._ruleRow({ icon: "charge", title: this._t("live"), off: !s.live_notification, control: this._switchHtml("live_notification", s.live_notification, this._t("live")) })}
       ${this._ruleRow({ icon: "depart", title: this._t("notify_done"), off: !s.notify_done, control: this._switchHtml("notify_done", s.notify_done, this._t("notify_done")) })}
+      ${this._ruleRow({ icon: "home", title: this._t("notify_away"), hint: this._t("notify_away_hint"), off: s.notify_away === false, control: this._switchHtml("notify_away", s.notify_away !== false, this._t("notify_away")) })}
       ${targets}
       ${inSettings ? "" : this._householdNotifyLink()}`;
   }
@@ -11097,6 +11285,14 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 /* ---------- 2.3: views, tiles and sheets */
 .app { overflow-x: clip; }
 .content { overflow-x: hidden; }
+/* A swipe to the tab beside: the page comes in from that side. */
+.content.slide-next { animation: slide-next .22s cubic-bezier(.2,.8,.2,1); }
+.content.slide-prev { animation: slide-prev .22s cubic-bezier(.2,.8,.2,1); }
+@keyframes slide-next { from { transform: translateX(36px); opacity: .3; } }
+@keyframes slide-prev { from { transform: translateX(-36px); opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .content.slide-next, .content.slide-prev { animation: none; } }
+/* The temperature is swiped sideways; up and down still scrolls the sheet. */
+.cabin-temp output { touch-action: pan-y; cursor: ew-resize; user-select: none; -webkit-user-select: none; }
 .car-views { width: 100%; grid-column: 1 / -1; }
 .car-views button, .hist-views button { padding: 9px 10px; font-weight: 600; }
 .hist-views { width: 100%; }

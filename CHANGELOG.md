@@ -2,6 +2,22 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b8] - 2026-11-14
+
+### Added
+
+- **The last charge as sensors**, per car: energy (kWh), cost and price per kWh, for dashboards and automations. They change when a charge ends.
+- **Messages while the car is away** can be turned off per car (Settings → Messages): no messages about a car that is at none of the household's places, charging on the road, say. Needs a location for the car.
+- **Swipes.** A sheet or pop-up is closed by a swipe down (the cards' pop-up from anywhere in it, when its page is at the top); the tabs are changed by a swipe to the side; and the climate's temperature by a swipe across its number, or the mouse's wheel, a step at a time, in EV Planner and on the climate card.
+
+### Fixed
+
+- **"Cannot reach 100 %" for a car at 99 %**: a full car that warms its cabin before it leaves drops a point; the warning is no longer sent for a car within two points of its target (the morning's message counts that as reached, too).
+
+### Changed
+
+- **The supply's limit is asked for as the main fuse's size** (25 A for a 25 A fuse): with a meter and the guard, EV Planner itself keeps 2 A free when it turns a car up, so a limit set to 23 A gave up 2 A twice.
+
 ## [2.5.0b7] - 2026-11-14
 
 ### Fixed

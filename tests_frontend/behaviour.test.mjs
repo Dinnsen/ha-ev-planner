@@ -506,3 +506,71 @@ test("a settings sheet stays where it is scrolled to when something in it change
     assert.ok(after.stay, "and it does not slide in again");
   });
 });
+
+/* A finger's swipe inside the panel: from the middle of `selector`, `dx` to the side and `dy` down. */
+function swipe(page, selector, dx, dy) {
+  return page.evaluate(
+    async ([s, x, y]) => {
+      const el = window.harness.panel.shadowRoot.querySelector(s);
+      if (!el) throw new Error(`Nothing to swipe at ${s}`);
+      const box = el.getBoundingClientRect();
+      const [x0, y0] = [box.left + box.width / 2, box.top + Math.min(box.height / 2, 40)];
+      const fire = (type, cx, cy) => {
+        const touch = new Touch({ identifier: 1, target: el, clientX: cx, clientY: cy });
+        el.dispatchEvent(new TouchEvent(type, { touches: type === "touchend" ? [] : [touch], changedTouches: [touch], bubbles: true, composed: true, cancelable: true }));
+      };
+      fire("touchstart", x0, y0);
+      for (let i = 1; i <= 6; i += 1) fire("touchmove", x0 + (x * i) / 6, y0 + (y * i) / 6);
+      fire("touchend", x0 + x, y0 + y);
+      await new Promise((resolve) => setTimeout(resolve, 260));
+    },
+    [selector, dx, dy],
+  );
+}
+
+test("a swipe to the side changes the tab, and a scroll up and down does not", async () => {
+  await withPanel("two-cars", { size: { width: 390, height: 844 } }, async ({ page, read }) => {
+    const tab = () => read('.tabs button[aria-selected="true"]', "data-tab");
+    assert.equal(await tab(), "cars");
+    await swipe(page, ".content", -160, 10);
+    assert.equal(await tab(), "home");
+    await swipe(page, ".content", 0, -200);
+    assert.equal(await tab(), "home");
+    await swipe(page, ".content", 160, -8);
+    assert.equal(await tab(), "cars");
+    // The first tab has nothing before it.
+    await swipe(page, ".content", 160, 0);
+    assert.equal(await tab(), "cars");
+  });
+});
+
+test("the climate's sheet is closed by a swipe down, and its temperature is set by a swipe across the number or the wheel", async () => {
+  const state = fixture("two-cars");
+  const car = state.vehicles[0];
+  car.climate = { entity: "climate.car", on: false, started_at: null, inside: 14, outside: 6 };
+  car.settings = { ...car.settings, climate_temperature: 21 };
+  await withPanel(state, { size: { width: 390, height: 844 } }, async ({ page, tap, read, calls, waitForCall }) => {
+    await tap(`[data-act="open-car"][data-id="${car.id}"]`);
+    await tap('[data-act="climate-open"]');
+    assert.ok(await read(".sheet.pop-climate .cabin-temp output"));
+    // The wheel over the number: half a degree up.
+    await page.locator("ev-planner-panel .cabin-temp output").hover();
+    await page.mouse.wheel(0, -100);
+    await waitForCall("vehicle_set");
+    assert.equal((await calls("vehicle_set")).at(-1).settings.climate_temperature, 21.5);
+    // A drag across the number: 48 px is three steps down.
+    const box = await page.locator("ev-planner-panel .cabin-temp output").boundingBox();
+    const before = (await calls("vehicle_set")).length;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 - 50, box.y + box.height / 2, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForFunction((n) => window.harness.calls.filter((c) => c.type.endsWith("/vehicle_set")).length > n, before, { timeout: 5000 });
+    assert.equal((await calls("vehicle_set")).at(-1).settings.climate_temperature, 20);
+    // A small pull lets it stay; a long one closes it.
+    await swipe(page, ".sheet.pop-climate header", 0, 30);
+    assert.ok(await read(".sheet.pop-climate"));
+    await swipe(page, ".sheet.pop-climate header", 0, 220);
+    assert.equal(await read(".sheet.pop-climate"), null);
+  });
+});

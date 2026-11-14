@@ -120,6 +120,7 @@ from .const import (
     SET_MIDDAY,
     SET_MODE,
     SET_MORNING,
+    SET_NOTIFY_AWAY,
     SET_NOTIFY_DONE,
     SET_NOTIFY_RECEIPT,
     SET_REMINDER,
@@ -1534,19 +1535,25 @@ class Household(DataUpdateCoordinator[None]):
             color=COLOR_CHARGE if key == "receipt" else COLOR_WARN,
         )
 
+    def notify_muted(self, vehicle: Vehicle) -> bool:
+        """The car is away from all the household's places, and its messages are turned off for that."""
+        return vehicle.settings.get(SET_NOTIFY_AWAY) is False and self.pairing.vehicle_site(vehicle) is None
+
     async def _async_warn_short(self, vehicle: Vehicle) -> None:
         """Once per ready-by time: the plugged-in car cannot reach its target in time."""
         plan, deadline = vehicle.plan, vehicle.deadline
         if plan is None or deadline is None or not plan.short or vehicle.connected is not True:
             return
-        if round(plan.end_soc) >= round(vehicle.target):
-            return  # "cannot reach 80 %: about 80 %" says nothing
+        if round(plan.end_soc) >= round(vehicle.target) or plan.end_soc >= vehicle.target - 2:
+            # "cannot reach 80 %: about 80 %" says nothing, and nor does a point or two: a full car that
+            # warms its cabin before it leaves drops to 99 %, and the morning's message counts that as reached too.
+            return
         key = deadline.isoformat()
         if vehicle.warned_for == key:
             return
         vehicle.warned_for = key
         self.async_save()
-        if not vehicle.settings.get(SET_NOTIFY_RECEIPT) or not self.notifier.enabled:
+        if not vehicle.settings.get(SET_NOTIFY_RECEIPT) or not self.notifier.enabled or self.notify_muted(vehicle):
             return
         await self.notifier.send(
             title=vehicle.name,
@@ -2235,6 +2242,8 @@ class Household(DataUpdateCoordinator[None]):
                 self.async_save()
                 if key == "problem_resume_learned":
                     self.schedule_recalculate(force=True)
+            if self.notify_muted(vehicle):
+                return
             await self.notifier.send(
                 title=vehicle.name,
                 message=self._text(key, name=vehicle.name),
@@ -2297,7 +2306,7 @@ class Household(DataUpdateCoordinator[None]):
                 self.async_save()
                 if self.notifier.enabled:
                     await self.notifier.clear(tag_for("done", vehicle.vehicle_id), to=vehicle.notify_to)
-            if vehicle.settings.get(SET_LIVE) and self.notifier.enabled:
+            if vehicle.settings.get(SET_LIVE) and self.notifier.enabled and not self.notify_muted(vehicle):
                 await self._async_live(vehicle, now)
             return
         if vehicle.live_active:
@@ -2343,6 +2352,8 @@ class Household(DataUpdateCoordinator[None]):
         """Charging stopped: done, or paused until the plan goes on."""
         session = vehicle.session
         if session is None or not vehicle.settings.get(SET_NOTIFY_DONE) or not self.notifier.enabled:
+            return
+        if self.notify_muted(vehicle):
             return
         soc = vehicle.current_soc
         # Stopped short of the target: say so, and when it goes on.

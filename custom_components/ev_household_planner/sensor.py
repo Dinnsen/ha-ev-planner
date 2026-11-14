@@ -18,7 +18,7 @@ from .const import CONTROL_OPTIONS, GUEST_STATUS_OPTIONS, VEHICLE_STATUS_OPTIONS
 from .entity import ChargerEntity, GuestEntity, VehicleEntity
 from .guest import GuestSession, serialize_segments
 from .household import EVPlannerConfigEntry, Household
-from .vehicle import Vehicle
+from .vehicle import Vehicle, to_float
 
 PARALLEL_UPDATES = 0
 
@@ -28,6 +28,8 @@ class VehicleSensorDescription(SensorEntityDescription):
     value_fn: Callable[[Household, Vehicle], StateType | datetime]
     monetary: bool = False
     month: bool = False
+    # A price per kWh, in the household's currency.
+    per_kwh: bool = False
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -52,6 +54,22 @@ def _plan(attr: str, digits: int = 2) -> Callable[[Household, Vehicle], StateTyp
 def _plan_time(attr: str) -> Callable[[Household, Vehicle], datetime | None]:
     def value(_household: Household, vehicle: Vehicle) -> datetime | None:
         return getattr(vehicle.plan, attr) if vehicle.plan is not None else None
+
+    return value
+
+
+def _last(key: str, digits: int) -> Callable[[Household, Vehicle], StateType]:
+    """A figure of the car's last finished charge (the newest in its history)."""
+
+    def value(_household: Household, vehicle: Vehicle) -> StateType:
+        last = vehicle.history[0] if vehicle.history else None
+        if last is None:
+            return None
+        energy, cost = to_float(last.get("energy")), to_float(last.get("cost"))
+        if key == "price":
+            return round(cost / energy, digits) if energy and cost is not None and energy > 0.05 else None
+        number = energy if key == "energy" else cost
+        return None if number is None else round(number, digits)
 
     return value
 
@@ -130,6 +148,26 @@ VEHICLE_SENSORS: tuple[VehicleSensorDescription, ...] = (
         monetary=True,
         month=True,
         value_fn=lambda _h, v: round(v.month(dt_util.now()).get("cost", 0.0), 2),
+    ),
+    VehicleSensorDescription(
+        key="last_charge_energy",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=1,
+        value_fn=_last("energy", 2),
+    ),
+    VehicleSensorDescription(
+        key="last_charge_cost",
+        device_class=SensorDeviceClass.MONETARY,
+        suggested_display_precision=2,
+        monetary=True,
+        value_fn=_last("cost", 2),
+    ),
+    VehicleSensorDescription(
+        key="last_charge_price",
+        suggested_display_precision=2,
+        per_kwh=True,
+        value_fn=_last("price", 4),
     ),
     VehicleSensorDescription(key="summary", value_fn=_summary),
 )
@@ -245,6 +283,8 @@ class VehicleSensor(VehicleEntity, SensorEntity):
         self.entity_description = description
         if description.monetary:
             self._attr_native_unit_of_measurement = household.currency
+        if description.per_kwh:
+            self._attr_native_unit_of_measurement = f"{household.currency}/kWh"
 
     @property
     def native_value(self) -> StateType | datetime:
@@ -300,6 +340,9 @@ class VehicleSensor(VehicleEntity, SensorEntity):
             return {"segments": serialize_segments(vehicle.plan.segments)}
         if key == "month_energy":
             return {"sessions": int(vehicle.month(dt_util.now()).get("sessions", 0))}
+        if key == "last_charge_energy" and vehicle.history:
+            last = vehicle.history[0]
+            return {name: last.get(name) for name in ("start", "end", "start_soc", "end_soc", "charger", "reason")}
         return None
 
 

@@ -331,14 +331,14 @@
             "supply": {
               "name": "Shared supply",
               "data": {
-                "supply_limit": "Limit per phase",
+                "supply_limit": "Main fuse per phase (A)",
                 "supply_phases": "Phases",
                 "supply_meter": "Meter: current per phase",
                 "supply_reserve": "The house without a meter",
                 "weather_entity": "Weather"
               },
               "data_description": {
-                "supply_limit": "The most the house may draw per phase, e.g. 23 A on a 25 A supply, or the circuit the chargers share. 0 turns it off.",
+                "supply_limit": "The size of the main fuse per phase, e.g. 25 A (or of the circuit the chargers share). With a meter and the guard, EV Planner itself keeps 2 A free when it turns a car up; without a meter, set it a little lower. 0 turns it off.",
                 "supply_phases": "How many phases the supply and the cars charge on.",
                 "supply_meter": "Current sensors (A) for the phases, e.g. from a HAN/P1 reader, a Shelly EM or an Equalizer. EV Planner learns what the house draws hour by hour.",
                 "supply_reserve": "Without a meter: what the house is expected to draw per phase.",
@@ -380,14 +380,14 @@
             "supply": {
               "name": "Shared supply",
               "data": {
-                "supply_limit": "Limit per phase",
+                "supply_limit": "Main fuse per phase (A)",
                 "supply_phases": "Phases",
                 "supply_meter": "Meter: current per phase",
                 "supply_reserve": "The house without a meter",
                 "weather_entity": "Weather"
               },
               "data_description": {
-                "supply_limit": "The most the house may draw per phase, e.g. 23 A on a 25 A supply, or the circuit the chargers share. 0 turns it off.",
+                "supply_limit": "The size of the main fuse per phase, e.g. 25 A (or of the circuit the chargers share). With a meter and the guard, EV Planner itself keeps 2 A free when it turns a car up; without a meter, set it a little lower. 0 turns it off.",
                 "supply_phases": "How many phases the supply and the cars charge on.",
                 "supply_meter": "Current sensors (A) for the phases, e.g. from a HAN/P1 reader, a Shelly EM or an Equalizer. EV Planner learns what the house draws hour by hour.",
                 "supply_reserve": "Without a meter: what the house is expected to draw per phase.",
@@ -806,6 +806,15 @@
       },
       "guest_car_battery": {
         "name": "Battery"
+      },
+      "last_charge_energy": {
+        "name": "Last charge: energy"
+      },
+      "last_charge_cost": {
+        "name": "Last charge: cost"
+      },
+      "last_charge_price": {
+        "name": "Last charge: price per kWh"
       }
     },
     "switch": {
@@ -868,6 +877,9 @@
       },
       "quiet_hours": {
         "name": "Quiet hours"
+      },
+      "notify_away": {
+        "name": "Notifications when away"
       }
     },
     "text": {

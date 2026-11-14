@@ -132,6 +132,21 @@ async def test_a_car_that_cannot_make_it_is_warned_about_once(
     assert len(_tagged(notify, "short")) == 1
 
 
+async def test_a_car_a_point_or_two_short_is_not_warned_about(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    """A full car that warms its cabin before it leaves is at 99 %: "cannot reach 100 %" then says nothing."""
+    notify = NotifyCalls(hass)
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass, soc=78.4)
+    entry = await _setup(hass, freezer)
+    household = entry.runtime_data
+    await household.async_set_vehicle(TESLA, {"ready_by": "20:03"})
+    await move(hass, freezer, now + timedelta(minutes=1))
+    await move(hass, freezer, now + timedelta(minutes=2))
+    assert _tagged(notify, "short") == []
+
+
 async def test_a_driven_off_car_gets_no_receipt(
     hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
 ) -> None:

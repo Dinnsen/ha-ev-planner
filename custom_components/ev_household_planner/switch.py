@@ -22,6 +22,7 @@ from .const import (
     SET_LIVE,
     SET_LOW_PRICE_ENABLED,
     SET_LOW_SOC_ENABLED,
+    SET_NOTIFY_AWAY,
     SET_NOTIFY_DONE,
     SET_NOTIFY_RECEIPT,
     SET_REMINDER,
@@ -62,6 +63,7 @@ VEHICLE_SWITCHES: tuple[PlannerSwitchDescription, ...] = (
     _switch("live_notification", SET_LIVE),
     _switch("notify_done", SET_NOTIFY_DONE),
     _switch("notify_receipt", SET_NOTIFY_RECEIPT),
+    _switch("notify_away", SET_NOTIFY_AWAY),
 )
 GUEST_SWITCHES: tuple[PlannerSwitchDescription, ...] = (
     _switch("guest_use_ready_by", GUEST_USE_READY_BY, config=False),

@@ -239,6 +239,8 @@ SET_LIVE: Final = "live_notification"
 SET_NOTIFY_DONE: Final = "notify_done"
 # A message at the ready-by time with how it went, and a warning when the car cannot be ready.
 SET_NOTIFY_RECEIPT: Final = "notify_receipt"
+# Messages about the car also when it is away from the household's places (charging on the road).
+SET_NOTIFY_AWAY: Final = "notify_away"
 # Charge earlier when it costs at most ``early_within`` more per kWh than the cheapest plan.
 SET_EARLY_ENABLED: Final = "prefer_early"
 SET_KNOWN_PRICES: Final = "known_prices"
@@ -364,6 +366,7 @@ DEFAULT_VEHICLE_SETTINGS: Final[dict[str, object]] = {
     SET_LIVE: False,
     SET_NOTIFY_DONE: False,
     SET_NOTIFY_RECEIPT: True,
+    SET_NOTIFY_AWAY: True,
     SET_EARLY_ENABLED: False,
     SET_KNOWN_PRICES: False,
     SET_CHARGE_ON_LATE: True,
