@@ -250,3 +250,23 @@ test("the whole planner as a card: its own tabs, and the address stays", async (
     assert.deepEqual(seen, { card: true, menu: true, tab: "guest", path: before });
   });
 });
+
+test("the climate cards' clay car finds its colours and shadows, also for a car whose id starts with a digit", async () => {
+  await withPage({ size: DESKTOP }, async ({ page, state }) => {
+    // Home Assistant's ids are ULIDs: "01M59TAC…". CSS.escape makes "\30 1M59…" of one, which no url(#…) can name.
+    const tesla = state.vehicles.find((v) => v.id === "tesla_model_y");
+    tesla.id = "01M59TAC12D9P50SH4HK4RN1JA";
+    const configs = ["climate", "climate-tile", "climate-bubble"].map((kind) => [`ev-planner-${kind}-card`, { vehicle: tesla.id }]);
+    await page.evaluate(mountAll, [state, configs, "en"]);
+    const missing = await page.evaluate(() =>
+      [...document.querySelectorAll("#cards > *")].flatMap((card) => {
+        const root = card.shadowRoot;
+        const svg = root.querySelector("svg.cabin");
+        if (!svg) return [`${card.localName}: no cabin`];
+        const refs = [...svg.querySelectorAll("*")].flatMap((el) => ["fill", "stroke", "filter", "clip-path"].map((name) => el.getAttribute(name)).filter((value) => value?.startsWith("url(")));
+        return refs.map((ref) => ref.slice(5, -1)).filter((id) => !/^[A-Za-z][\w-]*$/.test(id) || !root.getElementById(id)).map((id) => `${card.localName}: ${id}`);
+      }),
+    );
+    assert.deepEqual(missing, []);
+  });
+});

@@ -908,6 +908,9 @@ class BubbleCard extends EvPlannerCard {
 
 /* ------------------------------------------------------------------ the climate */
 
+/* An id for the cabin's gradients and filters: url(#…) takes letters, digits, - and _ only (an id from CSS.escape, "\30 1M5…", is cut at its space). */
+const svgId = (value) => String(value).replace(/[^A-Za-z0-9_-]/g, "_");
+
 /* What a climate card shows of the car: drawn once, then only what changed, so the air keeps moving. */
 class ClimateBase extends EvPlannerCard {
   setConfig(config) {
@@ -963,7 +966,7 @@ class ClimateBase extends EvPlannerCard {
 class ClimateCard extends ClimateBase {
   _parts(v, m) {
     const r = this._r;
-    const id = `evcl-${cssId(v.id)}`;
+    const id = `evcl-${svgId(v.id)}`;
     const next = r._nextClimate ? r._nextClimate(v, v.settings || {}) : null;
     const minutes = Number(v.settings?.climate_minutes) || 15;
     return {
@@ -1028,7 +1031,7 @@ class ClimateTileCard extends ClimateBase {
       rootClass: "evct cabin-pop",
       shell: `<button data-clim-root class="evct cabin-pop" data-act="clim-power" data-id="${esc(v.id)}" data-f="tile" aria-label="${esc(`${this._name(v)}: ${m.status}`)}">
         <span class="evct-top"><b>${esc(this._name(v))}</b><span class="evct-status"></span></span>
-        <span class="evct-mid">${r._cabinSvg(`evct-${cssId(v.id)}`)}</span>
+        <span class="evct-mid">${r._cabinSvg(`evct-${svgId(v.id)}`)}</span>
         <span class="evct-bot"></span>
       </button>`,
       slots: {
@@ -1070,7 +1073,7 @@ class ClimateBubbleCard extends EvPlannerCard {
     return `<div class="bub evcb ${m.on ? "bub-live" : ""} ${m.mode}" style="--bub-accent:${m.mode === "cool" ? "color-mix(in srgb, #0ea5e9 45%, transparent)" : "color-mix(in srgb, #f97316 45%, transparent)"}">
       ${fill !== null ? `<i class="bub-fill" style="width:${fill}%"></i>` : ""}
       <button class="bub-main" data-view="car/${esc(v.id)}" data-title="${esc(name)}" data-f="card" aria-label="${esc(r._t("open_car", { name }))}">
-        <span class="bub-icon evcb-car cabin-pop${m.classes}" style="--k:${m.k.toFixed(2)}">${r._cabinSvg(`evcb-${cssId(v.id)}`)}</span>
+        <span class="bub-icon evcb-car cabin-pop${m.classes}" style="--k:${m.k.toFixed(2)}">${r._cabinSvg(`evcb-${svgId(v.id)}`)}</span>
         <span class="bub-name"><b>${esc(r._t("climate_label"))} · ${esc(name)}</b><span>${esc(parts.join(" · "))}</span></span>
       </button>
       <span class="bub-subs">

@@ -2,6 +2,12 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b6] - 2026-11-14
+
+### Fixed
+
+- **The clay car on the climate cards** was grey and flat in Home Assistant: a car's id there starts with a digit, and the escaped id (with a space in it) kept the drawing from finding its colours, glass and shadows. It is white clay with soft shadows, as in EV Planner.
+
 ## [2.5.0b5] - 2026-11-14
 
 ### Fixed
