@@ -527,6 +527,11 @@ class SupplyControl:
             # Short only when what is missing is worth saying: a percent of the battery, at least half a kWh
             # (not the rounding between the plan's slots and the car's own estimate).
             missing = self.plan.short_kwh.get(car.vehicle_id, 0.0)
+            # The joint plan aims an hour before the ready-by time (BUFFER): what it leaves for that hour
+            # still comes in time, at the car's full current, and is not "short".
+            real = vehicle.deadline
+            if real is not None and car.deadline is not None and real > car.deadline:
+                missing -= kw(car.max_amps, car.phases) * elapsed(real, car.deadline).total_seconds() / 3600
             short = missing > max(0.5, vehicle.capacity / 100)
             end_soc = vehicle.plan.end_soc
             if short:

@@ -238,7 +238,7 @@ async def test_the_guard_turns_the_car_down_at_once_and_up_again_later(
     assert len(calls) == 1
     later = first + GUARD_CONFIRM
     freezer.move_to(later)
-    hass.states.async_set(METER, "26.2", {"unit_of_measurement": "A"})
+    hass.states.async_set(METER, "25.9", {"unit_of_measurement": "A"})
     await hass.async_block_till_done()
     assert calls[-1].data["value"] == 6
     assert supply.guard_events == 2

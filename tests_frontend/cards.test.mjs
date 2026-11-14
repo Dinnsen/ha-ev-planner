@@ -9,7 +9,7 @@ import { DESKTOP, PHONE, fixture, keepPicture, launch, openPage, serve } from ".
 const DOMAIN = "ev_household_planner";
 const PANEL = "/frontend/ev-planner-panel.js?v=test";
 const CARDS = "/frontend/ev-planner-cards.js?v=test";
-const TAGS = ["household", "car", "car-large", "guest", "charger", "bubble"].map((kind) => `ev-planner-${kind}-card`);
+const TAGS = ["household", "car", "car-large", "guest", "charger", "bubble", "climate", "climate-tile", "climate-bubble", "learning", "place"].map((kind) => `ev-planner-${kind}-card`);
 
 /* Every card, as a dashboard would configure it for the two-cars household. */
 const CONFIGS = [
@@ -22,6 +22,11 @@ const CONFIGS = [
   ["ev-planner-bubble-card", { charger: "garage", name: "Wallbox" }, "Wallbox"],
   ["ev-planner-bubble-card", { guest: true }, null],
   ["ev-planner-car-card", { vehicle: "sold_last_year" }, "sold_last_year"],
+  ["ev-planner-climate-card", { vehicle: "tesla_model_y" }, "Tesla Model Y"],
+  ["ev-planner-climate-tile-card", { vehicle: "tesla_model_y" }, "Tesla Model Y"],
+  ["ev-planner-climate-bubble-card", { vehicle: "tesla_model_y" }, "Tesla Model Y"],
+  ["ev-planner-learning-card", { vehicle: "tesla_model_y" }, null],
+  ["ev-planner-place-card", {}, null],
 ];
 
 let browser;
@@ -39,6 +44,8 @@ after(async () => {
 
 async function withPage(options, run) {
   const state = fixture("two-cars");
+  // The Tesla's climate is on, for the climate cards.
+  state.vehicles.find((v) => v.id === "tesla_model_y").climate = { entity: "climate.tesla_model_y", on: true, started_at: null, inside: 14.5, outside: 6 };
   const opened = await openPage(browser, server.url, { now: state.now, ...options });
   try {
     await run({ ...opened, state });

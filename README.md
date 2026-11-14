@@ -129,7 +129,7 @@ Each page has its own address, so you can link straight to it: `/ev-planner/car/
 
 <img src="docs/images/cards-en.png" alt="EV Planner's cards on a phone dashboard, and the pop-up for a car" width="100%">
 
-EV Planner brings six cards for your own dashboards. They come with the integration – there is no resource to add and nothing else to install – and are under **Add card** (search for *EV Planner*), with a visual editor where you pick the car or the charger. They use the panel's own drawing, so they look and update exactly like it.
+EV Planner brings eleven cards for your own dashboards. They come with the integration – there is no resource to add and nothing else to install – and are under **Add card** (search for *EV Planner*), with a visual editor where you pick the car or the charger. They use the panel's own drawing, so they look and update exactly like it.
 
 | Card | | Size |
 | --- | --- | --- |
@@ -139,6 +139,11 @@ EV Planner brings six cards for your own dashboards. They come with the integrat
 | **Guest** `custom:ev-planner-guest-card` | *Add guest* when there is none, then the plate, the car, the plan and the cost, with *Stop charging* while it charges and *Bill* when it is done. | Half width |
 | **Charger** `custom:ev-planner-charger-card` | One charger: what it is doing, for whom, and who is next. | Half width |
 | **Bubble** `custom:ev-planner-bubble-card` | A car, the guest or a charger as one [Bubble Card](https://github.com/Clooos/Bubble-Card) button, to sit among your Bubble cards. See below. | One row |
+| **Climate** `custom:ev-planner-climate-card` | The car's climate: the clay car with its air, the temperature, inside and outside, on and off, and when it starts by itself. | Full width |
+| **Climate, small** `custom:ev-planner-climate-tile-card` | The climate as a square: a tap turns it on and off, holding opens the car. | Half width |
+| **Climate, Bubble** `custom:ev-planner-climate-bubble-card` | The climate as a Bubble Card button: the fill shows how far it has come, with the minutes before a departure and on/off. | One row |
+| **What it learned** `custom:ev-planner-learning-card` | What EV Planner has learned about a car: its speed, when it is plugged in, how much it charges and how often the plan held. | Full width |
+| **Place** `custom:ev-planner-place-card` | A place's house with its live numbers and its chargers; a tab for each place, or `place:` for one. | Full width |
 
 **Tapping a card** opens a pop-up with that car's, the guest's or the charger's page: the price clock, the battery with handles, ready by, the weekly plan and the plan type for a car; everything for the guest; and the cars on a charger, which you can tap to go on. Rules and notifications stay in EV Planner – the pop-up's **Open in EV Planner** goes there. The pop-up is Home Assistant's own dialog, so it opens above everything (also from inside a Bubble Card pop-up) and closes with the back button or by pulling it down on a phone.
 
@@ -149,7 +154,7 @@ name: Tesla                           # optional
 tap_action: popup                     # popup (default), panel or none
 ```
 
-`tap_action: panel` opens EV Planner on that car, charger or the guest instead of the pop-up. The household card has `show_cars`, `show_guest` and `show_chargers` (all `true` by default).
+`tap_action: panel` opens EV Planner on that car, charger or the guest instead of the pop-up. The household card has `show_cars`, `show_guest` and `show_chargers` (all `true` by default), and `place:` to show one place only. The Bubble card for a car takes `climate: true` for a climate button.
 
 ### The Bubble card
 
@@ -343,7 +348,7 @@ Remove EV Planner under **Settings → Devices & services**. Its settings, plans
 
 Several cars behind one fuse, or two chargers on one circuit: on the place (the integration, *Home*), under *Shared supply*, set the most the house may draw per phase (for example 23 A on a 25 A supply), the phases, and a meter if you have one. EV Planner then plans the plugged-in cars together under that limit, cheapest slots first. The house comes first (learned from the meter, or a fixed reserve), every car first gets what it must have by its ready-by time, and then they fill up by priority. A car or charger with a current setting gets its share in amps; one that can only be switched on and off takes its turn. Plans aim to be done an hour early. EV Planner does not protect the fuse; keep your charger's own load balancing on.
 
-An Easee charger needs no number: pick any sensor of the charger as its charging current, and EV Planner uses Easee's own action (with a 30-minute time limit, renewed, so the charger falls back by itself if Home Assistant stops). Without an Equalizer, you can turn on the *guard* (in the panel, *Settings → Places*, with how long it waits after a peak, 5–30 minutes): it watches the meter and turns the cars down at once when the house needs more, and puts them at the least current if the meter stops reporting. It reacts in seconds, not milliseconds, and is not a fuse. The *Home* tab in the panel shows the house, the cars and who gets the current through the night.
+An Easee charger needs no number: pick any sensor of the charger as its charging current, and EV Planner uses Easee's own action (with a 30-minute time limit, renewed, so the charger falls back by itself if Home Assistant stops). Without an Equalizer, you can turn on the *guard* (in the panel, *Settings → Places*, with how long it waits after a peak, 5–30 minutes): it watches the meter and turns the cars down at once when the house needs more, and puts them at the least current if the meter stops reporting. A small overload (up to 20 % over the limit) must last 30 seconds before it acts, so an oven's element is waited out; a car gets back what the guard took as soon as the meter has shown room for three minutes. A charger with no car charging is set to what the place has room for, so a car plugged in later starts there. It reacts in seconds, not milliseconds, and is not a fuse. The *Home* tab in the panel shows the house, the cars and who gets the current through the night.
 
 ### Weather and heat pump
 

@@ -110,6 +110,16 @@ const TEXT = {
     climate_inside_short: "Inde",
     climate_outside_short: "Ude",
     rule_target_step: "Trin for mål",
+    climate_none_card: "Bilen har intet klima i EV Planner.",
+    climate_next_short: "Starter af sig selv {day} kl. {time}",
+    climate_auto_on: "Starter af sig selv før afgang",
+    climate_auto_off: "Starter kun, når du tænder",
+    climate_cooling_short: "Køler",
+    climate_heating_short: "Varmer",
+    at_charger: "ved {name}",
+    ed_place: "Sted",
+    ed_place_all: "Alle steder",
+    ed_climate: "Klimaknap",
     g_departure: "Eller en afgang",
     g_departure_hint: "Samme afgange som husets biler. En afgang med pris lader kun i de billigste timer.",
     g_no_ceiling: "Intet loft",
@@ -689,6 +699,16 @@ const TEXT = {
     climate_inside_short: "Inside",
     climate_outside_short: "Outside",
     rule_target_step: "Target steps",
+    climate_none_card: "The car has no climate in EV Planner.",
+    climate_next_short: "Starts by itself {day} at {time}",
+    climate_auto_on: "Starts by itself before departures",
+    climate_auto_off: "Starts only when you turn it on",
+    climate_cooling_short: "Cooling",
+    climate_heating_short: "Heating",
+    at_charger: "at {name}",
+    ed_place: "Place",
+    ed_place_all: "All places",
+    ed_climate: "Climate button",
     g_departure: "Or a departure",
     g_departure_hint: "The same departures as the household's cars. One with a price charges only in the cheapest hours.",
     g_no_ceiling: "No ceiling",
@@ -6799,7 +6819,9 @@ class EvPlannerPanel extends HTMLElement {
 
   /* The climate: the car seen from above, the air streaming from the vents as it heats or cools,
      and under it on/off, the temperature and the cabin's own temperature (as in Tesla's app). */
-  _climatePopupHtml(v, s) {
+  /* The climate of a car as the pop-up and the cards show it: on or off, the temperature asked for,
+     inside and outside, warming or cooling, and how fast its air streams. */
+  _climateModel(v, s = this._vs(v)) {
     const c = v.climate;
     const state = c?.entity ? this._hass?.states?.[c.entity] : null;
     const a = state?.attributes || {};
@@ -6811,7 +6833,6 @@ class EvPlannerPanel extends HTMLElement {
     const on = c?.on === true;
     const inside = isNum(c?.inside) ? Number(c.inside) : isNum(a.current_temperature) ? Number(a.current_temperature) : null;
     const outside = isNum(c?.outside) ? Number(c.outside) : isNum(this._placeEnergy(v)?.temperature) ? Number(this._placeEnergy(v).temperature) : null;
-    const fmt = (t) => (Math.round(t * 10) / 10).toFixed(1).replace(".", this._lang === "da" ? "," : ".");
     const cooling = inside !== null ? temp < inside - 0.2 : state?.state === "cool";
     const left = inside !== null ? Math.abs(temp - inside) : null;
     const reached = left !== null && left < 0.5;
@@ -6820,6 +6841,12 @@ class EvPlannerPanel extends HTMLElement {
     const k = reached ? 2.4 : left === null ? 1 : left > 10 ? 0.6 : left > 4 ? 0.85 : 1.2;
     const mode = cooling ? "cool" : "heat";
     const status = !on ? this._t("climate_off") : reached ? this._t("climate_ready") : this._t(cooling ? "climate_cooling" : "climate_heating");
+    const fmt = (t) => (Math.round(t * 10) / 10).toFixed(1).replace(".", this._lang === "da" ? "," : ".");
+    return { c, isClimate, min, max, step, temp, on, inside, outside, cooling, left, reached, k, mode, status, fmt, classes: `${on ? " on" : ""} ${mode}${reached ? " reached" : ""}` };
+  }
+
+  _climatePopupHtml(v, s) {
+    const { isClimate, min, max, step, temp, on, inside, outside, reached, k, mode, status, fmt } = this._climateModel(v, s);
     return `<div class="cabin-pop${on ? " on" : ""} ${mode}${reached ? " reached" : ""}" data-clim data-min="${min}" data-max="${max}" data-step="${step}" style="--k:${k.toFixed(2)}">
         <div class="cabin-stage">${this._cabinSvg()}<span class="cabin-status">${esc(status)}</span></div>
         <div class="cabin-ctl">

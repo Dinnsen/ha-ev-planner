@@ -2,6 +2,32 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b4] - 2026-11-14
+
+### Added
+
+- **New dashboard cards:** *Climate* (the clay car, the temperature, inside and outside, on and off, and when it starts by itself), *Climate, small* (a square: a tap turns it on and off, holding opens the car), *Climate, Bubble*, *What it learned* (as on the car's history page) and *Place* (a place's house, its numbers and its chargers, with a tab for each place). The Bubble card for a car can have a climate button (`climate: true`), and the household card can show one place (`place:`).
+- **Target steps** (a car's rules, *Battery*): *The car's* (as before: the target follows the car's own charge limit and its steps), or EV Planner's own steps of 1, 5 or 10 %. With your own steps EV Planner stops the car at the target, and sets the car's limit to the step above as a safety net (80 % for a target of 75 % on a car that takes tens). The guest has steps of 1, 5 or 10 % too.
+- **The guest** can be ready by one of the household's departures (one with a price charges only in its cheapest hours), and can have a price ceiling.
+- **History:** each charge shows the charger and what it cost per kWh.
+
+### Changed
+
+- **The climate** is a clay model like the houses: white, soft shadows, light glass, no dark background; the air is orange or blue. It shows the temperature inside (the climate's own, or the car's inside sensor) and outside (the car's sensor, else the place's).
+- **The guard** waits out a short peak: a small overload (up to 20 % over the limit) must last 30 seconds before it turns a car down; a large one is cut at once. It reads what a car draws from its charger's own power sensor (which reports every few seconds), not the car's cloud, and gives a car back what it took as soon as the meter has shown room for three minutes, also at a Zaptec.
+- **A charger no car is charging at** is set to what the place has room for, at most its full current: back to full when the house is quiet, lower while the oven is on, so a car plugged in later starts at what it may take.
+- **A car whose current is set** is planned at its full current, not at what it was measured at while it was turned down; a charge that was turned down teaches nothing (its speed and power were what it was given). The first days, with a meter and the guard, the house is counted at what it has drawn of late, not the full reserve.
+- **The Home tab** shows only the chosen place's cars, chargers and supply: the summer house's charger is under the summer house.
+- **A car that cannot be paused low** (a Mercedes: its charge limit goes no lower than 50 %) is planned to charge there at once, as it does, and says so in its rules.
+- **A guest's plan at a charger that cannot tell whether a car is plugged in** lets go when a car of the household is plugged in there after it: one cable, one car.
+- The menu button of Home Assistant is there also when EV Planner is opened straight at its address.
+
+### Fixed
+
+- *"cannot reach 80 % by 15.00: about 80 %"*: the joint plan aims an hour early, and what it left for that hour was counted as missing. Now a car is short only when it cannot be charged by the ready-by time itself, a percent of the battery or more, and never when it would reach the target as rounded.
+- A guest who had driven off was forgotten again every minute, which wiped a new guest's plate.
+- The support export keeps a meter's peak within a minute, and a departure's time in the event log no longer replaces when it was set.
+
 ## [2.5.0b3] - 2026-11-14
 
 ### Changed

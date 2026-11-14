@@ -804,12 +804,13 @@ class GuestSession:
     def yield_to_household(self, now: datetime, vehicles: Iterable[Vehicle]) -> str | None:
         """A car of the household plugged in at the guest's charger after the guest's plan was made: the guest has gone.
 
-        One cable, one car: the guest's plan no longer holds the charger (a plan left over from a guest who
+        Only at a charger that cannot tell whether a car is plugged in. One cable, one car: the guest's plan no longer holds the charger (a plan left over from a guest who
         drove off at a charger that cannot tell, kept a car of the household waiting). The name of the car,
         when the guest let go.
         """
         charger_id = self.charger_id
-        if charger_id is None or not self.session_active(now):
+        if charger_id is None or self.connected_entity or not self.session_active(now):
+            # A charger that says whether a car is plugged in ends the guest's session by itself.
             return None
         for vehicle in vehicles:
             since = vehicle.connected_since

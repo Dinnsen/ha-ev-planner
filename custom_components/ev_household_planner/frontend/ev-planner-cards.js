@@ -12,6 +12,11 @@
      type: custom:ev-planner-charger-card      charger: <id>   one charger
      type: custom:ev-planner-bubble-card       vehicle: <id> | charger: <id> | guest: true
                                                one line in the style of a Bubble Card button
+     type: custom:ev-planner-climate-card      vehicle: <id>   the car's climate, large
+     type: custom:ev-planner-climate-tile-card vehicle: <id>   the car's climate, a small square
+     type: custom:ev-planner-climate-bubble-card vehicle: <id> the car's climate as a Bubble Card button
+     type: custom:ev-planner-learning-card     vehicle: <id>   what EV Planner has learned about the car
+     type: custom:ev-planner-place-card        place: <id>     a place's house, its numbers and chargers
 
    tap_action: popup (default) | panel | none
 */
@@ -24,13 +29,13 @@ const PANEL_URL = new URL(`./ev-planner-panel.js${VERSION ? `?v=${encodeURICompo
    panel is fetched the first time a card, the card editor or the pop-up is shown, and not
    before: a page without EV Planner's cards pays only for this file. Until the panel is here
    a card is registered and takes its configuration, but it is empty. */
-let EvPlannerPanel, TEXT, STYLE, ICONS, MODES, MODE_ICONS, chargerArt, esc, clamp, isNum, hasSegments, cssId;
+let EvPlannerPanel, TEXT, STYLE, ICONS, MODES, MODE_ICONS, chargerArt, esc, clamp, isNum, hasSegments, cssId, ClayScene;
 let panelLoading = null;
 
 function loadPanel() {
   panelLoading ||= import(PANEL_URL).then(
     (panel) => {
-      ({ EvPlannerPanel, TEXT, STYLE, ICONS, MODES, MODE_ICONS, chargerArt, esc, clamp, isNum, hasSegments, cssId } = panel);
+      ({ EvPlannerPanel, TEXT, STYLE, ICONS, MODES, MODE_ICONS, chargerArt, esc, clamp, isNum, hasSegments, cssId, _ClayScene: ClayScene } = panel);
     },
     (err) => {
       // Not fetched (offline, or an update on its way): the next card tries again.
@@ -57,6 +62,16 @@ const CARD_TEXT = {
     card_charger_desc: "En lader: hvem der lader, og hvem der er næste.",
     card_bubble: "EV Planner – Bubble",
     card_bubble_desc: "En bil, gæsten eller en lader som en Bubble Card-knap.",
+    card_climate: "EV Planner – klima",
+    card_climate_desc: "Bilens klima: kabinen, temperaturen, inde og ude, tænd og sluk.",
+    card_climate_tile: "EV Planner – klima, lille",
+    card_climate_tile_desc: "Bilens klima som en lille firkant: tryk tænder og slukker.",
+    card_climate_bubble: "EV Planner – klima, Bubble",
+    card_climate_bubble_desc: "Bilens klima som en Bubble Card-knap.",
+    card_learning: "EV Planner – det har den lært",
+    card_learning_desc: "Hvad EV Planner har lært om en bil: hastighed, vaner og hvor tit planen holdt.",
+    card_place: "EV Planner – sted",
+    card_place_desc: "Et steds hus, dets tal og ladere.",
   },
   en: {
     card_household: "EV Planner – household",
@@ -71,6 +86,16 @@ const CARD_TEXT = {
     card_charger_desc: "One charger: who charges and who is next.",
     card_bubble: "EV Planner – Bubble",
     card_bubble_desc: "A car, the guest or a charger as a Bubble Card button.",
+    card_climate: "EV Planner – climate",
+    card_climate_desc: "The car's climate: the cabin, the temperature, inside and outside, on and off.",
+    card_climate_tile: "EV Planner – climate, small",
+    card_climate_tile_desc: "The car's climate as a small square: a tap turns it on and off.",
+    card_climate_bubble: "EV Planner – climate, Bubble",
+    card_climate_bubble_desc: "The car's climate as a Bubble Card button.",
+    card_learning: "EV Planner – what it learned",
+    card_learning_desc: "What EV Planner has learned about a car: speed, habits and how often the plan held.",
+    card_place: "EV Planner – place",
+    card_place_desc: "A place's house, its numbers and its chargers.",
   },
 };
 
@@ -260,6 +285,8 @@ class EvPlannerCard extends HTMLElement {
   set hass(hass) {
     const first = !this._hass;
     this._hass = hass;
+    // The clay car's shadow and the like follow the theme, as in the panel.
+    this.toggleAttribute("dark", !!hass?.themes?.darkMode);
     if (this._r) this._r._hass = hass;
     if (first && this.isConnected) this._follow();
     this._render();
@@ -345,6 +372,43 @@ class EvPlannerCard extends HTMLElement {
       this._call("ev_household_planner/guest_stop", {}, el);
       return;
     }
+    if (act === "g-now") {
+      this._call("ev_household_planner/guest_charge_now", {}, el);
+      return;
+    }
+    if (act === "g-smart") {
+      this._call("ev_household_planner/guest_plan", {}, el);
+      return;
+    }
+    if (act === "g-new") {
+      this._call("ev_household_planner/guest_new", {}, el);
+      return;
+    }
+    if (act === "clim-power") {
+      const v = this._r._car(el.dataset.id);
+      if (!v) return;
+      const on = v.climate?.on !== true;
+      const temperature = Number(v.settings?.climate_temperature) || 21;
+      this._call("ev_household_planner/vehicle_climate", { vehicle_id: v.id, on, temperature: on ? temperature : null }, el);
+      return;
+    }
+    if (act === "clim-temp") {
+      const v = this._r._car(el.dataset.id);
+      if (!v) return;
+      const model = this._r._climateModel(v);
+      const temperature = clamp(model.temp + Number(el.dataset.d) * model.step, model.min, model.max);
+      this._call("ev_household_planner/vehicle_set", { vehicle_id: v.id, settings: { climate_temperature: temperature } });
+      if (model.on && model.isClimate) this._call("ev_household_planner/vehicle_climate", { vehicle_id: v.id, on: true, temperature });
+      return;
+    }
+    if (act === "clim-minutes") {
+      const v = this._r._car(el.dataset.id);
+      if (!v) return;
+      const steps = [5, 10, 15, 30];
+      const now = Number(v.settings?.climate_minutes) || 15;
+      this._call("ev_household_planner/vehicle_set", { vehicle_id: v.id, settings: { climate_minutes: steps[(steps.indexOf(now) + 1) % steps.length] } }, el);
+      return;
+    }
     if (act === "open-car") {
       this._tap(`car/${el.dataset.id}`, this._r._car(el.dataset.id)?.name);
       return;
@@ -403,8 +467,10 @@ class HouseholdCard extends EvPlannerCard {
     const r = this._r;
     const cfg = this._config;
     const chips = [];
+    // One place only, when asked (a summer house's dashboard): its cars and its chargers.
+    const here = (item) => !cfg.place || (item.site ?? "home") === cfg.place;
     if (cfg.show_cars !== false) {
-      for (const v of s.vehicles) {
+      for (const v of s.vehicles.filter(here)) {
         const plan = hasSegments(v.plan) ? v.plan : null;
         let sub = r._statusText(v);
         if (v.home === false) sub = r._t("away");
@@ -413,6 +479,7 @@ class HouseholdCard extends EvPlannerCard {
         const pct = isNum(v.soc) ? r._pct(v.soc) : "";
         chips.push(`<button class="evh-chip tone-${r._statusTone(v)} ${v.control === "charge" ? "charging" : ""}" data-view="car/${esc(v.id)}" data-title="${esc(v.name)}" data-f="h-${esc(v.id)}" aria-label="${esc(`${v.name}: ${pct}, ${sub}`)}">
           <span class="evh-ring">${ringSvg(v.soc, socColor(v.soc))}${v.image ? `<img src="${esc(v.image)}" alt="" loading="lazy">${pct ? `<em class="evh-pct">${pct}</em>` : ""}` : `<i>${pct}</i>`}</span>
+          ${v.climate?.on ? `<span class="evh-clim" title="${esc(r._t("climate_label"))}">${ICONS.climate}</span>` : ""}
           <b>${esc(v.name)}</b><small>${esc(sub)}</small></button>`);
       }
     }
@@ -426,7 +493,7 @@ class HouseholdCard extends EvPlannerCard {
         <b>${esc(active && g.inputs?.license_plate ? g.inputs.license_plate : r._t("guest_card"))}</b><small>${esc(sub)}</small></button>`);
     }
     if (cfg.show_chargers !== false) {
-      for (const c of s.chargers) {
+      for (const c of s.chargers.filter(here)) {
         chips.push(`<button class="evh-chip ctl-${esc(c.control || "released")}" data-view="charger/${esc(c.id)}" data-title="${esc(c.name)}" data-f="h-${esc(c.id)}" aria-label="${esc(`${c.name}: ${r._chargerStateText(c)}`)}">
           <span class="evh-ring art">${ringSvg(c.control === "charge" ? 100 : null, "var(--evp-b)")}${c.image ? `<img src="${esc(c.image)}" alt="" loading="lazy">` : chargerArt(c.style)}</span>
           <b>${esc(c.name)}</b><small>${esc(c.control === "released" ? r._t("charger_free") : r._t(`charger_${c.control}`))}</small></button>`);
@@ -462,13 +529,17 @@ class CarCard extends EvPlannerCard {
     let line = "";
     if (plan) {
       const range = `${r._time(plan.start || plan.segments[0].start)}–${r._time(plan.end || plan.segments.at(-1).end)}`;
-      line = `<div class="evc-row"><span>${esc(range)}</span><b>${r._money(plan.cost)}</b></div>
+      const per = Number(plan.energy) > 0.05 ? ` · ${r._money(plan.cost / plan.energy)}/kWh` : "";
+      line = `<div class="evc-row"><span>${esc(range)}</span><b>${r._money(plan.cost)}<small class="soft">${esc(per)}</small></b></div>
         ${plan.savings > 0.005 ? `<div class="evc-row"><span class="soft">${esc(r._t("savings"))}</span><b class="good">${r._money(plan.savings)}</b></div>` : ""}`;
     } else if (v.plan_error) line = `<div class="evc-row"><span class="soft">${esc(r._t(`vstatus_${v.plan_error}`))}</span></div>`;
     return `<button class="evc" data-view="car/${esc(v.id)}" data-title="${esc(name)}" data-f="card" aria-label="${esc(r._t("open_car", { name }))}">
       <span class="evc-head">
         <span class="evc-pic ${v.image ? "has" : ""}">${v.image ? `<img src="${esc(v.image)}" alt="" loading="lazy">` : ICONS.car}</span>
-        <span class="evc-name"><strong>${esc(name)}</strong><span><i class="dot ${tone}"></i>${esc(r._statusText(v))}</span></span>
+        <span class="evc-name"><strong>${esc(name)}</strong>${
+          v.charger?.name && v.connected ? `<span>${esc(r._t("at_charger", { name: v.charger.name }))}</span>` : v.home === false ? `<span>${esc(r._t("away"))}</span>` : ""
+        }</span>
+        <span class="pill ${tone} evc-badge"><span class="pill-t">${esc(r._statusText(v))}</span></span>
       </span>
       ${r._miniBatteryHtml(v)}
       ${line}
@@ -531,8 +602,18 @@ class GuestCard extends EvPlannerCard {
     const target = g.inputs?.charge_limit;
     const where = [g.charger?.name, hasPlan ? `${r._time(g.plan.segments[0].start)}–${r._time(g.plan.segments.at(-1).end)}` : ""].filter(Boolean).join(" · ");
     const billable = g.status === "completed" && (g.history || []).length;
+    // As on the guest page: follow the plan, charge now, stop, and take the guest away.
+    const current = g.charge_now ? "charge_now" : ["stopped", "completed"].includes(g.status) ? "stop" : hasPlan ? "smart" : "";
+    const modes = [
+      ["smart", "g-smart", ICONS[MODE_ICONS.smart], r._t("mode_smart"), !hasPlan],
+      ["charge_now", "g-now", ICONS[MODE_ICONS.charge_now], r._t("mode_charge_now"), false],
+      ["stop", "g-stop", ICONS.pause, r._t("g_mode_stop"), !hasPlan || ["stopped", "completed"].includes(g.status)],
+      ["remove", "g-new", ICONS.close, r._t("g_mode_remove"), false],
+    ];
     const actions = [
-      charging ? `<button class="btn ghost" data-act="g-stop" data-f="stop">${ICONS.pause}<span>${esc(r._t("guest_stop"))}</span></button>` : "",
+      `<div class="segmented modes g-modes evc-gmodes" role="group" aria-label="${esc(r._t("mode_label"))}">${modes
+        .map(([key, act, icon, label, off]) => `<button data-act="${act}" data-f="gm-${key}" aria-pressed="${current === key}" class="${current === key ? "on" : ""} m-${key === "stop" ? "pause" : key}"${off ? " disabled" : ""}>${icon}<span>${esc(label)}</span></button>`)
+        .join("")}</div>`,
       billable ? `<button class="btn ghost" data-view="history" data-force="panel" data-f="bill">${ICONS.receipt}<span>${esc(r._t("bill"))}</span></button>` : "",
     ].filter(Boolean);
     return `<div class="evc static">
@@ -545,7 +626,7 @@ class GuestCard extends EvPlannerCard {
         ${isNum(soc) && isNum(target) ? r._miniBatteryHtml({ soc, target, capacity: g.inputs?.battery_capacity, control: charging ? "charge" : "released" }) : ""}
         ${hasPlan ? `<span class="evc-row"><span class="soft">${esc(r._t("cost"))}</span><b>${r._money(g.plan.measured_cost ?? g.plan.cost)}</b></span>` : ""}
       </button>
-      ${actions.length ? `<div class="evc-actions">${actions.join("")}</div>` : ""}
+      ${actions.join("")}
     </div>`;
   }
 
@@ -572,7 +653,8 @@ class ChargerCard extends EvPlannerCard {
     const name = this._config.name || c.name;
     const next = r._chargerNext(c);
     const tone = c.control === "charge" ? "teal" : c.control === "pause" ? "sand" : "grey";
-    const details = [isNum(c.power) ? `${r._num(c.power)} kW` : "", c.connected === true ? r._t("car_plugged") : c.connected === false ? r._t("car_unplugged") : ""]
+    const site = (this._state.sites || []).length > 1 ? (this._state.sites.find((one) => one.id === (c.site ?? "home"))?.name || "") : "";
+    const details = [site, isNum(c.power) ? `${r._num(c.power)} kW` : "", c.connected === true ? r._t("car_plugged") : c.connected === false ? r._t("car_unplugged") : ""]
       .filter(Boolean)
       .join(" · ");
     return `<button class="evc ctl-${esc(c.control || "released")}" data-view="charger/${esc(c.id)}" data-title="${esc(name)}" data-f="card" aria-label="${esc(r._t("open_charger", { name }))}">
@@ -646,8 +728,12 @@ class BubbleCard extends EvPlannerCard {
       parts.push(r._t("bubble_starts", { time: r._time(start) }));
     } else parts.push(r._statusText(v));
     const mode = v.mode || "smart";
+    const climateOn = v.climate?.on === true;
     const subs = [
       plan ? `<span class="bub-sub info">${r._money(plan.cost)}</span>` : "",
+      this._config.climate && v.climate
+        ? `<button class="bub-sub ${climateOn ? "on" : ""}" data-act="clim-power" data-id="${esc(v.id)}" data-f="climate" aria-pressed="${climateOn}" aria-label="${esc(r._t("climate_label"))}">${ICONS.climate}</button>`
+        : "",
       `<button class="bub-sub ${charging ? "on" : ""}" data-act="bub-modes" data-f="modes" aria-haspopup="menu" aria-label="${esc(`${r._t("mode_label")}: ${r._t(`mode_${mode}`)}`)}">${ICONS[MODE_ICONS[mode]] || ""}</button>`,
     ].join("");
     return this._shell({
@@ -814,6 +900,292 @@ class BubbleCard extends EvPlannerCard {
   }
 }
 
+
+/* ------------------------------------------------------------------ the climate */
+
+/* What a climate card shows of the car: drawn once, then only what changed, so the air keeps moving. */
+class ClimateBase extends EvPlannerCard {
+  setConfig(config) {
+    if (!config?.vehicle) throw new Error("Choose a car (vehicle)");
+    super.setConfig(config);
+  }
+
+  _render() {
+    if (!this._r || !this._hass || !this._state) {
+      super._render();
+      return;
+    }
+    this._r._state = this._state;
+    const v = this._r._car(this._config.vehicle);
+    const card = this.shadowRoot.querySelector("ha-card");
+    if (!v || !v.climate) {
+      this._built = null;
+      const html = v ? `<p class="evc-msg">${esc(this._t("climate_none_card"))}</p>` : this._missing(this._config.vehicle);
+      if (html !== this._html) card.innerHTML = this._html = html;
+      return;
+    }
+    const model = this._r._climateModel(v, v.settings || {});
+    const parts = this._parts(v, model);
+    if (this._built !== v.id || !card.querySelector("[data-clim-root]")) {
+      card.innerHTML = parts.shell;
+      this._built = v.id;
+      this._html = null;
+    }
+    const root = card.querySelector("[data-clim-root]");
+    root.className = `${parts.rootClass}${model.classes}`;
+    root.style.setProperty("--k", model.k.toFixed(2));
+    for (const [selector, html] of Object.entries(parts.slots)) {
+      const el = root.querySelector(selector);
+      if (el && el.__html !== html) {
+        el.innerHTML = html;
+        el.__html = html;
+      }
+    }
+  }
+
+  _name(v) {
+    return this._config.name || v.name;
+  }
+
+  static async getStubConfig(hass) {
+    const state = await EvPlannerCard._firstState(hass);
+    const car = state?.vehicles?.find((v) => v.climate) || state?.vehicles?.[0];
+    return { vehicle: car?.id || "" };
+  }
+}
+
+/* The climate, large: the clay cabin, the temperature, inside and outside, and on and off. */
+class ClimateCard extends ClimateBase {
+  _parts(v, m) {
+    const r = this._r;
+    const id = `evcl-${cssId(v.id)}`;
+    const next = r._nextClimate ? r._nextClimate(v, v.settings || {}) : null;
+    const minutes = Number(v.settings?.climate_minutes) || 15;
+    return {
+      rootClass: "evcl cabin-pop",
+      shell: `<div data-clim-root class="evcl cabin-pop">
+        <div class="evcl-head">${ICONS.climate}<b>${esc(this._name(v))}</b><span class="evcl-status"></span></div>
+        <div class="evcl-stage">
+          <button class="evcl-cabin" data-view="car/${esc(v.id)}" data-title="${esc(this._name(v))}" data-f="cabin" aria-label="${esc(r._t("open_car", { name: this._name(v) }))}">${r._cabinSvg(id)}</button>
+          <div class="evcl-side"></div>
+        </div>
+        <div class="evcl-foot"></div>
+      </div>`,
+      slots: {
+        ".evcl-status": `<span class="cabin-status">${esc(m.status)}</span>`,
+        ".evcl-side": `${m.isClimate ? `<div class="evcl-temp"><button data-act="clim-temp" data-id="${esc(v.id)}" data-d="-1" data-f="minus" aria-label="${esc(r._t("climate_colder"))}"><svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></button><output>${m.fmt(m.temp)}<small>°</small></output><button data-act="clim-temp" data-id="${esc(v.id)}" data-d="1" data-f="plus" aria-label="${esc(r._t("climate_warmer"))}"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button></div>` : ""}
+          <div class="evcl-io">${m.inside !== null ? `<div><b>${m.fmt(m.inside)}°</b><small>${esc(r._t("climate_inside_short"))}</small></div>` : ""}${m.outside !== null ? `<div><b>${m.fmt(m.outside)}°</b><small>${esc(r._t("climate_outside_short"))}</small></div>` : ""}</div>
+          <button class="evcl-power${m.on ? " on" : ""}" data-act="clim-power" data-id="${esc(v.id)}" data-f="power" aria-pressed="${m.on}" aria-label="${esc(r._t(m.on ? "climate_on_short" : "climate_off_short"))}"><svg viewBox="0 0 24 24"><path d="M12 3v8M6.3 6.8a8 8 0 1 0 11.4 0"/></svg></button>`,
+        ".evcl-foot": `<span>${ICONS.history}${next ? esc(r._t("climate_next_short", { day: r._day(next.start.toISOString()).toLowerCase(), time: r._time(next.start.toISOString()) })) : esc(r._t(v.settings?.climate_auto ? "climate_auto_on" : "climate_auto_off"))}</span><button class="evcl-min" data-act="clim-minutes" data-id="${esc(v.id)}" data-f="minutes">${minutes} min</button>`,
+      },
+    };
+  }
+
+  getCardSize() {
+    return 5;
+  }
+
+  getGridOptions() {
+    return { columns: 12, min_columns: 6, rows: 5, min_rows: 4 };
+  }
+}
+
+/* The climate as a small square: the car from above, a tap turns it on and off, holding opens it. */
+class ClimateTileCard extends ClimateBase {
+  constructor() {
+    super();
+    this._hold = null;
+    this.shadowRoot.addEventListener("pointerdown", (ev) => {
+      if (!ev.target.closest(".evct")) return;
+      clearTimeout(this._hold);
+      this._held = false;
+      this._hold = setTimeout(() => {
+        this._held = true;
+        const v = this._r?._car(this._config.vehicle);
+        if (v) this._tap(`car/${v.id}`, this._name(v));
+      }, 550);
+    });
+    for (const type of ["pointerup", "pointercancel", "pointerleave"]) this.shadowRoot.addEventListener(type, () => clearTimeout(this._hold));
+  }
+
+  _onClick(ev) {
+    if (this._held) {
+      this._held = false;
+      return;
+    }
+    super._onClick(ev);
+  }
+
+  _parts(v, m) {
+    const r = this._r;
+    const short = !m.on ? "" : m.reached ? r._t("climate_ready") : r._t(m.cooling ? "climate_cooling_short" : "climate_heating_short");
+    return {
+      rootClass: "evct cabin-pop",
+      shell: `<button data-clim-root class="evct cabin-pop" data-act="clim-power" data-id="${esc(v.id)}" data-f="tile" aria-label="${esc(`${this._name(v)}: ${m.status}`)}">
+        <span class="evct-top"><b>${esc(this._name(v))}</b><span class="evct-status"></span></span>
+        <span class="evct-mid">${r._cabinSvg(`evct-${cssId(v.id)}`)}</span>
+        <span class="evct-bot"></span>
+      </button>`,
+      slots: {
+        ".evct-status": short ? `<span class="cabin-status">${esc(short)}</span>` : "",
+        ".evct-bot": `<span class="evct-t">${m.on ? `${m.fmt(m.temp)}<small>°</small>` : `<span class="evct-off">${esc(r._t("climate_off"))}</span>`}</span><span class="evct-io">${[m.inside !== null ? `${esc(r._t("climate_inside_short").toLowerCase())} ${m.fmt(m.inside)}°` : "", m.outside !== null ? `${esc(r._t("climate_outside_short").toLowerCase())} ${m.fmt(m.outside)}°` : ""].filter(Boolean).join(" · ")}</span>`,
+      },
+    };
+  }
+
+  getCardSize() {
+    return 4;
+  }
+
+  getGridOptions() {
+    return { columns: 6, min_columns: 3, rows: 4, min_rows: 2 };
+  }
+}
+
+/* The climate as a Bubble Card button: the fill shows how far it has come towards the temperature. */
+class ClimateBubbleCard extends EvPlannerCard {
+  setConfig(config) {
+    if (!config?.vehicle) throw new Error("Choose a car (vehicle)");
+    super.setConfig(config);
+  }
+
+  _content() {
+    const r = this._r;
+    const v = r._car(this._config.vehicle);
+    if (!v) return `<div class="bub">${this._missing(this._config.vehicle)}</div>`;
+    if (!v.climate) return `<div class="bub"><p class="evc-msg">${esc(r._t("climate_none_card"))}</p></div>`;
+    const m = r._climateModel(v, v.settings || {});
+    const name = this._config.name || v.name;
+    const fill = !m.on ? null : m.reached || m.left === null ? 100 : clamp(100 - m.left * 7, 12, 94);
+    const parts = [m.status];
+    if (m.on && m.isClimate) parts.push(`${m.fmt(m.temp)}°`);
+    if (m.inside !== null) parts.push(`${r._t("climate_inside_short").toLowerCase()} ${m.fmt(m.inside)}°`);
+    if (m.outside !== null) parts.push(`${r._t("climate_outside_short").toLowerCase()} ${m.fmt(m.outside)}°`);
+    const minutes = Number(v.settings?.climate_minutes) || 15;
+    return `<div class="bub evcb ${m.on ? "bub-live" : ""} ${m.mode}" style="--bub-accent:${m.mode === "cool" ? "color-mix(in srgb, #0ea5e9 45%, transparent)" : "color-mix(in srgb, #f97316 45%, transparent)"}">
+      ${fill !== null ? `<i class="bub-fill" style="width:${fill}%"></i>` : ""}
+      <button class="bub-main" data-view="car/${esc(v.id)}" data-title="${esc(name)}" data-f="card" aria-label="${esc(r._t("open_car", { name }))}">
+        <span class="bub-icon evcb-car">${r._cabinSvg(`evcb-${cssId(v.id)}`)}</span>
+        <span class="bub-name"><b>${esc(r._t("climate_label"))} · ${esc(name)}</b><span>${esc(parts.join(" · "))}</span></span>
+      </button>
+      <span class="bub-subs">
+        <button class="bub-sub info" data-act="clim-minutes" data-id="${esc(v.id)}" data-f="minutes">${minutes} min</button>
+        <button class="bub-sub ${m.on ? "on" : ""}" data-act="clim-power" data-id="${esc(v.id)}" data-f="power" aria-pressed="${m.on}" aria-label="${esc(r._t(m.on ? "climate_on_short" : "climate_off_short"))}"><svg viewBox="0 0 24 24"><path d="M12 3v8M6.3 6.8a8 8 0 1 0 11.4 0"/></svg></button>
+      </span>
+    </div>`;
+  }
+
+  static async getStubConfig(hass) {
+    return ClimateBase.getStubConfig(hass);
+  }
+
+  getCardSize() {
+    return 1;
+  }
+
+  getGridOptions() {
+    return { columns: 12, min_columns: 6, rows: 1, min_rows: 1, max_rows: 1 };
+  }
+}
+
+/* What EV Planner has learned about a car: as on the car's history page. */
+class LearningCard extends EvPlannerCard {
+  setConfig(config) {
+    if (!config?.vehicle) throw new Error("Choose a car (vehicle)");
+    super.setConfig(config);
+  }
+
+  _content() {
+    const r = this._r;
+    const v = r._car(this._config.vehicle);
+    if (!v) return this._missing(this._config.vehicle);
+    const shown = this._config.name ? { ...v, name: this._config.name } : v;
+    return `<div class="evlearn">${r._learnedCarHtml(shown, { title: true })}</div>`;
+  }
+
+  static async getStubConfig(hass) {
+    const state = await EvPlannerCard._firstState(hass);
+    return { vehicle: state?.vehicles?.[0]?.id || "" };
+  }
+
+  getCardSize() {
+    return 5;
+  }
+
+  getGridOptions() {
+    return { columns: 12, min_columns: 6, rows: "auto" };
+  }
+}
+
+/* A place: its clay house (made once, so its motion goes on), the numbers under it and its chargers. */
+class PlaceCard extends EvPlannerCard {
+  _render() {
+    if (!this._r || !this._hass || !this._state) {
+      super._render();
+      return;
+    }
+    const r = this._r;
+    r._state = this._state;
+    const sites = this._state.sites || [];
+    const fixed = this._config.place;
+    r._place = fixed || this._chosen || sites.find((site) => site.home)?.id || "home";
+    const place = r._placeNow();
+    const card = this.shadowRoot.querySelector("ha-card");
+    if (!card.querySelector(".evpl")) {
+      card.innerHTML = `<div class="evpl"><div class="evpl-tabs"></div><div class="evpl-pic"></div><div class="evpl-now"></div><div class="evpl-chg"></div></div>`;
+      this._html = null;
+    }
+    if (!this._scene && ClayScene) {
+      this._scene = new ClayScene();
+      this._scene.t = (key, vars) => r._t(key, vars);
+    }
+    const pic = card.querySelector(".evpl-pic");
+    if (this._scene && this._scene.el.parentNode !== pic) pic.appendChild(this._scene.el);
+    const model = r._sceneModel();
+    model.canEdit = false; // the house is placed in EV Planner, not on a dashboard
+    this._scene?.update(model);
+    const set = (selector, html) => {
+      const el = card.querySelector(selector);
+      if (el.__html !== html) {
+        el.innerHTML = html;
+        el.__html = html;
+      }
+    };
+    set(".evpl-tabs", !fixed && sites.length > 1
+      ? sites.map((site) => `<button data-act="pl-place" data-id="${esc(site.id)}" data-f="pl-${esc(site.id)}" class="${site.id === place.id ? "on" : ""}" aria-pressed="${site.id === place.id}">${esc(site.name || r._t("place_home"))}</button>`).join("")
+      : "");
+    set(".evpl-now", r._homeNowHtml());
+    set(".evpl-chg", r._chargersHtml(sites.length > 1 ? place.id : null));
+  }
+
+  _onClick(ev) {
+    const el = ev.target.closest('[data-act="pl-place"]');
+    if (el) {
+      this._chosen = el.dataset.id;
+      this._render();
+      return;
+    }
+    const open = ev.target.closest('[data-act="open-charger"]');
+    if (open) {
+      this._tap(`charger/${open.dataset.id}`, open.textContent.trim());
+      return;
+    }
+    super._onClick(ev);
+  }
+
+  static async getStubConfig() {
+    return {};
+  }
+
+  getCardSize() {
+    return 7;
+  }
+
+  getGridOptions() {
+    return { columns: 12, min_columns: 6, rows: "auto" };
+  }
+}
+
 /* ------------------------------------------------------------------ the pop-up */
 
 class EvPlannerDialog extends HTMLElement {
@@ -959,7 +1331,14 @@ class EvPlannerCardEditor extends HTMLElement {
     switch (this._kind) {
       case "car":
       case "car-large":
+      case "learning":
         return [{ name: "vehicle", required: true, selector: { select: { mode: "dropdown", options: options(this._state?.vehicles) } } }, name, tap];
+      case "climate":
+      case "climate-tile":
+      case "climate-bubble":
+        return [{ name: "vehicle", required: true, selector: { select: { mode: "dropdown", options: options((this._state?.vehicles || []).filter((v) => v.climate)) } } }, name, tap];
+      case "place":
+        return [{ name: "place", selector: { select: { mode: "dropdown", options: [{ value: "", label: t("ed_place_all") }, ...options(this._state?.sites)] } } }];
       case "charger":
         return [{ name: "charger", required: true, selector: { select: { mode: "dropdown", options: options(this._state?.chargers) } } }, name, tap];
       case "bubble": {
@@ -968,10 +1347,11 @@ class EvPlannerCardEditor extends HTMLElement {
           { value: "guest", label: t("guest_card") },
           ...(this._state?.chargers || []).map((c) => ({ value: `charger:${c.id}`, label: `${t("ed_charger")}: ${c.name}` })),
         ];
-        return [{ name: "show", required: true, selector: { select: { mode: "dropdown", options: items } } }, name, tap];
+        return [{ name: "show", required: true, selector: { select: { mode: "dropdown", options: items } } }, { name: "climate", selector: { boolean: {} } }, name, tap];
       }
       case "household":
         return [
+          { name: "place", selector: { select: { mode: "dropdown", options: [{ value: "", label: t("ed_place_all") }, ...options(this._state?.sites)] } } },
           { name: "show_cars", selector: { boolean: {} } },
           { name: "show_guest", selector: { boolean: {} } },
           { name: "show_chargers", selector: { boolean: {} } },
@@ -1005,12 +1385,13 @@ class EvPlannerCardEditor extends HTMLElement {
         for (const key of Object.keys(value)) if (value[key] === "" || value[key] === undefined) delete value[key];
         if (value.tap_action === "popup") delete value.tap_action;
         for (const key of ["show_cars", "show_guest", "show_chargers"]) if (value[key] === true) delete value[key];
+        if (value.climate === false) delete value.climate;
         this._config = { type: this._config.type, ...value };
         this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: this._config }, bubbles: true, composed: true }));
       });
       this.appendChild(this._form);
     }
-    const labels = { show: "ed_show", vehicle: "ed_vehicle", charger: "ed_charger", name: "ed_name", tap_action: "ed_tap", show_cars: "ed_show_cars", show_guest: "ed_show_guest", show_chargers: "ed_show_chargers" };
+    const labels = { show: "ed_show", vehicle: "ed_vehicle", charger: "ed_charger", place: "ed_place", climate: "ed_climate", name: "ed_name", tap_action: "ed_tap", show_cars: "ed_show_cars", show_guest: "ed_show_guest", show_chargers: "ed_show_chargers" };
     this._form.hass = this._hass;
     this._form.schema = this._schema();
     const c = this._config;
@@ -1094,9 +1475,87 @@ ha-card > .vcard { border: 0; border-radius: 0; background: none; box-shadow: no
 .evh-ring.art > svg.art { position: relative; transform: none; width: 30px; height: 30px; inset: auto; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .evh-chip.add { background: color-mix(in srgb, var(--evp-a) 10%, var(--evc-surface)); }
 
+/* The small car card: the badge top right, as on EV Planner's own car card. */
+.evc-head .evc-badge { margin-left: auto; align-self: flex-start; flex: 0 1 auto; max-width: 52%; }
+.evc-head .evc-badge .pill-t { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.evc-row b small { font-weight: 500; font-size: 12px; margin-left: 2px; }
+/* The household line: one line per name, cut short; a mark when the climate runs. */
+.evh-chip b { -webkit-line-clamp: 1; white-space: nowrap; text-overflow: ellipsis; display: block; }
+.evh-chip { position: relative; }
+.evh-clim { position: absolute; top: 6px; right: 6px; width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; color: #f97316; background: color-mix(in srgb, #f97316 14%, transparent); }
+.evh-clim svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; }
+/* The guest's modes, as on the guest page. */
+.evc-gmodes { margin-top: 2px; }
+.evc-gmodes.segmented.modes { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.evc-gmodes button { font-size: 12.5px; padding: 8px 4px; }
+@container (max-width: 380px) { .evc-gmodes button svg { display: none; } }
+:host(ev-planner-guest-card) ha-card { container-type: inline-size; }
+
+/* The climate, large */
+.evcl { display: grid; gap: 6px; padding: 14px 14px 12px; margin: 0; height: 100%; box-sizing: border-box; grid-template-rows: auto minmax(0, 1fr) auto; }
+.evcl-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.evcl-head > svg { width: 20px; height: 20px; flex: none; fill: none; stroke: var(--evp-a); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.evcl-head b { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+.evcl .cabin-status { position: static; }
+.evcl-stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 150px); gap: 6px; align-items: center; min-height: 0; }
+.evcl-cabin { border: 0; background: none; padding: 0; cursor: pointer; min-height: 0; height: 100%; display: grid; place-items: center; }
+.evcl-cabin .cabin { max-height: 230px; height: 100%; width: auto; max-width: 100%; }
+.evcl-side { display: grid; gap: 12px; justify-items: start; }
+.evcl-temp { display: flex; align-items: center; gap: 2px; }
+.evcl-temp button, .evcl-power { border: 0; background: none; color: var(--evp-soft); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; padding: 0; }
+.evcl-temp svg, .evcl-power svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.evcl-temp output { font-size: 36px; font-weight: 300; letter-spacing: -.02em; min-width: 3.2ch; text-align: center; font-variant-numeric: tabular-nums; }
+.evcl-temp output small { font-size: 17px; vertical-align: top; }
+.evcl-io { display: flex; gap: 14px; }
+.evcl-io div { display: grid; line-height: 1.15; }
+.evcl-io b { font-size: 16px; font-variant-numeric: tabular-nums; }
+.evcl-io small { font-size: 11.5px; color: var(--evp-soft); }
+.evcl-power { width: 42px; height: 42px; background: color-mix(in srgb, var(--evp-ink) 7%, transparent); color: var(--evp-ink); }
+.evcl-power.on { background: var(--evp-a); color: #fff; }
+.evcl-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid var(--evp-line); padding-top: 8px; font-size: 13px; color: var(--evp-soft); }
+.evcl-foot > span { display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.evcl-foot svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.evcl-min { border: 0; border-radius: 999px; padding: 4px 10px; background: color-mix(in srgb, var(--evp-ink) 7%, transparent); color: var(--evp-ink); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+@container (max-width: 360px) { .evcl-stage { grid-template-columns: minmax(0, 1fr) minmax(0, 120px); } .evcl-temp output { font-size: 28px; } }
+:host(ev-planner-climate-card) ha-card, :host(ev-planner-climate-tile-card) ha-card { container-type: inline-size; }
+
+/* The climate, a small square */
+.evct { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 2px; width: 100%; height: 100%; min-height: 190px; margin: 0; padding: 10px; box-sizing: border-box; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+.evct-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; min-width: 0; }
+.evct-top b { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.evct .cabin-status { position: static; font-size: 11.5px; padding: 2px 8px; }
+.evct-mid { position: relative; min-height: 0; }
+.evct-mid .cabin { position: absolute; inset: 4px 0; width: 100%; height: calc(100% - 8px); max-height: none; }
+.evct-bot { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; min-width: 0; }
+.evct-t { font-size: 22px; font-weight: 400; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.evct-t small { font-size: 12px; vertical-align: top; }
+.evct-off { font-size: 13px; color: var(--evp-soft); }
+.evct-io { font-size: 12px; color: var(--evp-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+
+/* The climate as a Bubble button: the clay car in the round icon. */
+.evcb .bub-icon.evcb-car { background-color: color-mix(in srgb, var(--primary-text-color) 6%, var(--card-background-color, #fff)); }
+.evcb .bub-icon.evcb-car .cabin { width: 34px; height: 34px; max-height: none; margin: 0; }
+.evcb .bub-fill { background-color: var(--bub-accent); }
+
+/* What it has learned */
+.evlearn { padding: 4px 4px 8px; }
+.evlearn > section, .evlearn > .panel { margin: 0; border: 0; background: none; box-shadow: none; }
+
+/* A place: the house edge to edge in the card (no second set of rounded corners inside it). */
+.evpl { display: grid; }
+.evpl-tabs { display: flex; gap: 6px; padding: 10px 12px 0; flex-wrap: wrap; }
+.evpl-tabs:empty { display: none; }
+.evpl-tabs button { border: 1px solid var(--evp-line); background: none; color: var(--evp-ink); border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.evpl-tabs button.on { background: var(--evp-a); border-color: transparent; color: #fff; }
+.evpl-pic .cscene { border-radius: 0; }
+.evpl-tabs:not(:empty) + .evpl-pic { margin-top: 10px; }
+.evpl-now .now-chips { padding: 10px 12px 4px; }
+.evpl-chg .panel.chargers { margin: 0; border: 0; border-top: 1px solid var(--evp-line); border-radius: 0; background: none; box-shadow: none; }
+.evpl-chg .panel.chargers h2 { display: none; }
+
 /* The Bubble card: Bubble Card's button, measure for measure, and its variables. */
-:host(ev-planner-bubble-card) { --ha-card-backdrop-filter: none; }
-:host(ev-planner-bubble-card) ha-card { background: none; border: 0; box-shadow: none; border-radius: 0; overflow: visible; }
+:host(ev-planner-bubble-card), :host(ev-planner-climate-bubble-card) { --ha-card-backdrop-filter: none; }
+:host(ev-planner-bubble-card) ha-card, :host(ev-planner-climate-bubble-card) ha-card { background: none; border: 0; box-shadow: none; border-radius: 0; overflow: visible; }
 .bub {
   --bub-radius: var(--bubble-button-border-radius, var(--bubble-border-radius, calc(var(--row-height, 56px) / 2)));
   --bub-accent: var(--bubble-button-accent-color, var(--bubble-accent-color, var(--bubble-default-color, var(--accent-color, var(--primary-color)))));
@@ -1148,7 +1607,8 @@ button.bub-sub { cursor: pointer; }
 /* Narrow: the text goes first, then the price. */
 @container (max-width: 340px) { .bub-sub.info { display: none; } }
 @container (max-width: 250px) { .bub-sub > span { display: none; } }
-:host(ev-planner-bubble-card) ha-card { container-type: inline-size; }
+:host(ev-planner-bubble-card) ha-card, :host(ev-planner-climate-bubble-card) ha-card { container-type: inline-size; }
+:host(ev-planner-learning-card) ha-card, :host(ev-planner-place-card) ha-card { container-type: inline-size; }
 .bub-menu {
   position: fixed; inset: auto; margin: 0; min-width: 180px; padding: 6px; box-sizing: border-box; display: none; gap: 2px;
   border: var(--bubble-border, none); border-radius: var(--bubble-select-list-border-radius, var(--bubble-border-radius, 20px));
@@ -1220,6 +1680,11 @@ const CARDS = [
   ["ev-planner-guest-card", GuestCard, "card_guest"],
   ["ev-planner-charger-card", ChargerCard, "card_charger"],
   ["ev-planner-bubble-card", BubbleCard, "card_bubble"],
+  ["ev-planner-climate-card", ClimateCard, "card_climate"],
+  ["ev-planner-climate-tile-card", ClimateTileCard, "card_climate_tile"],
+  ["ev-planner-climate-bubble-card", ClimateBubbleCard, "card_climate_bubble"],
+  ["ev-planner-learning-card", LearningCard, "card_learning"],
+  ["ev-planner-place-card", PlaceCard, "card_place"],
 ];
 
 for (const [tag, cls] of CARDS) if (!customElements.get(tag)) customElements.define(tag, cls);
@@ -1232,4 +1697,4 @@ for (const [tag, , key] of CARDS) {
   window.customCards.push({ type: tag, name: text(key), description: text(`${key}_desc`), preview: true, documentationURL: DOCS });
 }
 
-export { HouseholdCard, CarCard, CarLargeCard, GuestCard, ChargerCard, BubbleCard, EvPlannerDialog, EvPlannerCardEditor, CARD_TEXT, watch };
+export { HouseholdCard, CarCard, CarLargeCard, GuestCard, ChargerCard, BubbleCard, ClimateCard, ClimateTileCard, ClimateBubbleCard, LearningCard, PlaceCard, EvPlannerDialog, EvPlannerCardEditor, CARD_TEXT, watch };

@@ -88,7 +88,7 @@ Når I tilføjer en bil, kan I starte fra en bil i EV Smart Charging: sensorer, 
 
 <img src="docs/images/cards-da.png" alt="EV Planners kort på et dashboard på telefonen, og pop-up'en for en bil" width="100%">
 
-EV Planner har seks kort til jeres egne dashboards. De følger med integrationen – der skal ikke tilføjes en ressource eller installeres andet – og findes under **Tilføj kort** (søg på *EV Planner*), med en visuel editor, hvor I vælger bil eller lader. De bruger panelets egen tegning, så de ser ud og opdateres præcis som det.
+EV Planner har elleve kort til jeres egne dashboards. De følger med integrationen – der skal ikke tilføjes en ressource eller installeres andet – og findes under **Tilføj kort** (søg på *EV Planner*), med en visuel editor, hvor I vælger bil eller lader. De bruger panelets egen tegning, så de ser ud og opdateres præcis som det.
 
 | Kort | | Bredde |
 | --- | --- | --- |
@@ -98,6 +98,11 @@ EV Planner har seks kort til jeres egne dashboards. De følger med integrationen
 | **Gæst** `custom:ev-planner-guest-card` | *Tilføj gæst*, når der ingen er, ellers nummerplade, bil, plan og pris – med *Stop ladning*, mens den lader, og *Afregn*, når den er færdig. | Halv |
 | **Lader** `custom:ev-planner-charger-card` | En lader: hvad den gør, for hvem, og hvem der er den næste. | Halv |
 | **Bubble** `custom:ev-planner-bubble-card` | En bil, gæsten eller en lader som én [Bubble Card](https://github.com/Clooos/Bubble-Card)-knap, der passer ind mellem jeres Bubble-kort. Se nedenfor. | Én række |
+| **Klima** `custom:ev-planner-climate-card` | Bilens klima: lerbilen med luften, temperaturen, inde og ude, tænd og sluk, og hvornår det starter af sig selv. | Hel |
+| **Klima, lille** `custom:ev-planner-climate-tile-card` | Klimaet som en firkant: et tryk tænder og slukker, hold for at åbne bilen. | Halv |
+| **Klima, Bubble** `custom:ev-planner-climate-bubble-card` | Klimaet som en Bubble Card-knap: fyldet viser, hvor langt det er nået, med minutter før afgang og tænd/sluk. | Én række |
+| **Det har den lært** `custom:ev-planner-learning-card` | Hvad EV Planner har lært om en bil: hastighed, hvornår den sættes til, hvor meget den lader, og hvor tit planen holdt. | Hel |
+| **Sted** `custom:ev-planner-place-card` | Et steds hus med live-tal og laderne; en fane for hvert sted, eller `place:` for ét. | Hel |
 
 **Tryk på et kort** åbner en pop-up med bilens, gæstens eller laderens side: prisuret, batteriet med håndtag, klar kl., ugeplanen og plantypen for en bil; det hele for gæsten; og bilerne på en lader, som man kan trykke videre på. Regler og beskeder ligger i EV Planner – pop-up'ens **Åbn i EV Planner** går dertil. Pop-up'en er Home Assistants egen dialog, så den ligger over alt andet (også inde i en Bubble Card pop-up) og lukkes med tilbage-knappen eller ved at trække den ned på telefonen.
 
@@ -108,7 +113,7 @@ name: Tesla                           # valgfrit
 tap_action: popup                     # popup (standard), panel eller none
 ```
 
-`tap_action: panel` åbner EV Planner direkte på bilen, laderen eller gæsten i stedet for pop-up'en. Husstandskortet har `show_cars`, `show_guest` og `show_chargers` (alle `true` som standard). Panelets sider har hver sin adresse: `/ev-planner/car/<id>`, `/ev-planner/charger/<id>`, `/ev-planner/guest`, `/ev-planner/history` og `/ev-planner/settings`.
+`tap_action: panel` åbner EV Planner direkte på bilen, laderen eller gæsten i stedet for pop-up'en. Husstandskortet har `show_cars`, `show_guest` og `show_chargers` (alle `true` som standard) og `place:` for kun ét sted. Bubble-kortet for en bil tager `climate: true` for en klimaknap. Panelets sider har hver sin adresse: `/ev-planner/car/<id>`, `/ev-planner/charger/<id>`, `/ev-planner/guest`, `/ev-planner/history` og `/ev-planner/settings`.
 
 ### Bubble-kortet
 
@@ -143,7 +148,7 @@ EV Planner læser priserne fra én prissensor. Viser den spotprisen uden tariffe
 
 ## Fælles forsyning, sol og varmepumpe
 
-Flere biler bag én sikring: på stedet (integrationen, *Hjem*) under *Fælles forsyning* sættes det, huset højst må trække pr. fase, faserne og en måler. Bilerne planlægges så sammen under grænsen, billigste timer først, og *vagten* skruer bilerne ned med det samme, når huset skal bruge mere. Vagten slås til i panelet under *Indstillinger → Steder*, med hvor længe den venter efter en spids (5–30 minutter). En måler, der ikke har meldt sig i fem minutter, stoles der ikke på: bilerne går til mindste strøm. Med en vejr-entitet regner EV Planner med nattens temperatur, og en varmepumpe kan holdes tilbage i højst 15 minutter, før en bil stoppes. Vagten er ikke en sikring; behold laderens egen lastbalancering.
+Flere biler bag én sikring: på stedet (integrationen, *Hjem*) under *Fælles forsyning* sættes det, huset højst må trække pr. fase, faserne og en måler. Bilerne planlægges så sammen under grænsen, billigste timer først, og *vagten* skruer bilerne ned med det samme, når huset skal bruge mere. Vagten slås til i panelet under *Indstillinger → Steder*, med hvor længe den venter efter en spids (5–30 minutter). En lille overskridelse (op til 20 % over grænsen) skal vare 30 sekunder, før den skruer ned, så en ovns varmelegeme ventes ud; en bil får det, vagten tog, igen, så snart måleren har vist plads i tre minutter. En lader, ingen bil lader ved, sættes til det, stedet har plads til, så en bil, der sættes til senere, starter dér. En måler, der ikke har meldt sig i fem minutter, stoles der ikke på: bilerne går til mindste strøm. Med en vejr-entitet regner EV Planner med nattens temperatur, og en varmepumpe kan holdes tilbage i højst 15 minutter, før en bil stoppes. Vagten er ikke en sikring; behold laderens egen lastbalancering.
 
 Med solceller (**Tilføj solceller** under integrationen, på stedet: en sensor for strømmen til og fra nettet, solcellernes effekt og salgsprisen) kan en bil lade på overskuddet fra solen: *Sol og plan* eller *Kun sol*. Når en kWh sælges for mere, end bilens plan betaler for en, lader en bil på *Sol og plan* overskuddet gå til nettet og lader i sine billige timer i stedet; salgsprisen sættes under stedets solceller.
 

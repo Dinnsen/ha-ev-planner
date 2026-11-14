@@ -539,12 +539,20 @@ async def test_a_guest_unplugged_while_charging_without_a_meter_pays_for_what_wa
 
 
 async def test_a_car_of_the_household_plugged_in_takes_the_charger_from_a_guest(
-    hass: HomeAssistant, guest_household: MockConfigEntry, freezer: FrozenDateTimeFactory
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
 ) -> None:
     """A guest's plan left over (the guest drove off at a charger that cannot tell) does not block the household."""
-    household = guest_household.runtime_data
-    hass.states.async_set(CHARGER_CAR, "on")
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass, cable=False)
+    hass.states.async_set(CHARGER_SWITCH, "on")
+    entry = entry_with(
+        charger_sub(carport_data(switch_entity=CHARGER_SWITCH)), vehicle_sub(TESLA, "Tesla", tesla_data())
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
+    await settle(hass, freezer)
+    household = entry.runtime_data
     await _press(hass, "make_plan")
     guest = household.guest
     assert guest.session_active()
