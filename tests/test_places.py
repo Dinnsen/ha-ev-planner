@@ -104,6 +104,26 @@ async def test_a_new_household_gets_a_home_and_nothing_else(
     assert not household.supply.active and not household.solar.active
 
 
+async def test_a_supply_under_what_a_charger_gives_is_not_taken(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    home = _parts(init_integration)["site"]
+    result = await init_integration.start_subentry_reconfigure_flow(hass, home.subentry_id)
+    low = {"name": "Hjemme", "supply": {"supply_limit": 4, "supply_phases": "3", "supply_meter": []}, "grid": {}}
+    result = await hass.config_entries.subentries.async_configure(result["flow_id"], low)
+    assert result["type"] is FlowResultType.FORM and result["errors"] == {"base": "supply_low"}
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {**low, "supply": {**low["supply"], "supply_limit": 6}}
+    )
+    assert result["type"] is FlowResultType.ABORT
+    # A new place is asked the same.
+    result = await hass.config_entries.subentries.async_init(
+        (init_integration.entry_id, "site"), context={"source": "user"}
+    )
+    result = await hass.config_entries.subentries.async_configure(result["flow_id"], {**low, "name": "Sommerhus"})
+    assert result["type"] is FlowResultType.FORM and result["errors"] == {"base": "supply_low"}
+
+
 async def test_the_home_is_changed_as_a_place(hass: HomeAssistant, init_integration: MockConfigEntry) -> None:
     home = _parts(init_integration)["site"]
     result = await init_integration.start_subentry_reconfigure_flow(hass, home.subentry_id)

@@ -380,3 +380,32 @@ async def test_a_car_gets_a_place_in_the_drive(
         {"id": 2, "type": "ev_household_planner/vehicle_set", "vehicle_id": TESLA, "settings": {"spot": "roof"}}
     )
     assert not (await client.receive_json())["success"]
+
+
+async def test_a_page_that_stops_following_leaves_nothing_behind(
+    hass: HomeAssistant, init_integration: MockConfigEntry, hass_ws_client: WebSocketGenerator
+) -> None:
+    household = init_integration.runtime_data
+    client = await hass_ws_client(hass)
+    for number in (1, 2):
+        await client.send_json({"id": number, "type": "ev_household_planner/subscribe", "changes": True})
+        assert (await client.receive_json())["success"]
+        assert "vehicles" in (await client.receive_json())["event"]
+    assert household.ws_reload is not None and len(household.ws_reload) == 2
+    # One state is made for both at an update.
+    household.async_update_listeners()
+    first = household.ws_state
+    assert first is not None
+    await client.send_json({"id": 3, "type": "unsubscribe_events", "subscription": 1})
+    assert (await client.receive_json())["success"]
+    assert len(household.ws_reload) == 1
+    # The one still following is told when the household is made again.
+    await hass.config_entries.async_reload(init_integration.entry_id)
+    await hass.async_block_till_done()
+    for _ in range(5):
+        message = await client.receive_json()
+        if message.get("event") == {"reload": True}:
+            assert message["id"] == 2
+            break
+    else:
+        raise AssertionError("no reload message")

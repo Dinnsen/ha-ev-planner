@@ -113,3 +113,27 @@ async def test_missing_price_sensor_raises_a_repair(hass: HomeAssistant, now: da
     set_prices(hass, now, NIGHT)
     await hass.async_block_till_done()
     assert ir.async_get(hass).async_get_issue(DOMAIN, f"price_entity_missing_{entry.entry_id}") is None
+
+
+async def test_a_car_whose_charger_is_gone_and_cars_on_one_battery_sensor_get_repairs(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory
+) -> None:
+    from .conftest import set_tesla, tesla_data
+
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass)
+    entry = entry_with(
+        vehicle_sub(TESLA, "Tesla", tesla_data(charger="a_charger_that_was_deleted")),
+        vehicle_sub("twin_id", "Twin", tesla_data(control_entity="switch.twin_charge")),
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    await settle(hass, freezer)
+    issues = ir.async_get(hass)
+    missing = issues.async_get_issue(DOMAIN, f"charger_missing_{TESLA}")
+    assert missing is not None and missing.translation_placeholders == {"name": "Tesla"}
+    assert issues.async_get_issue(DOMAIN, "charger_missing_twin_id") is None
+    shared = issues.async_get_issue(DOMAIN, f"soc_shared_{entry.entry_id}")
+    assert shared is not None and shared.translation_placeholders is not None
+    assert shared.translation_placeholders["names"] == "Tesla, Twin"

@@ -646,3 +646,58 @@ async def test_the_guard_pauses_the_guest_when_the_house_needs_the_current(
     await move(hass, freezer, dt_util.now() + GUARD_PAUSE + timedelta(minutes=1))
     assert guest.charger_control() == "charge"
     assert ("turn_on", CHARGER_SWITCH) in switches.calls
+
+
+async def test_the_guard_turns_the_guests_charger_down_and_gives_it_back(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    from homeassistant.core import ServiceCall
+
+    from custom_components.ev_household_planner.supply_control import GUARD_HOLD
+
+    meter = "sensor.house_current"
+    amps = "input_number.carport_amps"
+    sent: list[float] = []
+
+    async def record(call: ServiceCall) -> None:
+        if call.data["entity_id"] == amps:
+            sent.append(call.data["value"])
+        hass.states.async_set(call.data["entity_id"], str(call.data["value"]), {"min": 6, "max": 16})
+
+    hass.services.async_register("input_number", "set_value", record)
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass, cable=False)
+    hass.states.async_set(CHARGER_SWITCH, "on")
+    hass.states.async_set(amps, "16", {"min": 6, "max": 16})
+    hass.states.async_set(meter, "10", {"unit_of_measurement": "A"})
+    entry = entry_with(
+        charger_sub(carport_data(switch_entity=CHARGER_SWITCH, current_entity=amps)),
+        vehicle_sub(TESLA, "Tesla", tesla_data()),
+        options={"supply_limit": 23, "supply_phases": "3", "supply_meter": [meter], "supply_guard": True},
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    await settle(hass, freezer)
+    household = entry.runtime_data
+    supply = household.supply
+    await hass.services.async_call("ev_household_planner", "guest_charge_now", {}, blocking=True)
+    await settle(hass, freezer)
+    hass.states.async_set(amps, "16", {"min": 6, "max": 16})
+    sent.clear()
+    switches.calls.clear()
+
+    # 30 A on a supply of 23 A: seven too many, and the guest's 16 A goes down to 9 A. Nothing is stopped.
+    hass.states.async_set(meter, "30", {"unit_of_measurement": "A"})
+    await hass.async_block_till_done()
+    assert sent == [9]
+    assert ("turn_off", CHARGER_SWITCH) not in switches.calls
+    assert supply._guest_cut is not None and supply._guest_cut[1] == 16
+    assert household.guest.house_hold is None
+
+    # The peak is over: when the guard has waited, the charger gets its 16 A back.
+    freezer.move_to(dt_util.now() + GUARD_HOLD + timedelta(seconds=5))
+    hass.states.async_set(amps, "9", {"min": 6, "max": 16})
+    hass.states.async_set(meter, "12", {"unit_of_measurement": "A"})
+    await hass.async_block_till_done()
+    assert 16 in sent and supply._guest_cut is None

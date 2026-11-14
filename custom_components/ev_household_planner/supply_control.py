@@ -14,7 +14,7 @@ car down, the car's measured speed falls and the next plan follows.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from datetime import datetime, timedelta
 import logging
@@ -493,6 +493,13 @@ class SupplyControl:
                 or (known_only and slot.forecast)
             )
 
+        never: Callable[[PriceSlot], bool] | None = None
+        if (cap := vehicle.trip_cap) is not None:
+            top = cap
+
+            def never(slot: PriceSlot) -> bool:
+                return slot.price > top + 1e-9
+
         return SharedCar(
             vehicle.vehicle_id,
             must_kwh=must,
@@ -507,7 +514,7 @@ class SupplyControl:
             phases=self.phases,
             adjustable=self.current_entity(vehicle) is not None,
             avoid=avoid,
-            never=(lambda slot: slot.price > cap + 1e-9) if (cap := vehicle.trip_cap) is not None else None,
+            never=never,
         )
 
     def replan(self, now: datetime) -> None:
