@@ -224,8 +224,7 @@
       "error": {
         "control_entity_required": "Choose the car's charge switch, or let neither start and stop charging.",
         "charger_required": "Choose the charger, or let the car or neither start and stop charging.",
-        "charger_has_no_switch": "This charger has no switch. Add one to the charger, or choose the car or neither.",
-        "soc_in_use": "This battery sensor is another car's already. Each car needs its own."
+        "charger_has_no_switch": "This charger has no switch. Add one to the charger, or choose the car or neither."
       }
     },
     "charger": {
@@ -1186,6 +1185,10 @@
     "charger_missing": {
       "title": "EV Planner: {name} has no charger",
       "description": "{name} was set up with a charger that is no longer there, so nothing starts and stops its charging. Choose a charger (or the car's own switch) under the car → Reconfigure."
+    },
+    "soc_shared": {
+      "title": "EV Planner: two cars share a battery sensor",
+      "description": "{names} all read their charge level from `{entity_id}`, so they are planned as one car. Give each car its own battery sensor under the car → Reconfigure."
     }
   }
 }

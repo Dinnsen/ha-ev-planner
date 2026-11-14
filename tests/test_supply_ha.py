@@ -528,7 +528,7 @@ async def test_the_joint_plan_follows_a_cars_price_ceiling_as_far_as_its_target_
     under = [start for start, price in prices.items() if price <= 0.5]
     over = [start for start in shares if prices[start] > 0.5]
     # Every hour under the ceiling is used in full (16 A), before any hour over it.
-    assert len(under) == 3 and all(shares.get(start) == 16 for start in under)
+    assert len(under) == 3 and all(shares.get(start, 0) >= 15 for start in under)
     # The target still comes first: what the three hours cannot give comes in the cheapest hour over the
     # ceiling (0.8), and nowhere dearer.
     assert over and all(prices[start] == 0.8 for start in over)

@@ -224,8 +224,7 @@
       "error": {
         "control_entity_required": "Vælg bilens ladekontakt, eller lad ingen af dem starte og stoppe ladningen.",
         "charger_required": "Vælg ladepunktet, eller lad bilen eller ingen af dem starte og stoppe ladningen.",
-        "charger_has_no_switch": "Ladepunktet har ingen kontakt. Tilføj en til ladepunktet, eller vælg bilen eller ingen.",
-        "soc_in_use": "Denne batterisensor er allerede en anden bils. Hver bil skal have sin egen."
+        "charger_has_no_switch": "Ladepunktet har ingen kontakt. Tilføj en til ladepunktet, eller vælg bilen eller ingen."
       }
     },
     "charger": {
@@ -1186,6 +1185,10 @@
     "charger_missing": {
       "title": "EV Planner: {name} har ingen lader",
       "description": "{name} blev sat op med en lader, der ikke findes længere, så intet starter og stopper ladningen. Vælg en lader (eller bilens egen kontakt) under bilen → Omkonfigurer."
+    },
+    "soc_shared": {
+      "title": "EV Planner: to biler deler batterisensor",
+      "description": "{names} læser alle deres ladeniveau fra `{entity_id}`, så de planlægges som én bil. Giv hver bil sin egen batterisensor under bilen → Omkonfigurer."
     }
   }
 }

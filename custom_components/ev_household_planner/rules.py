@@ -79,7 +79,7 @@ SCHEDULE_NONE = "none"
 
 
 # How close to the target counts as there (percent of the battery).
-FULL_WITHIN = 0.5
+FULL_WITHIN = 0.15
 
 
 @dataclass(frozen=True, slots=True)
@@ -904,8 +904,8 @@ def decide(
         return Decision(CONTROL_RELEASED, "away")
     if mode == MODE_PAUSE:
         return Decision(CONTROL_PAUSE, "paused")
-    # Full within half a percent: a car that shows 99.9 of 100 is not planned on (it would be
-    # started for a few minutes, and many cars never show the last decimal).
+    # Full within a tenth or so: a car that shows 99.9 of 100 is not started for a few minutes more
+    # (many cars never show the last decimal).
     full = soc is not None and soc + FULL_WITHIN >= target
     if mode == MODE_CHARGE_NOW:
         if full:

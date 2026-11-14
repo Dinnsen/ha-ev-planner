@@ -59,6 +59,7 @@ from .const import (
     CONF_PRICE_ENTITY,
     CONF_SITE,
     CONF_SITE_PRICE_ENTITY,
+    CONF_SOC_ENTITY,
     CONF_SUPPLY_GUARD,
     CONF_SUPPLY_SHARE,
     CONF_SUPPLY_WAIT,
@@ -85,6 +86,7 @@ from .const import (
     ISSUE_CHARGER_MISSING,
     ISSUE_CONTROL_FAILED,
     ISSUE_PRICE_ENTITY_MISSING,
+    ISSUE_SOC_SHARED,
     LIVE_MIN_INTERVAL,
     MIN_REST,
     MODE_CHARGE_NOW,
@@ -717,6 +719,26 @@ class Household(DataUpdateCoordinator[None]):
                 )
             else:
                 ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+        # Two cars on one battery sensor are planned as one car: said, not refused (it may be meant).
+        by_sensor: dict[str, list[str]] = {}
+        for vehicle in self.vehicles.values():
+            if sensor := vehicle.config.get(CONF_SOC_ENTITY):
+                by_sensor.setdefault(str(sensor), []).append(vehicle.name)
+        shared = {sensor: names for sensor, names in by_sensor.items() if len(names) > 1}
+        issue_id = f"{ISSUE_SOC_SHARED}_{self.config_entry.entry_id}"
+        if shared:
+            sensor, names = next(iter(shared.items()))
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                issue_id,
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key=ISSUE_SOC_SHARED,
+                translation_placeholders={"entity_id": sensor, "names": ", ".join(names)},
+            )
+        else:
+            ir.async_delete_issue(self.hass, DOMAIN, issue_id)
 
     @callback
     def _check_price_entity(self) -> None:

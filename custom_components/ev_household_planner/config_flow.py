@@ -600,15 +600,8 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
             }
         )
 
-    def _validate(self, data: Mapping[str, Any], own: str | None = None) -> dict[str, str]:
+    def _validate(self, data: Mapping[str, Any]) -> dict[str, str]:
         errors: dict[str, str] = {}
-        soc = data.get(CONF_SOC_ENTITY)
-        if soc and any(
-            sub.subentry_type == SUBENTRY_VEHICLE and sid != own and sub.data.get(CONF_SOC_ENTITY) == soc
-            for sid, sub in self._get_entry().subentries.items()
-        ):
-            # Two cars on one battery sensor would be planned as one.
-            errors["base"] = "soc_in_use"
         control = data.get(CONF_CONTROL)
         if control == CONTROL_CAR and not data.get(CONF_CONTROL_ENTITY):
             errors["base"] = "control_entity_required"
@@ -714,7 +707,7 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
         errors: dict[str, str] = {}
         if user_input is not None:
             data = _flat(user_input)
-            errors = self._validate(data, subentry.subentry_id)
+            errors = self._validate(data)
             if not errors:
                 stored = self._clean(data)
                 for key in (CONF_IMPORTED_FROM, CONF_IMPORTED_SETTINGS, CONF_CLIMATE_ENTITY):

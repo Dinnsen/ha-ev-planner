@@ -595,6 +595,7 @@ ISSUE_PRICE_ENTITY_MISSING: Final = "price_entity_missing"
 ISSUE_ENTITY_MISSING: Final = "entity_missing"
 ISSUE_CONTROL_FAILED: Final = "control_failed"
 ISSUE_CHARGER_MISSING: Final = "charger_missing"
+ISSUE_SOC_SHARED: Final = "soc_shared"
 
 DATASET_CACHE_KEY: Final = f"{DOMAIN}_open_ev_data_cache"
 DATASET_CACHE_TTL: Final = timedelta(hours=24)
