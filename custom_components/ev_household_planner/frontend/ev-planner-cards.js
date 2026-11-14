@@ -1563,6 +1563,12 @@ ha-card > .vcard { border: 0; border-radius: 0; background: none; box-shadow: no
 /* The small car card: the badge top right, as on EV Planner's own car card. */
 .evc-head .evc-badge { margin-left: auto; align-self: flex-start; flex: 0 1 auto; max-width: 52%; }
 .evc-head .evc-badge .pill-t { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+:host(ev-planner-car-card) ha-card { container-type: inline-size; }
+/* Narrow (half a column): the name keeps the row, the badge goes under it. */
+@container (max-width: 260px) {
+  .evc-head { display: grid; grid-template-columns: auto minmax(0, 1fr); row-gap: 6px; }
+  .evc-head .evc-badge { grid-column: 1 / -1; justify-self: start; margin-left: 0; max-width: 100%; }
+}
 .evc-row b small { font-weight: 500; font-size: 12px; margin-left: 2px; }
 /* The household line: one line per name, cut short; a mark when the climate runs. */
 .evh-chip b { -webkit-line-clamp: 1; white-space: nowrap; text-overflow: ellipsis; display: block; }
@@ -1603,6 +1609,8 @@ ha-card > .vcard { border: 0; border-radius: 0; background: none; box-shadow: no
 .evcl-min { border: 0; border-radius: 999px; padding: 4px 10px; background: color-mix(in srgb, var(--evp-ink) 7%, transparent); color: var(--evp-ink); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
 @container (max-width: 360px) { .evcl-stage { grid-template-columns: minmax(0, 1fr) minmax(0, 120px); } .evcl-temp output { font-size: 28px; } }
 :host(ev-planner-climate-card) ha-card, :host(ev-planner-climate-tile-card) ha-card { container-type: inline-size; }
+/* These two take the rows they are given, so the cabin shrinks rather than the card running over the next. */
+:host(ev-planner-climate-card), :host(ev-planner-climate-tile-card) { height: 100%; }
 
 /* The climate, a small square */
 .evct { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 2px; width: 100%; height: 100%; min-height: 190px; margin: 0; padding: 10px; box-sizing: border-box; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }

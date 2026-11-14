@@ -7,6 +7,8 @@ All notable changes to EV Planner. The version is the one in `custom_components/
 ### Fixed
 
 - **The climate Bubble card** shows the air moving in its little car while the climate is on, as the large and the small climate card do.
+- **The climate cards** keep to the rows they are given in a sections view: the cabin shrinks instead of the card running over the card below.
+- **The small car card** at half a column: the status goes under the name, so the name is no longer cut to a letter.
 
 ## [2.5.0b4] - 2026-11-14
 
