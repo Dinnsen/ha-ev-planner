@@ -9,7 +9,7 @@ import { DESKTOP, PHONE, fixture, keepPicture, launch, openPage, serve } from ".
 const DOMAIN = "ev_household_planner";
 const PANEL = "/frontend/ev-planner-panel.js?v=test";
 const CARDS = "/frontend/ev-planner-cards.js?v=test";
-const TAGS = ["household", "car", "car-large", "guest", "charger", "bubble", "climate", "climate-tile", "climate-bubble", "learning", "place"].map((kind) => `ev-planner-${kind}-card`);
+const TAGS = ["household", "car", "car-large", "guest", "charger", "bubble", "climate", "climate-tile", "climate-bubble", "learning", "place", "app"].map((kind) => `ev-planner-${kind}-card`);
 
 /* Every card, as a dashboard would configure it for the two-cars household. */
 const CONFIGS = [
@@ -227,5 +227,26 @@ test("the pop-up and the card editor fetch the panel themselves when no card has
     assert.equal(result.guest, true, "the pop-up shows the guest page");
     assert.match(result.open, /Åbn i EV Planner/);
     assert.deepEqual(requests.filter((path) => path.includes("ev-planner-panel")), [PANEL]);
+  });
+});
+
+test("the whole planner as a card: its own tabs, and the address stays", async () => {
+  await withPage({ size: PHONE }, async ({ page, state }) => {
+    const before = await page.evaluate(() => location.pathname);
+    await page.evaluate(async (s) => {
+      await window.harness.loadCards();
+      window.harness.makeHass(s);
+      const card = document.createElement("ev-planner-app-card");
+      card.setConfig({ type: "custom:ev-planner-app-card", view: "home" });
+      card.hass = window.harness.hass;
+      document.body.appendChild(card);
+    }, state);
+    await page.waitForFunction(() => document.querySelector("ev-planner-app-card")?.shadowRoot?.querySelector("ev-planner-panel")?.shadowRoot?.querySelector(".tabs button"), null, { timeout: 8000 });
+    const seen = await page.evaluate(() => {
+      const panel = document.querySelector("ev-planner-app-card").shadowRoot.querySelector("ev-planner-panel");
+      panel.shadowRoot.querySelector('.tabs button[data-tab="guest"]').click();
+      return { card: panel.hasAttribute("card"), menu: panel.shadowRoot.querySelector("ha-menu-button") === null, tab: panel._tab, path: location.pathname };
+    });
+    assert.deepEqual(seen, { card: true, menu: true, tab: "guest", path: before });
   });
 });

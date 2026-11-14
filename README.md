@@ -129,7 +129,7 @@ Each page has its own address, so you can link straight to it: `/ev-planner/car/
 
 <img src="docs/images/cards-en.png" alt="EV Planner's cards on a phone dashboard, and the pop-up for a car" width="100%">
 
-EV Planner brings eleven cards for your own dashboards. They come with the integration – there is no resource to add and nothing else to install – and are under **Add card** (search for *EV Planner*), with a visual editor where you pick the car or the charger. They use the panel's own drawing, so they look and update exactly like it.
+EV Planner brings twelve cards for your own dashboards. They come with the integration – there is no resource to add and nothing else to install – and are under **Add card** (search for *EV Planner*), with a visual editor where you pick the car or the charger. They use the panel's own drawing, so they look and update exactly like it.
 
 | Card | | Size |
 | --- | --- | --- |
@@ -144,6 +144,7 @@ EV Planner brings eleven cards for your own dashboards. They come with the integ
 | **Climate, Bubble** `custom:ev-planner-climate-bubble-card` | The climate as a Bubble Card button: the fill shows how far it has come, with the minutes before a departure and on/off. | One row |
 | **What it learned** `custom:ev-planner-learning-card` | What EV Planner has learned about a car: its speed, when it is plugged in, how much it charges and how often the plan held. | Full width |
 | **Place** `custom:ev-planner-place-card` | A place's house with its live numbers and its chargers; a tab for each place, or `place:` for one. | Full width |
+| **The whole planner** `custom:ev-planner-app-card` | All of EV Planner in a view of your dashboard (choose the view type *Panel*), with its own tabs: for a wall tablet or a phone without Home Assistant's sidebar, which then goes back with the dashboard's own tabs. `view:` opens it at a page (`home`, `guest`, `history`, `car/<id>`). | Whole view |
 
 **Tapping a card** opens a pop-up with that car's, the guest's or the charger's page: the price clock, the battery with handles, ready by, the weekly plan and the plan type for a car; everything for the guest; and the cars on a charger, which you can tap to go on. Rules and notifications stay in EV Planner – the pop-up's **Open in EV Planner** goes there. The pop-up is Home Assistant's own dialog, so it opens above everything (also from inside a Bubble Card pop-up) and closes with the back button or by pulling it down on a phone.
 

@@ -88,7 +88,7 @@ Når I tilføjer en bil, kan I starte fra en bil i EV Smart Charging: sensorer, 
 
 <img src="docs/images/cards-da.png" alt="EV Planners kort på et dashboard på telefonen, og pop-up'en for en bil" width="100%">
 
-EV Planner har elleve kort til jeres egne dashboards. De følger med integrationen – der skal ikke tilføjes en ressource eller installeres andet – og findes under **Tilføj kort** (søg på *EV Planner*), med en visuel editor, hvor I vælger bil eller lader. De bruger panelets egen tegning, så de ser ud og opdateres præcis som det.
+EV Planner har tolv kort til jeres egne dashboards. De følger med integrationen – der skal ikke tilføjes en ressource eller installeres andet – og findes under **Tilføj kort** (søg på *EV Planner*), med en visuel editor, hvor I vælger bil eller lader. De bruger panelets egen tegning, så de ser ud og opdateres præcis som det.
 
 | Kort | | Bredde |
 | --- | --- | --- |
@@ -103,6 +103,7 @@ EV Planner har elleve kort til jeres egne dashboards. De følger med integration
 | **Klima, Bubble** `custom:ev-planner-climate-bubble-card` | Klimaet som en Bubble Card-knap: fyldet viser, hvor langt det er nået, med minutter før afgang og tænd/sluk. | Én række |
 | **Det har den lært** `custom:ev-planner-learning-card` | Hvad EV Planner har lært om en bil: hastighed, hvornår den sættes til, hvor meget den lader, og hvor tit planen holdt. | Hel |
 | **Sted** `custom:ev-planner-place-card` | Et steds hus med live-tal og laderne; en fane for hvert sted, eller `place:` for ét. | Hel |
+| **Hele planneren** `custom:ev-planner-app-card` | Hele EV Planner i en visning på jeres dashboard (vælg visningstypen *Panel*), med sine egne faner: til en tablet på væggen eller en telefon uden Home Assistants sidemenu, som så kommer tilbage med dashboardets egne faner. `view:` åbner den på en side (`home`, `guest`, `history`, `car/<id>`). | Hele visningen |
 
 **Tryk på et kort** åbner en pop-up med bilens, gæstens eller laderens side: prisuret, batteriet med håndtag, klar kl., ugeplanen og plantypen for en bil; det hele for gæsten; og bilerne på en lader, som man kan trykke videre på. Regler og beskeder ligger i EV Planner – pop-up'ens **Åbn i EV Planner** går dertil. Pop-up'en er Home Assistants egen dialog, så den ligger over alt andet (også inde i en Bubble Card pop-up) og lukkes med tilbage-knappen eller ved at trække den ned på telefonen.
 

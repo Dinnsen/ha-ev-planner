@@ -7,6 +7,7 @@ All notable changes to EV Planner. The version is the one in `custom_components/
 ### Added
 
 - **New dashboard cards:** *Climate* (the clay car, the temperature, inside and outside, on and off, and when it starts by itself), *Climate, small* (a square: a tap turns it on and off, holding opens the car), *Climate, Bubble*, *What it learned* (as on the car's history page) and *Place* (a place's house, its numbers and its chargers, with a tab for each place). The Bubble card for a car can have a climate button (`climate: true`), and the household card can show one place (`place:`).
+- **The whole planner as a card** (`custom:ev-planner-app-card`): all of EV Planner in a dashboard view of the *Panel* type, with its own tabs, so a tablet or a phone without Home Assistant's sidebar has it among the dashboard's tabs and comes back with them. The address does not change; `view:` opens it at a page.
 - **Target steps** (a car's rules, *Battery*): *The car's* (as before: the target follows the car's own charge limit and its steps), or EV Planner's own steps of 1, 5 or 10 %. With your own steps EV Planner stops the car at the target, and sets the car's limit to the step above as a safety net (80 % for a target of 75 % on a car that takes tens). The guest has steps of 1, 5 or 10 % too.
 - **The guest** can be ready by one of the household's departures (one with a price charges only in its cheapest hours), and can have a price ceiling.
 - **History:** each charge shows the charger and what it cost per kWh.

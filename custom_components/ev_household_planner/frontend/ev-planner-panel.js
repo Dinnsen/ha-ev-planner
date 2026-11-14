@@ -120,6 +120,7 @@ const TEXT = {
     ed_place: "Sted",
     ed_place_all: "Alle steder",
     ed_climate: "Klimaknap",
+    ed_view: "Åbner på",
     g_departure: "Eller en afgang",
     g_departure_hint: "Samme afgange som husets biler. En afgang med pris lader kun i de billigste timer.",
     g_no_ceiling: "Intet loft",
@@ -709,6 +710,7 @@ const TEXT = {
     ed_place: "Place",
     ed_place_all: "All places",
     ed_climate: "Climate button",
+    ed_view: "Opens at",
     g_departure: "Or a departure",
     g_departure_hint: "The same departures as the household's cars. One with a price charges only in the cheapest hours.",
     g_no_ceiling: "No ceiling",
@@ -5226,7 +5228,7 @@ class EvPlannerPanel extends HTMLElement {
     // added the moment it is. Outside Home Assistant (the web app) it never is, and nothing is added.
     const addMenu = () => {
       const slot = this.shadowRoot.querySelector(".menu");
-      if (this._menu || !slot || this._embed) return;
+      if (this._menu || !slot || this._embed || this.hasAttribute("card")) return;
       this._menu = document.createElement("ha-menu-button");
       this._menu.hass = this._hass;
       this._menu.narrow = this._narrow;
@@ -10252,6 +10254,9 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 :host([embed]) { background: none; }
 :host([embed]) .content { overscroll-behavior: contain; }
 :host([embed]) header.bar { display: none; }
+/* The whole planner as a dashboard card: the dashboard has its own menu. */
+:host([card]) .menu { display: none; }
+:host([card]) { background: none; }
 :host([embed]) .content { padding-bottom: calc(24px + var(--evp-safe-bottom)); }
 :host([embed]:not([drilled])) .car-head .back { display: none; }
 :host([embed]) .car-page .rules, :host([embed]) .car-page .notify, :host([embed]) .car-page > .prices { display: none; }

@@ -17,6 +17,7 @@
      type: custom:ev-planner-climate-bubble-card vehicle: <id> the car's climate as a Bubble Card button
      type: custom:ev-planner-learning-card     vehicle: <id>   what EV Planner has learned about the car
      type: custom:ev-planner-place-card        place: <id>     a place's house, its numbers and chargers
+     type: custom:ev-planner-app-card          view: <page>    all of EV Planner in a dashboard view
 
    tap_action: popup (default) | panel | none
 */
@@ -72,6 +73,8 @@ const CARD_TEXT = {
     card_learning_desc: "Hvad EV Planner har lært om en bil: hastighed, vaner og hvor tit planen holdt.",
     card_place: "EV Planner – sted",
     card_place_desc: "Et steds hus, dets tal og ladere.",
+    card_app: "EV Planner – hele planneren",
+    card_app_desc: "Hele EV Planner i en visning på jeres dashboard: til en tablet uden sidemenu.",
   },
   en: {
     card_household: "EV Planner – household",
@@ -96,6 +99,8 @@ const CARD_TEXT = {
     card_learning_desc: "What EV Planner has learned about a car: speed, habits and how often the plan held.",
     card_place: "EV Planner – place",
     card_place_desc: "A place's house, its numbers and its chargers.",
+    card_app: "EV Planner – the whole planner",
+    card_app_desc: "All of EV Planner in a view of your dashboard: for a tablet without the sidebar.",
   },
 };
 
@@ -1186,6 +1191,68 @@ class PlaceCard extends EvPlannerCard {
   }
 }
 
+
+/* All of EV Planner in a dashboard view (a view of the "Panel" type): its own tabs, inside the dashboard,
+   so the dashboard's own tabs lead back. For a wall tablet or a phone without Home Assistant's sidebar.
+   It does not change the address: moving between EV Planner's pages stays in the view. */
+class AppCard extends HTMLElement {
+  setConfig(config) {
+    if (!config || typeof config !== "object") throw new Error("Invalid configuration");
+    this._config = { ...config };
+    if (this._panel) this._panel.route = { path: this._start() };
+  }
+
+  _start() {
+    const view = String(this._config?.view || "").replace(/^\/+/, "");
+    return view ? `/${view}` : "";
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    if (this._panel) this._panel.hass = hass;
+  }
+
+  connectedCallback() {
+    if (!this.shadowRoot) {
+      this.attachShadow({ mode: "open" }).innerHTML = `<style>
+        :host { display: block; }
+        ha-card { height: var(--evp-app-height, calc(100dvh - var(--header-height, 56px) - 16px)); overflow: hidden; }
+        ev-planner-panel { display: block; height: 100%; }
+      </style><ha-card></ha-card>`;
+    }
+    if (this._panel) return;
+    loadPanel().then(() => {
+      if (this._panel) return;
+      const panel = document.createElement("ev-planner-panel");
+      panel.setAttribute("card", "");
+      panel.panel = { config: {} };
+      panel.narrow = this.clientWidth < 870;
+      // A route without a prefix: the panel's pages change inside the card, the address stays.
+      panel.route = { path: this._start() };
+      if (this._config?.height) this.style.setProperty("--evp-app-height", String(this._config.height));
+      this.shadowRoot.querySelector("ha-card").appendChild(panel);
+      this._panel = panel;
+      if (this._hass) panel.hass = this._hass;
+    }, () => {});
+  }
+
+  static getConfigElement() {
+    return document.createElement("ev-planner-card-editor");
+  }
+
+  static async getStubConfig() {
+    return {};
+  }
+
+  getCardSize() {
+    return 12;
+  }
+
+  getGridOptions() {
+    return { columns: 12, rows: "auto" };
+  }
+}
+
 /* ------------------------------------------------------------------ the pop-up */
 
 class EvPlannerDialog extends HTMLElement {
@@ -1337,6 +1404,24 @@ class EvPlannerCardEditor extends HTMLElement {
       case "climate-tile":
       case "climate-bubble":
         return [{ name: "vehicle", required: true, selector: { select: { mode: "dropdown", options: options((this._state?.vehicles || []).filter((v) => v.climate)) } } }, name, tap];
+      case "app":
+        return [
+          {
+            name: "view",
+            selector: {
+              select: {
+                mode: "dropdown",
+                options: [
+                  { value: "", label: text("tab_cars") },
+                  { value: "home", label: text("tab_home") },
+                  { value: "guest", label: text("tab_guest") },
+                  { value: "history", label: text("tab_history") },
+                  ...(this._state?.vehicles || []).map((v) => ({ value: `car/${v.id}`, label: `${t("ed_vehicle")}: ${v.name}` })),
+                ],
+              },
+            },
+          },
+        ];
       case "place":
         return [{ name: "place", selector: { select: { mode: "dropdown", options: [{ value: "", label: t("ed_place_all") }, ...options(this._state?.sites)] } } }];
       case "charger":
@@ -1391,7 +1476,7 @@ class EvPlannerCardEditor extends HTMLElement {
       });
       this.appendChild(this._form);
     }
-    const labels = { show: "ed_show", vehicle: "ed_vehicle", charger: "ed_charger", place: "ed_place", climate: "ed_climate", name: "ed_name", tap_action: "ed_tap", show_cars: "ed_show_cars", show_guest: "ed_show_guest", show_chargers: "ed_show_chargers" };
+    const labels = { view: "ed_view", show: "ed_show", vehicle: "ed_vehicle", charger: "ed_charger", place: "ed_place", climate: "ed_climate", name: "ed_name", tap_action: "ed_tap", show_cars: "ed_show_cars", show_guest: "ed_show_guest", show_chargers: "ed_show_chargers" };
     this._form.hass = this._hass;
     this._form.schema = this._schema();
     const c = this._config;
@@ -1685,6 +1770,7 @@ const CARDS = [
   ["ev-planner-climate-bubble-card", ClimateBubbleCard, "card_climate_bubble"],
   ["ev-planner-learning-card", LearningCard, "card_learning"],
   ["ev-planner-place-card", PlaceCard, "card_place"],
+  ["ev-planner-app-card", AppCard, "card_app"],
 ];
 
 for (const [tag, cls] of CARDS) if (!customElements.get(tag)) customElements.define(tag, cls);
@@ -1697,4 +1783,4 @@ for (const [tag, , key] of CARDS) {
   window.customCards.push({ type: tag, name: text(key), description: text(`${key}_desc`), preview: true, documentationURL: DOCS });
 }
 
-export { HouseholdCard, CarCard, CarLargeCard, GuestCard, ChargerCard, BubbleCard, ClimateCard, ClimateTileCard, ClimateBubbleCard, LearningCard, PlaceCard, EvPlannerDialog, EvPlannerCardEditor, CARD_TEXT, watch };
+export { HouseholdCard, CarCard, CarLargeCard, GuestCard, ChargerCard, BubbleCard, ClimateCard, ClimateTileCard, ClimateBubbleCard, LearningCard, PlaceCard, AppCard, EvPlannerDialog, EvPlannerCardEditor, CARD_TEXT, watch };
