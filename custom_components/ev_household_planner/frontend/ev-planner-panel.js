@@ -5338,7 +5338,7 @@ class EvPlannerPanel extends HTMLElement {
       <button class="vcard-open" data-act="open-car" data-id="${esc(v.id)}" data-f="open-${esc(v.id)}" aria-label="${esc(this._t("open_car", { name: v.name }))}">
         <div class="vcard-head">
           <div class="vcard-title">${v.image ? `<img class="avatar" src="${esc(v.image)}" alt="" loading="lazy">` : ICONS.car}<div><strong>${esc(v.name)}</strong><span>${esc(this._carSubline(v))}</span></div></div>
-          <span class="pill ${tone}">${esc(this._statusText(v))}</span>
+          <span class="pill ${tone}" title="${esc(this._statusText(v))}"><span class="pill-t">${esc(this._statusText(v))}</span></span>
         </div>
         <div class="vcard-body">
           <div class="dial-wrap mini">
@@ -10054,9 +10054,12 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .vcard.tone-sand { --tone: var(--evp-sand); }
 .vcard.tone-coral { --tone: var(--evp-coral); }
 .vcard-open { display: grid; gap: 10px; width: 100%; padding: 0; border: 0; background: transparent; text-align: left; cursor: pointer; border-radius: 12px; }
-.vcard-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px 10px; flex-wrap: wrap; }
-.vcard-title { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 210px; }
-.vcard-head > .pill { flex: none; margin-left: auto; }
+/* The status badge always sits top right; the name and its line wrap beside it. */
+.vcard-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.vcard-title { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 auto; }
+.vcard-head > .pill { flex: 0 1 auto; max-width: 50%; margin-left: auto; border-radius: 12px; white-space: normal; align-items: flex-start; }
+.vcard-head > .pill::before { margin-top: 5px; }
+.vcard-head > .pill .pill-t { min-width: 0; line-height: 1.25; text-align: left; overflow-wrap: break-word; }
 .vcard-title > svg { width: 26px; height: 26px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; color: var(--evp-soft); }
 .vcard-title div { display: grid; min-width: 0; }
 .vcard-title .avatar { width: 68px; height: 46px; flex: none; border-radius: 12px; object-fit: contain; padding: 2px; box-sizing: border-box; background: var(--evp-photo-bg); filter: drop-shadow(0 2px 3px rgba(0,0,0,.18)); }
@@ -10092,7 +10095,7 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .tag-now.stopped { color: var(--evp-soft); }
 .charge-now.stop { border-color: var(--evp-ink); }
 .tag-now svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
-.vcard-title strong { font-size: 18px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vcard-title strong { font-size: 18px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
 .vcard-title span { color: var(--evp-soft); font-size: 13px; }
 .vcard-body { display: grid; grid-template-columns: 148px 1fr; gap: 14px; align-items: center; }
 .vcard-side { display: grid; gap: 10px; min-width: 0; }
