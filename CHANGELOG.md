@@ -2,6 +2,12 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b5] - 2026-11-14
+
+### Fixed
+
+- **The climate Bubble card** shows the air moving in its little car while the climate is on, as the large and the small climate card do.
+
 ## [2.5.0b4] - 2026-11-14
 
 ### Added

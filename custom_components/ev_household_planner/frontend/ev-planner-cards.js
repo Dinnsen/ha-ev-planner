@@ -1070,7 +1070,7 @@ class ClimateBubbleCard extends EvPlannerCard {
     return `<div class="bub evcb ${m.on ? "bub-live" : ""} ${m.mode}" style="--bub-accent:${m.mode === "cool" ? "color-mix(in srgb, #0ea5e9 45%, transparent)" : "color-mix(in srgb, #f97316 45%, transparent)"}">
       ${fill !== null ? `<i class="bub-fill" style="width:${fill}%"></i>` : ""}
       <button class="bub-main" data-view="car/${esc(v.id)}" data-title="${esc(name)}" data-f="card" aria-label="${esc(r._t("open_car", { name }))}">
-        <span class="bub-icon evcb-car">${r._cabinSvg(`evcb-${cssId(v.id)}`)}</span>
+        <span class="bub-icon evcb-car cabin-pop${m.classes}" style="--k:${m.k.toFixed(2)}">${r._cabinSvg(`evcb-${cssId(v.id)}`)}</span>
         <span class="bub-name"><b>${esc(r._t("climate_label"))} · ${esc(name)}</b><span>${esc(parts.join(" · "))}</span></span>
       </button>
       <span class="bub-subs">
@@ -1619,6 +1619,7 @@ ha-card > .vcard { border: 0; border-radius: 0; background: none; box-shadow: no
 
 /* The climate as a Bubble button: the clay car in the round icon. */
 .evcb .bub-icon.evcb-car { background-color: color-mix(in srgb, var(--primary-text-color) 6%, var(--card-background-color, #fff)); }
+.evcb .bub-icon.cabin-pop { display: grid; gap: 0; margin: 6px; }
 .evcb .bub-icon.evcb-car .cabin { width: 34px; height: 34px; max-height: none; margin: 0; }
 .evcb .bub-fill { background-color: var(--bub-accent); }
 
