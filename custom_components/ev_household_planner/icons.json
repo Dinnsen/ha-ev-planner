@@ -269,6 +269,15 @@
       },
       "quiet_hours": {
         "default": "mdi:bell-sleep"
+      },
+      "insight": {
+        "default": "mdi:chart-timeline-variant"
+      },
+      "insight_notify": {
+        "default": "mdi:message-badge-outline"
+      },
+      "insight_use": {
+        "default": "mdi:chart-bell-curve"
       }
     },
     "text": {

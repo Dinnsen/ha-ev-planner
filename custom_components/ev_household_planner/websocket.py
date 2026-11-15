@@ -234,6 +234,14 @@ SETTINGS_SCHEMA = vol.Schema(
         vol.Optional("notify_enabled"): cv.boolean,
         vol.Optional("calendars"): [cv.entity_id],
         vol.Optional("quiet_enabled"): cv.boolean,
+        vol.Optional("insight"): cv.boolean,
+        vol.Optional("insight_notify"): cv.boolean,
+        vol.Optional("insight_notify_at"): _hhmm,
+        vol.Optional("insight_window"): cv.boolean,
+        vol.Optional("insight_from"): _hhmm,
+        vol.Optional("insight_to"): _hhmm,
+        vol.Optional("insight_use"): cv.boolean,
+        vol.Optional("insight_level"): vol.All(vol.Coerce(int), vol.In([80, 90, 95])),
         vol.Optional("quiet_from"): _hhmm,
         vol.Optional("quiet_to"): _hhmm,
         vol.Optional("departures"): vol.All(
@@ -569,6 +577,8 @@ def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
         "currency": household.currency,
         # Home Assistant's time zone: the panel shows every time on the household's clock.
         "time_zone": str(hass.config.time_zone),
+        # Tonight as Insight expects it (empty while it is off): which car gets the charger, or none.
+        "insight": household.insight.tonight if household.insight.enabled else {},
         "prices": [
             {"start": s.start.isoformat(), "end": s.end.isoformat(), "price": s.price, "forecast": s.forecast}
             for s in slots
@@ -865,6 +875,14 @@ async def ws_delete_history(
     connection.send_result(msg["id"])
 
 
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/insight", ENTRY: str})
+@websocket_api.async_response
+@_errors
+async def ws_insight(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """What Insight has logged and expects: the cars' days and weeks, the trips, and the ledger."""
+    connection.send_result(msg["id"], _household(hass, msg).insight.detail())
+
+
 @websocket_api.websocket_command(
     {vol.Required("type"): f"{DOMAIN}/settings", ENTRY: str, vol.Required("settings"): SETTINGS_SCHEMA}
 )
@@ -1030,6 +1048,7 @@ def async_register_websocket(hass: HomeAssistant) -> None:
         ws_restore_image,
         ws_delete_history,
         ws_settings,
+        ws_insight,
         ws_history,
         ws_layout,
     ):

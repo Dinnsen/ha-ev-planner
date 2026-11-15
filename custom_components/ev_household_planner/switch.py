@@ -105,7 +105,14 @@ class VehicleSwitch(VehicleEntity, SwitchEntity):
 
 
 # The household's notifications: all of them on or off, and the quiet hours.
-HOUSEHOLD_SWITCHES = {"notifications": ("notify_enabled", True), "quiet_hours": ("quiet_enabled", False)}
+HOUSEHOLD_SWITCHES = {
+    "notifications": ("notify_enabled", True),
+    "quiet_hours": ("quiet_enabled", False),
+    # Insight: the log of days, trips and prices; the evening's message; and the plan following it.
+    "insight": ("insight", False),
+    "insight_notify": ("insight_notify", False),
+    "insight_use": ("insight_use", False),
+}
 
 
 class HouseholdSwitch(HouseholdEntity, SwitchEntity):

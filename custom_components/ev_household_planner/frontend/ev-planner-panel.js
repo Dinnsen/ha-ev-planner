@@ -1770,6 +1770,49 @@ Object.assign(TEXT.da, {
   price_add_hint: "Fx afgifter og nettarif, når pris-sensoren kun har spotprisen. 0 når sensoren har den fulde pris.",
   price_add_sum: "+{price}/kWh",
   widgets_refresh_on: "opdaterer widgets",
+  insight_title: "Indsigt",
+  insight_off: "slået fra",
+  insight_on: "logger og lærer",
+  insight_hint: "EV Planner skriver bilernes dage, ture og priserne ned, lærer jeres rytme og siger hver aften, hvilken bil der bør have laderen. Ture gemmes i 90 dage, dagstal og priser i to år. Første gang hentes det, Home Assistant allerede har gemt.",
+  insight_log: "Log og læring",
+  insight_log_hint: "Grundlaget for alt andet. Styrer ingenting.",
+  insight_notify: "Besked om aftenens bil",
+  insight_notify_hint: "Kun når den rigtige bil ikke allerede sidder i.",
+  insight_window: "Skift ikke bil om natten",
+  insight_window_hint: "I det tidsrum har den bil, der sidder i, laderen.",
+  insight_use: "Lad planen vente på en billigere nat",
+  insight_use_hint: "Kun når begge biler har nok til en svær dag. En tur i kalenderen holdes aldrig tilbage.",
+  insight_level: "Hav altid nok til",
+  insight_level_80: "8 af 10 dage",
+  insight_level_90: "9 af 10 dage",
+  insight_level_95: "19 af 20 dage",
+  insight_tonight: "I aften",
+  insight_pick: "{car} bør have laderen",
+  insight_none: "Ingen bil behøver laderen",
+  insight_reason_needed: "den har ikke nok til en svær dag i morgen",
+  insight_reason_soonest: "den rammer bunden først",
+  insight_reason_apart: "så bilerne ikke skal lade samme nat",
+  insight_reason_cheaper: "en billigere nat er {pct} % sandsynlig",
+  insight_reason_full: "begge er ladet op",
+  insight_reason_learning: "lærer stadig: mindst 28 dages kørsel skal til",
+  insight_both: "Begge biler skal lade i nat. Lad den anden om dagen.",
+  insight_car_line: "{kwh} kWh i batteriet · typisk dag {p50} · svær dag {p90} kWh · kan vente {n} nætter",
+  insight_week: "Ugen, lært af {days} dage",
+  insight_week_legend: "Fyldt: typisk dag. Omrids: svær dag (9 af 10). kWh.",
+  insight_days90: "Kørt de sidste 90 dage (km pr. dag)",
+  insight_eff: "{kwh} kWh pr. 100 km · kulde: +{cold} % pr. grad under 15 °C",
+  insight_sources: "Læses fra",
+  insight_src_odometer: "kilometertæller",
+  insight_src_tracker: "position",
+  insight_src_temperature: "udetemperatur",
+  insight_src_energy: "ladet energi",
+  insight_src_soc: "batteri",
+  insight_src_missing: "ikke fundet",
+  insight_prices: "Priser: {own} dage fra prissensoren, {spot} dage hentet bagud · {fc} dages prognoser gemt",
+  insight_score: "Ramt rigtigt {rate} % af {n} dage · at vente kunne have sparet {saved}",
+  insight_score_none: "Regnskabet begynder, når første aften er gået.",
+  insight_trips: "{n} ture logget",
+  insight_loading: "Henter …",
   widgets_refresh_hint: "Beder iOS-appen opdatere sine widgets, når en bils status ændres (højst hvert 15. minut).",
   climate_entity: "Klima",
   climate_entity_hint: "Det, der starter bilens klima. Findes selv på bilens enhed; vælg et andet her.",
@@ -1853,6 +1896,49 @@ Object.assign(TEXT.en, {
   price_add_hint: "E.g. taxes and grid tariffs when the price sensor has the spot price only. 0 when the sensor has the full price.",
   price_add_sum: "+{price}/kWh",
   widgets_refresh_on: "refreshes widgets",
+  insight_title: "Insight",
+  insight_off: "turned off",
+  insight_on: "logging and learning",
+  insight_hint: "EV Planner writes down the cars' days, trips and the prices, learns your rhythm and says each evening which car should have the charger. Trips are kept for 90 days, daily figures and prices for two years. The first time, it reads what Home Assistant already has.",
+  insight_log: "Log and learn",
+  insight_log_hint: "The base for everything else. Controls nothing.",
+  insight_notify: "Message about tonight's car",
+  insight_notify_hint: "Only when the right car is not already plugged in.",
+  insight_window: "Do not swap cars at night",
+  insight_window_hint: "In those hours the car that is plugged in has the charger.",
+  insight_use: "Let the plan wait for a cheaper night",
+  insight_use_hint: "Only when both cars have enough for a hard day. A trip in the calendar is never held back.",
+  insight_level: "Always have enough for",
+  insight_level_80: "8 of 10 days",
+  insight_level_90: "9 of 10 days",
+  insight_level_95: "19 of 20 days",
+  insight_tonight: "Tonight",
+  insight_pick: "{car} should have the charger",
+  insight_none: "No car needs the charger",
+  insight_reason_needed: "it does not have enough for a hard day tomorrow",
+  insight_reason_soonest: "it reaches its floor first",
+  insight_reason_apart: "so the cars do not need the same night",
+  insight_reason_cheaper: "a cheaper night is {pct} % likely",
+  insight_reason_full: "both are charged",
+  insight_reason_learning: "still learning: it takes at least 28 days of driving",
+  insight_both: "Both cars need to charge tonight. Charge the other one during the day.",
+  insight_car_line: "{kwh} kWh in the battery · typical day {p50} · hard day {p90} kWh · can wait {n} nights",
+  insight_week: "The week, learned from {days} days",
+  insight_week_legend: "Filled: a typical day. Outline: a hard day (9 of 10). kWh.",
+  insight_days90: "Driven the last 90 days (km a day)",
+  insight_eff: "{kwh} kWh per 100 km · cold: +{cold} % per degree under 15 °C",
+  insight_sources: "Read from",
+  insight_src_odometer: "odometer",
+  insight_src_tracker: "position",
+  insight_src_temperature: "outside temperature",
+  insight_src_energy: "charged energy",
+  insight_src_soc: "battery",
+  insight_src_missing: "not found",
+  insight_prices: "Prices: {own} days from the price sensor, {spot} days fetched from before · {fc} days of forecasts kept",
+  insight_score: "Right {rate} % of {n} days · waiting could have saved {saved}",
+  insight_score_none: "The ledger begins after the first evening.",
+  insight_trips: "{n} trips logged",
+  insight_loading: "Loading …",
   widgets_refresh_hint: "Asks the iOS app to refresh its widgets when a car's status changes (at most every 15 minutes).",
   climate_entity: "Climate",
   climate_entity_hint: "What starts the car's climate. Found on the car's own device; choose another here.",
@@ -9594,6 +9680,76 @@ class EvPlannerPanel extends HTMLElement {
 
   // ------------------------------------------------------------------ settings
 
+  /* Insight: the log, what is expected tonight, and each car's week. Its figures are fetched when the sheet opens. */
+  _insightTile(settings) {
+    const t = (key, values) => this._t(`insight_${key}`, values);
+    const sw = (key) => `<button class="switch" role="switch" data-act="hh-toggle" data-key="${key}" data-f="hh-${key}" aria-checked="${Boolean(settings[key])}" aria-label="${esc(t(key === "insight" ? "log" : key.slice(8)))}"><i></i></button>`;
+    const time = (id, key, fallback) => `<label class="chip-input time on"><input type="time" step="900" id="${id}" data-insight="${key}" value="${esc(settings[key] || fallback)}" aria-label="${esc(t("title"))}"></label>`;
+    const on = Boolean(settings.insight);
+    if (this._sheet === "insight" && on && !this._insightBusy && Date.now() - (this._insightAt || 0) > 60000) {
+      this._insightBusy = true;
+      this._ws("ev_household_planner/insight")
+        .then((data) => { this._insight = data; })
+        .catch(() => {})
+        .finally(() => { this._insightAt = Date.now(); this._insightBusy = false; if (this._sheet === "insight") this._render(); });
+    }
+    const data = this._insight;
+    const names = Object.fromEntries((this._state.vehicles || []).map((v) => [v.id, v.name]));
+    const num = (value, digits = 0) => (value == null ? "–" : Number(value).toFixed(digits).replace(".", this._lang === "da" ? "," : "."));
+    let figures = "";
+    if (on && !data) figures = `<p class="hint">${t("loading")}</p>`;
+    if (on && data) {
+      const tonight = data.tonight || {};
+      const groups = (tonight.groups || [])
+        .map((g) => {
+          const head = g.pick ? t("pick", { car: names[g.pick] || "" }) : t("none");
+          const why = t(`reason_${g.reason}`, { pct: Math.round((g.chance || 0) * 100) });
+          const cars = g.cars
+            .map((id) => { const c = (tonight.cars || {})[id] || {}; return `<small><b>${esc(names[id] || "")}</b>: ${esc(t("car_line", { kwh: num(c.soc_kwh), p50: num(c.p50), p90: num(c.p90), n: c.reach ?? "–" }))}</small>`; })
+            .join("");
+          return `<div class="insight-card"><strong>${esc(head)}</strong><small>${esc(why)}</small>${g.both ? `<small class="warn-text">${esc(t("both"))}</small>` : ""}${cars}</div>`;
+        })
+        .join("");
+      const wd = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((d) => this._t(`day_${d}`));
+      const cars = Object.entries(data.cars || {})
+        .map(([id, car]) => {
+          const detail = (data.detail || {})[id] || {};
+          const week = detail.week || [];
+          const top = Math.max(1, ...week.map((d) => d.p90 || 0));
+          const bars = week.map((d, i) => `<div class="insight-col" title="${esc(`${wd[i]}: ${num(d.p50)} / ${num(d.p90)} kWh`)}"><div class="insight-bars"><i class="hard" style="height:${Math.max(2, (d.p90 / top) * 100)}%"></i><i style="height:${Math.max(2, (d.p50 / top) * 100)}%"></i></div><small>${esc(wd[i])}</small></div>`).join("");
+          const days = Object.values(detail.days || {});
+          const far = Math.max(1, ...days.map((d) => d.km || 0));
+          const strip = days.map((d) => `<i style="height:${Math.max(2, ((d.km || 0) / far) * 100)}%"></i>`).join("");
+          const src = Object.entries(car.sources || {}).map(([kind, entity]) => `${t(`src_${kind}`)}: ${entity || t("src_missing")}`).join(" · ");
+          return `<h3 class="sheet-sub">${esc(car.name)}</h3>
+            <p class="hint">${esc(t("week", { days: car.days }))} · ${esc(t("trips", { n: car.trips }))}</p>
+            <div class="insight-week">${bars}</div><p class="hint">${esc(t("week_legend"))}</p>
+            ${days.length ? `<p class="hint">${esc(t("days90"))}</p><div class="insight-strip">${strip}</div>` : ""}
+            <p class="hint">${esc(t("eff", { kwh: num((detail.kwh_km || 0) * 100, 1), cold: num((detail.cold || 0) * 100, 1) }))}</p>
+            <p class="hint">${esc(t("sources"))}: ${esc(src)}</p>`;
+        })
+        .join("");
+      const sc = data.score || {};
+      const score = sc.scored ? t("score", { rate: Math.round((sc.rate || 0) * 100), n: sc.scored, saved: this._money ? this._money(sc.saved || 0) : num(sc.saved, 0) }) : t("score_none");
+      figures = `<h3 class="sheet-sub">${esc(t("tonight"))}</h3>${groups || `<p class="hint">${esc(t("reason_learning"))}</p>`}
+        <p class="hint">${esc(score)}</p>${cars}
+        <p class="hint">${esc(t("prices", { own: data.prices || 0, spot: data.spot || 0, fc: data.forecasts || 0 }))}</p>`;
+    }
+    const level = Number(settings.insight_level || 90);
+    return {
+      icon: "history",
+      title: t("title"),
+      summary: on ? t("on") : t("off"),
+      body: `<p class="hint">${esc(t("hint"))}</p>
+        ${this._ruleRow({ icon: "history", title: t("log"), hint: t("log_hint"), off: !on, control: sw("insight") })}
+        ${on ? `${this._ruleRow({ icon: "bell", title: t("notify"), hint: t("notify_hint"), off: !settings.insight_notify, control: `${settings.insight_notify ? time("insight-at", "insight_notify_at", "19:30") : ""}${sw("insight_notify")}` })}
+        ${this._ruleRow({ icon: "car", title: t("window"), hint: t("window_hint"), off: !settings.insight_window, control: `${settings.insight_window ? `${time("insight-from", "insight_from", "21:00")}<span class="dash">–</span>${time("insight-to", "insight_to", "07:00")}` : ""}${sw("insight_window")}` })}
+        ${this._ruleRow({ icon: "sun", title: t("use"), hint: t("use_hint"), off: !settings.insight_use, control: sw("insight_use") })}
+        <div class="field col"><span>${esc(t("level"))}</span><div class="chips">${[80, 90, 95].map((v) => `<button class="${level === v ? "on" : ""}" data-act="insight-level" data-level="${v}" data-f="insight-level-${v}" aria-pressed="${level === v}">${esc(t(`level_${v}`))}</button>`).join("")}</div></div>
+        ${figures}` : ""}`,
+    };
+  }
+
   _settingsHtml() {
     const s = this._state;
     const settings = s.settings || {};
@@ -9635,6 +9791,7 @@ class EvPlannerPanel extends HTMLElement {
         <p class="hint">${esc(this._t("widgets_text"))}</p>
         ${this._ruleRow({ icon: "history", title: this._t("widgets_refresh"), hint: this._t("widgets_refresh_hint"), off: !settings.update_widgets, control: `<button class="switch" role="switch" data-act="hh-toggle" data-key="update_widgets" data-f="hh-update_widgets" aria-checked="${Boolean(settings.update_widgets)}" aria-label="${esc(this._t("widgets_refresh"))}"><i></i></button>` })}`,
       },
+      insight: this._insightTile(settings),
       support: {
         icon: "download",
         title: this._t("support_title"),
@@ -10042,6 +10199,10 @@ class EvPlannerPanel extends HTMLElement {
       case "next-open":
         this._openPopup("next");
         break;
+      case "insight-level":
+        this._saveSettings({ insight_level: Number(button.dataset.level) });
+        this._insightAt = 0;
+        break;
       case "hh-toggle": {
         const key = button.dataset.key;
         const settings = this._state.settings || {};
@@ -10437,6 +10598,8 @@ class EvPlannerPanel extends HTMLElement {
       if (el.value) this._setTrip("holiday", el.value);
     } else if (el.dataset.set) {
       this._setFromInput(el, true);
+    } else if (el.dataset.insight) {
+      if (el.value) this._saveSettings({ [el.dataset.insight]: el.value.slice(0, 5) });
     } else if (el.id === "quiet-from" || el.id === "quiet-to") {
       if (el.value) this._saveSettings({ [el.id === "quiet-from" ? "quiet_from" : "quiet_to"]: el.value.slice(0, 5) });
     } else if (el.id === "bill-rate") {
@@ -10891,6 +11054,15 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .field.col { grid-template-columns: 1fr; gap: 6px; }
 .field small { color: var(--evp-soft); font-size: 13px; line-height: 1.4; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.insight-card { display: grid; gap: 4px; padding: 12px 14px; border: 1px solid var(--evp-line); border-radius: 14px; margin: 8px 0; }
+.insight-card small { color: var(--evp-soft); }
+.insight-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin: 8px 0 2px; }
+.insight-col { display: grid; gap: 4px; justify-items: center; color: var(--evp-soft); }
+.insight-bars { position: relative; height: 84px; width: 100%; max-width: 30px; }
+.insight-bars i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 5px 5px 2px 2px; background: var(--evp-accent); }
+.insight-bars i.hard { background: transparent; border: 1px solid var(--evp-line); }
+.insight-strip { display: flex; align-items: flex-end; gap: 1px; height: 56px; margin: 4px 0 8px; }
+.insight-strip i { flex: 1 1 0; min-width: 1px; border-radius: 1px; background: var(--evp-accent); opacity: .75; }
 .chips.places { margin-bottom: 10px; }
 .place-name { display: block; margin: 8px 0 4px; }
 .chips button, .chip-input {

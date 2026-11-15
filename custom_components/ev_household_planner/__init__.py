@@ -14,6 +14,7 @@ from . import migration, places
 from .const import DOMAIN, PLATFORMS, STORAGE_KEY, STORAGE_VERSION
 from .events import EVENTS_STORAGE_KEY, async_capture_logs
 from .household import EVPlannerConfigEntry, Household
+from .insight import INSIGHT_STORAGE_KEY
 from .panel import async_register_panel, async_unregister_panel
 from .services import async_setup_services
 from .websocket import async_register_websocket
@@ -76,6 +77,7 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY.format(entry_id=entry.entry_id))
     await store.async_remove()
     await Store(hass, 1, EVENTS_STORAGE_KEY.format(entry_id=entry.entry_id)).async_remove()
+    await Store(hass, 1, INSIGHT_STORAGE_KEY.format(entry_id=entry.entry_id)).async_remove()
 
 
 async def async_remove_config_entry_device(

@@ -363,6 +363,7 @@ class Vehicle:
     meter_kwh: float | None = None
     meter_at: datetime | None = None
     other_cost: float | None = None  # the plan's cost on the other prices (known or forecast), when they differ
+    insight_hold: float | None = None  # Insight waits for a cheaper night: charge no further than this (%)
     trip_cap: float | None = None  # the price a departure at the cheapest prices only never goes over
     # The plan came from storage (Home Assistant restarted) and has not been acted on yet.
     plan_restored: bool = False
@@ -663,6 +664,22 @@ class Vehicle:
 
     @property
     def target(self) -> float:
+        """The charge level to aim for tonight: the wanted one, or lower a night Insight waits for a cheaper one.
+
+        A trip or a calendar's target is never held back.
+        """
+        wanted = self.wanted_target
+        hold = self.insight_hold
+        if (
+            hold is None
+            or self.calendar_target is not None
+            or (self.trip is not None and self.deadline == self.trip["at"])
+        ):
+            return wanted
+        return min(wanted, max(hold, to_float(self.settings.get(SET_MIN_SOC)) or 0.0))
+
+    @property
+    def wanted_target(self) -> float:
         """The charge level to aim for: a calendar trip, the weekday's, the car's own limit, or the setting."""
         if self.calendar_target is not None:
             return self.calendar_target

@@ -884,6 +884,15 @@
       },
       "notify_away": {
         "name": "Notifikationer når bilen er ude"
+      },
+      "insight": {
+        "name": "Indsigt: log og læring"
+      },
+      "insight_notify": {
+        "name": "Indsigt: aftenbesked"
+      },
+      "insight_use": {
+        "name": "Indsigt: planen venter på billigere nætter"
       }
     },
     "text": {

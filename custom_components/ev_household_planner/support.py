@@ -316,6 +316,8 @@ async def async_bundle(hass: HomeAssistant, household: Household, hours: int = H
                 for vehicle in household.vehicles.values()
             }
         ),
+        # How much Insight has logged and what it reads from: no places and no trips.
+        "insight": household.insight.summary(),
         "events": _events(household.events.since(start)),
         "log": list(LOG_CAPTURE.lines),
         "system_log": _system_log(hass),

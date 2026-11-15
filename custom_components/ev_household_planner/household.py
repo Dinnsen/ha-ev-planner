@@ -166,6 +166,7 @@ from .departures import (
 from .events import EventLog
 from .guest import GuestSession
 from .home import HomeInfo
+from .insight import INSIGHT_SETTINGS, Insight
 from .layout import clean_layouts
 from .learning import MIN_POWER_KW
 from .notifications import COLOR_CHARGE, COLOR_ERROR, COLOR_WARN, Notifier, tag_for
@@ -223,6 +224,8 @@ SETTINGS_DEFAULTS: dict[str, Any] = {
     "update_widgets": None,
     # Each place's guard and sharing: {the place's id: {supply_guard, supply_wait, supply_share}}.
     "places": {},
+    # Insight: the log, the evening's message, the window the cars are not moved in, and the plan following it.
+    **INSIGHT_SETTINGS,
 }
 # A place where a car that is not the household's charges as soon as it is plugged in (a summer house let out).
 PLACE_OPEN = "open_charging"
@@ -496,6 +499,8 @@ class Household(DataUpdateCoordinator[None]):
         self.originals: dict[str, str] = {}
         # What happened and why, for the support export.
         self.events = EventLog(hass, entry.entry_id)
+        # The log of the cars' days, trips and prices, and what is expected from it (off until turned on).
+        self.insight = Insight(self)
         self.notifier = Notifier(
             hass,
             self.notify_services,
@@ -607,6 +612,7 @@ class Household(DataUpdateCoordinator[None]):
     async def async_initialize(self) -> None:
         await self.events.async_load()
         await self._async_load()
+        await self.insight.async_load()
         await self._async_load_status_texts()
         hass = self.hass
         start = dt_util.now()
@@ -679,6 +685,7 @@ class Household(DataUpdateCoordinator[None]):
         self.guest.async_stop()
         await self._store.async_save(self._data_to_store())
         await self.events.async_save()
+        await self.insight.async_save()
         await super().async_shutdown()
 
     async def _async_update_data(self) -> None:
@@ -1734,6 +1741,7 @@ class Household(DataUpdateCoordinator[None]):
             if await supply.async_refresh_weather(now):
                 replan = True
         await self.home.async_refresh(now)
+        await self.insight.async_tick(now)
         # Cars and chargers found each other, or lost each other: the plans follow.
         if self.pairing.resolve(now):
             self.async_save()
@@ -3143,6 +3151,11 @@ class Household(DataUpdateCoordinator[None]):
 
 
 TEXT_EN: dict[str, str] = {
+    "insight_title": "Tonight's charging",
+    "insight_plug": "Plug in {car} tonight. {other} has enough for now.",
+    "insight_plug_both": "Both cars need the charger. Plug in {car} tonight, and charge {other} during the day.",
+    "insight_no_car": "No car needs the charger tonight: a cheaper night is likely.",
+    "insight_ripe": "Insight has been right {rate} % of {days} days. Waiting for cheaper nights could have saved about {saved} {currency}. You can let the plan follow it in the settings.",
     "pair_ask": "A car was plugged in to {charger}. Which one is it?",
     "pair_guest": "A guest",
     "problem": "{name} should be charging, but it is not. Check the car and the charger.",
@@ -3169,6 +3182,11 @@ TEXT_EN: dict[str, str] = {
     "action_follow": "Follow the plan",
 }
 TEXT_DA: dict[str, str] = {
+    "insight_title": "Aftenens ladning",
+    "insight_plug": "Sæt {car} i laderen i aften. {other} har nok for nu.",
+    "insight_plug_both": "Begge biler trænger til laderen. Sæt {car} i i aften, og lad {other} i dagtimerne.",
+    "insight_no_car": "Ingen bil behøver laderen i aften: en billigere nat er sandsynlig.",
+    "insight_ripe": "Indsigt har ramt rigtigt {rate} % af {days} dage. At vente på billigere nætter kunne have sparet ca. {saved} {currency}. Du kan lade planen følge den under indstillinger.",
     "pair_ask": "Der er sat en bil til {charger}. Hvilken er det?",
     "pair_guest": "En gæst",
     "problem": "{name} skulle lade, men gør det ikke. Tjek bilen og laderen.",

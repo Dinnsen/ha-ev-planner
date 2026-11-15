@@ -884,6 +884,15 @@
       },
       "notify_away": {
         "name": "Notifications when away"
+      },
+      "insight": {
+        "name": "Insight: log and learn"
+      },
+      "insight_notify": {
+        "name": "Insight: evening message"
+      },
+      "insight_use": {
+        "name": "Insight: plan waits for cheaper nights"
       }
     },
     "text": {

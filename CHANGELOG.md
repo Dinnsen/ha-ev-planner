@@ -2,6 +2,20 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b10] - 2026-11-15
+
+Insight: EV Planner writes down what the cars do, learns their rhythm, and says each evening which car should have the charger. All of it is off until it is turned on, and the plan only follows it when that is turned on too.
+
+### Added
+
+- **Insight** (Settings → Insight, and switches on the household's device). With it on, EV Planner keeps a log: each trip with its times, places (the names of zones, never coordinates), distance and charge levels for 90 days; one line for each car and day (km, kWh used and charged, temperature, first departure) for two years; the price of each hour for two years; and the price forecast as it looked each day for half a year.
+- **The first time, it reads what is already there.** The cars' odometer, battery, charged energy and outside temperature are found on the device the battery sensor belongs to (by what kind of sensor they are, not by their names), and their history is read from Home Assistant's long-term statistics. Two years of spot prices are fetched from Energi Data Service when the price sensor says which price area it is in, and recalculated to the household's price with the sensor's tariffs.
+- **What it learns**: what each weekday takes of each car (a typical day and a hard day), what a km costs and how much more in the cold, and how far off the price forecast is for each day ahead.
+- **Which car gets the charger tonight.** For cars that share a charger, Insight works out how many nights each can do without it and still have enough for a hard day. The one that reaches its floor first gets the charger; a trip in the calendar comes before the pattern; and when both can wait and a cheaper night is likely, no car needs it. A message says so each evening (off until turned on), only when the right car is not already plugged in, and warns when both need the same night.
+- **Do not swap cars at night**: between two times of the household's choosing, the evening's choice stands.
+- **Let the plan wait for a cheaper night** (off until turned on): a night Insight waits, the cars charge no further than what a hard day takes. A trip or a calendar's target is never held back, and the car's lowest level is never gone under. The expectation never lowers a car under a hard day: simulated on a household's real driving, charging only what tomorrow looked like left a car short some thirty mornings a year.
+- **A ledger**: each evening's expectation is kept and scored against what the cars did. When it has held for three weeks, the household is told once, with what waiting could have saved.
+
 ## [2.5.0b9] - 2026-11-14
 
 After a review of the whole of EV Planner. Nothing new to learn: what was wrong, and what could go wrong.
