@@ -348,6 +348,12 @@ class Insight:
     # ------------------------------------------------------------------
     # Every minute
 
+    async def async_settings_changed(self, changes: Mapping[str, Any], now: datetime) -> None:
+        """A new choice of how careful: tonight follows it at once."""
+        if self.enabled and SET_INSIGHT_STYLE in changes:
+            await self._async_decide(now, again=True)
+            self._changed()
+
     async def async_tick(self, now: datetime) -> None:
         """Write down where the cars are and what they have used, and now and then the prices."""
         if not self.enabled:
@@ -603,13 +609,19 @@ class Insight:
             shared.setdefault(vehicle.fixed_charger or f"own {vehicle.vehicle_id}", []).append(vehicle)
         return list(shared.values())
 
-    async def _async_decide(self, now: datetime, *, tell: bool = False) -> None:
-        """Tonight's expectation: kept in the ledger from the evening on, and not changed in the window."""
+    async def _async_decide(self, now: datetime, *, tell: bool = False, again: bool = False) -> None:
+        """Tonight's expectation: kept in the ledger from the evening on, and not changed in the window.
+
+        ``again``: the household changed how careful it is, so tonight is looked at again even in the window.
+        """
         local = dt_util.as_local(now)
         start, end = self.window
         evening = local.date() if local.hour >= end or start < end else local.date() - timedelta(days=1)
         key = evening.isoformat()
-        locked = self.in_window(now) and key in self.data["ledger"]
+        locked = not again and self.in_window(now) and key in self.data["ledger"]
+        if locked and not self.tonight:
+            # Started again in the window: tonight is what was kept in the evening.
+            self.tonight = self.data["ledger"][key]
         if not locked:
             prices = self._all_prices(now)
             tonight = night_price(prices, evening, start, end)

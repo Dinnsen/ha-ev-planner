@@ -442,6 +442,8 @@ def vehicle_state(household: Household, vehicle: Vehicle) -> dict[str, Any]:
         "home": vehicle.home,
         # Plugged in at a charger EV Planner does not know: left alone there.
         "elsewhere": vehicle.elsewhere,
+        # Plugged in, but its charger does not say a car is: not known yet that it is at that charger.
+        "charger_unsure": vehicle.odd_since is not None and not vehicle.elsewhere,
         "charging": vehicle.charging,
         "charger": {"id": charger.charger_id, "name": charger.name} if charger else None,
         "deadline": vehicle.deadline.isoformat() if vehicle.deadline else None,
@@ -511,6 +513,9 @@ def guest_state(household: Household, guest: GuestSession) -> dict[str, Any]:
             "model_year": results.get("model_year"),
             "match_score": results.get("match_score"),
             "looked_up": results.get("last_lookup"),
+            # When the data cannot tell the batteries apart: the household picks one, and it is kept for the plate.
+            "options": results.get("battery_options") or [],
+            "battery_from": results.get("battery_from"),
         },
         "plan": {
             "segments": serialize_segments(guest.segments),

@@ -408,6 +408,8 @@ const TEXT = {
     add_key: "Tilføj nøgle",
     no_car: "Skriv nummerpladen og slå bilen op – eller sæt batteriet selv herunder.",
     no_car_nokey: "Sæt bilens batteri herunder.",
+    battery_which: "Hvilket batteri har bilen?",
+    battery_kept: "Husket for denne bil",
     battery: "Batteri",
     match: "Match",
     match_hint: "Hvor sikkert batteriet passer til bilen",
@@ -1001,6 +1003,8 @@ const TEXT = {
     add_key: "Add key",
     no_car: "Enter the license plate and look up the car – or set the battery yourself below.",
     no_car_nokey: "Set the car's battery below.",
+    battery_which: "Which battery does the car have?",
+    battery_kept: "Kept for this car",
     battery: "Battery",
     match: "Match",
     match_hint: "How sure the battery match is",
@@ -5906,7 +5910,7 @@ class EvPlannerPanel extends HTMLElement {
     const parts = [];
     if (v.elsewhere) parts.push(this._t("connected_elsewhere"));
     else if (v.home === false) parts.push(this._t("away"));
-    else if (v.connected === true) parts.push(v.charger?.name ? this._t("connected_at", { charger: v.charger.name }) : this._t("connected"));
+    else if (v.connected === true) parts.push(v.charger?.name && !v.charger_unsure ? this._t("connected_at", { charger: v.charger.name }) : this._t("connected"));
     else if (v.connected === false) parts.push(this._t("not_connected"));
     if (v.mode !== "off") parts.push(this._readyText(v.deadline));
     return parts.join(" · ");
@@ -8387,7 +8391,7 @@ class EvPlannerPanel extends HTMLElement {
       lookup.disabled = this._busy === "lookup";
       lookup.querySelector("span").textContent = this._busy === "lookup" ? this._t("looking_up") : this._t("lookup");
     }
-    this._patch(box, JSON.stringify([g.car, g.lookup, this._lang]), this._guestBodyHtml());
+    this._patch(box, JSON.stringify([g.car, g.lookup, this._lang, this._gin?.battery_capacity]), this._guestBodyHtml());
   }
 
   _guestBodyHtml() {
@@ -8399,7 +8403,16 @@ class EvPlannerPanel extends HTMLElement {
         <div class="car-name"><strong>${esc([car.brand, car.model].filter(Boolean).join(" "))}</strong>
           <span>${esc([car.variant, car.model_year ? `${this._t("model_year")} ${car.model_year}` : ""].filter(Boolean).join(", "))}</span></div>
         ${isNum(car.match_score) ? this._matchRing(car.match_score) : ""}
-      </div>`;
+      </div>${this._batteryOptionsHtml(car)}`;
+  }
+
+  /* When the data cannot tell the batteries apart: the household picks one, and it is kept for the plate. */
+  _batteryOptionsHtml(car) {
+    const options = Array.isArray(car.options) ? car.options : [];
+    if (options.length < 2) return "";
+    const now = Number(this._gin?.battery_capacity);
+    return `<div class="bat-opts"><span class="hint">${esc(this._t(car.battery_from === "chosen" ? "battery_kept" : "battery_which"))}</span>
+      <div class="chips">${options.map((o) => { const on = Math.abs(Number(o.kwh) - now) < 0.5; return `<button class="${on ? "on" : ""}" data-act="g-battery" data-kwh="${esc(o.kwh)}" aria-pressed="${on}" data-f="g-bat-${esc(o.kwh)}">${esc(this._kwh(o.kwh, 1))}${o.label ? `<small> ${esc(o.label)}</small>` : ""}</button>`; }).join("")}</div></div>`;
   }
 
   _matchRing(score) {
@@ -8421,6 +8434,11 @@ class EvPlannerPanel extends HTMLElement {
 
     const stepper = root.querySelector('.stepper[data-key="battery_capacity"] output');
     if (stepper) stepper.textContent = this._kwh(inputs.battery_capacity, 1);
+    for (const chip of root.querySelectorAll(".bat-opts [data-kwh]")) {
+      const on = Math.abs(Number(chip.dataset.kwh) - Number(inputs.battery_capacity)) < 0.5;
+      chip.classList.toggle("on", on);
+      chip.setAttribute("aria-pressed", String(on));
+    }
 
     const chargerId = inputs.charger || g.charger?.id;
     root.querySelectorAll(".charger-pick button").forEach((b) => {
@@ -10694,6 +10712,9 @@ class EvPlannerPanel extends HTMLElement {
       case "photo-undo":
         this._undoPhoto(id);
         break;
+      case "g-battery":
+        this._gchange({ battery_capacity: Number(button.dataset.kwh) });
+        break;
       case "g-power":
         this._gchange({ charger_power: Number(button.dataset.kw) });
         break;
@@ -11273,6 +11294,8 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .car.reveal { animation: rise .5s cubic-bezier(.2,.8,.2,1); }
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
 .car-name { display: grid; gap: 2px; min-width: 0; }
+.bat-opts { display: grid; gap: 6px; margin-top: 10px; } .bat-opts .chips button small { color: var(--evp-soft); font-size: 11.5px; }
+.bat-opts .chips button.on small { color: inherit; opacity: .75; }
 .car-name strong { font-size: 18px; font-weight: 600; }
 .car-name span { color: var(--evp-soft); font-size: 14px; }
 .match { position: relative; width: 52px; height: 52px; flex: none; }

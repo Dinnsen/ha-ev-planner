@@ -997,6 +997,7 @@ class Vehicle:
             "paused_by": self.paused_by,
             "at_charger": self.at_charger if self.finds_charger else None,
             "elsewhere": self.elsewhere,
+            "odd_since": self.odd_since.isoformat() if self.odd_since else None,
             "last_soc_seen": self.last_soc_seen,
             "live_active": self.live_active,
             "reminded_on": self.reminded_on,
@@ -1044,6 +1045,12 @@ class Vehicle:
             # Checked against the chargers there are when the household starts.
             self.at_charger = at_charger
         self.elsewhere = data.get("elsewhere") is True
+        # How long the car has said plugged in while its charger said no car: kept over a restart.
+        odd = data.get("odd_since")
+        try:
+            self.odd_since = datetime.fromisoformat(odd) if isinstance(odd, str) else None
+        except ValueError:
+            self.odd_since = None
         self.last_soc_seen = to_float(data.get("last_soc_seen"))
         self.live_active = bool(data.get("live_active"))
         reminded = data.get("reminded_on")

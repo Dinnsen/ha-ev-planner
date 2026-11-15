@@ -2,6 +2,22 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b24] - 2026-11-15
+
+### Fixed
+
+- **"Insight is still learning your rhythm" after a restart.** Tonight's choice is kept from the evening and not changed in the night window, but a restart in the window forgot it until 07:00: the page said it was still learning, and "Wait, or charge" said 0 %. It is read back from the evening. A new choice of how careful is looked at again at once, also in the window.
+- **A car's own charge limit with EV Planner's own steps.** A limit set in the car or its app before EV Planner started (or that the car never took from EV Planner) was not followed: Frank's Elroq stood at 80 % in the car and 90 % in EV Planner. The car's limit is now compared with what EV Planner set, and followed when they differ, except just after EV Planner sent a new one.
+- **The guard gave a charger its current back only through the plan.** A car on *Charge now* (or charging outside its plan) has nothing in the plan to be raised by: Frank's charger stayed at 12 A after a peak. The guard now keeps, for each charger it turns down, what it was at, and gives it back when the meter has had room for a couple of minutes, whoever charges there. A car whose shared plan has amps for it now gets them from the plan.
+- **"Plugged in at Garagelader" for a car at another charger, before it was known.** While the car says it is plugged in and its charger says no car is, the charger is not named. The time it has been so is kept over a restart, so a restart does not start the five minutes again.
+
+### Changed
+
+- **The cars' week and the timeline** expect each car's use by weekday (what that weekday has taken), not one day's average for all. A car that is expected to charge is charged as far as the day and the way take (a hard day tomorrow with the reserve, and a typical day after), and all the way to its target on a cheap day; the timeline's expected battery rises with the charging planned tonight and expected on the days after.
+- **A day's price** is the cheapest three hours from noon to noon the next day, at the hours a car is usually home (charging by day counts too), with the hour it is cheapest; the colours compare the week's days with each other and are stronger.
+- **"The log goes, what is learned stays"** shows the log as it is: a square for each of the 90 days (darker: driven farther; hold a finger on one to read it), the day that goes tonight, and what is learned from them: each car's week rhythm, use and cold, the forecast's error and the prices kept.
+- **The guest's battery.** The register's model year is often missing; the year of first registration is used. A battery that the car's VIN gives (NHTSA) comes before the dataset's guess, and a motor power given as the variant ("208 KW") no longer spoils the match. When the data cannot tell the batteries apart, the possible ones are shown to choose from, and the battery chosen for a number plate is kept for the next time that car is looked up.
+
 ## [2.5.0b23] - 2026-11-15
 
 ### Added

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 import logging
 import re
@@ -63,6 +63,8 @@ class BatteryLookupResult:
     source: str
     match_score: float | None
     raw: dict[str, Any] | None
+    # The batteries the car could have, when the data cannot tell them apart: [{"kwh", "label"}], likeliest first.
+    options: list[dict[str, Any]] = field(default_factory=list)
 
 
 PLATE_PROVIDER_REGISTRY: dict[str, dict[str, Any]] = {
@@ -202,7 +204,11 @@ async def async_lookup_vehicle_motorapi(session: ClientSession, plate: str, api_
         brand=data.get("make") or data.get("brand"),
         model=data.get("model"),
         variant=data.get("variant") or data.get("version") or data.get("type_name"),
-        model_year=_extract_year(data.get("model_year")),
+        # The register's model year is often missing (0): the year of first registration is near enough.
+        model_year=_extract_year(data.get("model_year"))
+        or _year_in(
+            data.get("first_registration") or data.get("first_registration_date") or data.get("registration_date")
+        ),
         fuel_type=data.get("fuel_type"),
         source="MotorAPI",
         raw=data,
@@ -274,8 +280,19 @@ async def async_lookup_battery_open_ev_data(
     best_score, best = scored[0]
     if best_score < 45:
         return BatteryLookupResult(None, "Open EV Data", best_score, best)
-
-    return BatteryLookupResult(best.get("battery_capacity"), "Open EV Data", best_score, best)
+    # The variants that fit about as well: when their batteries differ, the household chooses.
+    options: list[dict[str, Any]] = []
+    for score, item in scored:
+        if score < max(45.0, best_score - 15):
+            break
+        kwh = item.get("battery_capacity")
+        if kwh is None or any(abs(kwh - known["kwh"]) < 1.0 for known in options):
+            continue
+        label = " ".join(str(part) for part in (item.get("variant"), item.get("model_year")) if part)
+        options.append({"kwh": round(float(kwh), 1), "label": label})
+        if len(options) >= 6:
+            break
+    return BatteryLookupResult(best.get("battery_capacity"), "Open EV Data", best_score, best, options)
 
 
 async def _async_cached_dataset(session: ClientSession, cache: dict[str, Any] | None) -> Any:
@@ -302,9 +319,26 @@ def _extract_year(value: Any) -> int | None:
     try:
         if value in (None, ""):
             return None
-        return int(value)
+        year = int(value)
     except (TypeError, ValueError):
         return None
+    return year if year > 1900 else None
+
+
+def _year_in(value: Any) -> int | None:
+    """The year in a date as the register writes it (2021-05-03, 03-05-2021)."""
+    found = re.search(r"(19|20)\d{2}", str(value or ""))
+    return int(found.group(0)) if found else None
+
+
+def battery_from_vin(decoded: VehicleLookupResult | None) -> float | None:
+    """The battery NHTSA's decoding of the VIN gives, when it gives one (kWh)."""
+    raw = decoded.raw if decoded is not None else {}
+    for key in ("BatteryKWh", "BatteryKWh_to"):
+        value = _extract_float(raw.get(key))
+        if value is not None and 10 <= value <= 250:
+            return value
+    return None
 
 
 def _extract_candidates(node: Any, inherited_brand: str | None = None) -> list[dict[str, Any]]:
@@ -370,6 +404,8 @@ def _score_candidate(
     brand_n = normalize_text(brand)
     model_n = normalize_text(model)
     variant_n = normalize_text(variant)
+    if re.fullmatch(r"\d+\s*kw", variant_n or ""):
+        variant_n = ""  # the register's "208 KW" is the motor, not a variant the dataset knows
 
     if brand_n and cand_brand:
         score += 35 if brand_n == cand_brand else 15 * SequenceMatcher(None, brand_n, cand_brand).ratio()

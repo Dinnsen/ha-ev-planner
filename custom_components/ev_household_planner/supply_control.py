@@ -1025,6 +1025,9 @@ class SupplyControl:
             if await self.async_set_current(vehicle, entity, target, now):
                 self._held[vehicle.vehicle_id] = now + GUARD_HOLD
                 self._before_cut.setdefault(vehicle.vehicle_id, current)
+                # The charger gets it back from the guard when the peak is over, whatever charges there.
+                cut = self._guest_cut.get(entity)
+                self._guest_cut[entity] = (cut[0] if cut else current, now)
                 self._cuts.append((now, current - target))
                 self.guard_events += 1
                 if over is not None:
@@ -1176,8 +1179,20 @@ class SupplyControl:
         return amps
 
     async def _async_restore_guest(self, now: datetime, reading: float | None) -> None:
-        """Give the guest's charger back what the guard took, when the peak is over."""
+        """Give each charger back what the guard took, when the peak is over.
+
+        The guest's, one charging a car EV Planner does not see, or a car's. A car whose shared plan
+        has amps for it now gets them from the plan instead.
+        """
+        planned = {
+            self.current_entity(vehicle)
+            for vehicle in self.cars()
+            if self.plan is not None and (self.plan.amps_at(vehicle.vehicle_id, now) or 0) > 0
+        }
         for entity, (before, at) in list(self._guest_cut.items()):
+            if entity in planned:
+                self._guest_cut.pop(entity, None)
+                continue
             if elapsed(now, at) < GUARD_HOLD:
                 continue
             shown = to_float(self.household.state_of(entity))

@@ -131,3 +131,31 @@ async def test_a_car_plugged_in_at_another_charger_is_left_alone(
     hass.states.async_set(CHARGER_CAR, "on")
     await settle(hass, freezer)
     assert tesla.elsewhere is False and tesla.plan is not None
+
+
+async def test_with_own_steps_a_limit_the_car_had_already_is_followed(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    """Frank: set to 80 % in the app before EV Planner started; EV Planner still said 90 %."""
+
+    async def keep(call: ServiceCall) -> None:
+        """The car does not take it."""
+
+    hass.services.async_register("input_number", "set_value", keep)
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass)
+    hass.states.async_set(LIMIT, "80")
+    entry = entry_with(charger_sub(), vehicle_sub(TESLA, "Tesla", tesla_data(target_entity=LIMIT)))
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    await settle(hass, freezer)
+    household = entry.runtime_data
+    tesla = household.vehicles[TESLA]
+    await household.async_set_vehicle(TESLA, {"target_step": "10", "target_soc": 90})
+    assert tesla.target == 90
+    # The car never took 90 %: once the moment for its report has passed, the car's 80 % is the target.
+    await move(hass, freezer, dt_util.now() + timedelta(minutes=16))
+    hass.states.async_set(LIMIT, "80", {"min": 50, "max": 100, "step": 10})
+    await settle(hass, freezer)
+    assert tesla.settings["target_soc"] == 80 and tesla.target == 80

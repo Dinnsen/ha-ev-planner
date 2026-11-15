@@ -534,3 +534,31 @@ async def test_the_joint_plan_follows_a_cars_price_ceiling_as_far_as_its_target_
     assert over and all(prices[start] == 0.8 for start in over)
     tesla = household.vehicles[TESLA]
     assert tesla.plan is not None and not tesla.plan.limited and tesla.plan.end_soc == tesla.target
+
+
+async def test_the_guard_gives_a_car_charging_outside_its_plan_its_current_back(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    """Frank: a car on charge now has no plan to be raised by; the guard gives the charger back what it took."""
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass, soc=20, switch=True, charging=True)
+    _skoda(hass, soc=20)
+    hass.states.async_set(METER, "10", {"unit_of_measurement": "A"})
+    entry = _entry(supply_meter=[METER], supply_guard=True)
+    calls = await _setup(hass, freezer, entry)
+    household = entry.runtime_data
+    supply = household.supply
+    await household.async_set_vehicle(TESLA, {"mode": "charge_now"})
+    await settle(hass, freezer)
+    supply._sent.clear()
+    hass.states.async_set(AMPS, "16", {"min": 6, "max": 16})
+    calls.clear()
+    hass.states.async_set(METER, "30", {"unit_of_measurement": "A"})
+    await hass.async_block_till_done()
+    assert [c.data["value"] for c in calls] == [9]
+    # The kettle is off. When the guard has waited, the charger has its 16 A again.
+    freezer.move_to(dt_util.now() + GUARD_HOLD + timedelta(seconds=5))
+    hass.states.async_set(METER, "11", {"unit_of_measurement": "A"})
+    await hass.async_block_till_done()
+    assert calls[-1].data["value"] == 16
+    assert not supply._guest_cut

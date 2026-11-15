@@ -604,7 +604,7 @@ NHTSA_DECODE_URL: Final = "https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValu
 OPEN_EV_DATA_URL: Final = "https://raw.githubusercontent.com/KilowattApp/open-ev-data/main/data/ev-data.json"
 OPEN_EV_DATA_FALLBACK_URL: Final = "https://raw.githubusercontent.com/KilowattApp/open-ev-data/master/data/ev-data.json"
 
-REDACT_KEYS: Final = {CONF_MOTORAPI_KEY, "vin", GUEST_PLATE, "plate"}
+REDACT_KEYS: Final = {CONF_MOTORAPI_KEY, "vin", GUEST_PLATE, "plate", "plates"}
 
 ESC_DOMAIN: Final = "ev_smart_charging"
 

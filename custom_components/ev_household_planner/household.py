@@ -1100,8 +1100,9 @@ class Household(DataUpdateCoordinator[None]):
             vehicle.soc = state_float(self.hass.states.get(vehicle.soc_entity))
         if vehicle.target_entity:
             vehicle.target_from_car = state_float(self.hass.states.get(vehicle.target_entity))
-            self._follow_car_limit(vehicle)
         vehicle.pause_floor = self._pause_floor(vehicle)
+        if vehicle.target_entity:
+            self._follow_car_limit(vehicle)
         if vehicle.capacity_entity:
             vehicle.capacity_from_car = meter_value(self.hass.states.get(vehicle.capacity_entity))
         if vehicle.connected_entity:
@@ -1125,35 +1126,34 @@ class Household(DataUpdateCoordinator[None]):
         self._check_elsewhere(vehicle, dt_util.now())
 
     def _follow_car_limit(self, vehicle: Vehicle) -> None:
-        """The car's own limit was changed in the car or its app: with EV Planner's own steps, it is the new target.
+        """The car's own limit differs from what EV Planner set: with EV Planner's own steps, the car is followed.
 
-        Without own steps the car's limit is the target already.
+        Set in the car or its app (before EV Planner started, or while it ran): the car's limit is the new
+        target. A value EV Planner sent a moment ago is on its way, and a Mercedes paused by its limit is
+        paused, not set to a new target. Without own steps the car's limit is the target already.
         """
-        limit, seen = vehicle.target_from_car, vehicle.limit_seen
+        limit = vehicle.target_from_car
         if limit is None:
             return
         vehicle.limit_seen = limit
         sent = vehicle.limit_sent
         if sent is not None and abs(limit - sent) < 0.5:
-            # The car has what EV Planner set: from now on another value is a change.
+            # The car has what EV Planner set.
             vehicle.limit_sent_at = None
             return
         step = vehicle.own_step
-        if step is None or seen is None or abs(limit - seen) < 0.5:
+        target = to_float(vehicle.settings.get(SET_TARGET_SOC))
+        if step is None or target is None:
             return
         now = dt_util.now()
-        if (
-            vehicle.limit_sent_at is not None
-            and vehicle.limit_before is not None
-            and abs(limit - vehicle.limit_before) < 0.5
-            and elapsed(now, vehicle.limit_sent_at) < LIMIT_REPORT_LAG
-        ):
+        if vehicle.limit_sent_at is not None and elapsed(now, vehicle.limit_sent_at) < LIMIT_REPORT_LAG:
             return
-        target = to_float(vehicle.settings.get(SET_TARGET_SOC))
+        if vehicle.paused_by == "car" and vehicle.pause_floor is not None and abs(limit - vehicle.pause_floor) < 0.5:
+            return
+        if abs(self.car_target_value(vehicle, target) - limit) < 0.5:
+            return
         value = float(max(10.0, min(100.0, round(limit / step) * step)))
-        if target is not None and (
-            abs(value - target) < 0.5 or abs(self.car_target_value(vehicle, target) - limit) < 0.5
-        ):
+        if abs(value - target) < 0.5:
             return
         vehicle.settings[SET_TARGET_SOC] = value
         self.events.add(now, "settings", vehicle=vehicle.name, changes={SET_TARGET_SOC: value}, by="car")
@@ -1175,8 +1175,8 @@ class Household(DataUpdateCoordinator[None]):
         )
         if not known or vehicle.connected_car is False:
             vehicle.odd_since, elsewhere = None, False
-        elif vehicle.connected_car is None:
-            elsewhere = vehicle.elsewhere  # not known now (the car's integration starts): as it was
+        elif vehicle.connected_car is None or (charger is not None and charger.connected is None):
+            elsewhere = vehicle.elsewhere  # not known now (an integration starts): as it was
         elif charger is not None and (charger.connected is False or vehicle.elsewhere):
             if vehicle.odd_since is None:
                 vehicle.odd_since = now
@@ -3151,6 +3151,7 @@ class Household(DataUpdateCoordinator[None]):
             self._slots_cache.clear()
         if changes.keys() & {"places", "price_add"}:
             self.schedule_recalculate(force=True)
+        await self.insight.async_settings_changed(changes, dt_util.now())
         self.async_save()
         self.async_update_listeners()
 

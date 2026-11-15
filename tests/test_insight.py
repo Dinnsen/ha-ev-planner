@@ -629,3 +629,27 @@ async def test_what_the_panel_and_the_export_get_and_what_is_kept(
         await again.async_load()
     assert again.data["days"] == {} and again.data["done"] == {"cars": {}}
     await again.async_remove()
+
+
+async def test_tonight_is_kept_over_a_restart_in_the_window_and_follows_a_new_choice(
+    hass: HomeAssistant, init_integration: MockConfigEntry, now: datetime
+) -> None:
+    planner = init_integration.runtime_data
+    insight = insight_of(init_integration)
+    await planner.async_update_settings({"insight": True})
+    seed(insight, now)
+    night_prices(hass, now, 1.0, 3.0)
+    await hass.async_block_till_done()
+    evening = now.replace(hour=20)
+    await insight._async_decide(evening)
+    kept = insight.tonight
+    assert kept["groups"]
+    # Home Assistant starts again at 23: tonight is what was kept in the evening, not nothing.
+    insight.tonight = {}
+    late = at(now, hour=23)
+    await insight._async_decide(late)
+    assert insight.tonight == kept
+    # A new choice of how careful is looked at again at once, in the window too.
+    with patch.object(insight, "_async_decide", wraps=insight._async_decide) as decide:
+        await planner.async_update_settings({"insight_style": 5})
+    assert decide.call_args.kwargs.get("again") is True

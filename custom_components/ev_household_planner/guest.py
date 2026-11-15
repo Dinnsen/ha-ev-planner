@@ -28,6 +28,8 @@ from .api import (
     async_decode_vin_nhtsa,
     async_lookup_battery_open_ev_data,
     async_lookup_vehicle,
+    battery_from_vin,
+    clean_identifier,
 )
 from .const import (
     CONTROL_CHARGE,
@@ -109,7 +111,11 @@ CAR_RESULTS = (
     "match_score",
     "last_source",
     "last_lookup",
+    "battery_options",
+    "battery_from",
 )
+# The batteries chosen for cars looked up before, by number plate: the same guest gets the same battery.
+PLATES_KEPT = 40
 PLAN_RESULTS = (
     "charging_speed",
     "charge_time",
@@ -188,6 +194,7 @@ class GuestSession:
         }
         self.service_health: dict[str, bool] = {"motorapi": True, "nhtsa": True, "open_ev_data": True}
         self.history: list[dict[str, Any]] = []
+        self.plates: dict[str, float] = {}
         self.segments: list[Segment] = []
         self.error: str | None = None
         self.error_detail: str | None = None
@@ -253,6 +260,7 @@ class GuestSession:
             "hold_until": self._hold_until.isoformat() if self._hold_until else None,
             "carried": self._carried,
             "history": self.history,
+            "plates": self.plates,
         }
 
     def load(self, stored: Mapping[str, Any] | None) -> None:
@@ -282,6 +290,12 @@ class GuestSession:
         carried = stored.get("carried")
         self._carried = [part for part in carried if isinstance(part, dict)] if isinstance(carried, list) else []
         self.history = [entry for entry in stored.get("history") or [] if isinstance(entry, dict)][:HISTORY_LIMIT]
+        plates = stored.get("plates")
+        self.plates = (
+            {str(k): float(v) for k, v in plates.items() if isinstance(v, int | float)}
+            if isinstance(plates, dict)
+            else {}
+        )
 
     def _changed(self) -> None:
         self.household.async_save()
@@ -318,6 +332,14 @@ class GuestSession:
         if key == GUEST_STEP:
             value = int(value) if value in (1, 5, 10, "1", "5", "10") else 1
         self.inputs[key] = value
+        if key == GUEST_BATTERY and (plate := clean_identifier(self.inputs.get(GUEST_PLATE))) and value:
+            # Chosen for this car: kept for the next time it is looked up.
+            self.plates.pop(plate, None)
+            self.plates[plate] = float(value)
+            while len(self.plates) > PLATES_KEPT:
+                self.plates.pop(next(iter(self.plates)))
+            if self.results.get("car_battery_capacity") is not None:
+                self.results["battery_from"] = "chosen"
         self._changed()
 
     def status(self, now: datetime | None = None) -> str:
@@ -389,22 +411,33 @@ class GuestSession:
             cache=self.hass.data.setdefault(DATASET_CACHE_KEY, {}),
         )
         self._set_service_health("open_ev_data", battery.raw is not None or battery.battery_capacity is None)
+        # The surest first: a battery chosen for this car before, then the one its VIN says, then the dataset's.
+        kept = self.plates.get(clean_identifier(plate))
+        from_vin = battery_from_vin(decoded)
+        capacity, score, source, origin = battery.battery_capacity, battery.match_score, battery.source, "data"
+        if from_vin is not None:
+            capacity, score, source, origin = from_vin, 95.0, "VIN (NHTSA)", "vin"
+        if kept is not None:
+            capacity, score, origin = kept, 100.0, "chosen"
+        options = [] if origin == "vin" else battery.options
         self.results.update(
             {
                 "car_brand": normalized.brand,
                 "car_model": normalized.model,
                 "car_variant": normalized.variant,
-                "car_battery_capacity": battery.battery_capacity,
+                "car_battery_capacity": capacity,
                 "vin": normalized.vin,
                 "model_year": normalized.model_year,
                 "fuel_type": normalized.fuel_type,
-                "match_score": battery.match_score,
-                "last_source": f"{normalized.source} + {battery.source}",
+                "match_score": score,
+                "last_source": f"{normalized.source} + {source}",
                 "last_lookup": dt_util.now().isoformat(),
+                "battery_options": options if len(options) > 1 else [],
+                "battery_from": origin,
             }
         )
-        if battery.battery_capacity:
-            self.inputs[GUEST_BATTERY] = battery.battery_capacity
+        if capacity:
+            self.inputs[GUEST_BATTERY] = capacity
         self._changed()
 
     @staticmethod

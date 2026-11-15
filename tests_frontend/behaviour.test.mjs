@@ -711,7 +711,7 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     assert.equal(await inside((root) => root.querySelectorAll("#tl-day .wkfact").length), 3, "both cars and the night's price, on one line");
     await tap('ev-planner-insight #wkp [data-wkp="2"]');
     assert.ok(await inside((root) => root.querySelector('#wkp [data-wkp="2"]').classList.contains("on")));
-    assert.match(await inside((root) => root.querySelector("#tl-day").textContent), /the night's price/);
+    assert.match(await inside((root) => root.querySelector("#tl-day").textContent), /cheapest/);
     // The timeline is wider than the page and scrolls by itself, both cars in it; a day is chosen by a tap, the zoom by + and −.
     assert.ok(await inside((root) => { const el = root.querySelector("#tl-scroll"); return el.scrollWidth > el.clientWidth && el.scrollLeft > 0; }));
     assert.equal(await inside((root) => root.querySelectorAll("#tl .tl-bf").length), 2);
@@ -786,6 +786,9 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     await tap('ev-planner-insight [data-tab="laer"]');
     assert.equal(await inside((root) => root.querySelectorAll("#models .model").length), 4);
     assert.match(await inside((root) => root.querySelector("#ledger-t").textContent), /3 of 4 days/);
+    // The log as it is: a square for each of the 90 days, and what is learned from them.
+    assert.equal(await inside((root) => root.querySelectorAll("#conveyor rect[data-k]").length), 90);
+    assert.match(await inside((root) => root.querySelector("#conveyor .keep-kept").textContent), /The week's rhythm/);
     // How careful: one slider, and what each choice would have done on the household's own days.
     assert.equal(await inside((root) => root.querySelectorAll("#c9-week i").length), 7);
     assert.equal(await inside((root) => root.querySelector("#c9-name").textContent), "Recommended");
