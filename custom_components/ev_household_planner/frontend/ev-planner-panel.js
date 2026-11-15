@@ -1814,6 +1814,47 @@ Object.assign(TEXT.da, {
   insight_score_none: "Regnskabet begynder, når første aften er gået.",
   insight_trips: "{n} ture logget",
   insight_loading: "Henter …",
+  insight_c_share: "af dagene kørt",
+  insight_c_map: "Kortet over turene",
+  insight_c_map_note: "Hjem i midten og de steder, turene gik til. Tykkere streg betyder oftere. Stederne er jeres zoner i Home Assistant; der gemmes ingen koordinater.",
+  insight_c_each: "Hver dags kørsel",
+  insight_c_each_note: "Vandret: dato. Lodret: første afgang. Størrelse: km. Farve: temperatur ude, fra kold (grøn) til mild (gul).",
+  insight_c_daily: "Forbrug pr. dag",
+  insight_c_daily_note: "Søjlerne er kWh pr. dag. Stregen er temperaturen ude.",
+  insight_c_km: "Kørt på 90 dage",
+  insight_p_hit: "Hvor godt rammer prognosen?",
+  insight_p_rhythm: "Prisens døgnrytme",
+  insight_p_rhythm_note: "Snit over det seneste år: hvornår på ugen strømmen plejer at være billigst (grøn) og dyrest (rød).",
+  insight_s_night: "Nat",
+  insight_s_day: "Dag",
+  insight_s_drive: "Kørsel",
+  insight_s_rest: "Varme, køl og tab",
+  insight_s_title: "Hvor strømmen kom fra, og hvad den blev til",
+  insight_s_title_note: "Nat er kl. 21–07. Fordelingen mellem nat og dag kræver bilens tæller for ladet energi.",
+  insight_s_when: "Hvornår der lades",
+  insight_s_when_note: "kWh pr. klokketime de sidste 90 dage.",
+  insight_s_when_none: "Kræver bilens tæller for ladet energi.",
+  insight_s_at_night: "om natten",
+  insight_s_each: "Hver ladning",
+  insight_s_charged: "Ladet på 90 dage",
+  insight_s_nights: "{n} dage med ladning",
+  insight_s_paid: "Betalt, ca.",
+  insight_s_cheaper: "Mod døgnets snitpris",
+  insight_s_cheaper_note: "billigere",
+  insight_g_ridge: "Afgangstider, dag for dag",
+  insight_g_ridge_note: "Hver bølge er en ugedag. Smal og høj betyder fast rytme; bred og flad betyder, at dagen er svær at forudsige.",
+  insight_g_keep: "Loggen slettes, det lærte bliver",
+  insight_g_keep_in: "90 dages ture",
+  insight_g_keep_out: "Det lærte",
+  insight_g_keep_note: "Ture med tid og sted slettes efter 90 dage. Tilbage bliver mønstre uden steder: rytme, forbrug, kuldens pris og prognosens fejl.",
+  insight_a_back: "Sagt og sket, 30 dage",
+  insight_a_back_note: "Søjlen er, hvad der dagen før blev forventet (8 af 10 gange). Prikken er, hvad bilen brugte. Røde prikker faldt udenfor.",
+  insight_a_back_in: "{n} af {of} inden for",
+  insight_a_cal: "Holder sandsynligheden?",
+  insight_a_cal_note: "Når der siges 80 %, skal det ske cirka 8 af 10 gange. Søjlen er, hvor ofte det skete; stregen er, hvad der blev sagt.",
+  insight_a_dial: "Vent, eller lad i nat?",
+  insight_a_waits: "Venter på en billigere nat",
+  insight_a_charges: "Lader i nat",
   insight_v_power: "Strøm",
   insight_q_cost: "Hvad har det kostet?",
   insight_q_cost_note: "{kwh} kWh på 30 dage · {price}/kWh",
@@ -2029,6 +2070,47 @@ Object.assign(TEXT.en, {
   insight_score_none: "The ledger begins after the first evening.",
   insight_trips: "{n} trips logged",
   insight_loading: "Loading …",
+  insight_c_share: "of the days driven",
+  insight_c_map: "The map of the trips",
+  insight_c_map_note: "Home in the middle and the places the trips went to. A thicker line means more often. The places are your zones in Home Assistant; no coordinates are kept.",
+  insight_c_each: "Each day's driving",
+  insight_c_each_note: "Across: the date. Down: the first departure. Size: km. Colour: the temperature outside, from cold (green) to mild (yellow).",
+  insight_c_daily: "Used each day",
+  insight_c_daily_note: "The bars are kWh a day. The line is the temperature outside.",
+  insight_c_km: "Driven in 90 days",
+  insight_p_hit: "How well does the forecast hit?",
+  insight_p_rhythm: "The price's rhythm",
+  insight_p_rhythm_note: "The mean of the last year: when in the week power tends to be cheapest (green) and dearest (red).",
+  insight_s_night: "Night",
+  insight_s_day: "Day",
+  insight_s_drive: "Driving",
+  insight_s_rest: "Heat, cooling and losses",
+  insight_s_title: "Where the power came from, and what it became",
+  insight_s_title_note: "Night is 21-07. The split between night and day needs the car's counter of charged energy.",
+  insight_s_when: "When it charges",
+  insight_s_when_note: "kWh in each hour of the day, the last 90 days.",
+  insight_s_when_none: "Needs the car's counter of charged energy.",
+  insight_s_at_night: "at night",
+  insight_s_each: "Each charge",
+  insight_s_charged: "Charged in 90 days",
+  insight_s_nights: "{n} days with charging",
+  insight_s_paid: "Paid, about",
+  insight_s_cheaper: "Against the day's mean price",
+  insight_s_cheaper_note: "cheaper",
+  insight_g_ridge: "Departures, day by day",
+  insight_g_ridge_note: "Each wave is a weekday. Narrow and tall is a regular day; wide and flat is a day that is hard to foresee.",
+  insight_g_keep: "The log goes, what is learned stays",
+  insight_g_keep_in: "90 days of trips",
+  insight_g_keep_out: "What is learned",
+  insight_g_keep_note: "Trips with their times and places go after 90 days. What stays is patterns without places: the rhythm, the use, what the cold costs and the forecast's error.",
+  insight_a_back: "Said and done, 30 days",
+  insight_a_back_note: "The bar is what was expected the day before (8 of 10 times). The dot is what the car used. Red dots fell outside.",
+  insight_a_back_in: "{n} of {of} inside",
+  insight_a_cal: "Does the likelihood hold?",
+  insight_a_cal_note: "When 80 % is said, it should happen about 8 times of 10. The bar is how often it happened; the line is what was said.",
+  insight_a_dial: "Wait, or charge tonight?",
+  insight_a_waits: "Waits for a cheaper night",
+  insight_a_charges: "Charges tonight",
   insight_v_power: "Power",
   insight_q_cost: "What has it cost?",
   insight_q_cost_note: "{kwh} kWh in 30 days · {price}/kWh",
@@ -10048,54 +10130,130 @@ class EvPlannerPanel extends HTMLElement {
         </div>`;
     } else if (view === "cars") {
       const driven = days.filter(([, d]) => (d.km || 0) >= 1);
+      const kms = driven.map(([, d]) => d.km);
+      const trips = (data.trips || []).filter((trip) => trip.vehicle === carId);
+      // The week's clock: Monday innermost, Sunday outermost; the darker, the more often the car left in that hour.
       const heat = Array.from({ length: 7 }, () => Array(24).fill(0));
       for (const [iso, d] of days) if (d.out != null) heat[weekday(iso)][Math.min(23, Math.floor(d.out))] += 1;
+      for (const trip of trips) { const at = ZD(trip.start); heat[(at.getDay() + 6) % 7][at.getHours()] += 1; }
       const most = Math.max(1, ...heat.flat());
-      const clock = `<div class="ins-heat">${heat.map((row, i) => `<span>${esc(wd[i])}</span>${row.map((n, h) => `<i title="${esc(`${wd[i]} ${h}:00 · ${n}`)}" style="opacity:${n ? 0.2 + 0.8 * (n / most) : 0.06}"></i>`).join("")}`).join("")}</div><div class="ins-hours"><span></span><span>0</span><span>6</span><span>12</span><span>18</span></div>`;
-      const kms = driven.map(([, d]) => d.km);
-      const trips = (data.trips || []).filter((trip) => trip.vehicle === carId).slice(-20).reverse();
-      const tripRows = trips.map((trip) => `<tr><td>${esc(this._day(trip.start))} ${esc(this._time(trip.start))}–${esc(this._time(trip.end))}</td><td>${esc(trip.from || "")} → ${esc(trip.to || "")}</td><td>${trip.km == null ? "–" : `${num(trip.km, 1)} km`}</td><td>${trip.kwh == null ? "–" : `${num(trip.kwh, 1)} kWh`}</td><td>${trip.temp == null ? "" : `${num(trip.temp)}°`}</td></tr>`).join("");
+      const arc = (r0, r1, a0, a1) => { const p = (r, a) => `${(110 + r * Math.sin(a)).toFixed(1)} ${(110 - r * Math.cos(a)).toFixed(1)}`; return `M${p(r0, a0)}A${r0} ${r0} 0 0 1 ${p(r0, a1)}L${p(r1, a1)}A${r1} ${r1} 0 0 0 ${p(r1, a0)}Z`; };
+      const clock = `<svg class="ins-clock" viewBox="0 0 220 220" role="img" aria-label="${esc(t("c_clock"))}">${heat.map((row, i) => row.map((n, h) => `<path d="${arc(30 + i * 10.5, 39.5 + i * 10.5, (h / 24) * 2 * Math.PI + 0.012, ((h + 1) / 24) * 2 * Math.PI - 0.012)}" style="opacity:${n ? 0.25 + 0.75 * (n / most) : 0.07}"><title>${esc(`${wd[i]} ${h}:00 · ${n}`)}</title></path>`).join("")).join("")}<text x="110" y="107" class="big">${days.length ? Math.round((driven.length / days.length) * 100) : 0} %</text><text x="110" y="122" class="sub">${esc(t("c_share"))}</text><text x="110" y="9" class="hr">00</text><text x="214" y="113" class="hr">06</text><text x="110" y="218" class="hr">12</text><text x="6" y="113" class="hr">18</text></svg>`;
+      // The map: home in the middle, the places the trips went around it; the thicker the line, the more often.
+      const places = new Map();
+      for (const trip of trips) for (const [a, b] of [[trip.from, trip.to]]) { const key = [a, b].sort().join("|"); places.set(key, (places.get(key) || 0) + 1); }
+      const nodes = [...new Set(trips.flatMap((trip) => [trip.from, trip.to]).filter((n) => n && n !== "home"))].slice(0, 7);
+      const at = (name) => { if (name === "home") return [150, 95]; const i = nodes.indexOf(name), a = (i / Math.max(1, nodes.length)) * 2 * Math.PI - 0.9; return [150 + 112 * Math.cos(a), 95 + 68 * Math.sin(a)]; };
+      const maxTrips = Math.max(1, ...places.values());
+      const map = nodes.length
+        ? `<svg class="ins-map" viewBox="0 0 300 190" role="img" aria-label="${esc(t("c_map"))}">${[...places].map(([key, n]) => { const [a, b] = key.split("|"); if (!["home", ...nodes].includes(a) || !["home", ...nodes].includes(b)) return ""; const [x1, y1] = at(a), [x2, y2] = at(b); return `<path d="M${x1} ${y1}Q${(x1 + x2) / 2} ${(y1 + y2) / 2 - 22} ${x2} ${y2}" style="stroke-width:${1.5 + 5 * (n / maxTrips)}"/>`; }).join("")}${["home", ...nodes].map((name) => { const [x, y] = at(name); return `<circle cx="${x}" cy="${y}" r="${name === "home" ? 6 : 4.5}" class="${name === "home" ? "home" : ""}"/><text x="${x}" y="${y - 9}">${esc(name === "home" ? this._t("tab_home") : name)}</text>`; }).join("")}</svg>`
+        : `<p class="hint">${esc(t("c_trips_none"))}</p>`;
+      // Every day's driving: across the days, down the hour it left, the size the km, the colour the temperature.
+      const tone = (temp) => (temp == null ? "var(--evp-soft)" : `color-mix(in srgb, var(--evp-sand) ${clamp(Math.round(((temp + 5) / 25) * 100), 0, 100)}%, var(--evp-accent))`);
+      const scatter = driven.length
+        ? `<svg class="ins-plot" viewBox="0 0 300 130" preserveAspectRatio="none" role="img" aria-label="${esc(t("c_each"))}">${[6, 12, 18].map((h) => `<line x1="0" x2="300" y1="${(h / 24) * 124 + 3}" y2="${(h / 24) * 124 + 3}"/>`).join("")}${days.map(([, d], i) => (d.out == null || !d.km ? "" : `<circle cx="${((i + 0.5) / days.length) * 300}" cy="${(d.out / 24) * 124 + 3}" r="${clamp(1.5 + d.km / 45, 1.8, 7)}" style="fill:${tone(d.temp)}"/>`)).join("")}</svg><div class="ins-axis"><span>${esc(short(days[0][0]))}</span><span>06 · 12 · 18</span><span>${esc(short(days.at(-1)[0]))}</span></div>`
+        : "";
+      const useTop = Math.max(1, ...days.map(([, d]) => d.used || 0));
+      const temps = days.map(([, d]) => d.temp);
+      const daily = `<div class="ins-over">${bars(days.map(([iso, d]) => ({ value: d.used, title: `${short(iso)}: ${num(d.used, 1)} kWh` })), { top: useTop })}${line(temps, { height: 64, cls: "over" }).replace(/<div class="ins-axis">.*<\/div>/, "")}</div>`;
+      const tripRows = trips.slice(-20).reverse().map((trip) => `<tr><td>${esc(this._day(trip.start))} ${esc(this._time(trip.start))}–${esc(this._time(trip.end))}</td><td>${esc(trip.from || "")} → ${esc(trip.to || "")}</td><td>${trip.km == null ? "–" : `${num(trip.km, 1)} km`}</td><td>${trip.kwh == null ? "–" : `${num(trip.kwh, 1)} kWh`}</td><td>${trip.temp == null ? "" : `${num(trip.temp)}°`}</td></tr>`).join("");
       body = `${carChips}
-        <div class="ins-kpis">${kpi(t("c_days"), `${driven.length}/${days.length}`, t("c_days_note"))}${kpi(t("c_avg"), `${num(kms.length ? sum(kms) / kms.length : 0)} km`, t("c_avg_note", { low: num(Math.min(...(kms.length ? kms : [0]))), high: num(Math.max(...(kms.length ? kms : [0]))) }))}${kpi(t("c_eff"), `${num((detail.kwh_km || 0) * 100, 1)}`, t("c_eff_note", { cold: num((detail.cold || 0) * 100, 1) }))}</div>
-        ${card(t("c_clock"), clock, t("c_clock_note"))}
-        ${card(t("days90"), bars(days.map(([iso, d]) => ({ value: d.km, title: `${short(iso)}: ${num(d.km)} km` }))))}
+        <div class="ins-kpis">${kpi(t("c_days"), `${driven.length}/${days.length}`, t("c_days_note"))}${kpi(t("c_km"), `${num(sum(kms))} km`, t("c_avg_note", { low: num(Math.min(...(kms.length ? kms : [0]))), high: num(Math.max(...(kms.length ? kms : [0]))) }))}${kpi(t("d_used"), `${num(sum(days.map(([, d]) => d.used)))} kWh`, "")}${kpi(t("c_eff"), `${num((detail.kwh_km || 0) * 100, 1)}`, t("c_eff_note", { cold: num((detail.cold || 0) * 100, 1) }))}</div>
+        <div class="ins-two">${card(t("c_clock"), clock, t("c_clock_note"))}${card(t("c_map"), map, t("c_map_note"))}</div>
+        ${card(t("c_each"), scatter, t("c_each_note"))}
+        ${card(t("c_daily"), daily, t("c_daily_note"))}
         ${card(t("week", { days: (data.cars[carId] || {}).days }), `<div class="insight-week">${weekBars}</div>`, t("week_legend"))}
-        ${card(t("c_trips"), tripRows ? `<div class="ins-scroll"><table class="ins-table">${tripRows}</table></div>` : `<p class="hint">${esc(t("c_trips_none"))}</p>`)}`;
+        ${tripRows ? card(t("c_trips"), `<div class="ins-scroll"><table class="ins-table">${tripRows}</table></div>`) : ""}`;
     } else if (view === "prices") {
-      const shown = last(90);
-      const byDay = Array.from({ length: 7 }, () => []);
-      for (const [iso, p] of last(365)) if (p.night != null) byDay[weekday(iso)].push(p.night);
-      const rhythm = byDay.map((list, i) => ({ value: list.length ? sum(list) / list.length : 0, title: `${wd[i]}: ${list.length ? this._money(sum(list) / list.length) : "–"}` }));
-      const errors = (data.errors || []).map((e, i) => ({ value: e, title: `+${i + 1}: ±${Math.round(e * 100)} %` }));
+      const errors = data.errors || [];
+      const hit = errors.map((e, i) => `<div class="fan-row"><span>+${i + 1}</span><div><i style="width:${Math.round(clamp(1 - e, 0, 1) * 100)}%"></i></div><b>${Math.round(clamp(1 - e, 0, 1) * 100)} %</b></div>`).join("");
+      const rhythm = data.rhythm || [];
+      const flat = rhythm.flat().filter((v) => v != null), lo = Math.min(...flat), hi = Math.max(...flat);
+      const grid = flat.length
+        ? `<div class="ins-heat price">${rhythm.map((row, i) => `<span>${esc(wd[i])}</span>${row.map((v, h) => `<i title="${esc(`${wd[i]} ${h}:00 · ${v == null ? "–" : this._money(v)}`)}" style="background:${v == null ? "transparent" : `color-mix(in srgb, var(--evp-coral) ${Math.round(((v - lo) / (hi - lo || 1)) * 100)}%, var(--evp-good))`}"></i>`).join("")}`).join("")}</div><div class="ins-hours"><span></span><span>0</span><span>6</span><span>12</span><span>18</span></div>`
+        : "";
       body = `${this._fanHtml(data, card)}
-        ${card(t("p_night"), line(shown.map(([, p]) => p.night)), t("p_night_note", { own: data.prices, spot: data.spot }))}
-        ${card(t("p_mean"), line(shown.map(([, p]) => p.mean), { cls: "soft" }))}
-        ${card(t("p_week"), `${bars(rhythm, { cls: "wide" })}<div class="ins-days">${wd.map((d) => `<span>${esc(d)}</span>`).join("")}</div>`, t("p_week_note"))}
-        ${card(t("p_error"), `${bars(errors, { cls: "wide", top: 0.6 })}<div class="ins-days six">${[1, 2, 3, 4, 5, 6].map((d) => `<span>+${d}</span>`).join("")}</div>`, t("p_error_note", { fc: data.forecasts }))}`;
+        <div class="ins-two">${card(t("p_hit"), hit, t("p_error_note", { fc: data.forecasts }))}${grid ? card(t("p_rhythm"), grid, t("p_rhythm_note")) : ""}</div>`;
     } else if (view === "charge") {
       const prices = data.price_days || {};
+      const stats = this._insSoc || {};
       const rows = ids.map((id) => {
         const list = Object.entries(((data.detail || {})[id] || {}).days || {});
-        const kwh = sum(list.map(([, d]) => d.charged));
+        const kwh = sum(list.map(([, d]) => d.charged)), used = sum(list.map(([, d]) => d.used));
         const cost = sum(list.map(([iso, d]) => (d.charged || 0) * ((prices[iso] || {}).night || 0)));
-        return { id, list, kwh, cost, nights: list.filter(([, d]) => (d.charged || 0) > 1).length };
+        const plain = sum(list.map(([iso, d]) => (d.charged || 0) * ((prices[iso] || {}).mean || 0)));
+        const byHour = Array(24).fill(0);
+        for (const row of stats[(data.cars[id].sources || {}).energy] || []) if (row.change > 0 && row.change < 200) byHour[ZD(row.start).getHours()] += row.change;
+        return { id, list, kwh, used, cost, plain, byHour, nights: list.filter(([, d]) => (d.charged || 0) > 1).length };
       });
-      body = `<div class="ins-kpis">${rows.map((r) => kpi(names[r.id], `${num(r.kwh)} kWh`, t("l_note", { nights: r.nights, price: r.kwh ? this._money(r.cost / r.kwh) : "–" }))).join("")}</div>
-        ${rows.map((r, i) => card(`${names[r.id]}: ${t("l_title")}`, bars(r.list.map(([iso, d]) => ({ value: d.charged, title: `${short(iso)}: ${num(d.charged, 1)} kWh` })), { cls: i ? "second" : "" }), t("l_hint"))).join("")}
-`;
+      const total = sum(rows.map((r) => r.kwh)), cost = sum(rows.map((r) => r.cost)), plain = sum(rows.map((r) => r.plain));
+      const byHour = Array.from({ length: 24 }, (_, h) => sum(rows.map((r) => r.byHour[h])));
+      const hourly = sum(byHour), atNight = sum(byHour.filter((_, h) => h >= 21 || h < 7));
+      const share = hourly ? atNight / hourly : null;
+      // Where the power came from and what it became: night and day into each car, and from the car to driving and the rest.
+      const flow = () => {
+        if (total < 1) return `<p class="hint">${esc(t("score_none"))}</p>`;
+        const H = 170, k = (H - 24) / total, night = total * (share ?? 1), dayPart = total - night;
+        const left = [[t("s_night"), night, "var(--evp-accent)"], [t("s_day"), dayPart, "var(--evp-sand)"]].filter((n) => n[1] > 0.5);
+        const mid = rows.map((r, i) => [names[r.id], r.kwh, i ? "var(--evp-coral)" : "var(--evp-accent)", r]);
+        const usedAll = Math.min(total, sum(rows.map((r) => Math.min(r.kwh, r.used)))), right = [[t("s_drive"), usedAll, "var(--evp-ink)"], [t("s_rest"), total - usedAll, "var(--evp-soft)"]].filter((n) => n[1] > 0.5);
+        const stack = (list) => { let y = 0; return list.map((n) => { const out = { name: n[0], v: n[1], c: n[2], y, h: n[1] * k, used: 0, got: 0 }; y += n[1] * k + 12 / Math.max(1, list.length - 1 || 1); return out; }); };
+        const L = stack(left), M = stack(mid), R = stack(right);
+        const band = (x0, x1, a, b, v, colour) => { const h = v * k, y0 = a.y + a.used, y1 = b.y + b.got; a.used += h; b.got += h; return `<path d="M${x0} ${y0}C${(x0 + x1) / 2} ${y0} ${(x0 + x1) / 2} ${y1} ${x1} ${y1}L${x1} ${y1 + h}C${(x0 + x1) / 2} ${y1 + h} ${(x0 + x1) / 2} ${y0 + h} ${x0} ${y0 + h}Z" style="fill:${colour}"/>`; };
+        let out = "";
+        for (const a of L) for (const b of M) out += band(96, 196, a, b, (a.v * b.v) / total, a.c);
+        M.forEach((m, i) => { const r = rows[i], drive = Math.min(r.kwh, r.used); m.used = 0; if (R[0] && drive > 0) out += band(204, 304, m, R[0], drive, m.c); if (R[1] && r.kwh - drive > 0) out += band(204, 304, m, R[1], r.kwh - drive, m.c); });
+        const node = (x, n, anchor) => `<rect x="${x}" y="${n.y}" width="8" height="${Math.max(2, n.h)}" rx="2" style="fill:${n.c}"/><text x="${anchor === "end" ? x - 5 : x + 13}" y="${n.y + Math.max(2, n.h) / 2 + 1}" text-anchor="${anchor}" class="nm">${esc(n.name)}</text><text x="${anchor === "end" ? x - 5 : x + 13}" y="${n.y + Math.max(2, n.h) / 2 + 13}" text-anchor="${anchor}" class="nv">${num(n.v)} kWh</text>`;
+        return `<svg class="ins-flow" viewBox="0 0 400 ${H}" role="img" aria-label="${esc(t("s_title"))}">${out}${L.map((n) => node(88, n, "end")).join("")}${M.map((n) => node(196, n, "start").replace(/<text[^]*$/, "")).join("")}${M.map((n) => `<text x="200" y="${n.y - 3}" text-anchor="middle" class="nm">${esc(n.name)}</text>`).join("")}${R.map((n) => node(304, n, "start")).join("")}</svg>`;
+      };
+      const topHour = Math.max(1e-9, ...byHour);
+      const radial = hourly
+        ? `<svg class="ins-clock" viewBox="0 0 220 220" role="img" aria-label="${esc(t("s_when"))}">${byHour.map((v, h) => { const a0 = (h / 24) * 2 * Math.PI + 0.02, a1 = ((h + 1) / 24) * 2 * Math.PI - 0.02, r1 = 46 + 58 * (v / topHour), p = (r, a) => `${(110 + r * Math.sin(a)).toFixed(1)} ${(110 - r * Math.cos(a)).toFixed(1)}`; return `<path d="M${p(44, a0)}A44 44 0 0 1 ${p(44, a1)}L${p(r1, a1)}A${r1} ${r1} 0 0 0 ${p(r1, a0)}Z" style="opacity:${v ? 1 : 0.1}"><title>${h}:00 · ${num(v, 1)} kWh</title></path>`; }).join("")}<text x="110" y="107" class="big">${Math.round((share || 0) * 100)} %</text><text x="110" y="122" class="sub">${esc(t("s_at_night"))}</text><text x="110" y="9" class="hr">00</text><text x="214" y="113" class="hr">06</text><text x="110" y="218" class="hr">12</text><text x="6" y="113" class="hr">18</text></svg>`
+        : `<p class="hint">${esc(t("s_when_none"))}</p>`;
+      const all = rows.flatMap((r, i) => r.list.filter(([, d]) => (d.charged || 0) > 1).map(([iso, d]) => ({ iso, kwh: d.charged, second: i })));
+      const firstDay = rows[0]?.list[0]?.[0], span = rows[0]?.list.length || 1;
+      const index = (iso) => (new Date(`${iso}T12:00:00`) - new Date(`${firstDay}T12:00:00`)) / 86400000;
+      const pTop = Math.max(0.5, ...Object.values(prices).slice(-span).map((p) => p.mean || 0)) * 1.05;
+      const each = all.length
+        ? `<svg class="ins-plot" viewBox="0 0 300 130" preserveAspectRatio="none" role="img" aria-label="${esc(t("s_each"))}"><path class="mean" d="${rows[0].list.map(([iso], i) => { const p = (prices[iso] || {}).mean; return p == null ? "" : `${i ? "L" : "M"}${((i + 0.5) / span) * 300} ${127 - (p / pTop) * 122}`; }).join("").replace(/^L/, "M")}"/>${all.map((c) => { const p = (prices[c.iso] || {}).night; return p == null ? "" : `<circle cx="${((index(c.iso) + 0.5) / span) * 300}" cy="${127 - (p / pTop) * 122}" r="${clamp(2 + c.kwh / 12, 2.5, 7)}" class="${c.second ? "second" : ""}"/>`; }).join("")}</svg><div class="ins-axis"><span>${esc(short(firstDay))}</span><span>${esc(this._money(pTop))}</span></div>`
+        : "";
+      body = `<div class="ins-kpis">${kpi(t("s_charged"), `${num(total)} kWh`, t("s_nights", { n: sum(rows.map((r) => r.nights)) }))}${kpi(t("s_paid"), this._money(cost, 0), total ? `${this._money(cost / total)}/kWh` : "")}${kpi(t("s_cheaper"), plain ? `${Math.round((1 - cost / plain) * 100)} %` : "–", t("s_cheaper_note"))}${kpi(t("s_at_night"), share == null ? "–" : `${Math.round(share * 100)} %`, "")}</div>
+        ${card(t("s_title"), flow(), t("s_title_note"))}
+        <div class="ins-two">${card(t("s_when"), radial, t("s_when_note"))}${each ? card(t("s_each"), each, t("l_hint")) : ""}</div>`;
     } else if (view === "learn") {
       const ring = (share) => `<svg class="ins-ring" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15"/><circle class="on" cx="18" cy="18" r="15" pathLength="100" stroke-dasharray="${Math.round(Math.min(1, share) * 100)} 100" transform="rotate(-90 18 18)"/></svg>`;
       const model = (share, title, text) => `<div class="ins-model">${ring(share)}<div><b>${esc(title)}</b><small>${esc(text)}</small></div></div>`;
       const sc = data.score || {};
+      // When the car leaves, weekday by weekday: a wave for each, narrow and tall where the day is regular.
+      const waves = wd.map((name, i) => {
+        const outs = days.filter(([iso, d]) => weekday(iso) === i && d.out != null).map(([, d]) => d.out);
+        if (!outs.length) return `<text x="0" y="${i * 22 + 20}" class="nm">${esc(name)}</text><line x1="26" x2="300" y1="${i * 22 + 22}" y2="${i * 22 + 22}"/>`;
+        const dens = Array.from({ length: 73 }, (_, x) => sum(outs.map((o) => Math.exp(-(((x / 3 - o) / 0.8) ** 2) / 2))) / outs.length);
+        return `<text x="0" y="${i * 22 + 20}" class="nm">${esc(name)}</text><path d="M26 ${i * 22 + 22}${dens.map((v, x) => `L${(26 + (x / 72) * 274).toFixed(1)} ${(i * 22 + 22 - v * 30).toFixed(1)}`).join("")}L300 ${i * 22 + 22}Z"/>`;
+      }).join("");
+      const ridge = `<svg class="ins-ridge" viewBox="0 0 300 172" role="img" aria-label="${esc(t("g_ridge"))}">${waves}${[6, 12, 18].map((h) => `<text x="${26 + (h / 24) * 274}" y="170" class="hr">${String(h).padStart(2, "0")}</text>`).join("")}</svg>`;
       const dots = days.filter(([, d]) => (d.km || 0) >= 20 && d.used > 0 && d.temp != null).map(([, d]) => [d.temp, (d.used / d.km) * 100]).filter(([, e]) => e > 8 && e < 45);
-      const scatter = dots.length > 4 ? `<svg class="ins-dots" viewBox="0 0 300 120" aria-hidden="true">${dots.map(([temp, e]) => `<circle cx="${(((temp + 10) / 40) * 300).toFixed(1)}" cy="${(114 - ((e - 8) / 37) * 108).toFixed(1)}" r="3"/>`).join("")}</svg><div class="ins-axis"><span>-10°</span><span>30°</span></div>` : `<p class="hint">${esc(t("g_cold_none"))}</p>`;
+      const px = (temp) => ((temp + 10) / 40) * 300, pyy = (e) => 114 - ((e - 8) / 37) * 108, base = (detail.kwh_km || 0) * 100, slope = detail.cold || 0;
+      const scatter = dots.length > 4 ? `<svg class="ins-dots" viewBox="0 0 300 120" aria-hidden="true">${dots.map(([temp, e]) => `<circle cx="${px(temp).toFixed(1)}" cy="${pyy(e).toFixed(1)}" r="3"/>`).join("")}<path d="M${px(-10)} ${pyy(base * (1 + slope * 25))}L${px(15)} ${pyy(base)}L${px(30)} ${pyy(base)}"/></svg><div class="ins-axis"><span>-10°</span><span>30°</span></div>` : `<p class="hint">${esc(t("g_cold_none"))}</p>`;
       body = `${card(t("g_models"), `${ids.map((id) => model((data.cars[id].days || 0) / 28, t("g_rhythm", { car: names[id] }), t("g_rhythm_note", { days: data.cars[id].days }))).join("")}
         ${model((data.forecasts || 0) / 28, t("g_forecast"), t("g_forecast_note", { fc: data.forecasts }))}
         ${model((sc.scored || 0) / 21, t("g_ledger"), sc.scored ? t("score", { rate: Math.round((sc.rate || 0) * 100), n: sc.scored, saved: this._money(sc.saved || 0) }) : t("score_none"))}`)}
         ${carChips}
-        ${card(t("g_cold"), scatter, t("eff", { kwh: num((detail.kwh_km || 0) * 100, 1), cold: num((detail.cold || 0) * 100, 1) }))}
-        ${card(t("sources"), `<p class="hint">${esc(Object.entries((data.cars[carId] || {}).sources || {}).map(([kind, entity]) => `${t(`src_${kind}`)}: ${entity || t("src_missing")}`).join(" · "))}</p>`)}`;
+        <div class="ins-two">${card(t("g_ridge"), ridge, t("g_ridge_note"))}${card(t("g_cold"), scatter, t("eff", { kwh: num(base, 1), cold: num(slope * 100, 1) }))}</div>
+        ${card(t("g_keep"), `<div class="ins-keep"><span>${esc(t("g_keep_in"))}</span><i></i><i></i><i></i><i></i><i></i><b>${esc(t("g_keep_out"))}</b></div>`, t("g_keep_note"))}`;
     } else {
+      const sc = data.score || {};
+      const back = (detail.backtest || []);
+      const top = Math.max(1, ...back.map((r) => Math.max(r.p90 || 0, r.actual || 0)));
+      const yb = (v) => 116 - (clamp(v, 0, top) / top) * 110;
+      const inside = back.filter((r) => r.actual <= r.p90 && r.actual >= r.p10).length;
+      const tested = back.length
+        ? `<svg class="ins-back" viewBox="0 0 300 120" preserveAspectRatio="none" role="img" aria-label="${esc(t("a_back"))}">${back.map((r, i) => { const x = ((i + 0.5) / back.length) * 300, out = r.actual > r.p90 || r.actual < r.p10; return `<rect x="${x - 3}" y="${yb(r.p90)}" width="6" height="${Math.max(1.5, yb(r.p10) - yb(r.p90))}" rx="2"/><circle cx="${x}" cy="${yb(r.actual)}" r="2.6" class="${out ? "out" : ""}"/>`; }).join("")}</svg><div class="ins-axis"><span>${esc(short(back[0].day))}</span><span>${esc(t("a_back_in", { n: inside, of: back.length }))}</span><span>${esc(short(back.at(-1).day))}</span></div>`
+        : `<p class="hint">${esc(t("reason_learning"))}</p>`;
+      const cal = detail.calibration || [];
+      const calib = cal.length ? `<div class="ins-cal">${cal.map((c) => `<div><b>${Math.round(c.hit * 100)} %</b><i style="height:${Math.round(c.hit * 100)}%" class="${Math.abs(c.hit - c.said) > 0.1 ? "off" : ""}"></i><u style="bottom:${Math.round(c.said * 100)}%"></u><small>${Math.round(c.said * 100)} %</small></div>`).join("")}</div>` : "";
+      const chance = Math.max(0, ...(tonight.groups || []).map((g) => g.chance || 0)), waits = (tonight.groups || []).some((g) => g.wait);
+      const dial = `<div class="ins-dial"><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="50"/><circle class="on" cx="60" cy="60" r="50" pathLength="100" stroke-dasharray="${Math.round(chance * 100)} 100" transform="rotate(-90 60 60)"/><text x="60" y="67">${Math.round(chance * 100)} %</text></svg><div><b>${esc(waits ? t("a_waits") : t("a_charges"))}</b><small>${esc(t("a_chance", { pct: Math.round(chance * 100), price: tonight.price == null ? "–" : this._money(tonight.price) }))}</small></div></div>`;
       const ledger = Object.entries(data.ledger || {}).reverse();
       const rows = ledger.map(([iso, entry]) => {
         const g = (entry.groups || [])[0] || {};
@@ -10103,9 +10261,8 @@ class EvPlannerPanel extends HTMLElement {
         const cells = ids.map((id) => { const c = (entry.cars || {})[id]; const actual = (((data.detail || {})[id] || {}).needs || {})[next]; return `<td class="${c && actual != null && actual > c.p90 ? "warn-text" : ""}">${c ? `${num(c.p90)} / ${actual == null ? "…" : num(actual)}` : "–"}</td>`; }).join("");
         return `<tr><td>${esc(short(iso))}</td><td>${esc(g.pick ? names[g.pick] || "" : g.wait ? t("a_wait") : "–")}</td>${cells}</tr>`;
       }).join("");
-      const sc = data.score || {};
-      const chance = Math.max(0, ...(tonight.groups || []).map((g) => g.chance || 0));
-      body = `${card(t("tonight"), groups || `<p class="hint">${esc(t("reason_learning"))}</p>`, t("a_chance", { pct: Math.round(chance * 100), price: tonight.price == null ? "–" : this._money(tonight.price) }))}
+      body = `${card(t("a_back"), tested, t("a_back_note"))}
+        <div class="ins-two">${calib ? card(t("a_cal"), calib, t("a_cal_note")) : ""}${card(t("a_dial"), dial)}</div>
         <div class="ins-kpis">${kpi(t("a_rate"), sc.scored ? `${Math.round((sc.rate || 0) * 100)} %` : "–", t("a_rate_note", { n: sc.scored || 0 }))}${kpi(t("a_saved"), this._money(sc.saved || 0), t("a_saved_note", { n: sc.waits || 0 }))}</div>
         ${card(t("a_ledger"), rows ? `<div class="ins-scroll"><table class="ins-table"><tr><th></th><th>${esc(t("a_pick"))}</th>${ids.map((id) => `<th>${esc(names[id])}</th>`).join("")}</tr>${rows}</table></div>` : `<p class="hint">${esc(t("score_none"))}</p>`, t("a_ledger_note"))}`;
     }
@@ -10116,10 +10273,10 @@ class EvPlannerPanel extends HTMLElement {
   _insightSoc(data) {
     if (this._insSocAt === this._insightAt || !this._hass?.callWS) return;
     this._insSocAt = this._insightAt;
-    const ids = Object.values(data.cars || {}).map((car) => car.sources?.soc).filter(Boolean);
+    const ids = Object.values(data.cars || {}).flatMap((car) => [car.sources?.soc, car.sources?.energy]).filter(Boolean);
     if (!ids.length) return;
     this._hass
-      .callWS({ type: "recorder/statistics_during_period", start_time: new Date(Date.now() - 22 * 86400000).toISOString(), statistic_ids: ids, period: "hour", types: ["mean"] })
+      .callWS({ type: "recorder/statistics_during_period", start_time: new Date(Date.now() - 91 * 86400000).toISOString(), statistic_ids: ids, period: "hour", types: ["mean", "change"] })
       .then((rows) => { this._insSoc = rows || {}; if (this._tab === "history") this._render(); })
       .catch(() => {});
   }
@@ -11612,6 +11769,26 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .learn-views button { flex: none; white-space: nowrap; }
 .learn-views button.dim { opacity: .45; }
 .ins-card h3 { display: flex; align-items: center; gap: 6px; }
+.ins-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 12px; }
+.ins-clock { width: min(100%, 260px); margin: 0 auto; display: block; } .ins-clock path { fill: var(--evp-accent); }
+.ins-clock text { text-anchor: middle; fill: var(--evp-soft); font-size: 9px; } .ins-clock text.big { fill: var(--evp-ink); font-size: 19px; font-weight: 650; }
+.ins-map { width: 100%; display: block; } .ins-map path { fill: none; stroke: var(--evp-accent); stroke-linecap: round; opacity: .55; } .ins-map circle { fill: var(--evp-card); stroke: var(--evp-ink); stroke-width: 1.6; } .ins-map circle.home { fill: var(--evp-ink); } .ins-map text { text-anchor: middle; font-size: 9.5px; fill: var(--evp-soft); }
+.ins-plot { width: 100%; height: 130px; display: block; } .ins-plot line { stroke: var(--evp-line); stroke-width: 1; vector-effect: non-scaling-stroke; } .ins-plot circle { fill: var(--evp-accent); opacity: .8; } .ins-plot circle.second { fill: var(--evp-coral); } .ins-plot path.mean { fill: none; stroke: var(--evp-soft); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+.ins-over { position: relative; } .ins-over .ins-line.over { position: absolute; inset: 0; height: 100%; } .ins-line.over path { stroke: var(--evp-sand); }
+.ins-flow { width: 100%; display: block; overflow: visible; } .ins-flow path { opacity: .45; } .ins-flow text.nm { font-size: 10.5px; fill: var(--evp-ink); font-weight: 600; } .ins-flow text.nv { font-size: 9.5px; fill: var(--evp-soft); }
+.ins-ridge { width: 100%; display: block; } .ins-ridge path { fill: var(--evp-accent); fill-opacity: .35; stroke: var(--evp-accent); stroke-width: 1.2; } .ins-ridge line { stroke: var(--evp-line); } .ins-ridge text { font-size: 9px; fill: var(--evp-soft); } .ins-ridge text.hr { text-anchor: middle; }
+.ins-dots path { fill: none; stroke: var(--evp-ink); stroke-width: 1.6; }
+.ins-keep { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--evp-soft); } .ins-keep i { width: 7px; height: 7px; border-radius: 50%; background: var(--evp-accent); opacity: .3; } .ins-keep i:nth-of-type(2) { opacity: .45; } .ins-keep i:nth-of-type(3) { opacity: .6; } .ins-keep i:nth-of-type(4) { opacity: .8; } .ins-keep i:nth-of-type(5) { opacity: 1; }
+.ins-keep b { margin-left: 2px; padding: 6px 12px; border: 1px solid var(--evp-accent); border-radius: 10px; color: var(--evp-ink); font-weight: 600; }
+.ins-back { width: 100%; height: 120px; display: block; } .ins-back rect { fill: var(--evp-sand); opacity: .55; } .ins-back circle { fill: var(--evp-ink); } .ins-back circle.out { fill: var(--evp-bad); }
+.ins-cal { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 10px; height: 150px; align-items: end; }
+.ins-cal div { position: relative; height: 100%; display: grid; grid-template-rows: auto 1fr auto; justify-items: center; font-size: 11.5px; color: var(--evp-soft); }
+.ins-cal i { align-self: end; width: 70%; border-radius: 6px 6px 2px 2px; background: var(--evp-accent); } .ins-cal i.off { background: var(--evp-sand); } .ins-cal b { color: var(--evp-ink); font-size: 12px; }
+.ins-cal u { position: absolute; left: 8%; right: 8%; height: 2px; background: var(--evp-ink); transform: translateY(-18px); }
+.ins-dial { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 14px; align-items: center; } .ins-dial svg { width: 110px; height: 110px; }
+.ins-dial circle { fill: none; stroke: color-mix(in srgb, var(--evp-ink) 8%, transparent); stroke-width: 10; } .ins-dial circle.on { stroke: var(--evp-accent); stroke-linecap: round; } .ins-dial text { text-anchor: middle; font-size: 22px; font-weight: 650; fill: var(--evp-ink); }
+.ins-dial div { display: grid; gap: 4px; } .ins-dial b { font-size: 16px; } .ins-dial small { color: var(--evp-soft); font-size: 12.5px; }
+.ins-heat.price i { opacity: 1; }
 .tl-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
 .tl-jumps { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .tl-jumps button { flex: none; white-space: nowrap; }
 .tl-scroll { overflow-x: auto; border-radius: 14px; background: color-mix(in srgb, var(--evp-ink) 4%, transparent); scrollbar-width: thin; }

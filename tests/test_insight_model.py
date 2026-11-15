@@ -8,6 +8,7 @@ from custom_components.ev_household_planner.insight_model import (
     DEFAULT_ERROR,
     DEFAULT_KWH_KM,
     CarOutlook,
+    backtest,
     chance_cheaper,
     choose,
     cost_per_km,
@@ -166,3 +167,11 @@ def test_the_ledger_is_scored_against_what_happened() -> None:
     result = score(ledger, days, prices, actual, (21, 7))
     assert (result["scored"], result["hits"], result["rate"]) == (25, 23, 0.92)
     assert (result["waits"], result["saved"], result["ripe"]) == (1, 10.0, True)
+
+
+def test_the_last_days_against_what_was_expected() -> None:
+    assert backtest(history(10), TODAY) == ([], [])
+    rows, held = backtest(history(), TODAY, days=14)
+    assert len(rows) == 14 and rows[0]["p10"] <= rows[0]["p90"]
+    assert [level["said"] for level in held] == [0.5, 0.6, 0.7, 0.8, 0.9]
+    assert held[0]["hit"] <= held[-1]["hit"] <= 1.0

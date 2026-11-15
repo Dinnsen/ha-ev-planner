@@ -589,6 +589,9 @@ async def test_what_the_panel_and_the_export_get_and_what_is_kept(
     assert shown["2026-10-18"] == {"night": 1.0, "mean": 2.0, "own": True}
     assert shown["2026-10-17"] == {"night": 2.0, "mean": None, "own": False}
     assert insight.detail()["price_hours"]["2026-10-18"] == [2.0] * 24
+    assert insight.detail()["rhythm"][6][0] == 2.0 and insight.detail()["rhythm"][2][0] is None
+    assert len(result["detail"][TESLA]["backtest"]) == 12
+    assert result["detail"][TESLA]["calibration"][0] == {"said": 0.5, "hit": 1.0}
     await client.send_json({"id": 2, "type": "ev_household_planner/state"})
     assert (await client.receive_json())["result"]["insight"]["groups"]
     await client.send_json(

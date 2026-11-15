@@ -36,7 +36,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
-from .insight_model import CarOutlook, choose, efficiency, forecast_errors, needs, night_price, score
+from .insight_model import CarOutlook, backtest, choose, efficiency, forecast_errors, needs, night_price, score
 from .planner import PriceSlot
 
 if TYPE_CHECKING:
@@ -816,6 +816,7 @@ class Insight:
             base, slope = efficiency(days)
             history = needs(days, base, slope)
             car = CarOutlook(vehicle.vehicle_id, 0.0, vehicle.capacity or 1.0, 0.0, history, today)
+            tested, held = backtest(history, today)
             cars[vehicle.vehicle_id] = {
                 "kwh_km": base,
                 "cold": slope,
@@ -825,6 +826,8 @@ class Insight:
                 ],
                 "days": {day: days[day] for day in sorted(days)[-90:]},
                 "needs": {day.isoformat(): round(value, 1) for day, value in history[-90:]},
+                "backtest": tested,
+                "calibration": held,
             }
         start, end = self.window
         prices = {**self.data["spot"], **self.data["prices"]}
@@ -836,11 +839,21 @@ class Insight:
                 "mean": round(sum(known) / len(known), 4) if known else None,
                 "own": key in self.data["prices"],
             }
+        sums = [[[0.0, 0] for _ in range(24)] for _ in range(7)]
+        for key, hours in prices.items():
+            weekday = date.fromisoformat(key).weekday()
+            for hour, price in enumerate(hours[:24]):
+                if price is not None:
+                    sums[weekday][hour][0] += price
+                    sums[weekday][hour][1] += 1
+        rhythm = [[round(total / count, 3) if count else None for total, count in row] for row in sums]
         return {
             **self.summary(),
             "detail": cars,
             # The night's price and the day's mean, for each of the days the panel draws (or simulates on).
             "price_days": price_days,
+            # The mean price of each hour of each weekday (Monday first), over the days kept.
+            "rhythm": rhythm,
             # Each hour's price of the last three weeks, for the timeline.
             "price_hours": {key: prices[key] for key in sorted(prices)[-PRICE_HOURS_SHOWN:]},
             "errors": forecast_errors(self.data["forecasts"], self.data["prices"]),

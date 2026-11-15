@@ -270,3 +270,23 @@ def score(
         "saved": round(saved, 2),
         "ripe": total >= 21 and hits / total >= 0.8,
     }
+
+
+def backtest(
+    history: Sequence[tuple[date, float]],
+    today: date,
+    days: int = 30,
+    levels: Sequence[float] = (0.5, 0.6, 0.7, 0.8, 0.9),
+) -> tuple[list[dict[str, Any]], list[dict[str, float]]]:
+    """Each of the last days as it was expected the day before against what it took, and how often each level held."""
+    rows: list[dict[str, Any]] = []
+    hits = dict.fromkeys(levels, 0)
+    for index, (day, actual) in enumerate(history):
+        if (today - day).days > days or index < RIPE_DAYS:
+            continue
+        before = history[:index]
+        low, high = quantile(before, day.weekday(), 0.1, day) or 0.0, quantile(before, day.weekday(), 0.9, day) or 0.0
+        rows.append({"day": day.isoformat(), "p10": round(low, 1), "p90": round(high, 1), "actual": round(actual, 1)})
+        for level in levels:
+            hits[level] += actual <= (quantile(before, day.weekday(), level, day) or 0.0) + 0.05
+    return rows, [{"said": level, "hit": round(hits[level] / len(rows), 3)} for level in levels] if rows else []
