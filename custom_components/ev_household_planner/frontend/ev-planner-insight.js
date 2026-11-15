@@ -198,10 +198,12 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } th, td { text
 .rmap.drag { cursor: grabbing; }
 .rmove, .rtiles { position: absolute; left: 0; top: 0; }
 .rtiles img { position: absolute; width: 256px; height: 256px; max-width: none; pointer-events: none; }
+.rtiles { filter: grayscale(.8) brightness(1.05) contrast(.92); }
+:host([dark]) .rtiles { filter: invert(1) hue-rotate(180deg) grayscale(.7) brightness(.85) contrast(.9); }
 .rsvg { position: absolute; left: 0; top: 0; overflow: hidden; }
 .rsvg text { font-size: 11.5px; font-weight: 600; fill: var(--ink); paint-order: stroke; stroke: var(--card); stroke-width: 3.5px; stroke-linejoin: round; }
 .rmap .tl-ctl { top: 8px; }
-.rattr { position: absolute; left: 6px; bottom: 4px; font-size: 9.5px; color: var(--soft); background: color-mix(in srgb, var(--card) 72%, transparent); padding: 1px 5px; border-radius: 6px; pointer-events: none; }
+.rattr { position: absolute; left: 6px; bottom: 4px; font-size: 9.5px; color: var(--soft); background: color-mix(in srgb, var(--card) 72%, transparent); padding: 1px 5px; border-radius: 6px; text-decoration: none; }
 #places:empty { display: none; } #places { align-items: center; }
 .detail .tag { font-size: 11px; } .rhist { margin: -2px 0 2px; } .rhist text { font-size: 9.5px; }
 .tl-sheet-in { padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
@@ -494,7 +496,7 @@ function boot(host, root) {
       <div class="row"><h2>${tr("90 dage med bilen", "90 days with the car")}</h2><div class="chips" id="carsel" role="group" aria-label="${tr("Bil", "Car")}"></div></div>
       <div class="sumg" id="sum-bil"></div>
     </section>
-    <section class="card"><div class="row"><h2>${tr("Kortet over turene", "The map of the trips")}</h2><span class="demo">${tr("tykkere streg = oftere", "thicker line = more often")}</span></div><div id="map"></div><div class="chips" id="places"></div><div class="detail" id="trip"></div><p class="small">${tr("Tryk på et sted på kortet for at vælge det og give det et navn; tallet er, hvor mange gange der er kørt dertil på 90 dage. Stederne findes ud fra bilens position de dage, Home Assistant stadig har den (ca. 10), og ældre ture af samme længde regnes til samme sted. Ture, der ikke kan placeres, står under kortet. Kortet hentes fra CARTO og OpenStreetMap, som Home Assistants eget kort.", "Tap a place on the map to choose it and give it a name; the figure is how many times it was driven to in 90 days. The places are found from the car's position on the days Home Assistant still has it (about 10), and older trips of the same length are counted to the same place. Trips that cannot be placed are listed under the map. The map is fetched from CARTO and OpenStreetMap, as Home Assistant's own map is.")}</p></section>
+    <section class="card"><div class="row"><h2>${tr("Kortet over turene", "The map of the trips")}</h2><span class="demo">${tr("tykkere streg = oftere", "thicker line = more often")}</span></div><div id="map"></div><div class="chips" id="places"></div><div class="detail" id="trip"></div><p class="small">${tr("Tryk på et sted på kortet for at vælge det og give det et navn; tallet er, hvor mange gange der er kørt dertil på 90 dage. Stederne findes ud fra bilens position de dage, Home Assistant stadig har den (ca. 10), og ældre ture af samme længde regnes til samme sted. Ture, der ikke kan placeres, står under kortet. Kortet er OpenStreetMap, hentet gennem Home Assistant ligesom dets eget kort.", "Tap a place on the map to choose it and give it a name; the figure is how many times it was driven to in 90 days. The places are found from the car's position on the days Home Assistant still has it (about 10), and older trips of the same length are counted to the same place. Trips that cannot be placed are listed under the map. The map is OpenStreetMap, fetched through Home Assistant as its own map is.")}</p></section>
     <section class="card"><div class="row"><h2>${tr("Forbrug pr. dag", "Use per day")}</h2><span class="demo" id="daily-t"></span></div><div class="scroll"><div id="daily" style="position:relative;min-width:640px"></div></div></section>
     <div class="two">
       <section class="card"><div class="row"><h2>${tr("Ugeuret", "The week's clock")}</h2><span class="demo">${tr("hvornår bilen er væk", "when the car is away")}</span></div><div id="clock" style="max-width:420px;margin:0 auto;width:100%;position:relative"></div><p class="small">${tr("Inderst mandag, yderst søndag. Jo mørkere felt, jo oftere er bilen ude i den time. Peg på et felt.", "Monday innermost, Sunday outermost. The darker a field, the more often the car is out that hour. Point at a field.")}</p></section>
@@ -797,7 +799,7 @@ function boot(host, root) {
     }
     const z = S.map.z, n = 2 ** z, [cx, cy] = merc(S.map, z), x0 = cx - W / 2, y0 = cy - Hh / 2, P = (p) => { const [x, y] = merc(p, z); return [x - x0, y - y0]; };
     let tiles = "";
-    for (let tx = Math.floor(x0 / 256); tx * 256 < x0 + W; tx += 1) for (let ty = Math.floor(y0 / 256); ty * 256 < y0 + Hh; ty += 1) { if (ty < 0 || ty >= n) continue; tiles += `<img alt="" draggable="false" src="https://basemaps.cartocdn.com/${IN.dark ? "dark_all" : "light_all"}/${z}/${mod(tx, n)}/${ty}@2x.png" style="left:${Math.round(tx * 256 - x0)}px;top:${Math.round(ty * 256 - y0)}px">`; }
+    for (let tx = Math.floor(x0 / 256); tx * 256 < x0 + W; tx += 1) for (let ty = Math.floor(y0 / 256); ty * 256 < y0 + Hh; ty += 1) { if (ty < 0 || ty >= n) continue; if (IN.tiles) tiles += `<img alt="" draggable="false" src="${esc(IN.tiles.replace("{z}", z).replace("{x}", mod(tx, n)).replace("{y}", ty))}" style="left:${Math.round(tx * 256 - x0)}px;top:${Math.round(ty * 256 - y0)}px">`; }
     const line = (pts) => pts.map((p, i) => { const [x, y] = P(p); return `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`; }).join("");
     const roads = shown.map((p) => `<path class="hit" data-mp="${places.indexOf(p)}" d="${line(p.route || [home, p.pos])}" fill="none" stroke="${c.col}" stroke-width="${Math.min(8, 2 + Math.sqrt(p.count) * 0.8).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round" opacity=".42"/>`).join("");
     const [hx, hy] = P(home);
@@ -816,15 +818,15 @@ function boot(host, root) {
     el.innerHTML = `<div class="rmap" style="height:${Hh}px"><div class="rmove"><div class="rtiles">${tiles}</div><svg class="rsvg" width="${W}" height="${Hh}" viewBox="0 0 ${W} ${Hh}" style="width:${W}px;height:${Hh}px" role="img" aria-label="${tr("Kort over turene", "Map of the trips")}">${roads}${mine ? `<path class="${st0() ? "draw" : ""}" pathLength="1" d="${mine}" fill="none" stroke="var(--ink)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>` : ""}
       <circle cx="${hx.toFixed(1)}" cy="${hy.toFixed(1)}" r="8" fill="var(--ink)" stroke="var(--card)" stroke-width="2.5"/><text x="${(hx + 12).toFixed(1)}" y="${(hy + 4).toFixed(1)}">${esc(HOME)}</text>${marks}</svg></div>
       <div class="tl-ctl"><button data-mz="1" aria-label="${tr("Zoom ind", "Zoom in")}">+</button><button data-mz="-1" aria-label="${tr("Zoom ud", "Zoom out")}">−</button><button data-mz="0" aria-label="${tr("Vis det hele", "Show it all")}">⤢</button></div>
-      <small class="rattr">© OpenStreetMap · © CARTO</small></div>`;
+      ${IN.tiles ? '<a class="rattr" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a>' : ""}</div>`;
     // Dragged to move, pinched or + and − to zoom; a tap on a place chooses it, with its name ready to be written.
     const box = $(".rmap", el), move = $(".rmove", el), fingers = new Map();
     for (const img of $$(".rtiles img", el)) img.addEventListener("error", () => img.remove());
     let from = null, gap = 0, hit = null;
     const spread = () => { const [a, b] = [...fingers.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
     const again = () => { wrap.classList.add("calm"); biler(); };
-    const zoom = (by) => { const next = clamp(S.map.z + by, 3, 17); if (next === S.map.z) return; S.map.z = next; again(); };
-    box.addEventListener("pointerdown", (ev) => { if (ev.target.closest("[data-mz]")) return; fingers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY }); hit = ev.target.closest("[data-mp]"); if (fingers.size === 1) from = { x: ev.clientX, y: ev.clientY, moved: false }; else { from = null; gap = spread(); move.style.transform = ""; } try { box.setPointerCapture(ev.pointerId); } catch (_err) { /* a pointer that is already gone */ } });
+    const zoom = (by) => { const next = clamp(S.map.z + by, 3, 18); if (next === S.map.z) return; S.map.z = next; again(); };
+    box.addEventListener("pointerdown", (ev) => { if (ev.target.closest("[data-mz], .rattr")) return; fingers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY }); hit = ev.target.closest("[data-mp]"); if (fingers.size === 1) from = { x: ev.clientX, y: ev.clientY, moved: false }; else { from = null; gap = spread(); move.style.transform = ""; } try { box.setPointerCapture(ev.pointerId); } catch (_err) { /* a pointer that is already gone */ } });
     box.addEventListener("pointermove", (ev) => {
       if (!fingers.has(ev.pointerId)) return;
       fingers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
@@ -1133,7 +1135,7 @@ class EvPlannerInsight extends HTMLElement {
   /* What the panel knows. Drawn again only when something that is shown has changed. */
   set input(value) {
     this.toggleAttribute("dark", !!value.dark);
-    const key = JSON.stringify([value.lang, value.dark, value.insightAt, value.statsAt, Math.floor(value.now / 3600000), value.level, value.use, (value.cars || []).map((c) => [c.id, Math.round(Number(c.soc) || 0), c.connected, c.charging, c.plan && c.plan.segments.length, (c.history || []).length]), (value.prices || []).length, value.names, value.tracksAt, (value.zones || []).length]);
+    const key = JSON.stringify([value.lang, value.dark, value.insightAt, value.statsAt, Math.floor(value.now / 3600000), value.level, value.use, (value.cars || []).map((c) => [c.id, Math.round(Number(c.soc) || 0), c.connected, c.charging, c.plan && c.plan.segments.length, (c.history || []).length]), (value.prices || []).length, value.names, value.tracksAt, (value.zones || []).length, value.tiles]);
     if (key === this._key) return;
     const fresh = !this._key;
     this._key = key;

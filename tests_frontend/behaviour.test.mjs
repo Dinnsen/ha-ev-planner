@@ -688,7 +688,7 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
   statistics["sensor.soc_b"] = [{ start: hour(7, 1), mean: 40 }, { start: hour(7, 2), mean: 52 }, { start: hour(7, 3), mean: 66 }, { start: hour(7, 4), mean: 70 }];
   await withPanel({ ...state, settings: { ...state.settings, insight: true } }, { size: PHONE }, async ({ page, tap, read, calls, push }) => {
     const tiles = [];
-    await page.route("https://basemaps.cartocdn.com/**", (route) => { tiles.push(route.request().url()); return route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"/>' }); });
+    await page.route("**/api/map_tiles/raster/**", (route) => { tiles.push(route.request().url()); return route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"/>' }); });
     await page.evaluate(([data, rows, past]) => { window.harness.insight = data; window.harness.statistics = rows; window.harness.history = past; window.harness.hass.config = { latitude: 55, longitude: 10 }; }, [insight, statistics, history]);
     await page.evaluate(() => window.harness.panel._setTab("history"));
     // The learning centre is a page of its own, fetched now: tonight in a picture, the timeline and three answers.
@@ -730,7 +730,8 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     assert.equal(await inside((root) => root.querySelectorAll("#trips circle").length), 5);
     // The map is a real one, asked for when Driving is first looked at: home, the place the car went to with how often, and its road.
     await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector("ev-planner-insight").shadowRoot.querySelector("#map .rsvg"));
-    assert.ok(tiles.length > 0 && tiles.every((url) => /\/light_all\/\d+\/\d+\/\d+@2x\.png$/.test(url)), "the map's tiles are asked for");
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector("ev-planner-insight").shadowRoot.querySelector("#map .rtiles img"));
+    assert.ok(tiles.length > 0 && tiles.every((url) => /\/api\/map_tiles\/raster\/\d+\/\d+\/\d+\.png\?token=tiles$/.test(url)), "the map's tiles are Home Assistant's own, opened by its token");
     assert.match(await inside((root) => root.querySelector("#map .rsvg").textContent), /Home/);
     assert.match(await inside((root) => root.querySelector("#map .rsvg").textContent), /≈ 24 km · 2×/);
     assert.match(await inside((root) => root.querySelector("#places").textContent), /work · 1×/, "a place without a position is listed under the map");

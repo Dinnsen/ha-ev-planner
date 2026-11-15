@@ -9856,6 +9856,21 @@ class EvPlannerPanel extends HTMLElement {
       .finally(() => { this._insTracksAt = Date.now(); this._insTracksBusy = false; if (this._tab === "history") this._render(); });
   }
 
+  /* The map under Driving is Home Assistant's own: OpenStreetMap through its map tiles, opened by a token that changes
+     every half hour. Where Home Assistant has no such tiles (before 2026.9) the roads are drawn without a map under them. */
+  _insightTiles() {
+    if (this._insTilesBusy || Date.now() - (this._insTilesAt || 0) < 1200000 || !this._hass?.callWS) return;
+    this._insTilesBusy = true;
+    this._hass
+      .callWS({ type: "map_tiles/access_token" })
+      .then((answer) => {
+        const path = `/api/map_tiles/raster/{z}/{x}/{y}.png?token=${encodeURIComponent(answer?.token || "")}`;
+        this._insTiles = answer?.token ? (this._hass.hassUrl ? this._hass.hassUrl(path) : path) : null;
+      })
+      .catch(() => { this._insTiles = null; })
+      .finally(() => { this._insTilesAt = Date.now(); this._insTilesBusy = false; if (this._tab === "history") this._render(); });
+  }
+
   /* What the learning centre draws from, with every time on the household's clock. */
   _insightInput() {
     const wall = (value) => ZD(typeof value === "number" ? new Date(value).toISOString() : value).getTime();
@@ -9883,6 +9898,7 @@ class EvPlannerPanel extends HTMLElement {
       level: settings.insight_level,
       use: Boolean(settings.insight_use),
       names: settings.insight_names || {},
+      tiles: this._insTiles || null,
       tracks: this._insTracks || null,
       tracksAt: this._insTracksAt || 0,
       // Home and the household's zones, so a place that lies in one has its name.
@@ -9900,6 +9916,7 @@ class EvPlannerPanel extends HTMLElement {
     if (!place) return;
     this._insightLoad(() => this._tab === "history");
     if (this._insight?.cars) this._insightStats(this._insight);
+    if (this._insMap) this._insightTiles();
     if (!this._insEl) {
       if (!this._insWait) {
         const url = new URL(import.meta.url);
@@ -9925,7 +9942,7 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   _insightSaid({ act, value }) {
-    if (act === "tracks") { this._insightTracks(); return; }
+    if (act === "tracks") { this._insMap = true; this._insightTiles(); this._insightTracks(); return; }
     if (act === "open") {
       this._histClassic = value === "learned" ? "learned" : "history";
       this._histView = this._histClassic;

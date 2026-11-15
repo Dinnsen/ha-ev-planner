@@ -128,6 +128,8 @@ const harness = {
         return this.statistics || {};
       case "history/history_during_period":
         return this.history || {};
+      case "map_tiles/access_token":
+        return { token: "tiles" };
       default:
         this.unknown.push(message.type);
         throw { code: "unknown_command", message: `Unknown command: ${message.type}` };
