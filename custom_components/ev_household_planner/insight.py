@@ -72,6 +72,7 @@ INSIGHT_STORAGE_KEY = f"{DOMAIN}.{{entry_id}}.insight"
 TRIPS_KEEP = timedelta(days=90)
 LOOKAHEAD_DAYS = 6
 PRICE_DAYS_SHOWN = 365
+PRICE_HOURS_SHOWN = 24
 DAYS_KEEP = 730
 FORECASTS_KEEP = 180
 SAVE_DELAY = 300.0
@@ -840,6 +841,8 @@ class Insight:
             "detail": cars,
             # The night's price and the day's mean, for each of the days the panel draws (or simulates on).
             "price_days": price_days,
+            # Each hour's price of the last three weeks, for the timeline.
+            "price_hours": {key: prices[key] for key in sorted(prices)[-PRICE_HOURS_SHOWN:]},
             "errors": forecast_errors(self.data["forecasts"], self.data["prices"]),
             "trips": self.data["trips"][-200:],
             "ledger": {day: self.data["ledger"][day] for day in sorted(self.data["ledger"])[-30:]},

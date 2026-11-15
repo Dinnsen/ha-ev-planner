@@ -1814,9 +1814,46 @@ Object.assign(TEXT.da, {
   insight_score_none: "Regnskabet begynder, når første aften er gået.",
   insight_trips: "{n} ture logget",
   insight_loading: "Henter …",
+  insight_v_power: "Strøm",
+  insight_q_cost: "Hvad har det kostet?",
+  insight_q_cost_note: "{kwh} kWh på 30 dage · {price}/kWh",
+  insight_q_knows: "Hvor godt kender den jer?",
+  insight_q_knows_days: "{days} dage",
+  insight_z_day: "Døgn",
+  insight_z_week: "Uge",
+  insight_z_month: "Måned",
+  insight_j_next: "Næste billige nat",
+  insight_j_cheapest: "Billigste nat",
+  insight_j_far: "Længste tur",
+  insight_j_charge: "Sidste ladning",
+  insight_lg_price: "Pris",
+  insight_lg_forecast: "Prisprognose",
+  insight_lg_battery: "Batteri",
+  insight_lg_expected: "Forventet batteri",
+  insight_lg_trip: "Kørsel",
+  insight_lg_charge: "Ladning",
+  insight_d_typical: "Typisk dag",
+  insight_d_hard: "Svær dag",
+  insight_d_forecast: "prognose",
+  insight_d_known: "kendt",
+  insight_d_cheaper: "Billigere end i nat",
+  insight_d_battery: "Batteri nu",
+  insight_d_wait: "Kan vente",
+  insight_d_nights: "{n} nætter",
+  insight_d_driven: "Kørt",
+  insight_d_out: "afgang {time}",
+  insight_d_used: "Brugt",
+  insight_d_charged: "Ladet",
+  insight_f_title: "De næste dage",
+  insight_f_fan: "Udsigt",
+  insight_f_paths: "Mulige forløb",
+  insight_f_prob: "Sandsynlighed",
+  insight_f_fan_note: "Prognosen med bånd for 5 og 8 af 10 udfald. Den stiplede linje er nattens pris.",
+  insight_f_paths_note: "22 måder, priserne kan gå. Grønne ender billigere end i nat, røde dyrere.",
+  insight_f_prob_note: "Hvor sandsynligt det er, at hver af de næste nætter bliver billigere end i nat.",
   insight_v_sum: "Overblik",
   insight_off_hint: "Slå Indsigt til under Indstillinger for at se dette.",
-  insight_v_cars: "Biler",
+  insight_v_cars: "Kørsel",
   insight_v_prices: "Elpriser",
   insight_v_charge: "Ladning",
   insight_v_learn: "Lært",
@@ -1992,9 +2029,46 @@ Object.assign(TEXT.en, {
   insight_score_none: "The ledger begins after the first evening.",
   insight_trips: "{n} trips logged",
   insight_loading: "Loading …",
+  insight_v_power: "Power",
+  insight_q_cost: "What has it cost?",
+  insight_q_cost_note: "{kwh} kWh in 30 days · {price}/kWh",
+  insight_q_knows: "How well does it know you?",
+  insight_q_knows_days: "{days} days",
+  insight_z_day: "Day",
+  insight_z_week: "Week",
+  insight_z_month: "Month",
+  insight_j_next: "Next cheap night",
+  insight_j_cheapest: "Cheapest night",
+  insight_j_far: "Longest trip",
+  insight_j_charge: "Last charge",
+  insight_lg_price: "Price",
+  insight_lg_forecast: "Price forecast",
+  insight_lg_battery: "Battery",
+  insight_lg_expected: "Expected battery",
+  insight_lg_trip: "Driving",
+  insight_lg_charge: "Charging",
+  insight_d_typical: "A typical day",
+  insight_d_hard: "A hard day",
+  insight_d_forecast: "forecast",
+  insight_d_known: "known",
+  insight_d_cheaper: "Cheaper than tonight",
+  insight_d_battery: "Battery now",
+  insight_d_wait: "Can wait",
+  insight_d_nights: "{n} nights",
+  insight_d_driven: "Driven",
+  insight_d_out: "left {time}",
+  insight_d_used: "Used",
+  insight_d_charged: "Charged",
+  insight_f_title: "The coming days",
+  insight_f_fan: "Outlook",
+  insight_f_paths: "Ways it may go",
+  insight_f_prob: "Likelihood",
+  insight_f_fan_note: "The forecast with bands for 5 and 8 of 10 outcomes. The dashed line is tonight's price.",
+  insight_f_paths_note: "22 ways the prices may go. Green ends cheaper than tonight, red dearer.",
+  insight_f_prob_note: "How likely each of the coming nights is to be cheaper than tonight.",
   insight_v_sum: "Overview",
   insight_off_hint: "Turn Insight on in Settings to see this.",
-  insight_v_cars: "Cars",
+  insight_v_cars: "Driving",
   insight_v_prices: "Prices",
   insight_v_charge: "Charging",
   insight_v_learn: "Learned",
@@ -2400,6 +2474,12 @@ const TIMELINE_DEFS = `<defs><linearGradient id="evp-tw" x1="0" x2="1"><stop off
 const esc = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+/* The share of a normal distribution under a value (how likely something is to come in under it). */
+const phiOf = (z) => {
+  const k = 1 / (1 + 0.2316419 * Math.abs(z));
+  const p = 0.3989423 * Math.exp((-z * z) / 2) * k * (0.3193815 + k * (-0.3565638 + k * (1.781478 + k * (-1.821256 + k * 1.330274))));
+  return z > 0 ? 1 - p : p;
+};
 const reducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 const cssId = (value) =>
   typeof CSS !== "undefined" && CSS.escape ? CSS.escape(value) : String(value).replace(/["\\]/g, "\\$&");
@@ -9206,15 +9286,15 @@ class EvPlannerPanel extends HTMLElement {
     // The learning centre: one row of parts. Charging (the history) and Learned are always there;
     // the others are Insight's, and dimmed while it is off.
     const insightOn = Boolean(this._state.settings?.insight);
-    const parts = { sum: "sum", history: "charge", cars: "cars", prices: "prices", learned: "learn", ahead: "ahead" };
+    const parts = { sum: "sum", cars: "cars", history: "power", learned: "learn" };
     const view = this._histView in parts ? this._histView : insightOn ? "sum" : "history";
     const own = (k) => k === "history" || k === "learned";
     const switcher = `<nav class="chips hist-views learn-views" role="tablist">${Object.keys(parts)
       .map((k) => `<button role="tab" data-act="hist-view" data-value="${k}" data-f="hv-${k}" aria-selected="${k === view}" class="${k === view ? "on" : ""}${insightOn || own(k) ? "" : " dim"}">${this._t(`insight_v_${parts[k]}`)}</button>`)
       .join("")}</nav>`;
     if (!own(view)) return `<div class="page stack hist-page">${switcher}${insightOn ? this._insightPageHtml(parts[view]) : `<p class="hint">${esc(this._t("insight_off_hint"))}</p>`}</div>`;
-    if (view === "learned") return `<div class="page stack hist-page">${switcher}${this._learnedHtml()}${insightOn ? this._insightPageHtml("learn") : ""}</div>`;
-    const more = insightOn ? this._insightPageHtml("charge") : "";
+    if (view === "learned") return `<div class="page stack hist-page">${switcher}${this._learnedHtml()}${insightOn ? this._insightPageHtml("learn") + this._insightPageHtml("ahead") : ""}</div>`;
+    const more = insightOn ? this._insightPageHtml("charge") + this._insightPageHtml("prices") : "";
     const cars = this._cars;
     const guestHistory = this._guest?.history || [];
     if (!cars.some((v) => (v.history || []).length || Object.keys(v.months || {}).length) && !guestHistory.length && !this._state.home?.history) {
@@ -9460,6 +9540,14 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   async _afterHistory() {
+    // The timeline stands where it was left; the first time, with now a little right of the middle.
+    const scroll = this.shadowRoot.querySelector(".tl-scroll");
+    if (scroll) {
+      const zoom = { day: 13, week: 4.2, month: 1.6 }[scroll.dataset.zoom] || 4.2;
+      if (typeof this._tlLeft === "string") this._tlLeft = Math.max(0, (Number(this._tlLeft.slice(1)) + 21 * 24) * zoom - scroll.clientWidth * 0.5);
+      scroll.scrollLeft = this._tlLeft ?? Math.max(0, Number(scroll.dataset.now) - scroll.clientWidth * 0.62);
+      scroll.addEventListener("scroll", () => { this._tlLeft = scroll.scrollLeft; }, { passive: true });
+    }
     this._countAll();
     if (this._histView === "learned") {
       if (!this._state.home?.history) return;
@@ -9944,13 +10032,20 @@ class EvPlannerPanel extends HTMLElement {
     const weekBars = (detail.week || []).map((d, i) => `<div class="insight-col" title="${esc(`${wd[i]}: ${num(d.p50)} / ${num(d.p90)} kWh`)}"><div class="insight-bars"><i class="hard" style="height:${Math.max(2, (d.p90 / Math.max(1, ...detail.week.map((x) => x.p90 || 0))) * 100)}%"></i><i style="height:${Math.max(2, (d.p50 / Math.max(1, ...detail.week.map((x) => x.p90 || 0))) * 100)}%"></i></div><small>${esc(wd[i])}</small></div>`).join("");
     let body = "";
     if (view === "sum") {
-      const month = (id) => Object.values(((data.detail || {})[id] || {}).days || {}).slice(-30);
-      const nights = last(30).map(([, p]) => p.night).filter((v) => v != null);
-      body = `${card(t("tonight"), groups || `<p class="hint">${esc(t("reason_learning"))}</p>`)}
-        <div class="ins-kpis">${ids.map((id) => kpi(names[id], `${num(sum(month(id).map((d) => d.km)))} km`, t("k_30", { kwh: num(sum(month(id).map((d) => d.used))) }))).join("")}
-        ${kpi(t("k_night"), nights.length ? this._money(sum(nights) / nights.length) : "–", t("k_night_note"))}
-        ${kpi(t("k_kept"), `${data.prices + data.spot}`, t("k_kept_note", { fc: data.forecasts }))}</div>
-        ${card(t("sum_title"), `${ids.map((id) => `<p class="ins-label">${esc(names[id])}</p>${bars(month(id).map((d) => ({ value: d.km })), { cls: id === ids[0] ? "" : "second" })}`).join("")}<p class="ins-label">${esc(t("k_night"))}</p>${line(last(30).map(([, p]) => p.night), { height: 70 })}`, t("sum_note"))}`;
+      const sc = data.score || {};
+      const all = ids.flatMap((id) => Object.entries(((data.detail || {})[id] || {}).days || {}).slice(-30));
+      const kwh = sum(all.map(([, d]) => d.charged));
+      const cost = sum(all.map(([iso, d]) => (d.charged || 0) * (((data.price_days || {})[iso] || {}).night || 0)));
+      const pick = (tonight.groups || [])[0] || {};
+      const ring = (share) => `<svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15"/><circle class="on" cx="18" cy="18" r="15" pathLength="100" stroke-dasharray="${Math.round(clamp(share, 0, 1) * 100)} 100" transform="rotate(-90 18 18)"/></svg>`;
+      const answer = (to, share, label, value, note) => `<button class="tl-q" data-act="hist-view" data-value="${to}" data-f="tlq-${to}">${ring(share)}<span><small>${esc(label)}</small><b>${esc(value)}</b><i>${esc(note)}</i></span></button>`;
+      const known = (data.cars[carId] || {}).days || 0;
+      body = `${this._timelineHtml(data, carId, carChips)}
+        <div class="tl-three">
+          ${answer("cars", 1, t("tonight"), pick.pick ? t("pick", { car: names[pick.pick] || "" }) : t("none"), pick.reason ? t(`reason_${pick.reason}`, { pct: Math.round((pick.chance || 0) * 100) }) : "")}
+          ${answer("history", 0.7, t("q_cost"), this._money(cost, 0), t("q_cost_note", { kwh: num(kwh), price: kwh ? this._money(cost / kwh) : "–" }))}
+          ${answer("learned", sc.scored ? sc.rate || 0 : Math.min(1, known / 28), t("q_knows"), sc.scored ? `${Math.round((sc.rate || 0) * 100)} %` : t("q_knows_days", { days: known }), sc.scored ? t("a_rate_note", { n: sc.scored }) : t("score_none"))}
+        </div>`;
     } else if (view === "cars") {
       const driven = days.filter(([, d]) => (d.km || 0) >= 1);
       const heat = Array.from({ length: 7 }, () => Array(24).fill(0));
@@ -9972,7 +10067,8 @@ class EvPlannerPanel extends HTMLElement {
       for (const [iso, p] of last(365)) if (p.night != null) byDay[weekday(iso)].push(p.night);
       const rhythm = byDay.map((list, i) => ({ value: list.length ? sum(list) / list.length : 0, title: `${wd[i]}: ${list.length ? this._money(sum(list) / list.length) : "–"}` }));
       const errors = (data.errors || []).map((e, i) => ({ value: e, title: `+${i + 1}: ±${Math.round(e * 100)} %` }));
-      body = `${card(t("p_night"), line(shown.map(([, p]) => p.night)), t("p_night_note", { own: data.prices, spot: data.spot }))}
+      body = `${this._fanHtml(data, card)}
+        ${card(t("p_night"), line(shown.map(([, p]) => p.night)), t("p_night_note", { own: data.prices, spot: data.spot }))}
         ${card(t("p_mean"), line(shown.map(([, p]) => p.mean), { cls: "soft" }))}
         ${card(t("p_week"), `${bars(rhythm, { cls: "wide" })}<div class="ins-days">${wd.map((d) => `<span>${esc(d)}</span>`).join("")}</div>`, t("p_week_note"))}
         ${card(t("p_error"), `${bars(errors, { cls: "wide", top: 0.6 })}<div class="ins-days six">${[1, 2, 3, 4, 5, 6].map((d) => `<span>+${d}</span>`).join("")}</div>`, t("p_error_note", { fc: data.forecasts }))}`;
@@ -10014,6 +10110,171 @@ class EvPlannerPanel extends HTMLElement {
         ${card(t("a_ledger"), rows ? `<div class="ins-scroll"><table class="ins-table"><tr><th></th><th>${esc(t("a_pick"))}</th>${ids.map((id) => `<th>${esc(names[id])}</th>`).join("")}</tr>${rows}</table></div>` : `<p class="hint">${esc(t("score_none"))}</p>`, t("a_ledger_note"))}`;
     }
     return body;
+  }
+
+  /* The battery's hourly level for the timeline's past, read from Home Assistant's own statistics. */
+  _insightSoc(data) {
+    if (this._insSocAt === this._insightAt || !this._hass?.callWS) return;
+    this._insSocAt = this._insightAt;
+    const ids = Object.values(data.cars || {}).map((car) => car.sources?.soc).filter(Boolean);
+    if (!ids.length) return;
+    this._hass
+      .callWS({ type: "recorder/statistics_during_period", start_time: new Date(Date.now() - 22 * 86400000).toISOString(), statistic_ids: ids, period: "hour", types: ["mean"] })
+      .then((rows) => { this._insSoc = rows || {}; if (this._tab === "history") this._render(); })
+      .catch(() => {});
+  }
+
+  /* The timeline: what happened to the left, now in the middle, what is expected to the right. */
+  _timelineHtml(data, carId, carChips) {
+    const t = (key, values) => this._t(`insight_${key}`, values);
+    this._insightSoc(data);
+    const zooms = { day: 13, week: 4.2, month: 1.6 };
+    const zoom = zooms[this._tlZoom] ? this._tlZoom : "week";
+    const w = zooms[zoom], BACK = 21, AHEAD = 6;
+    const now = ZD(), midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const H0 = -BACK * 24, H1 = (AHEAD + 1) * 24, nowH = (now.getTime() - midnight) / 3600000;
+    const noon = (d) => new Date(midnight + d * 86400000 + 43200000);
+    const iso = (d) => { const x = noon(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
+    const date = (d) => `${noon(d).getDate()}/${noon(d).getMonth() + 1}`;
+    const names = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+    const W = Math.round((H1 - H0) * w), X = (h) => (h - H0) * w;
+    const PT = 24, PH = 104, BT = PT + PH + 30, BH = 78, CT = BT + BH + 12, HT = CT + 20;
+    // Prices by the hour: the kept ones, then what the price sensor has ahead (a forecast from where it says so).
+    const price = new Map(), guessed = new Set();
+    for (let d = -BACK; d <= 1; d++) ((data.price_hours || {})[iso(d)] || []).forEach((p, h) => { if (p != null) price.set(d * 24 + h, p); });
+    const ahead = new Map();
+    for (const slot of this._state.prices || []) {
+      const h = Math.floor((ZD(slot.start).getTime() - midnight) / 3600000);
+      if (h < H0 || h >= H1) continue;
+      if (!ahead.has(h)) ahead.set(h, []);
+      ahead.get(h).push(slot.price);
+      if (slot.forecast) guessed.add(h);
+    }
+    for (const [h, list] of ahead) price.set(h, list.reduce((a, b) => a + b, 0) / list.length);
+    const known = [...price.keys()].filter((h) => !guessed.has(h));
+    const lastKnown = known.length ? Math.max(...known) : nowH;
+    const top = Math.max(1, ...price.values()) * 1.08;
+    const py = (v) => PT + PH - (clamp(v, 0, top) / top) * PH, by = (v) => BT + BH - (clamp(v, 0, 100) / 100) * BH;
+    const errors = data.errors || [];
+    const sig = (h) => (h <= lastKnown ? 0 : errors[clamp(Math.floor((h - lastKnown) / 24), 0, errors.length - 1)] ?? 0.2);
+    const path = (points) => { let d = "", before = null; for (const [h, y] of points) { d += `${before !== null && h - before <= 1.01 ? "L" : "M"}${X(h).toFixed(1)} ${y.toFixed(1)}`; before = h; } return d; };
+    const back = (points) => [...points].reverse().map(([h, y]) => `L${X(h).toFixed(1)} ${y.toFixed(1)}`).join("");
+    const hours = [...price.keys()].sort((a, b) => a - b);
+    const past = hours.filter((h) => h <= lastKnown), future = hours.filter((h) => h >= lastKnown);
+    // The battery: what the statistics say, then what the week is expected to take (a typical day, and a hard one).
+    const car = (this._state.vehicles || []).find((v) => v.id === carId) || {};
+    const detail = (data.detail || {})[carId] || {};
+    const soc = [];
+    for (const row of (this._insSoc || {})[(data.cars[carId] || {}).sources?.soc] || []) {
+      const h = (ZD(row.start).getTime() - midnight) / 3600000;
+      if (row.mean != null && h >= H0 && h <= nowH) soc.push([h, by(row.mean)]);
+    }
+    const level = isNum(car.soc) ? Number(car.soc) : null, capacity = Number(car.capacity) || 0;
+    if (level !== null) soc.push([nowH, by(level)]);
+    const expect = [], hard = [];
+    if (level !== null && capacity && (detail.week || []).length === 7) {
+      let a = level, b = level;
+      expect.push([nowH, by(a)]); hard.push([nowH, by(b)]);
+      for (let d = nowH > 7 ? 1 : 0; d <= AHEAD; d++) {
+        const day = detail.week[(noon(d).getDay() + 6) % 7] || {};
+        expect.push([d * 24 + 7, by(a)]); hard.push([d * 24 + 7, by(b)]);
+        a -= ((day.p50 || 0) / capacity) * 100; b -= ((day.p90 || 0) / capacity) * 100;
+        expect.push([d * 24 + 18, by(a)]); hard.push([d * 24 + 18, by(b)]);
+      }
+    }
+    const chosen = Number.isInteger(this._tlDay) ? clamp(this._tlDay, -BACK, AHEAD) : 0;
+    let g = "";
+    for (let d = -BACK; d <= AHEAD; d++) {
+      const wd = noon(d).getDay();
+      g += `<rect x="${X(d * 24)}" y="0" width="${24 * w}" height="${HT}" class="tl-d${d === chosen ? " on" : ""}${wd === 0 || wd === 6 ? " we" : ""}" data-act="tl-day" data-day="${d}"/>`;
+      if (24 * w > 34 || wd === 1) g += `<text x="${X(d * 24) + 4}" y="14" class="tl-t">${esc(24 * w > 60 ? `${this._t(`day_${names[wd]}`)} ${date(d)}` : date(d))}</text>`;
+    }
+    if (future.length > 1) g += `<path class="tl-band" d="${path(future.map((h) => [h, py(price.get(h) * (1 + 1.28 * sig(h)))]))}${back(future.map((h) => [h, py(price.get(h) * (1 - 1.28 * sig(h)))]))}Z"/>`;
+    g += `<path class="tl-p" d="${path(past.map((h) => [h, py(price.get(h))]))}"/><path class="tl-pf" d="${path(future.map((h) => [h, py(price.get(h))]))}"/>`;
+    if (expect.length) g += `<path class="tl-bband" d="${path(expect)}${back(hard)}Z"/><path class="tl-bf" d="${path(expect)}"/>`;
+    g += `<path class="tl-b" d="${path(soc)}"/>`;
+    const days = detail.days || {};
+    let far = null, lastCharge = null;
+    for (let d = -BACK; d <= 0; d++) {
+      const day = days[iso(d)];
+      if (!day) continue;
+      if ((day.km || 0) >= 1) { g += `<circle cx="${X(d * 24 + (day.out ?? 12) + 0.5)}" cy="${BT - 13}" r="${clamp(2 + day.km / 40, 2.5, 8)}" class="tl-trip"/>`; if (!far || day.km > far.km) far = { km: day.km, d, h: d * 24 + (day.out ?? 12) }; }
+      if ((day.charged || 0) > 0.5) { g += `<rect x="${X(d * 24 + 1)}" y="${CT}" width="${Math.max(3, (day.charged / 10) * w)}" height="11" rx="3" class="tl-c"/>`; lastCharge = d; }
+    }
+    const tonight = data.tonight || {}, picked = ((tonight.groups || [])[0] || {}).pick === carId;
+    if (picked) g += `<rect x="${X(23)}" y="${CT}" width="${Math.max(4, 5 * w)}" height="11" rx="3" class="tl-c plan"/>`;
+    g += `<line x1="${X(nowH)}" x2="${X(nowH)}" y1="0" y2="${HT}" class="tl-now"/>`;
+    // The night's price of each day (the cheapest three hours from the evening on), for the jumps and the day's figures.
+    const night = (d) => { const list = []; for (let h = d * 24 + 21; h < d * 24 + 31; h++) if (price.has(h)) list.push(price.get(h)); list.sort((a, b) => a - b); return list.length >= 3 ? (list[0] + list[1] + list[2]) / 3 : null; };
+    const nights = (from, to) => { let best = null; for (let d = from; d <= to; d++) { const p = night(d); if (p !== null && (!best || p < best.p)) best = { d, p }; } return best; };
+    const cheapPast = nights(-BACK, -1), cheapNext = nights(1, AHEAD - 1);
+    const jumps = [[t("tonight"), 0, nowH], cheapNext && [t("j_next"), cheapNext.d, cheapNext.d * 24 + 24], cheapPast && [t("j_cheapest"), cheapPast.d, cheapPast.d * 24 + 24], far && [t("j_far"), far.d, far.h], lastCharge !== null && [t("j_charge"), lastCharge, lastCharge * 24 + 2]].filter(Boolean);
+    const num = (value, digits = 0) => (value == null ? "–" : Number(value).toFixed(digits).replace(".", this._lang === "da" ? "," : "."));
+    const kpi = (label, value, note = "") => `<div class="ins-kpi"><small>${esc(label)}</small><b>${esc(value)}</b><span>${esc(note)}</span></div>`;
+    const day = days[iso(chosen)] || {}, np = night(chosen), tn = night(0);
+    const week = (detail.week || [])[(noon(chosen).getDay() + 6) % 7] || {};
+    const cheaper = np !== null && tn !== null && chosen > 0 ? Math.round(100 * phiOf((tn - np) / (Math.max(0.03, sig(chosen * 24 + 24) || 0.1) * np))) : null;
+    const mine = (tonight.cars || {})[carId] || {};
+    const left = day.out == null ? "" : t("d_out", { time: `${String(Math.floor(day.out)).padStart(2, "0")}:${String(Math.round((day.out % 1) * 60)).padStart(2, "0")}` });
+    const facts = chosen > 0
+      ? [kpi(t("d_typical"), `${num(week.p50)} kWh`), kpi(t("d_hard"), `${num(week.p90)} kWh`), kpi(t("k_night"), np === null ? "–" : this._money(np), guessed.has(chosen * 24 + 26) ? t("d_forecast") : t("d_known")), kpi(t("d_cheaper"), cheaper === null ? "–" : `${clamp(cheaper, 1, 99)} %`)]
+      : chosen === 0
+        ? [kpi(t("d_battery"), level === null ? "–" : `${num(level)} %`), kpi(t("d_wait"), mine.reach == null ? "–" : t("d_nights", { n: mine.reach })), kpi(t("d_hard"), `${num(mine.p90)} kWh`), kpi(t("k_night"), np === null ? "–" : this._money(np), t("d_known"))]
+        : [kpi(t("d_driven"), `${num(day.km)} km`, left), kpi(t("d_used"), `${num(day.used, 1)} kWh`), kpi(t("d_charged"), `${num(day.charged, 1)} kWh`), kpi(t("k_night"), np === null ? "–" : this._money(np))];
+    const title = chosen === 0 ? this._t("today") : `${this._t(`wdn_${names[noon(chosen).getDay()]}`)} ${date(chosen)}`;
+    return `<section class="ins-card tl-card">
+        <div class="tl-head">${carChips}<div class="chips">${Object.keys(zooms).map((z) => `<button class="${z === zoom ? "on" : ""}" data-act="tl-zoom" data-value="${z}" data-f="tlz-${z}" aria-pressed="${z === zoom}">${esc(t(`z_${z}`))}</button>`).join("")}</div></div>
+        <div class="chips tl-jumps">${jumps.map(([name, d, h], i) => `<button data-act="tl-go" data-day="${d}" data-h="${h}" data-f="tlj-${i}">${esc(name)}</button>`).join("")}</div>
+        <div class="tl-scroll" data-now="${X(nowH).toFixed(0)}" data-zoom="${zoom}"><svg width="${W}" height="${HT}" style="width:${W}px;height:${HT}px" viewBox="0 0 ${W} ${HT}" role="img" aria-label="${esc(t("v_sum"))}">${g}</svg></div>
+        <div class="tl-legend"><span><i class="p"></i>${esc(t("lg_price"))}</span><span><i class="pf"></i>${esc(t("lg_forecast"))}</span><span><i class="b"></i>${esc(t("lg_battery"))}</span><span><i class="bb"></i>${esc(t("lg_expected"))}</span><span><i class="tr"></i>${esc(t("lg_trip"))}</span><span><i class="c"></i>${esc(t("lg_charge"))}</span></div>
+        <h3>${esc(title)}</h3><div class="ins-kpis">${facts.join("")}</div>
+      </section>`;
+  }
+
+  /* The coming days' price three ways: the forecast with its uncertainty, ways it may go, and how likely each night is cheaper. */
+  _fanHtml(data, card) {
+    const t = (key, values) => this._t(`insight_${key}`, values);
+    const view = ["fan", "paths", "prob"].includes(this._fanView) ? this._fanView : "fan";
+    const now = ZD().getTime();
+    const slots = (this._state.prices || []).map((p) => ({ h: (ZD(p.start).getTime() - now) / 3600000, price: p.price, forecast: p.forecast })).filter((p) => p.h > -1 && p.h < 150).sort((a, b) => a.h - b.h);
+    if (slots.length < 6) return "";
+    const errors = data.errors || [];
+    const first = slots.find((p) => p.forecast)?.h ?? slots.at(-1).h;
+    const sd = (h) => (h < first ? 0 : errors[clamp(Math.floor((h - first) / 24), 0, errors.length - 1)] ?? 0.2);
+    const W = 600, H = 190, span = Math.max(24, slots.at(-1).h), top = Math.max(...slots.map((p) => p.price * (1 + 1.3 * sd(p.h)))) * 1.05;
+    const X = (h) => (clamp(h, 0, span) / span) * W, Y = (v) => H - 8 - (clamp(v, 0, top) / top) * (H - 16);
+    const path = (list, f) => list.map((p, i) => `${i ? "L" : "M"}${X(p.h).toFixed(1)} ${Y(f(p)).toFixed(1)}`).join("");
+    const band = (k) => `${path(slots, (p) => p.price * (1 + k * sd(p.h)))}${[...slots].reverse().map((p) => `L${X(p.h).toFixed(1)} ${Y(p.price * (1 - k * sd(p.h))).toFixed(1)}`).join("")}Z`;
+    const tonight = (data.tonight || {}).price;
+    const knownPath = `<path class="fan-k" d="${path(slots.filter((p) => p.h <= first), (p) => p.price)}"/>`;
+    let inner = "";
+    if (view === "fan") inner = `<path class="fan-b2" d="${band(1.28)}"/><path class="fan-b1" d="${band(0.67)}"/>${knownPath}<path class="fan-f" d="${path(slots.filter((p) => p.h >= first - 1), (p) => p.price)}"/>`;
+    else if (view === "paths") {
+      // Ways the prices may go: each keeps most of its error from one day to the next. Green ends cheaper than tonight, coral dearer.
+      let seed = Math.floor(now / 3600000) | 0;
+      const rnd = () => { seed = (seed + 0x6d2b79f5) | 0; let x = Math.imul(seed ^ (seed >>> 15), 1 | seed); x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x; return ((x ^ (x >>> 14)) >>> 0) / 4294967296; };
+      const normal = () => Math.sqrt(-2 * Math.log(1 - rnd())) * Math.cos(2 * Math.PI * rnd());
+      const paths = [];
+      for (let i = 0; i < 22; i++) {
+        let z = normal(), day = -1, low = Infinity;
+        const points = slots.map((p) => { const d = Math.floor(Math.max(0, p.h - first) / 24); if (d !== day) { day = d; z = 0.75 * z + 0.66 * normal(); } const v = Math.max(0.01, p.price * (1 + sd(p.h) * z)); if (p.h >= first) low = Math.min(low, v); return { h: p.h, v }; });
+        paths.push({ points, good: tonight != null && low < tonight });
+      }
+      inner = `${paths.map((p, i) => `<path class="fan-path ${p.good ? "good" : "bad"}${this._fanFresh ? " draw" : ""}" pathLength="1" style="animation-delay:${i * 70}ms" d="${path(p.points, (x) => x.v)}"/>`).join("")}${knownPath}`;
+    }
+    let chart = `<svg class="fan" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${tonight != null ? `<line class="fan-t" x1="0" x2="${W}" y1="${Y(tonight)}" y2="${Y(tonight)}"/>` : ""}${inner}</svg><div class="ins-axis"><span>${esc(this._t("today"))}</span><span>${esc(this._money(top))}</span></div>`;
+    if (view === "prob") {
+      const rows = [];
+      for (let d = 1; d <= 5; d++) {
+        const list = slots.filter((p) => p.h >= d * 24 - 4 && p.h < d * 24 + 8).map((p) => p.price).sort((a, b) => a - b);
+        if (list.length < 3 || tonight == null) continue;
+        const np = (list[0] + list[1] + list[2]) / 3, share = clamp(phiOf((tonight - np) / (Math.max(0.03, sd(d * 24)) * np)), 0.01, 0.99);
+        rows.push(`<div class="fan-row"><span>+${d}</span><div><i class="${share >= 0.7 ? "good" : ""}" style="width:${Math.round(share * 100)}%"></i></div><b>${Math.round(share * 100)} %</b></div>`);
+      }
+      chart = rows.join("") || `<p class="hint">${esc(t("score_none"))}</p>`;
+    }
+    const chips = `<div class="chips">${["fan", "paths", "prob"].map((k) => `<button class="${k === view ? "on" : ""}" data-act="fan-view" data-value="${k}" data-f="fan-${k}" aria-pressed="${k === view}">${esc(t(`f_${k}`))}</button>`).join("")}</div>`;
+    return card(t("f_title"), `${chips}${chart}`, t(`f_${view}_note`));
   }
 
   _settingsHtml() {
@@ -10447,7 +10708,7 @@ class EvPlannerPanel extends HTMLElement {
         this._render();
         break;
       case "hist-view":
-        this._histView = ["sum", "cars", "prices", "learned", "ahead"].includes(button.dataset.value) ? button.dataset.value : "history";
+        this._histView = ["sum", "cars", "learned"].includes(button.dataset.value) ? button.dataset.value : "history";
         this._render();
         break;
       case "hist-export":
@@ -10464,6 +10725,26 @@ class EvPlannerPanel extends HTMLElement {
         break;
       case "next-open":
         this._openPopup("next");
+        break;
+      case "tl-zoom":
+        this._tlZoom = button.dataset.value;
+        this._tlLeft = null;
+        this._render();
+        break;
+      case "tl-day":
+        this._tlDay = Number(button.dataset.day);
+        this._render();
+        break;
+      case "tl-go":
+        this._tlDay = Number(button.dataset.day);
+        this._tlLeft = `h${button.dataset.h}`;
+        this._render();
+        break;
+      case "fan-view":
+        this._fanView = button.dataset.value;
+        this._fanFresh = true;
+        this._render();
+        setTimeout(() => { this._fanFresh = false; }, 3000);
         break;
       case "insight-car":
         this._insCar = button.dataset.value;
@@ -11331,6 +11612,34 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .learn-views button { flex: none; white-space: nowrap; }
 .learn-views button.dim { opacity: .45; }
 .ins-card h3 { display: flex; align-items: center; gap: 6px; }
+.tl-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.tl-jumps { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .tl-jumps button { flex: none; white-space: nowrap; }
+.tl-scroll { overflow-x: auto; border-radius: 14px; background: color-mix(in srgb, var(--evp-ink) 4%, transparent); scrollbar-width: thin; }
+.tl-scroll svg { display: block; max-width: none; }
+.tl-scroll path, .tl-scroll line, .tl-scroll circle, .tl-scroll text { pointer-events: none; }
+.tl-d { fill: transparent; cursor: pointer; } .tl-d.we { fill: var(--evp-ink); fill-opacity: .04; } .tl-d.on { fill: var(--evp-accent); fill-opacity: .14; }
+.tl-t { font-size: 10.5px; fill: var(--evp-soft); }
+.tl-p { fill: none; stroke: var(--evp-ink); stroke-width: 1.6; } .tl-pf { fill: none; stroke: var(--evp-sand); stroke-width: 1.6; stroke-dasharray: 4 3; } .tl-band { fill: var(--evp-sand); fill-opacity: .2; }
+.tl-b { fill: none; stroke: var(--evp-accent); stroke-width: 2.2; stroke-linejoin: round; } .tl-bf { fill: none; stroke: var(--evp-accent); stroke-width: 1.6; stroke-dasharray: 4 3; } .tl-bband { fill: var(--evp-accent); fill-opacity: .16; }
+.tl-c { fill: var(--evp-accent); } .tl-c.plan { fill: none; stroke: var(--evp-accent); stroke-width: 1.6; stroke-dasharray: 3 2; }
+.tl-trip { fill: var(--evp-coral); } .tl-now { stroke: var(--evp-ink); stroke-width: 1.5; }
+.tl-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--evp-soft); }
+.tl-legend i { display: inline-block; width: 16px; height: 3px; border-radius: 2px; margin-right: 5px; vertical-align: middle; background: var(--evp-ink); }
+.tl-legend i.pf { background: var(--evp-sand); } .tl-legend i.b { background: var(--evp-accent); } .tl-legend i.bb { height: 9px; background: var(--evp-accent); opacity: .25; } .tl-legend i.tr { width: 9px; height: 9px; border-radius: 50%; background: var(--evp-coral); } .tl-legend i.c { height: 9px; background: var(--evp-accent); }
+.tl-three { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 12px; }
+.tl-q { font: inherit; color: inherit; text-align: left; cursor: pointer; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px; align-items: center; padding: 16px; border-radius: 18px; border: 1px solid var(--evp-line); background: var(--evp-card); }
+.tl-q svg { width: 44px; height: 44px; } .tl-q circle { fill: none; stroke: color-mix(in srgb, var(--evp-ink) 8%, transparent); stroke-width: 4; } .tl-q circle.on { stroke: var(--evp-accent); stroke-linecap: round; }
+.tl-q span { display: grid; gap: 2px; min-width: 0; } .tl-q small, .tl-q i { font-size: 12.5px; color: var(--evp-soft); font-style: normal; } .tl-q b { font-size: 18px; font-weight: 650; }
+.fan { width: 100%; height: 190px; display: block; }
+.fan path { fill: none; vector-effect: non-scaling-stroke; } .fan path.fan-b2 { fill: var(--evp-sand); fill-opacity: .16; } .fan path.fan-b1 { fill: var(--evp-sand); fill-opacity: .26; }
+.fan-k { stroke: var(--evp-ink); stroke-width: 2; } .fan-f { stroke: var(--evp-sand); stroke-width: 2; stroke-dasharray: 5 4; } .fan-t { stroke: var(--evp-soft); stroke-width: 1; stroke-dasharray: 2 4; vector-effect: non-scaling-stroke; }
+.fan-path { stroke-width: 1.4; opacity: .7; } .fan-path.good { stroke: var(--evp-good); } .fan-path.bad { stroke: var(--evp-coral); }
+.fan-path.draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: fan-draw 1.5s ease-out forwards; }
+@keyframes fan-draw { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { .fan-path.draw { animation: none; stroke-dashoffset: 0; } }
+.fan-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) 46px; gap: 10px; align-items: center; font-size: 13px; padding: 5px 0; }
+.fan-row div { height: 12px; border-radius: 6px; background: color-mix(in srgb, var(--evp-ink) 6%, transparent); overflow: hidden; } .fan-row i { display: block; height: 100%; border-radius: 6px; background: var(--evp-sand); } .fan-row i.good { background: var(--evp-good); }
+.fan-row b { text-align: right; font-variant-numeric: tabular-nums; }
 .ins-card { display: grid; gap: 8px; padding: 16px; border-radius: 18px; background: var(--evp-card); border: 1px solid var(--evp-line); min-width: 0; }
 .ins-card h3 { margin: 0; font-size: 15px; font-weight: 650; }
 .ins-label { margin: 4px 0 0; font-size: 12.5px; color: var(--evp-soft); }

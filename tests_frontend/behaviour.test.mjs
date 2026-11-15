@@ -652,18 +652,27 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     detail: { [a]: detail, [b]: { ...detail, days: {} } },
     price_days: Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`2026-0${9 + Math.floor(i / 30)}-${String((i % 30) + 1).padStart(2, "0")}`.replace("010-", "10-"), { night: i % 9 ? 1 + (i % 5) / 10 : null, mean: 2, own: i > 55 }])),
     errors: [0.1, 0.17, 0.24, 0.31, 0.38, 0.45],
+    price_hours: {},
     trips: [{ vehicle: a, start: "2026-10-10T07:00:00+02:00", end: "2026-10-10T07:40:00+02:00", from: "home", to: "work", km: 31.2, kwh: 5.1, temp: 8 }],
     ledger: { "2026-10-10": { cars: { [a]: outlook, [b]: outlook }, groups: [{ pick: a }] }, "2026-10-11": { cars: { [a]: outlook }, groups: [{ wait: true }] } },
   };
   await withPanel({ ...state, settings: { ...state.settings, insight: true } }, { size: PHONE }, async ({ page, tap, read, calls }) => {
     await page.evaluate((data) => { window.harness.insight = data; }, insight);
     await page.evaluate(() => window.harness.panel._setTab("history"));
-    // The learning centre opens on the overview; one row of six parts.
-    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector(".insight-card"));
+    // The learning centre opens on the overview: the timeline and three answers. One row of four parts.
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector(".tl-scroll svg"));
     assert.equal((await calls("insight")).length, 1);
-    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".learn-views button").length), 6);
-    assert.match(await read(".insight-card strong"), /Tesla/);
-    for (const view of ["cars", "prices", "history", "learned", "ahead", "sum"]) {
+    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".learn-views button").length), 4);
+    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".tl-q").length), 3);
+    assert.match(await read(".tl-q b"), /Tesla/);
+    // The timeline is wider than the page and scrolls by itself; a day is chosen by a tap, the zoom by a chip.
+    assert.ok(await page.evaluate(() => { const el = window.harness.panel.shadowRoot.querySelector(".tl-scroll"); return el.scrollWidth > el.clientWidth && el.scrollLeft > 0; }));
+    await page.evaluate(() => window.harness.panel.shadowRoot.querySelector('.tl-d[data-day="-2"]').dispatchEvent(new MouseEvent("click", { bubbles: true, composed: true })));
+    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector('.tl-d[data-day="-2"]').classList.contains("on")));
+    await tap('[data-act="tl-zoom"][data-value="day"]');
+    assert.equal(await read('[data-act="tl-zoom"][aria-pressed="true"]', "data-value"), "day");
+    await tap('[data-act="tl-go"]');
+    for (const view of ["cars", "history", "learned", "sum"]) {
       await tap(`[data-act="hist-view"][data-value="${view}"]`);
       assert.equal(await read('.learn-views button[aria-selected="true"]', "data-value"), view);
       assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".ins-card, .ins-kpi").length > 0), view);
@@ -675,8 +684,20 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     await tap(".ins-card .help-q");
     assert.match(await read(".ins-card .help-pop"), /./);
     await tap(`[data-act="insight-car"][data-value="${b}"]`);
-    await tap('[data-act="hist-view"][data-value="ahead"]');
+    // Power: the coming days three ways; the ways it may go are drawn in colour.
+    await tap('[data-act="hist-view"][data-value="history"]');
+    await tap('[data-act="fan-view"][data-value="paths"]');
+    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".fan-path.draw").length), 22);
+    await tap('[data-act="fan-view"][data-value="prob"]');
+    await tap('[data-act="fan-view"][data-value="fan"]');
+    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".fan .fan-b2")));
+    // Learned: what was expected against what happened.
+    await tap('[data-act="hist-view"][data-value="learned"]');
     assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".ins-table .warn-text").length), 2);
+    // An answer leads to its part.
+    await tap('[data-act="hist-view"][data-value="sum"]');
+    await tap('.tl-q[data-value="learned"]');
+    assert.equal(await read('.learn-views button[aria-selected="true"]', "data-value"), "learned");
     // Fetched once a minute, not for every look. No sideways scroll on a phone.
     assert.equal((await calls("insight")).length, 1);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
@@ -689,8 +710,8 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
   await withPanel(state, { size: PHONE }, async ({ page, tap, read, calls }) => {
     await page.evaluate(() => window.harness.panel._setTab("history"));
     assert.equal(await read('.learn-views button[aria-selected="true"]', "data-value"), "history");
-    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".learn-views button.dim").length), 4);
-    await tap('[data-act="hist-view"][data-value="prices"]');
+    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".learn-views button.dim").length), 2);
+    await tap('[data-act="hist-view"][data-value="cars"]');
     assert.match(await read(".hist-page .hint"), /Insight/);
     assert.equal((await calls("insight")).length, 0);
   });

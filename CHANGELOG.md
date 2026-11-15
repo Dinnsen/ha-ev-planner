@@ -2,6 +2,14 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b16] - 2026-11-15
+
+### Changed
+
+- **Learning has four parts**: *Overview*, *Driving*, *Power* (charging and prices together) and *Learned* (what is learned and how it has held).
+- **The overview is a timeline**: what happened to the left (price, battery, driving, charging), now in the middle, and what is expected to the right (the price forecast with its uncertainty, the battery on a typical and on a hard day, tonight's charge). It is dragged sideways, zooms between day, week and month, and jumps to tonight, the next cheap night, the cheapest night, the longest trip and the last charge. A tap on a day shows that day. Three answers stand under it: tonight's car, what it has cost, and how well EV Planner knows the household.
+- **The coming days' price three ways** (under Power): the forecast with bands for 5 and 8 of 10 outcomes; 22 ways the prices may go, drawn one after the other, green where they end cheaper than tonight and red where dearer; and how likely each coming night is to be cheaper.
+
 ## [2.5.0b15] - 2026-11-15
 
 ### Changed
