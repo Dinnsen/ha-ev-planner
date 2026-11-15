@@ -363,7 +363,7 @@ function boot(host, root) {
       for (const t of [...outs].sort((a, b) => a.km - b.km)) { const g = groups[groups.length - 1]; if (g && t.km - g.km <= Math.max(1.5, g.km * 0.12)) { g.list.push(t); g.km = mean(g.list.map((x) => x.km)); } else groups.push({ km: t.km, list: [t] }); }
       const top = [...groups].sort((a, b) => b.list.length - a.list.length).slice(0, 6);
       // A place has the name the household gave it, else the zone it lies in, else the zone a logged trip of that length went to, else how far it is.
-      const given = (IN.names || {})[id] || [], zones = (IN.zones || []).filter((z) => !z.home && Number.isFinite(z.lat) && Number.isFinite(z.lon));
+      const given = (IN.names || {})[id] || [], zones = (IN.zones || []).filter((z) => !z.home && Number.isFinite(z.lat) && Number.isFinite(z.lon) && !(home && distKm(z, home) < 0.3));
       for (const g of groups) {
         const ds = g.list.map((t) => t.dest).filter(Boolean);
         if (ds.length) g.pos = { lat: q(ds.map((p) => p.lat), 0.5), lon: q(ds.map((p) => p.lon), 0.5) };

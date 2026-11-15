@@ -9840,8 +9840,17 @@ class EvPlannerPanel extends HTMLElement {
     this._hass
       .callWS({ type: "history/history_during_period", start_time: new Date(Date.now() - 10 * 86400000).toISOString(), end_time: new Date().toISOString(), entity_ids: ids, minimal_response: false, no_attributes: false, significant_changes_only: false })
       .then((rows) => {
-        // Only the time and the position are kept.
-        this._insTracks = Object.fromEntries(Object.entries(rows || {}).map(([id, list]) => [id, (list || []).map((row) => [Number(row.lu ?? row.lc) * 1000, Number(row.a?.latitude), Number(row.a?.longitude)]).filter((p) => p.every(Number.isFinite))]));
+        // Only the time and the position are kept, and only where the car had moved.
+        this._insTracks = Object.fromEntries(
+          Object.entries(rows || {}).map(([id, list]) => {
+            const points = [];
+            for (const row of list || []) {
+              const point = [Number(row.lu ?? row.lc) * 1000, Number(row.a?.latitude), Number(row.a?.longitude)], last = points[points.length - 1];
+              if (point.every(Number.isFinite) && !(last && last[1] === point[1] && last[2] === point[2])) points.push(point);
+            }
+            return [id, points];
+          }),
+        );
       })
       .catch(() => { this._insTracks = {}; })
       .finally(() => { this._insTracksAt = Date.now(); this._insTracksBusy = false; if (this._tab === "history") this._render(); });
