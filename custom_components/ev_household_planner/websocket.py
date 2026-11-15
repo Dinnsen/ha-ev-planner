@@ -241,7 +241,21 @@ SETTINGS_SCHEMA = vol.Schema(
         vol.Optional("insight_from"): _hhmm,
         vol.Optional("insight_to"): _hhmm,
         vol.Optional("insight_use"): cv.boolean,
-        vol.Optional("insight_level"): vol.All(vol.Coerce(int), vol.In([80, 90, 95])),
+        vol.Optional("insight_level"): vol.All(vol.Coerce(int), vol.Range(min=50, max=99)),
+        vol.Optional("insight_names"): {
+            cv.string: vol.All(
+                cv.ensure_list,
+                vol.Length(max=30),
+                [
+                    vol.Schema(
+                        {
+                            vol.Required("km"): vol.All(vol.Coerce(float), vol.Range(min=0, max=3000)),
+                            vol.Required("name"): vol.All(cv.string, vol.Length(min=1, max=40)),
+                        }
+                    )
+                ],
+            )
+        },
         vol.Optional("quiet_from"): _hhmm,
         vol.Optional("quiet_to"): _hhmm,
         vol.Optional("departures"): vol.All(

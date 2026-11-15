@@ -9845,7 +9845,7 @@ class EvPlannerPanel extends HTMLElement {
       statsAt: this._insStatsAt,
       prices: (this._state.prices || []).map((p) => ({ t: wall(p.start), price: p.price, forecast: Boolean(p.forecast) })),
       cars: this._cars.map((v) => ({
-        id: v.id, name: v.name, capacity: v.capacity, soc: v.soc, connected: v.connected, charging: v.charging, min_soc: v.settings?.min_soc,
+        id: v.id, name: v.name, capacity: v.capacity, soc: v.soc, target: v.target, connected: v.connected, charging: v.charging, min_soc: v.settings?.min_soc,
         charge_speed: v.charge_speed, charge_speed_source: v.charge_speed_source, charge_speed_learned_from: v.charge_speed_learned_from, curve: v.curve, margin: v.margin,
         plan: v.plan ? { segments: (v.plan.segments || []).map((s) => ({ start: wall(s.start), end: wall(s.end) })), energy: v.plan.energy, cost: v.plan.cost } : null,
         history: (v.history || []).slice(-60).map((e) => ({ start: wall(e.start), end: e.end ? wall(e.end) : null, energy: e.energy, cost: e.cost })),
@@ -9854,6 +9854,7 @@ class EvPlannerPanel extends HTMLElement {
       window: this._insight?.window || [21, 7],
       level: settings.insight_level,
       use: Boolean(settings.insight_use),
+      names: settings.insight_names || {},
     };
   }
 
@@ -9888,6 +9889,8 @@ class EvPlannerPanel extends HTMLElement {
       this._histView = this._histClassic;
       this._render();
       this.shadowRoot.querySelector(".content")?.scrollTo?.({ top: 0 });
+    } else if (act === "names" && value && typeof value === "object") {
+      this._saveSettings({ insight_names: value });
     } else if (act === "level" && Number(value) >= 50 && Number(value) <= 99) {
       this._saveSettings({ insight_level: Number(value) });
       this._insightAt = 0;

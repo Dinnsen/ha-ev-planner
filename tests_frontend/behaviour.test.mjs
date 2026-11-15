@@ -673,7 +673,7 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     const inside = (fn, arg) => page.evaluate(([code, value]) => new Function("root", "value", `return (${code})(root, value)`)(window.harness.panel.shadowRoot.querySelector("ev-planner-insight").shadowRoot, value), [fn.toString(), arg]);
     await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector("ev-planner-insight")?.shadowRoot.querySelector("#tl svg"));
     await page.waitForFunction(() => window.harness.calls.some((c) => c.type === "recorder/statistics_during_period"));
-    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector("ev-planner-insight").shadowRoot.querySelectorAll("#tl .tl-trip").length > 0);
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector("ev-planner-insight").shadowRoot.querySelectorAll("#tl circle").length > 0);
     assert.equal((await calls("insight")).length, 1);
     assert.equal(await inside((root) => root.querySelectorAll("nav.tabs button").length), 4);
     assert.match(await inside((root) => root.querySelector("#hero .hero").textContent), /Tesla/);
@@ -681,14 +681,24 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     assert.ok(await inside((root) => root.querySelector("#hero .hcable.live")), "the cable goes to the car that gets the charger");
     assert.equal(await inside((root) => root.querySelectorAll(".tl-q").length), 3);
     assert.match(await inside((root) => root.querySelector(".tl-q b").textContent), /Tesla/);
-    // The timeline is wider than the page and scrolls by itself; a day is chosen by a tap, the zoom by a chip.
+    // The week for the cars: seven evenings, each car's level, and a bolt on the car that gets the charger tonight.
+    assert.equal(await inside((root) => root.querySelectorAll("#wkp .wkp-col").length), 7);
+    assert.equal(await inside((root) => root.querySelectorAll('#wkp .wkp-col[data-wkp="0"] u.chg').length), 1);
+    await tap('ev-planner-insight #wkp [data-wkp="2"]');
+    assert.ok(await inside((root) => root.querySelector('#wkp [data-wkp="2"]').classList.contains("on")));
+    assert.match(await inside((root) => root.querySelector("#tl-day").textContent), /hard day/);
+    // The timeline is wider than the page and scrolls by itself, both cars in it; a day is chosen by a tap, the zoom by + and −.
     assert.ok(await inside((root) => { const el = root.querySelector("#tl-scroll"); return el.scrollWidth > el.clientWidth && el.scrollLeft > 0; }));
+    assert.equal(await inside((root) => root.querySelectorAll("#tl .tl-bf").length), 2);
     await inside((root) => root.querySelector('.tl-d[data-day="-2"]').dispatchEvent(new MouseEvent("click", { bubbles: true, composed: true })));
     assert.ok(await inside((root) => root.querySelector('.tl-d[data-day="-2"]').classList.contains("on")));
     assert.match(await inside((root) => root.querySelector("#tl-day").textContent), /48 km/);
-    await tap('ev-planner-insight [data-tlzoom="døgn"]');
-    assert.ok(await inside((root) => root.querySelector('[data-tlzoom="døgn"]').classList.contains("on")));
-    await tap("ev-planner-insight [data-tlgo]");
+    const wide = await inside((root) => root.querySelector("#tl svg").getBoundingClientRect().width);
+    await tap('ev-planner-insight .tl-ctl [data-tlz="1"]');
+    assert.ok((await inside((root) => root.querySelector("#tl svg").getBoundingClientRect().width)) > wide * 2);
+    assert.equal(await inside((root) => root.querySelector('.tl-ctl [data-tlz="1"]').disabled), true);
+    await tap("ev-planner-insight .tl-ctl [data-tlnow]");
+    assert.equal(await inside((root) => root.querySelectorAll("#p-plan .chips button").length), 0, "no rows of buttons over the timeline");
     // A push from EV Planner does not draw the page again: the timeline is the same one, where it was left.
     await inside((root) => { root.querySelector("#tl svg").dataset.kept = "1"; });
     await push({ ...state, settings: { ...state.settings, insight: true } });
@@ -699,6 +709,14 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     assert.match(await inside((root) => root.querySelector("#map").textContent), /Home.*work|work.*Home/s);
     assert.match(await inside((root) => root.querySelector("#map").textContent), /≈ 24 km/);
     assert.equal(await inside((root) => root.querySelectorAll("#clock path").length), 168);
+    assert.match(await inside((root) => root.querySelector("#sum-bil").textContent), /trips/);
+    assert.equal(await inside((root) => root.querySelectorAll("#sum-wk rect").length), 13);
+    // A trip made often is given a name: kept with the settings by the car and how far it goes, and shown at once.
+    await tap('ev-planner-insight [data-name="open"]');
+    await page.locator("ev-planner-panel ev-planner-insight #nm-in").fill("Work place");
+    await page.locator("ev-planner-panel ev-planner-insight #nm-in").press("Enter");
+    assert.match(await inside((root) => root.querySelector("#map").textContent), /Work place/);
+    assert.deepEqual((await calls("settings")).at(-1).settings, { insight_names: { [a]: [{ km: 24.2, name: "Work place" }] } });
     // An explanation is behind the card's "?".
     assert.equal(await inside((root) => getComputedStyle(root.querySelector("#p-bil .card p.small")).display), "none");
     await tap("ev-planner-insight #p-bil .q");

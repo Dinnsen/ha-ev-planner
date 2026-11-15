@@ -57,6 +57,7 @@ SET_INSIGHT_TO = "insight_to"
 SET_INSIGHT_USE = "insight_use"
 # How hard a day the cars must always have enough for: 80, 90 or 95 (% of days).
 SET_INSIGHT_LEVEL = "insight_level"
+SET_INSIGHT_NAMES = "insight_names"
 INSIGHT_SETTINGS: dict[str, Any] = {
     SET_INSIGHT: False,
     SET_INSIGHT_NOTIFY: False,
@@ -66,6 +67,8 @@ INSIGHT_SETTINGS: dict[str, Any] = {
     SET_INSIGHT_TO: "07:00",
     SET_INSIGHT_USE: False,
     SET_INSIGHT_LEVEL: 90,
+    # The names the household gave the trips it makes often: {car: [{"km": how far, "name": its name}]}.
+    SET_INSIGHT_NAMES: {},
 }
 LEDGER_KEEP = 180
 INSIGHT_STORAGE_KEY = f"{DOMAIN}.{{entry_id}}.insight"
@@ -847,6 +850,7 @@ class Insight:
                     sums[weekday][hour][0] += price
                     sums[weekday][hour][1] += 1
         rhythm = [[round(total / count, 3) if count else None for total, count in row] for row in sums]
+        now = dt_util.now()
         return {
             **self.summary(),
             "detail": cars,
@@ -857,6 +861,12 @@ class Insight:
             # Each hour's price of the last three weeks, for the timeline.
             "price_hours": {key: prices[key] for key in sorted(prices)[-PRICE_HOURS_SHOWN:]},
             "errors": forecast_errors(self.data["forecasts"], self.data["prices"]),
+            # Every price from now on, the forecast past the published ones included (the panel's own go to tomorrow).
+            "ahead": [
+                {"start": slot.start.isoformat(), "price": slot.price, "forecast": slot.forecast}
+                for slot in self.household.price_slots(now)
+                if slot.end > now
+            ],
             "trips": self.data["trips"][-200:],
             "ledger": {day: self.data["ledger"][day] for day in sorted(self.data["ledger"])[-30:]},
         }

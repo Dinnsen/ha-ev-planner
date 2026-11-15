@@ -2,6 +2,24 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b19] - 2026-11-15
+
+### Added
+
+- **The cars' week**, over the timeline in Learning's overview: the coming seven evenings in one small table, with each battery's expected level and a bolt on the car expected to get the charger that night, and the night's price under each day (the cheapest marked). A tap on an evening shows it.
+- **A trip made often can be given a name** (Driving → the map → "Name this trip"). Every trip of that length then has the name, on the map and in the lists. The names are kept with the household's settings.
+
+### Changed
+
+- **Fewer buttons on the timeline.** Both cars are drawn together, each in its own colour, so there is no car to choose; the zoom is a + and a − on the chart, with "now" to come back; the row of jumps is gone.
+- **The top of the overview** shows the evening as a badge and the night's price beside the last nights', saying whether it is a cheap, an ordinary or a dear night.
+- **Driving opens with 90 days at a glance** in one small card (how far, week by week, and what a kilometre takes, from the lowest to the highest), then the map, then the use per day.
+- "A hard day" can be set anywhere from 50 to 95 % of the days.
+
+### Fixed
+
+- **The coming days' price showed only today and tomorrow**, without the forecast, so there was no uncertainty, no "Ways it may go" and no probability. The panel's own prices stop at tomorrow; Learning now gets every price the sensor has, its forecast included.
+
 ## [2.5.0b18] - 2026-11-15
 
 ### Fixed
