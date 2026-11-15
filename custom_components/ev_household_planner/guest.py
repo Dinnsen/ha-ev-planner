@@ -332,7 +332,7 @@ class GuestSession:
         if key == GUEST_STEP:
             value = int(value) if value in (1, 5, 10, "1", "5", "10") else 1
         self.inputs[key] = value
-        if key == GUEST_BATTERY and (plate := clean_identifier(self.inputs.get(GUEST_PLATE))) and value:
+        if key == GUEST_BATTERY and (plate := clean_identifier(str(self.inputs.get(GUEST_PLATE) or ""))) and value:
             # Chosen for this car: kept for the next time it is looked up.
             self.plates.pop(plate, None)
             self.plates[plate] = float(value)
