@@ -2,6 +2,19 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b17] - 2026-11-15
+
+### Added
+
+- **Tonight in a picture**, at the top of Learning's overview: one line saying what to do ("Plug in the Mercedes this evening"), the cars drawn filled to their level with the hard day's floor as a mark, the cable going to the car that gets the charger, the night's prices with the hours the plan charges in, and up to three steps.
+
+### Changed
+
+- **Learning is drawn as it was designed.** The page is the design itself, with your own figures: the same cards, colours, charts and movement in *Overview*, *Driving*, *Power* and *Learned*. Under *Power*, "Ways it may go" is again 500 possible weeks flowing out from now, green under the price you set with the red line, amber above and red far above.
+- **Trips and charging from before the log** are read from Home Assistant's own hourly statistics (odometer, battery, energy and temperature, 90 days): each stretch the odometer moved is a trip, to the hour, and each stretch the energy meter rose is a charge. Places are only known for trips logged while Insight has been on; the older ones are gathered on the map by how far they went.
+- With Insight on, the history (the list, the export, deleting, the guest's bill) and the page of what is learned about the charging open from *Power* and *Learned*, with a way back. With Insight off they are the tab, as before.
+- The learning centre is a file of its own, fetched the first time the tab is opened with Insight on. It stays in place while EV Planner sends new figures, so a chart being read or a timeline being dragged is not drawn over.
+
 ## [2.5.0b16] - 2026-11-15
 
 ### Changed

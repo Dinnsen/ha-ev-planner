@@ -1814,84 +1814,7 @@ Object.assign(TEXT.da, {
   insight_score_none: "Regnskabet begynder, når første aften er gået.",
   insight_trips: "{n} ture logget",
   insight_loading: "Henter …",
-  insight_c_share: "af dagene kørt",
-  insight_c_map: "Kortet over turene",
-  insight_c_map_note: "Hjem i midten og de steder, turene gik til. Tykkere streg betyder oftere. Stederne er jeres zoner i Home Assistant; der gemmes ingen koordinater.",
-  insight_c_each: "Hver dags kørsel",
-  insight_c_each_note: "Vandret: dato. Lodret: første afgang. Størrelse: km. Farve: temperatur ude, fra kold (grøn) til mild (gul).",
-  insight_c_daily: "Forbrug pr. dag",
-  insight_c_daily_note: "Søjlerne er kWh pr. dag. Stregen er temperaturen ude.",
-  insight_c_km: "Kørt på 90 dage",
-  insight_p_hit: "Hvor godt rammer prognosen?",
-  insight_p_rhythm: "Prisens døgnrytme",
-  insight_p_rhythm_note: "Snit over det seneste år: hvornår på ugen strømmen plejer at være billigst (grøn) og dyrest (rød).",
-  insight_s_night: "Nat",
-  insight_s_day: "Dag",
-  insight_s_drive: "Kørsel",
-  insight_s_rest: "Varme, køl og tab",
-  insight_s_title: "Hvor strømmen kom fra, og hvad den blev til",
-  insight_s_title_note: "Nat er kl. 21–07. Fordelingen mellem nat og dag kræver bilens tæller for ladet energi.",
-  insight_s_when: "Hvornår der lades",
-  insight_s_when_note: "kWh pr. klokketime de sidste 90 dage.",
-  insight_s_when_none: "Kræver bilens tæller for ladet energi.",
-  insight_s_at_night: "om natten",
-  insight_s_each: "Hver ladning",
-  insight_s_charged: "Ladet på 90 dage",
-  insight_s_nights: "{n} dage med ladning",
-  insight_s_paid: "Betalt, ca.",
-  insight_s_cheaper: "Mod døgnets snitpris",
-  insight_s_cheaper_note: "billigere",
-  insight_g_ridge: "Afgangstider, dag for dag",
-  insight_g_ridge_note: "Hver bølge er en ugedag. Smal og høj betyder fast rytme; bred og flad betyder, at dagen er svær at forudsige.",
-  insight_g_keep: "Loggen slettes, det lærte bliver",
-  insight_g_keep_in: "90 dages ture",
-  insight_g_keep_out: "Det lærte",
-  insight_g_keep_note: "Ture med tid og sted slettes efter 90 dage. Tilbage bliver mønstre uden steder: rytme, forbrug, kuldens pris og prognosens fejl.",
-  insight_a_back: "Sagt og sket, 30 dage",
-  insight_a_back_note: "Søjlen er, hvad der dagen før blev forventet (8 af 10 gange). Prikken er, hvad bilen brugte. Røde prikker faldt udenfor.",
-  insight_a_back_in: "{n} af {of} inden for",
-  insight_a_cal: "Holder sandsynligheden?",
-  insight_a_cal_note: "Når der siges 80 %, skal det ske cirka 8 af 10 gange. Søjlen er, hvor ofte det skete; stregen er, hvad der blev sagt.",
-  insight_a_dial: "Vent, eller lad i nat?",
-  insight_a_waits: "Venter på en billigere nat",
-  insight_a_charges: "Lader i nat",
   insight_v_power: "Strøm",
-  insight_q_cost: "Hvad har det kostet?",
-  insight_q_cost_note: "{kwh} kWh på 30 dage · {price}/kWh",
-  insight_q_knows: "Hvor godt kender den jer?",
-  insight_q_knows_days: "{days} dage",
-  insight_z_day: "Døgn",
-  insight_z_week: "Uge",
-  insight_z_month: "Måned",
-  insight_j_next: "Næste billige nat",
-  insight_j_cheapest: "Billigste nat",
-  insight_j_far: "Længste tur",
-  insight_j_charge: "Sidste ladning",
-  insight_lg_price: "Pris",
-  insight_lg_forecast: "Prisprognose",
-  insight_lg_battery: "Batteri",
-  insight_lg_expected: "Forventet batteri",
-  insight_lg_trip: "Kørsel",
-  insight_lg_charge: "Ladning",
-  insight_d_typical: "Typisk dag",
-  insight_d_hard: "Svær dag",
-  insight_d_forecast: "prognose",
-  insight_d_known: "kendt",
-  insight_d_cheaper: "Billigere end i nat",
-  insight_d_battery: "Batteri nu",
-  insight_d_wait: "Kan vente",
-  insight_d_nights: "{n} nætter",
-  insight_d_driven: "Kørt",
-  insight_d_out: "afgang {time}",
-  insight_d_used: "Brugt",
-  insight_d_charged: "Ladet",
-  insight_f_title: "De næste dage",
-  insight_f_fan: "Udsigt",
-  insight_f_paths: "Mulige forløb",
-  insight_f_prob: "Sandsynlighed",
-  insight_f_fan_note: "Prognosen med bånd for 5 og 8 af 10 udfald. Den stiplede linje er nattens pris.",
-  insight_f_paths_note: "22 måder, priserne kan gå. Grønne ender billigere end i nat, røde dyrere.",
-  insight_f_prob_note: "Hvor sandsynligt det er, at hver af de næste nætter bliver billigere end i nat.",
   insight_v_sum: "Overblik",
   insight_off_hint: "Slå Indsigt til under Indstillinger for at se dette.",
   insight_v_cars: "Kørsel",
@@ -1899,50 +1822,6 @@ Object.assign(TEXT.da, {
   insight_v_charge: "Ladning",
   insight_v_learn: "Lært",
   insight_v_ahead: "Forudsigelse",
-  insight_k_30: "{kwh} kWh brugt på 30 dage",
-  insight_k_night: "Nattens pris",
-  insight_k_night_note: "snit af 30 nætters billigste timer",
-  insight_k_kept: "Dage med priser",
-  insight_k_kept_note: "{fc} dages prognoser gemt",
-  insight_sum_title: "De sidste 30 dage",
-  insight_sum_note: "Søjlerne er km pr. dag for hver bil. Stregen er prisen i nattens tre billigste timer.",
-  insight_c_days: "Dage med kørsel",
-  insight_c_days_note: "af de sidste 90",
-  insight_c_avg: "Typisk køredag",
-  insight_c_avg_note: "fra {low} til {high} km",
-  insight_c_eff: "kWh pr. 100 km",
-  insight_c_eff_note: "+{cold} % pr. grad under 15 °C",
-  insight_c_clock: "Hvornår bilen kører hjemmefra",
-  insight_c_clock_note: "Første afgang hver dag de sidste 90 dage. Jo mørkere felt, jo oftere.",
-  insight_c_trips: "Seneste ture",
-  insight_c_trips_none: "Ingen ture logget endnu. De kommer, når bilen har kørt.",
-  insight_p_night: "Nattens pris, 90 dage",
-  insight_p_night_note: "{own} dage er jeres egen pris fra prissensoren, {spot} dage er spotpriser hentet bagud og regnet om.",
-  insight_p_mean: "Døgnets snitpris, 90 dage",
-  insight_p_week: "Nattens pris pr. ugedag",
-  insight_p_week_note: "Snit over det seneste år.",
-  insight_p_error: "Prisprognosens fejl pr. dag frem",
-  insight_p_error_note: "Lært af {fc} dages gemte prognoser; indtil der er nok, bruges et forsigtigt skøn.",
-  insight_l_title: "ladet pr. dag",
-  insight_l_note: "{nights} dage med ladning · ca. {price}/kWh",
-  insight_l_hint: "Prisen er et skøn: det ladede gange nattens billigste timer den dag. Ladning ude er talt med.",
-  insight_g_models: "Det har EV Planner lært",
-  insight_g_rhythm: "{car}: ugens rytme",
-  insight_g_rhythm_note: "{days} dage. Bruges fra 28 dage.",
-  insight_g_forecast: "Prisprognosens fejl",
-  insight_g_forecast_note: "{fc} dages prognoser gemt. Brugbar efter ca. 4 uger.",
-  insight_g_ledger: "Skyggeregnskabet",
-  insight_g_cold: "Kulde koster",
-  insight_g_cold_none: "For få køredage med temperatur endnu.",
-  insight_a_wait: "ingen (venter)",
-  insight_a_chance: "En billigere nat inden for rækkevidde er {pct} % sandsynlig. Nattens pris: {price}.",
-  insight_a_rate: "Ramt rigtigt",
-  insight_a_rate_note: "af {n} bil-dage",
-  insight_a_saved: "Kunne være sparet",
-  insight_a_saved_note: "på {n} nætter, hvor den ville vente",
-  insight_a_ledger: "Sagt og sket",
-  insight_a_pick: "Lader",
-  insight_a_ledger_note: "For hver bil: svær dag, som forventet / det, dagen efter tog (kWh). Rødt er dage, der blev sværere end forventet.",
   widgets_refresh_hint: "Beder iOS-appen opdatere sine widgets, når en bils status ændres (højst hvert 15. minut).",
   climate_entity: "Klima",
   climate_entity_hint: "Det, der starter bilens klima. Findes selv på bilens enhed; vælg et andet her.",
@@ -2070,84 +1949,7 @@ Object.assign(TEXT.en, {
   insight_score_none: "The ledger begins after the first evening.",
   insight_trips: "{n} trips logged",
   insight_loading: "Loading …",
-  insight_c_share: "of the days driven",
-  insight_c_map: "The map of the trips",
-  insight_c_map_note: "Home in the middle and the places the trips went to. A thicker line means more often. The places are your zones in Home Assistant; no coordinates are kept.",
-  insight_c_each: "Each day's driving",
-  insight_c_each_note: "Across: the date. Down: the first departure. Size: km. Colour: the temperature outside, from cold (green) to mild (yellow).",
-  insight_c_daily: "Used each day",
-  insight_c_daily_note: "The bars are kWh a day. The line is the temperature outside.",
-  insight_c_km: "Driven in 90 days",
-  insight_p_hit: "How well does the forecast hit?",
-  insight_p_rhythm: "The price's rhythm",
-  insight_p_rhythm_note: "The mean of the last year: when in the week power tends to be cheapest (green) and dearest (red).",
-  insight_s_night: "Night",
-  insight_s_day: "Day",
-  insight_s_drive: "Driving",
-  insight_s_rest: "Heat, cooling and losses",
-  insight_s_title: "Where the power came from, and what it became",
-  insight_s_title_note: "Night is 21-07. The split between night and day needs the car's counter of charged energy.",
-  insight_s_when: "When it charges",
-  insight_s_when_note: "kWh in each hour of the day, the last 90 days.",
-  insight_s_when_none: "Needs the car's counter of charged energy.",
-  insight_s_at_night: "at night",
-  insight_s_each: "Each charge",
-  insight_s_charged: "Charged in 90 days",
-  insight_s_nights: "{n} days with charging",
-  insight_s_paid: "Paid, about",
-  insight_s_cheaper: "Against the day's mean price",
-  insight_s_cheaper_note: "cheaper",
-  insight_g_ridge: "Departures, day by day",
-  insight_g_ridge_note: "Each wave is a weekday. Narrow and tall is a regular day; wide and flat is a day that is hard to foresee.",
-  insight_g_keep: "The log goes, what is learned stays",
-  insight_g_keep_in: "90 days of trips",
-  insight_g_keep_out: "What is learned",
-  insight_g_keep_note: "Trips with their times and places go after 90 days. What stays is patterns without places: the rhythm, the use, what the cold costs and the forecast's error.",
-  insight_a_back: "Said and done, 30 days",
-  insight_a_back_note: "The bar is what was expected the day before (8 of 10 times). The dot is what the car used. Red dots fell outside.",
-  insight_a_back_in: "{n} of {of} inside",
-  insight_a_cal: "Does the likelihood hold?",
-  insight_a_cal_note: "When 80 % is said, it should happen about 8 times of 10. The bar is how often it happened; the line is what was said.",
-  insight_a_dial: "Wait, or charge tonight?",
-  insight_a_waits: "Waits for a cheaper night",
-  insight_a_charges: "Charges tonight",
   insight_v_power: "Power",
-  insight_q_cost: "What has it cost?",
-  insight_q_cost_note: "{kwh} kWh in 30 days · {price}/kWh",
-  insight_q_knows: "How well does it know you?",
-  insight_q_knows_days: "{days} days",
-  insight_z_day: "Day",
-  insight_z_week: "Week",
-  insight_z_month: "Month",
-  insight_j_next: "Next cheap night",
-  insight_j_cheapest: "Cheapest night",
-  insight_j_far: "Longest trip",
-  insight_j_charge: "Last charge",
-  insight_lg_price: "Price",
-  insight_lg_forecast: "Price forecast",
-  insight_lg_battery: "Battery",
-  insight_lg_expected: "Expected battery",
-  insight_lg_trip: "Driving",
-  insight_lg_charge: "Charging",
-  insight_d_typical: "A typical day",
-  insight_d_hard: "A hard day",
-  insight_d_forecast: "forecast",
-  insight_d_known: "known",
-  insight_d_cheaper: "Cheaper than tonight",
-  insight_d_battery: "Battery now",
-  insight_d_wait: "Can wait",
-  insight_d_nights: "{n} nights",
-  insight_d_driven: "Driven",
-  insight_d_out: "left {time}",
-  insight_d_used: "Used",
-  insight_d_charged: "Charged",
-  insight_f_title: "The coming days",
-  insight_f_fan: "Outlook",
-  insight_f_paths: "Ways it may go",
-  insight_f_prob: "Likelihood",
-  insight_f_fan_note: "The forecast with bands for 5 and 8 of 10 outcomes. The dashed line is tonight's price.",
-  insight_f_paths_note: "22 ways the prices may go. Green ends cheaper than tonight, red dearer.",
-  insight_f_prob_note: "How likely each of the coming nights is to be cheaper than tonight.",
   insight_v_sum: "Overview",
   insight_off_hint: "Turn Insight on in Settings to see this.",
   insight_v_cars: "Driving",
@@ -2155,50 +1957,6 @@ Object.assign(TEXT.en, {
   insight_v_charge: "Charging",
   insight_v_learn: "Learned",
   insight_v_ahead: "Ahead",
-  insight_k_30: "{kwh} kWh used in 30 days",
-  insight_k_night: "The night's price",
-  insight_k_night_note: "mean of 30 nights' cheapest hours",
-  insight_k_kept: "Days with prices",
-  insight_k_kept_note: "{fc} days of forecasts kept",
-  insight_sum_title: "The last 30 days",
-  insight_sum_note: "The bars are km a day for each car. The line is the price of the night's three cheapest hours.",
-  insight_c_days: "Days with driving",
-  insight_c_days_note: "of the last 90",
-  insight_c_avg: "A typical day of driving",
-  insight_c_avg_note: "from {low} to {high} km",
-  insight_c_eff: "kWh per 100 km",
-  insight_c_eff_note: "+{cold} % per degree under 15 °C",
-  insight_c_clock: "When the car leaves home",
-  insight_c_clock_note: "The first departure of each of the last 90 days. The darker, the more often.",
-  insight_c_trips: "The latest trips",
-  insight_c_trips_none: "No trips logged yet. They come once the car has driven.",
-  insight_p_night: "The night's price, 90 days",
-  insight_p_night_note: "{own} days are your own price from the price sensor, {spot} days are spot prices fetched from before and recalculated.",
-  insight_p_mean: "The day's mean price, 90 days",
-  insight_p_week: "The night's price by weekday",
-  insight_p_week_note: "The mean of the last year.",
-  insight_p_error: "The forecast's error for each day ahead",
-  insight_p_error_note: "Learned from {fc} days of kept forecasts; until there are enough, a careful guess is used.",
-  insight_l_title: "charged a day",
-  insight_l_note: "{nights} days with charging · about {price}/kWh",
-  insight_l_hint: "The price is an estimate: what was charged times the night's cheapest hours that day. Charging away from home is counted too.",
-  insight_g_models: "What EV Planner has learned",
-  insight_g_rhythm: "{car}: the week's rhythm",
-  insight_g_rhythm_note: "{days} days. Used from 28 days.",
-  insight_g_forecast: "The forecast's error",
-  insight_g_forecast_note: "{fc} days of forecasts kept. Of use after about 4 weeks.",
-  insight_g_ledger: "The ledger",
-  insight_g_cold: "The cold costs",
-  insight_g_cold_none: "Too few days of driving with a temperature yet.",
-  insight_a_wait: "none (waits)",
-  insight_a_chance: "A cheaper night within reach is {pct} % likely. The night's price: {price}.",
-  insight_a_rate: "Right",
-  insight_a_rate_note: "of {n} car-days",
-  insight_a_saved: "Could have been saved",
-  insight_a_saved_note: "on {n} nights it would have waited",
-  insight_a_ledger: "Said and done",
-  insight_a_pick: "Charges",
-  insight_a_ledger_note: "For each car: a hard day as expected / what the day after took (kWh). Red is a day that was harder than expected.",
   widgets_refresh_hint: "Asks the iOS app to refresh its widgets when a car's status changes (at most every 15 minutes).",
   climate_entity: "Climate",
   climate_entity_hint: "What starts the car's climate. Found on the car's own device; choose another here.",
@@ -2557,11 +2315,6 @@ const esc = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 /* The share of a normal distribution under a value (how likely something is to come in under it). */
-const phiOf = (z) => {
-  const k = 1 / (1 + 0.2316419 * Math.abs(z));
-  const p = 0.3989423 * Math.exp((-z * z) / 2) * k * (0.3193815 + k * (-0.3565638 + k * (1.781478 + k * (-1.821256 + k * 1.330274))));
-  return z > 0 ? 1 - p : p;
-};
 const reducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 const cssId = (value) =>
   typeof CSS !== "undefined" && CSS.escape ? CSS.escape(value) : String(value).replace(/["\\]/g, "\\$&");
@@ -5400,6 +5153,7 @@ class EvPlannerPanel extends HTMLElement {
   _setTab(tab) {
     if (!TABS.includes(tab)) return;
     this._tab = tab;
+    this._histClassic = null;
     this._sheet = null;
     this._chargerId = null;
     this._write(TAB_KEY, tab);
@@ -5925,7 +5679,10 @@ class EvPlannerPanel extends HTMLElement {
     if (this._tab === "guest") content.innerHTML = this._guestHtml();
     else if (this._tab === "home" && this._currentCharger) content.innerHTML = this._chargerPageHtml(this._currentCharger);
     else if (this._tab === "home") content.innerHTML = this._homeHtml();
-    else if (this._tab === "history") content.innerHTML = this._historyHtml();
+    else if (this._tab === "history") {
+      const stays = this._state.settings?.insight && !this._histClassic && this._insEl && this._insEl.isConnected && content.querySelector(".insight-host") === this._insEl.parentNode;
+      if (!stays) content.innerHTML = this._historyHtml();
+    }
     else if (this._tab === "settings") content.innerHTML = this._settingsHtml();
     else if (car) content.innerHTML = this._carPageHtml(car);
     else if (this._currentCharger) content.innerHTML = this._chargerPageHtml(this._currentCharger);
@@ -9368,15 +9125,18 @@ class EvPlannerPanel extends HTMLElement {
     // The learning centre: one row of parts. Charging (the history) and Learned are always there;
     // the others are Insight's, and dimmed while it is off.
     const insightOn = Boolean(this._state.settings?.insight);
+    // With Insight on the learning centre is the page; the history and what is learned open from it, with a way back.
+    if (insightOn && !this._histClassic) return `<div class="page stack hist-page insight-host"></div>`;
     const parts = { sum: "sum", cars: "cars", history: "power", learned: "learn" };
-    const view = this._histView in parts ? this._histView : insightOn ? "sum" : "history";
     const own = (k) => k === "history" || k === "learned";
-    const switcher = `<nav class="chips hist-views learn-views" role="tablist">${Object.keys(parts)
-      .map((k) => `<button role="tab" data-act="hist-view" data-value="${k}" data-f="hv-${k}" aria-selected="${k === view}" class="${k === view ? "on" : ""}${insightOn || own(k) ? "" : " dim"}">${this._t(`insight_v_${parts[k]}`)}</button>`)
+    const view = insightOn ? this._histClassic : this._histView in parts ? this._histView : "history";
+    const switcher = `<nav class="chips hist-views learn-views" role="tablist">${insightOn ? `<button data-act="hist-view" data-value="back" data-f="hv-back">‹ ${esc(this._t("tab_history"))}</button>` : ""}${Object.keys(parts)
+      .filter((k) => !insightOn || own(k))
+      .map((k) => `<button role="tab" data-act="hist-view" data-value="${k}" data-f="hv-${k}" aria-selected="${k === view}" class="${k === view ? "on" : ""}${insightOn || own(k) ? "" : " dim"}">${this._t(insightOn && k === "history" ? "insight_v_charge" : `insight_v_${parts[k]}`)}</button>`)
       .join("")}</nav>`;
-    if (!own(view)) return `<div class="page stack hist-page">${switcher}${insightOn ? this._insightPageHtml(parts[view]) : `<p class="hint">${esc(this._t("insight_off_hint"))}</p>`}</div>`;
-    if (view === "learned") return `<div class="page stack hist-page">${switcher}${this._learnedHtml()}${insightOn ? this._insightPageHtml("learn") + this._insightPageHtml("ahead") : ""}</div>`;
-    const more = insightOn ? this._insightPageHtml("charge") + this._insightPageHtml("prices") : "";
+    if (!own(view)) return `<div class="page stack hist-page">${switcher}<p class="hint">${esc(this._t("insight_off_hint"))}</p></div>`;
+    if (view === "learned") return `<div class="page stack hist-page">${switcher}${this._learnedHtml()}</div>`;
+    const more = "";
     const cars = this._cars;
     const guestHistory = this._guest?.history || [];
     if (!cars.some((v) => (v.history || []).length || Object.keys(v.months || {}).length) && !guestHistory.length && !this._state.home?.history) {
@@ -9622,14 +9382,7 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   async _afterHistory() {
-    // The timeline stands where it was left; the first time, with now a little right of the middle.
-    const scroll = this.shadowRoot.querySelector(".tl-scroll");
-    if (scroll) {
-      const zoom = { day: 13, week: 4.2, month: 1.6 }[scroll.dataset.zoom] || 4.2;
-      if (typeof this._tlLeft === "string") this._tlLeft = Math.max(0, (Number(this._tlLeft.slice(1)) + 21 * 24) * zoom - scroll.clientWidth * 0.5);
-      scroll.scrollLeft = this._tlLeft ?? Math.max(0, Number(scroll.dataset.now) - scroll.clientWidth * 0.62);
-      scroll.addEventListener("scroll", () => { this._tlLeft = scroll.scrollLeft; }, { passive: true });
-    }
+    if (this.shadowRoot.querySelector(".insight-host")) { this._insightMount(); return; }
     this._countAll();
     if (this._histView === "learned") {
       if (!this._state.home?.history) return;
@@ -10052,386 +9805,93 @@ class EvPlannerPanel extends HTMLElement {
     if (this._insightBusy || Date.now() - (this._insightAt || 0) <= 60000) return;
     this._insightBusy = true;
     this._ws("ev_household_planner/insight")
-      .then((data) => { this._insight = data; })
+      .then((data) => {
+        // Only figures that differ are drawn again.
+        const text = JSON.stringify(data);
+        if (text !== this._insightText) { this._insightText = text; this._insightRev = (this._insightRev || 0) + 1; }
+        this._insight = data;
+      })
       .catch(() => {})
       .finally(() => { this._insightAt = Date.now(); this._insightBusy = false; if (still()) this._render(); });
   }
 
-  /* Insight's page: the evening, the cars, the prices, the charging, what is learned and how it has held. */
-  _insightPageHtml(view) {
-    const t = (key, values) => this._t(`insight_${key}`, values);
-    this._insightLoad(() => this._tab === "history");
-    const data = this._insight;
-    if (!data || !data.cars) return `<p class="hint">${esc(t("loading"))}</p>`;
-    const da = this._lang === "da";
-    const num = (value, digits = 0) => (value == null || Number.isNaN(Number(value)) ? "–" : Number(value).toFixed(digits).replace(".", da ? "," : "."));
-    const names = Object.fromEntries(Object.entries(data.cars).map(([id, car]) => [id, car.name]));
-    const ids = Object.keys(data.cars);
-    const carId = ids.includes(this._insCar) ? this._insCar : ids[0];
-    const detail = (data.detail || {})[carId] || {};
-    const days = Object.entries(detail.days || {});
-    const wd = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((d) => this._t(`day_${d}`));
-    const weekday = (iso) => (new Date(`${iso}T12:00:00`).getDay() + 6) % 7;
-    const short = (iso) => `${Number(iso.slice(8, 10))}/${Number(iso.slice(5, 7))}`;
-    const sum = (list) => list.reduce((total, value) => total + (Number(value) || 0), 0);
-    const kpi = (label, value, note = "") => `<div class="ins-kpi"><small>${esc(label)}</small><b>${esc(value)}</b><span>${esc(note)}</span></div>`;
-    // A card's explanation stays behind its "?".
-    let cardNo = 0;
-    const card = (title, body, note = "") => {
-      const key = `ins-${view}-${(cardNo += 1)}`;
-      return `<section class="ins-card"><h3>${esc(title)}${note ? this._helpButton(key, title) : ""}</h3>${note ? this._helpBubble(key, note) : ""}${body}</section>`;
-    };
-    // Bars along a row of days or hours; each with its figure as a title.
-    const bars = (list, { top = null, cls = "" } = {}) => {
-      const high = top || Math.max(1e-9, ...list.map((item) => item.value || 0));
-      return `<div class="ins-bars ${cls}">${list.map((item) => `<i class="${item.cls || ""}" title="${esc(item.title || "")}" style="height:${Math.max(item.value ? 3 : 1, ((item.value || 0) / high) * 100)}%"></i>`).join("")}</div>`;
-    };
-    // A line through a row of figures, with holes where there is none.
-    const line = (values, { height = 90, cls = "" } = {}) => {
-      const known = values.filter((v) => v != null);
-      if (known.length < 2) return "";
-      const low = Math.min(...known), high = Math.max(...known), span = high - low || 1;
-      let path = "", pen = false;
-      values.forEach((v, i) => {
-        if (v == null) { pen = false; return; }
-        path += `${pen ? "L" : "M"}${((i / (values.length - 1)) * 300).toFixed(1)} ${(height - 6 - ((v - low) / span) * (height - 12)).toFixed(1)}`;
-        pen = true;
-      });
-      return `<svg class="ins-line ${cls}" viewBox="0 0 300 ${height}" preserveAspectRatio="none" aria-hidden="true"><path d="${path}"/></svg><div class="ins-axis"><span>${esc(this._money(low))}</span><span>${esc(this._money(high))}</span></div>`;
-    };
-    const tonight = data.tonight || {};
-    const groups = (tonight.groups || [])
-      .map((g) => {
-        const head = g.pick ? t("pick", { car: names[g.pick] || "" }) : t("none");
-        const why = t(`reason_${g.reason}`, { pct: Math.round((g.chance || 0) * 100) });
-        const cars = g.cars.map((id) => { const c = (tonight.cars || {})[id] || {}; return `<small><b>${esc(names[id] || "")}</b>: ${esc(t("car_line", { kwh: num(c.soc_kwh), p50: num(c.p50), p90: num(c.p90), n: c.reach ?? "–" }))}</small>`; }).join("");
-        return `<div class="insight-card"><strong>${esc(head)}</strong><small>${esc(why)}</small>${g.both ? `<small class="warn-text">${esc(t("both"))}</small>` : ""}${cars}</div>`;
-      })
-      .join("");
-    const carChips = ids.length > 1 ? `<div class="chips">${ids.map((id) => `<button class="${id === carId ? "on" : ""}" data-act="insight-car" data-value="${esc(id)}" data-f="ic-${esc(id)}" aria-pressed="${id === carId}">${esc(names[id])}</button>`).join("")}</div>` : "";
-    const priceDays = Object.entries(data.price_days || {});
-    const last = (n) => priceDays.slice(-n);
-    const weekBars = (detail.week || []).map((d, i) => `<div class="insight-col" title="${esc(`${wd[i]}: ${num(d.p50)} / ${num(d.p90)} kWh`)}"><div class="insight-bars"><i class="hard" style="height:${Math.max(2, (d.p90 / Math.max(1, ...detail.week.map((x) => x.p90 || 0))) * 100)}%"></i><i style="height:${Math.max(2, (d.p50 / Math.max(1, ...detail.week.map((x) => x.p90 || 0))) * 100)}%"></i></div><small>${esc(wd[i])}</small></div>`).join("");
-    let body = "";
-    if (view === "sum") {
-      const sc = data.score || {};
-      const all = ids.flatMap((id) => Object.entries(((data.detail || {})[id] || {}).days || {}).slice(-30));
-      const kwh = sum(all.map(([, d]) => d.charged));
-      const cost = sum(all.map(([iso, d]) => (d.charged || 0) * (((data.price_days || {})[iso] || {}).night || 0)));
-      const pick = (tonight.groups || [])[0] || {};
-      const ring = (share) => `<svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15"/><circle class="on" cx="18" cy="18" r="15" pathLength="100" stroke-dasharray="${Math.round(clamp(share, 0, 1) * 100)} 100" transform="rotate(-90 18 18)"/></svg>`;
-      const answer = (to, share, label, value, note) => `<button class="tl-q" data-act="hist-view" data-value="${to}" data-f="tlq-${to}">${ring(share)}<span><small>${esc(label)}</small><b>${esc(value)}</b><i>${esc(note)}</i></span></button>`;
-      const known = (data.cars[carId] || {}).days || 0;
-      body = `${this._timelineHtml(data, carId, carChips)}
-        <div class="tl-three">
-          ${answer("cars", 1, t("tonight"), pick.pick ? t("pick", { car: names[pick.pick] || "" }) : t("none"), pick.reason ? t(`reason_${pick.reason}`, { pct: Math.round((pick.chance || 0) * 100) }) : "")}
-          ${answer("history", 0.7, t("q_cost"), this._money(cost, 0), t("q_cost_note", { kwh: num(kwh), price: kwh ? this._money(cost / kwh) : "–" }))}
-          ${answer("learned", sc.scored ? sc.rate || 0 : Math.min(1, known / 28), t("q_knows"), sc.scored ? `${Math.round((sc.rate || 0) * 100)} %` : t("q_knows_days", { days: known }), sc.scored ? t("a_rate_note", { n: sc.scored }) : t("score_none"))}
-        </div>`;
-    } else if (view === "cars") {
-      const driven = days.filter(([, d]) => (d.km || 0) >= 1);
-      const kms = driven.map(([, d]) => d.km);
-      const trips = (data.trips || []).filter((trip) => trip.vehicle === carId);
-      // The week's clock: Monday innermost, Sunday outermost; the darker, the more often the car left in that hour.
-      const heat = Array.from({ length: 7 }, () => Array(24).fill(0));
-      for (const [iso, d] of days) if (d.out != null) heat[weekday(iso)][Math.min(23, Math.floor(d.out))] += 1;
-      for (const trip of trips) { const at = ZD(trip.start); heat[(at.getDay() + 6) % 7][at.getHours()] += 1; }
-      const most = Math.max(1, ...heat.flat());
-      const arc = (r0, r1, a0, a1) => { const p = (r, a) => `${(110 + r * Math.sin(a)).toFixed(1)} ${(110 - r * Math.cos(a)).toFixed(1)}`; return `M${p(r0, a0)}A${r0} ${r0} 0 0 1 ${p(r0, a1)}L${p(r1, a1)}A${r1} ${r1} 0 0 0 ${p(r1, a0)}Z`; };
-      const clock = `<svg class="ins-clock" viewBox="0 0 220 220" role="img" aria-label="${esc(t("c_clock"))}">${heat.map((row, i) => row.map((n, h) => `<path d="${arc(30 + i * 10.5, 39.5 + i * 10.5, (h / 24) * 2 * Math.PI + 0.012, ((h + 1) / 24) * 2 * Math.PI - 0.012)}" style="opacity:${n ? 0.25 + 0.75 * (n / most) : 0.07}"><title>${esc(`${wd[i]} ${h}:00 · ${n}`)}</title></path>`).join("")).join("")}<text x="110" y="107" class="big">${days.length ? Math.round((driven.length / days.length) * 100) : 0} %</text><text x="110" y="122" class="sub">${esc(t("c_share"))}</text><text x="110" y="9" class="hr">00</text><text x="214" y="113" class="hr">06</text><text x="110" y="218" class="hr">12</text><text x="6" y="113" class="hr">18</text></svg>`;
-      // The map: home in the middle, the places the trips went around it; the thicker the line, the more often.
-      const places = new Map();
-      for (const trip of trips) for (const [a, b] of [[trip.from, trip.to]]) { const key = [a, b].sort().join("|"); places.set(key, (places.get(key) || 0) + 1); }
-      const nodes = [...new Set(trips.flatMap((trip) => [trip.from, trip.to]).filter((n) => n && n !== "home"))].slice(0, 7);
-      const at = (name) => { if (name === "home") return [150, 95]; const i = nodes.indexOf(name), a = (i / Math.max(1, nodes.length)) * 2 * Math.PI - 0.9; return [150 + 112 * Math.cos(a), 95 + 68 * Math.sin(a)]; };
-      const maxTrips = Math.max(1, ...places.values());
-      const map = nodes.length
-        ? `<svg class="ins-map" viewBox="0 0 300 190" role="img" aria-label="${esc(t("c_map"))}">${[...places].map(([key, n]) => { const [a, b] = key.split("|"); if (!["home", ...nodes].includes(a) || !["home", ...nodes].includes(b)) return ""; const [x1, y1] = at(a), [x2, y2] = at(b); return `<path d="M${x1} ${y1}Q${(x1 + x2) / 2} ${(y1 + y2) / 2 - 22} ${x2} ${y2}" style="stroke-width:${1.5 + 5 * (n / maxTrips)}"/>`; }).join("")}${["home", ...nodes].map((name) => { const [x, y] = at(name); return `<circle cx="${x}" cy="${y}" r="${name === "home" ? 6 : 4.5}" class="${name === "home" ? "home" : ""}"/><text x="${x}" y="${y - 9}">${esc(name === "home" ? this._t("tab_home") : name)}</text>`; }).join("")}</svg>`
-        : `<p class="hint">${esc(t("c_trips_none"))}</p>`;
-      // Every day's driving: across the days, down the hour it left, the size the km, the colour the temperature.
-      const tone = (temp) => (temp == null ? "var(--evp-soft)" : `color-mix(in srgb, var(--evp-sand) ${clamp(Math.round(((temp + 5) / 25) * 100), 0, 100)}%, var(--evp-accent))`);
-      const scatter = driven.length
-        ? `<svg class="ins-plot" viewBox="0 0 300 130" preserveAspectRatio="none" role="img" aria-label="${esc(t("c_each"))}">${[6, 12, 18].map((h) => `<line x1="0" x2="300" y1="${(h / 24) * 124 + 3}" y2="${(h / 24) * 124 + 3}"/>`).join("")}${days.map(([, d], i) => (d.out == null || !d.km ? "" : `<circle cx="${((i + 0.5) / days.length) * 300}" cy="${(d.out / 24) * 124 + 3}" r="${clamp(1.5 + d.km / 45, 1.8, 7)}" style="fill:${tone(d.temp)}"/>`)).join("")}</svg><div class="ins-axis"><span>${esc(short(days[0][0]))}</span><span>06 · 12 · 18</span><span>${esc(short(days.at(-1)[0]))}</span></div>`
-        : "";
-      const useTop = Math.max(1, ...days.map(([, d]) => d.used || 0));
-      const temps = days.map(([, d]) => d.temp);
-      const daily = `<div class="ins-over">${bars(days.map(([iso, d]) => ({ value: d.used, title: `${short(iso)}: ${num(d.used, 1)} kWh` })), { top: useTop })}${line(temps, { height: 64, cls: "over" }).replace(/<div class="ins-axis">.*<\/div>/, "")}</div>`;
-      const tripRows = trips.slice(-20).reverse().map((trip) => `<tr><td>${esc(this._day(trip.start))} ${esc(this._time(trip.start))}–${esc(this._time(trip.end))}</td><td>${esc(trip.from || "")} → ${esc(trip.to || "")}</td><td>${trip.km == null ? "–" : `${num(trip.km, 1)} km`}</td><td>${trip.kwh == null ? "–" : `${num(trip.kwh, 1)} kWh`}</td><td>${trip.temp == null ? "" : `${num(trip.temp)}°`}</td></tr>`).join("");
-      body = `${carChips}
-        <div class="ins-kpis">${kpi(t("c_days"), `${driven.length}/${days.length}`, t("c_days_note"))}${kpi(t("c_km"), `${num(sum(kms))} km`, t("c_avg_note", { low: num(Math.min(...(kms.length ? kms : [0]))), high: num(Math.max(...(kms.length ? kms : [0]))) }))}${kpi(t("d_used"), `${num(sum(days.map(([, d]) => d.used)))} kWh`, "")}${kpi(t("c_eff"), `${num((detail.kwh_km || 0) * 100, 1)}`, t("c_eff_note", { cold: num((detail.cold || 0) * 100, 1) }))}</div>
-        <div class="ins-two">${card(t("c_clock"), clock, t("c_clock_note"))}${card(t("c_map"), map, t("c_map_note"))}</div>
-        ${card(t("c_each"), scatter, t("c_each_note"))}
-        ${card(t("c_daily"), daily, t("c_daily_note"))}
-        ${card(t("week", { days: (data.cars[carId] || {}).days }), `<div class="insight-week">${weekBars}</div>`, t("week_legend"))}
-        ${tripRows ? card(t("c_trips"), `<div class="ins-scroll"><table class="ins-table">${tripRows}</table></div>`) : ""}`;
-    } else if (view === "prices") {
-      const errors = data.errors || [];
-      const hit = errors.map((e, i) => `<div class="fan-row"><span>+${i + 1}</span><div><i style="width:${Math.round(clamp(1 - e, 0, 1) * 100)}%"></i></div><b>${Math.round(clamp(1 - e, 0, 1) * 100)} %</b></div>`).join("");
-      const rhythm = data.rhythm || [];
-      const flat = rhythm.flat().filter((v) => v != null), lo = Math.min(...flat), hi = Math.max(...flat);
-      const grid = flat.length
-        ? `<div class="ins-heat price">${rhythm.map((row, i) => `<span>${esc(wd[i])}</span>${row.map((v, h) => `<i title="${esc(`${wd[i]} ${h}:00 · ${v == null ? "–" : this._money(v)}`)}" style="background:${v == null ? "transparent" : `color-mix(in srgb, var(--evp-coral) ${Math.round(((v - lo) / (hi - lo || 1)) * 100)}%, var(--evp-good))`}"></i>`).join("")}`).join("")}</div><div class="ins-hours"><span></span><span>0</span><span>6</span><span>12</span><span>18</span></div>`
-        : "";
-      body = `${this._fanHtml(data, card)}
-        <div class="ins-two">${card(t("p_hit"), hit, t("p_error_note", { fc: data.forecasts }))}${grid ? card(t("p_rhythm"), grid, t("p_rhythm_note")) : ""}</div>`;
-    } else if (view === "charge") {
-      const prices = data.price_days || {};
-      const stats = this._insSoc || {};
-      const rows = ids.map((id) => {
-        const list = Object.entries(((data.detail || {})[id] || {}).days || {});
-        const kwh = sum(list.map(([, d]) => d.charged)), used = sum(list.map(([, d]) => d.used));
-        const cost = sum(list.map(([iso, d]) => (d.charged || 0) * ((prices[iso] || {}).night || 0)));
-        const plain = sum(list.map(([iso, d]) => (d.charged || 0) * ((prices[iso] || {}).mean || 0)));
-        const byHour = Array(24).fill(0);
-        for (const row of stats[(data.cars[id].sources || {}).energy] || []) if (row.change > 0 && row.change < 200) byHour[ZD(row.start).getHours()] += row.change;
-        return { id, list, kwh, used, cost, plain, byHour, nights: list.filter(([, d]) => (d.charged || 0) > 1).length };
-      });
-      const total = sum(rows.map((r) => r.kwh)), cost = sum(rows.map((r) => r.cost)), plain = sum(rows.map((r) => r.plain));
-      const byHour = Array.from({ length: 24 }, (_, h) => sum(rows.map((r) => r.byHour[h])));
-      const hourly = sum(byHour), atNight = sum(byHour.filter((_, h) => h >= 21 || h < 7));
-      const share = hourly ? atNight / hourly : null;
-      // Where the power came from and what it became: night and day into each car, and from the car to driving and the rest.
-      const flow = () => {
-        if (total < 1) return `<p class="hint">${esc(t("score_none"))}</p>`;
-        const H = 170, k = (H - 24) / total, night = total * (share ?? 1), dayPart = total - night;
-        const left = [[t("s_night"), night, "var(--evp-accent)"], [t("s_day"), dayPart, "var(--evp-sand)"]].filter((n) => n[1] > 0.5);
-        const mid = rows.map((r, i) => [names[r.id], r.kwh, i ? "var(--evp-coral)" : "var(--evp-accent)", r]);
-        const usedAll = Math.min(total, sum(rows.map((r) => Math.min(r.kwh, r.used)))), right = [[t("s_drive"), usedAll, "var(--evp-ink)"], [t("s_rest"), total - usedAll, "var(--evp-soft)"]].filter((n) => n[1] > 0.5);
-        const stack = (list) => { let y = 0; return list.map((n) => { const out = { name: n[0], v: n[1], c: n[2], y, h: n[1] * k, used: 0, got: 0 }; y += n[1] * k + 12 / Math.max(1, list.length - 1 || 1); return out; }); };
-        const L = stack(left), M = stack(mid), R = stack(right);
-        const band = (x0, x1, a, b, v, colour) => { const h = v * k, y0 = a.y + a.used, y1 = b.y + b.got; a.used += h; b.got += h; return `<path d="M${x0} ${y0}C${(x0 + x1) / 2} ${y0} ${(x0 + x1) / 2} ${y1} ${x1} ${y1}L${x1} ${y1 + h}C${(x0 + x1) / 2} ${y1 + h} ${(x0 + x1) / 2} ${y0 + h} ${x0} ${y0 + h}Z" style="fill:${colour}"/>`; };
-        let out = "";
-        for (const a of L) for (const b of M) out += band(96, 196, a, b, (a.v * b.v) / total, a.c);
-        M.forEach((m, i) => { const r = rows[i], drive = Math.min(r.kwh, r.used); m.used = 0; if (R[0] && drive > 0) out += band(204, 304, m, R[0], drive, m.c); if (R[1] && r.kwh - drive > 0) out += band(204, 304, m, R[1], r.kwh - drive, m.c); });
-        const node = (x, n, anchor) => `<rect x="${x}" y="${n.y}" width="8" height="${Math.max(2, n.h)}" rx="2" style="fill:${n.c}"/><text x="${anchor === "end" ? x - 5 : x + 13}" y="${n.y + Math.max(2, n.h) / 2 + 1}" text-anchor="${anchor}" class="nm">${esc(n.name)}</text><text x="${anchor === "end" ? x - 5 : x + 13}" y="${n.y + Math.max(2, n.h) / 2 + 13}" text-anchor="${anchor}" class="nv">${num(n.v)} kWh</text>`;
-        return `<svg class="ins-flow" viewBox="0 0 400 ${H}" role="img" aria-label="${esc(t("s_title"))}">${out}${L.map((n) => node(88, n, "end")).join("")}${M.map((n) => node(196, n, "start").replace(/<text[^]*$/, "")).join("")}${M.map((n) => `<text x="200" y="${n.y - 3}" text-anchor="middle" class="nm">${esc(n.name)}</text>`).join("")}${R.map((n) => node(304, n, "start")).join("")}</svg>`;
-      };
-      const topHour = Math.max(1e-9, ...byHour);
-      const radial = hourly
-        ? `<svg class="ins-clock" viewBox="0 0 220 220" role="img" aria-label="${esc(t("s_when"))}">${byHour.map((v, h) => { const a0 = (h / 24) * 2 * Math.PI + 0.02, a1 = ((h + 1) / 24) * 2 * Math.PI - 0.02, r1 = 46 + 58 * (v / topHour), p = (r, a) => `${(110 + r * Math.sin(a)).toFixed(1)} ${(110 - r * Math.cos(a)).toFixed(1)}`; return `<path d="M${p(44, a0)}A44 44 0 0 1 ${p(44, a1)}L${p(r1, a1)}A${r1} ${r1} 0 0 0 ${p(r1, a0)}Z" style="opacity:${v ? 1 : 0.1}"><title>${h}:00 · ${num(v, 1)} kWh</title></path>`; }).join("")}<text x="110" y="107" class="big">${Math.round((share || 0) * 100)} %</text><text x="110" y="122" class="sub">${esc(t("s_at_night"))}</text><text x="110" y="9" class="hr">00</text><text x="214" y="113" class="hr">06</text><text x="110" y="218" class="hr">12</text><text x="6" y="113" class="hr">18</text></svg>`
-        : `<p class="hint">${esc(t("s_when_none"))}</p>`;
-      const all = rows.flatMap((r, i) => r.list.filter(([, d]) => (d.charged || 0) > 1).map(([iso, d]) => ({ iso, kwh: d.charged, second: i })));
-      const firstDay = rows[0]?.list[0]?.[0], span = rows[0]?.list.length || 1;
-      const index = (iso) => (new Date(`${iso}T12:00:00`) - new Date(`${firstDay}T12:00:00`)) / 86400000;
-      const pTop = Math.max(0.5, ...Object.values(prices).slice(-span).map((p) => p.mean || 0)) * 1.05;
-      const each = all.length
-        ? `<svg class="ins-plot" viewBox="0 0 300 130" preserveAspectRatio="none" role="img" aria-label="${esc(t("s_each"))}"><path class="mean" d="${rows[0].list.map(([iso], i) => { const p = (prices[iso] || {}).mean; return p == null ? "" : `${i ? "L" : "M"}${((i + 0.5) / span) * 300} ${127 - (p / pTop) * 122}`; }).join("").replace(/^L/, "M")}"/>${all.map((c) => { const p = (prices[c.iso] || {}).night; return p == null ? "" : `<circle cx="${((index(c.iso) + 0.5) / span) * 300}" cy="${127 - (p / pTop) * 122}" r="${clamp(2 + c.kwh / 12, 2.5, 7)}" class="${c.second ? "second" : ""}"/>`; }).join("")}</svg><div class="ins-axis"><span>${esc(short(firstDay))}</span><span>${esc(this._money(pTop))}</span></div>`
-        : "";
-      body = `<div class="ins-kpis">${kpi(t("s_charged"), `${num(total)} kWh`, t("s_nights", { n: sum(rows.map((r) => r.nights)) }))}${kpi(t("s_paid"), this._money(cost, 0), total ? `${this._money(cost / total)}/kWh` : "")}${kpi(t("s_cheaper"), plain ? `${Math.round((1 - cost / plain) * 100)} %` : "–", t("s_cheaper_note"))}${kpi(t("s_at_night"), share == null ? "–" : `${Math.round(share * 100)} %`, "")}</div>
-        ${card(t("s_title"), flow(), t("s_title_note"))}
-        <div class="ins-two">${card(t("s_when"), radial, t("s_when_note"))}${each ? card(t("s_each"), each, t("l_hint")) : ""}</div>`;
-    } else if (view === "learn") {
-      const ring = (share) => `<svg class="ins-ring" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15"/><circle class="on" cx="18" cy="18" r="15" pathLength="100" stroke-dasharray="${Math.round(Math.min(1, share) * 100)} 100" transform="rotate(-90 18 18)"/></svg>`;
-      const model = (share, title, text) => `<div class="ins-model">${ring(share)}<div><b>${esc(title)}</b><small>${esc(text)}</small></div></div>`;
-      const sc = data.score || {};
-      // When the car leaves, weekday by weekday: a wave for each, narrow and tall where the day is regular.
-      const waves = wd.map((name, i) => {
-        const outs = days.filter(([iso, d]) => weekday(iso) === i && d.out != null).map(([, d]) => d.out);
-        if (!outs.length) return `<text x="0" y="${i * 22 + 20}" class="nm">${esc(name)}</text><line x1="26" x2="300" y1="${i * 22 + 22}" y2="${i * 22 + 22}"/>`;
-        const dens = Array.from({ length: 73 }, (_, x) => sum(outs.map((o) => Math.exp(-(((x / 3 - o) / 0.8) ** 2) / 2))) / outs.length);
-        return `<text x="0" y="${i * 22 + 20}" class="nm">${esc(name)}</text><path d="M26 ${i * 22 + 22}${dens.map((v, x) => `L${(26 + (x / 72) * 274).toFixed(1)} ${(i * 22 + 22 - v * 30).toFixed(1)}`).join("")}L300 ${i * 22 + 22}Z"/>`;
-      }).join("");
-      const ridge = `<svg class="ins-ridge" viewBox="0 0 300 172" role="img" aria-label="${esc(t("g_ridge"))}">${waves}${[6, 12, 18].map((h) => `<text x="${26 + (h / 24) * 274}" y="170" class="hr">${String(h).padStart(2, "0")}</text>`).join("")}</svg>`;
-      const dots = days.filter(([, d]) => (d.km || 0) >= 20 && d.used > 0 && d.temp != null).map(([, d]) => [d.temp, (d.used / d.km) * 100]).filter(([, e]) => e > 8 && e < 45);
-      const px = (temp) => ((temp + 10) / 40) * 300, pyy = (e) => 114 - ((e - 8) / 37) * 108, base = (detail.kwh_km || 0) * 100, slope = detail.cold || 0;
-      const scatter = dots.length > 4 ? `<svg class="ins-dots" viewBox="0 0 300 120" aria-hidden="true">${dots.map(([temp, e]) => `<circle cx="${px(temp).toFixed(1)}" cy="${pyy(e).toFixed(1)}" r="3"/>`).join("")}<path d="M${px(-10)} ${pyy(base * (1 + slope * 25))}L${px(15)} ${pyy(base)}L${px(30)} ${pyy(base)}"/></svg><div class="ins-axis"><span>-10°</span><span>30°</span></div>` : `<p class="hint">${esc(t("g_cold_none"))}</p>`;
-      body = `${card(t("g_models"), `${ids.map((id) => model((data.cars[id].days || 0) / 28, t("g_rhythm", { car: names[id] }), t("g_rhythm_note", { days: data.cars[id].days }))).join("")}
-        ${model((data.forecasts || 0) / 28, t("g_forecast"), t("g_forecast_note", { fc: data.forecasts }))}
-        ${model((sc.scored || 0) / 21, t("g_ledger"), sc.scored ? t("score", { rate: Math.round((sc.rate || 0) * 100), n: sc.scored, saved: this._money(sc.saved || 0) }) : t("score_none"))}`)}
-        ${carChips}
-        <div class="ins-two">${card(t("g_ridge"), ridge, t("g_ridge_note"))}${card(t("g_cold"), scatter, t("eff", { kwh: num(base, 1), cold: num(slope * 100, 1) }))}</div>
-        ${card(t("g_keep"), `<div class="ins-keep"><span>${esc(t("g_keep_in"))}</span><i></i><i></i><i></i><i></i><i></i><b>${esc(t("g_keep_out"))}</b></div>`, t("g_keep_note"))}`;
-    } else {
-      const sc = data.score || {};
-      const back = (detail.backtest || []);
-      const top = Math.max(1, ...back.map((r) => Math.max(r.p90 || 0, r.actual || 0)));
-      const yb = (v) => 116 - (clamp(v, 0, top) / top) * 110;
-      const inside = back.filter((r) => r.actual <= r.p90 && r.actual >= r.p10).length;
-      const tested = back.length
-        ? `<svg class="ins-back" viewBox="0 0 300 120" preserveAspectRatio="none" role="img" aria-label="${esc(t("a_back"))}">${back.map((r, i) => { const x = ((i + 0.5) / back.length) * 300, out = r.actual > r.p90 || r.actual < r.p10; return `<rect x="${x - 3}" y="${yb(r.p90)}" width="6" height="${Math.max(1.5, yb(r.p10) - yb(r.p90))}" rx="2"/><circle cx="${x}" cy="${yb(r.actual)}" r="2.6" class="${out ? "out" : ""}"/>`; }).join("")}</svg><div class="ins-axis"><span>${esc(short(back[0].day))}</span><span>${esc(t("a_back_in", { n: inside, of: back.length }))}</span><span>${esc(short(back.at(-1).day))}</span></div>`
-        : `<p class="hint">${esc(t("reason_learning"))}</p>`;
-      const cal = detail.calibration || [];
-      const calib = cal.length ? `<div class="ins-cal">${cal.map((c) => `<div><b>${Math.round(c.hit * 100)} %</b><i style="height:${Math.round(c.hit * 100)}%" class="${Math.abs(c.hit - c.said) > 0.1 ? "off" : ""}"></i><u style="bottom:${Math.round(c.said * 100)}%"></u><small>${Math.round(c.said * 100)} %</small></div>`).join("")}</div>` : "";
-      const chance = Math.max(0, ...(tonight.groups || []).map((g) => g.chance || 0)), waits = (tonight.groups || []).some((g) => g.wait);
-      const dial = `<div class="ins-dial"><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="50"/><circle class="on" cx="60" cy="60" r="50" pathLength="100" stroke-dasharray="${Math.round(chance * 100)} 100" transform="rotate(-90 60 60)"/><text x="60" y="67">${Math.round(chance * 100)} %</text></svg><div><b>${esc(waits ? t("a_waits") : t("a_charges"))}</b><small>${esc(t("a_chance", { pct: Math.round(chance * 100), price: tonight.price == null ? "–" : this._money(tonight.price) }))}</small></div></div>`;
-      const ledger = Object.entries(data.ledger || {}).reverse();
-      const rows = ledger.map(([iso, entry]) => {
-        const g = (entry.groups || [])[0] || {};
-        const next = new Date(new Date(`${iso}T12:00:00`).getTime() + 86400000).toISOString().slice(0, 10);
-        const cells = ids.map((id) => { const c = (entry.cars || {})[id]; const actual = (((data.detail || {})[id] || {}).needs || {})[next]; return `<td class="${c && actual != null && actual > c.p90 ? "warn-text" : ""}">${c ? `${num(c.p90)} / ${actual == null ? "…" : num(actual)}` : "–"}</td>`; }).join("");
-        return `<tr><td>${esc(short(iso))}</td><td>${esc(g.pick ? names[g.pick] || "" : g.wait ? t("a_wait") : "–")}</td>${cells}</tr>`;
-      }).join("");
-      body = `${card(t("a_back"), tested, t("a_back_note"))}
-        <div class="ins-two">${calib ? card(t("a_cal"), calib, t("a_cal_note")) : ""}${card(t("a_dial"), dial)}</div>
-        <div class="ins-kpis">${kpi(t("a_rate"), sc.scored ? `${Math.round((sc.rate || 0) * 100)} %` : "–", t("a_rate_note", { n: sc.scored || 0 }))}${kpi(t("a_saved"), this._money(sc.saved || 0), t("a_saved_note", { n: sc.waits || 0 }))}</div>
-        ${card(t("a_ledger"), rows ? `<div class="ins-scroll"><table class="ins-table"><tr><th></th><th>${esc(t("a_pick"))}</th>${ids.map((id) => `<th>${esc(names[id])}</th>`).join("")}</tr>${rows}</table></div>` : `<p class="hint">${esc(t("score_none"))}</p>`, t("a_ledger_note"))}`;
-    }
-    return body;
-  }
-
-  /* The battery's hourly level for the timeline's past, read from Home Assistant's own statistics. */
-  _insightSoc(data) {
-    if (this._insSocAt === this._insightAt || !this._hass?.callWS) return;
-    this._insSocAt = this._insightAt;
-    const ids = Object.values(data.cars || {}).flatMap((car) => [car.sources?.soc, car.sources?.energy]).filter(Boolean);
-    if (!ids.length) return;
+  /* Home Assistant's own hourly statistics for the learning centre: the level, the energy, the odometer and the temperature. */
+  _insightStats(data) {
+    if (this._insStatsBusy || Date.now() - (this._insStatsAt || 0) < 900000 || !this._hass?.callWS) return;
+    const ids = [...new Set(Object.values(data.cars || {}).flatMap((car) => ["soc", "energy", "odometer", "temperature"].map((kind) => car.sources?.[kind])).filter(Boolean))];
+    if (!ids.length) { this._insStatsAt = Date.now(); return; }
+    this._insStatsBusy = true;
     this._hass
-      .callWS({ type: "recorder/statistics_during_period", start_time: new Date(Date.now() - 91 * 86400000).toISOString(), statistic_ids: ids, period: "hour", types: ["mean", "change"] })
-      .then((rows) => { this._insSoc = rows || {}; if (this._tab === "history") this._render(); })
-      .catch(() => {});
+      .callWS({ type: "recorder/statistics_during_period", start_time: new Date(Date.now() - 92 * 86400000).toISOString(), statistic_ids: ids, period: "hour", types: ["mean", "change"] })
+      .then((rows) => { this._insStats = rows || {}; })
+      .catch(() => {})
+      .finally(() => { this._insStatsAt = Date.now(); this._insStatsBusy = false; if (this._tab === "history") this._render(); });
   }
 
-  /* The timeline: what happened to the left, now in the middle, what is expected to the right. */
-  _timelineHtml(data, carId, carChips) {
-    const t = (key, values) => this._t(`insight_${key}`, values);
-    this._insightSoc(data);
-    const zooms = { day: 13, week: 4.2, month: 1.6 };
-    const zoom = zooms[this._tlZoom] ? this._tlZoom : "week";
-    const w = zooms[zoom], BACK = 21, AHEAD = 6;
-    const now = ZD(), midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const H0 = -BACK * 24, H1 = (AHEAD + 1) * 24, nowH = (now.getTime() - midnight) / 3600000;
-    const noon = (d) => new Date(midnight + d * 86400000 + 43200000);
-    const iso = (d) => { const x = noon(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
-    const date = (d) => `${noon(d).getDate()}/${noon(d).getMonth() + 1}`;
-    const names = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-    const W = Math.round((H1 - H0) * w), X = (h) => (h - H0) * w;
-    const PT = 24, PH = 104, BT = PT + PH + 30, BH = 78, CT = BT + BH + 12, HT = CT + 20;
-    // Prices by the hour: the kept ones, then what the price sensor has ahead (a forecast from where it says so).
-    const price = new Map(), guessed = new Set();
-    for (let d = -BACK; d <= 1; d++) ((data.price_hours || {})[iso(d)] || []).forEach((p, h) => { if (p != null) price.set(d * 24 + h, p); });
-    const ahead = new Map();
-    for (const slot of this._state.prices || []) {
-      const h = Math.floor((ZD(slot.start).getTime() - midnight) / 3600000);
-      if (h < H0 || h >= H1) continue;
-      if (!ahead.has(h)) ahead.set(h, []);
-      ahead.get(h).push(slot.price);
-      if (slot.forecast) guessed.add(h);
-    }
-    for (const [h, list] of ahead) price.set(h, list.reduce((a, b) => a + b, 0) / list.length);
-    const known = [...price.keys()].filter((h) => !guessed.has(h));
-    const lastKnown = known.length ? Math.max(...known) : nowH;
-    const top = Math.max(1, ...price.values()) * 1.08;
-    const py = (v) => PT + PH - (clamp(v, 0, top) / top) * PH, by = (v) => BT + BH - (clamp(v, 0, 100) / 100) * BH;
-    const errors = data.errors || [];
-    const sig = (h) => (h <= lastKnown ? 0 : errors[clamp(Math.floor((h - lastKnown) / 24), 0, errors.length - 1)] ?? 0.2);
-    const path = (points) => { let d = "", before = null; for (const [h, y] of points) { d += `${before !== null && h - before <= 1.01 ? "L" : "M"}${X(h).toFixed(1)} ${y.toFixed(1)}`; before = h; } return d; };
-    const back = (points) => [...points].reverse().map(([h, y]) => `L${X(h).toFixed(1)} ${y.toFixed(1)}`).join("");
-    const hours = [...price.keys()].sort((a, b) => a - b);
-    const past = hours.filter((h) => h <= lastKnown), future = hours.filter((h) => h >= lastKnown);
-    // The battery: what the statistics say, then what the week is expected to take (a typical day, and a hard one).
-    const car = (this._state.vehicles || []).find((v) => v.id === carId) || {};
-    const detail = (data.detail || {})[carId] || {};
-    const soc = [];
-    for (const row of (this._insSoc || {})[(data.cars[carId] || {}).sources?.soc] || []) {
-      const h = (ZD(row.start).getTime() - midnight) / 3600000;
-      if (row.mean != null && h >= H0 && h <= nowH) soc.push([h, by(row.mean)]);
-    }
-    const level = isNum(car.soc) ? Number(car.soc) : null, capacity = Number(car.capacity) || 0;
-    if (level !== null) soc.push([nowH, by(level)]);
-    const expect = [], hard = [];
-    if (level !== null && capacity && (detail.week || []).length === 7) {
-      let a = level, b = level;
-      expect.push([nowH, by(a)]); hard.push([nowH, by(b)]);
-      for (let d = nowH > 7 ? 1 : 0; d <= AHEAD; d++) {
-        const day = detail.week[(noon(d).getDay() + 6) % 7] || {};
-        expect.push([d * 24 + 7, by(a)]); hard.push([d * 24 + 7, by(b)]);
-        a -= ((day.p50 || 0) / capacity) * 100; b -= ((day.p90 || 0) / capacity) * 100;
-        expect.push([d * 24 + 18, by(a)]); hard.push([d * 24 + 18, by(b)]);
-      }
-    }
-    const chosen = Number.isInteger(this._tlDay) ? clamp(this._tlDay, -BACK, AHEAD) : 0;
-    let g = "";
-    for (let d = -BACK; d <= AHEAD; d++) {
-      const wd = noon(d).getDay();
-      g += `<rect x="${X(d * 24)}" y="0" width="${24 * w}" height="${HT}" class="tl-d${d === chosen ? " on" : ""}${wd === 0 || wd === 6 ? " we" : ""}" data-act="tl-day" data-day="${d}"/>`;
-      if (24 * w > 34 || wd === 1) g += `<text x="${X(d * 24) + 4}" y="14" class="tl-t">${esc(24 * w > 60 ? `${this._t(`day_${names[wd]}`)} ${date(d)}` : date(d))}</text>`;
-    }
-    if (future.length > 1) g += `<path class="tl-band" d="${path(future.map((h) => [h, py(price.get(h) * (1 + 1.28 * sig(h)))]))}${back(future.map((h) => [h, py(price.get(h) * (1 - 1.28 * sig(h)))]))}Z"/>`;
-    g += `<path class="tl-p" d="${path(past.map((h) => [h, py(price.get(h))]))}"/><path class="tl-pf" d="${path(future.map((h) => [h, py(price.get(h))]))}"/>`;
-    if (expect.length) g += `<path class="tl-bband" d="${path(expect)}${back(hard)}Z"/><path class="tl-bf" d="${path(expect)}"/>`;
-    g += `<path class="tl-b" d="${path(soc)}"/>`;
-    const days = detail.days || {};
-    let far = null, lastCharge = null;
-    for (let d = -BACK; d <= 0; d++) {
-      const day = days[iso(d)];
-      if (!day) continue;
-      if ((day.km || 0) >= 1) { g += `<circle cx="${X(d * 24 + (day.out ?? 12) + 0.5)}" cy="${BT - 13}" r="${clamp(2 + day.km / 40, 2.5, 8)}" class="tl-trip"/>`; if (!far || day.km > far.km) far = { km: day.km, d, h: d * 24 + (day.out ?? 12) }; }
-      if ((day.charged || 0) > 0.5) { g += `<rect x="${X(d * 24 + 1)}" y="${CT}" width="${Math.max(3, (day.charged / 10) * w)}" height="11" rx="3" class="tl-c"/>`; lastCharge = d; }
-    }
-    const tonight = data.tonight || {}, picked = ((tonight.groups || [])[0] || {}).pick === carId;
-    if (picked) g += `<rect x="${X(23)}" y="${CT}" width="${Math.max(4, 5 * w)}" height="11" rx="3" class="tl-c plan"/>`;
-    g += `<line x1="${X(nowH)}" x2="${X(nowH)}" y1="0" y2="${HT}" class="tl-now"/>`;
-    // The night's price of each day (the cheapest three hours from the evening on), for the jumps and the day's figures.
-    const night = (d) => { const list = []; for (let h = d * 24 + 21; h < d * 24 + 31; h++) if (price.has(h)) list.push(price.get(h)); list.sort((a, b) => a - b); return list.length >= 3 ? (list[0] + list[1] + list[2]) / 3 : null; };
-    const nights = (from, to) => { let best = null; for (let d = from; d <= to; d++) { const p = night(d); if (p !== null && (!best || p < best.p)) best = { d, p }; } return best; };
-    const cheapPast = nights(-BACK, -1), cheapNext = nights(1, AHEAD - 1);
-    const jumps = [[t("tonight"), 0, nowH], cheapNext && [t("j_next"), cheapNext.d, cheapNext.d * 24 + 24], cheapPast && [t("j_cheapest"), cheapPast.d, cheapPast.d * 24 + 24], far && [t("j_far"), far.d, far.h], lastCharge !== null && [t("j_charge"), lastCharge, lastCharge * 24 + 2]].filter(Boolean);
-    const num = (value, digits = 0) => (value == null ? "–" : Number(value).toFixed(digits).replace(".", this._lang === "da" ? "," : "."));
-    const kpi = (label, value, note = "") => `<div class="ins-kpi"><small>${esc(label)}</small><b>${esc(value)}</b><span>${esc(note)}</span></div>`;
-    const day = days[iso(chosen)] || {}, np = night(chosen), tn = night(0);
-    const week = (detail.week || [])[(noon(chosen).getDay() + 6) % 7] || {};
-    const cheaper = np !== null && tn !== null && chosen > 0 ? Math.round(100 * phiOf((tn - np) / (Math.max(0.03, sig(chosen * 24 + 24) || 0.1) * np))) : null;
-    const mine = (tonight.cars || {})[carId] || {};
-    const left = day.out == null ? "" : t("d_out", { time: `${String(Math.floor(day.out)).padStart(2, "0")}:${String(Math.round((day.out % 1) * 60)).padStart(2, "0")}` });
-    const facts = chosen > 0
-      ? [kpi(t("d_typical"), `${num(week.p50)} kWh`), kpi(t("d_hard"), `${num(week.p90)} kWh`), kpi(t("k_night"), np === null ? "–" : this._money(np), guessed.has(chosen * 24 + 26) ? t("d_forecast") : t("d_known")), kpi(t("d_cheaper"), cheaper === null ? "–" : `${clamp(cheaper, 1, 99)} %`)]
-      : chosen === 0
-        ? [kpi(t("d_battery"), level === null ? "–" : `${num(level)} %`), kpi(t("d_wait"), mine.reach == null ? "–" : t("d_nights", { n: mine.reach })), kpi(t("d_hard"), `${num(mine.p90)} kWh`), kpi(t("k_night"), np === null ? "–" : this._money(np), t("d_known"))]
-        : [kpi(t("d_driven"), `${num(day.km)} km`, left), kpi(t("d_used"), `${num(day.used, 1)} kWh`), kpi(t("d_charged"), `${num(day.charged, 1)} kWh`), kpi(t("k_night"), np === null ? "–" : this._money(np))];
-    const title = chosen === 0 ? this._t("today") : `${this._t(`wdn_${names[noon(chosen).getDay()]}`)} ${date(chosen)}`;
-    return `<section class="ins-card tl-card">
-        <div class="tl-head">${carChips}<div class="chips">${Object.keys(zooms).map((z) => `<button class="${z === zoom ? "on" : ""}" data-act="tl-zoom" data-value="${z}" data-f="tlz-${z}" aria-pressed="${z === zoom}">${esc(t(`z_${z}`))}</button>`).join("")}</div></div>
-        <div class="chips tl-jumps">${jumps.map(([name, d, h], i) => `<button data-act="tl-go" data-day="${d}" data-h="${h}" data-f="tlj-${i}">${esc(name)}</button>`).join("")}</div>
-        <div class="tl-scroll" data-now="${X(nowH).toFixed(0)}" data-zoom="${zoom}"><svg width="${W}" height="${HT}" style="width:${W}px;height:${HT}px" viewBox="0 0 ${W} ${HT}" role="img" aria-label="${esc(t("v_sum"))}">${g}</svg></div>
-        <div class="tl-legend"><span><i class="p"></i>${esc(t("lg_price"))}</span><span><i class="pf"></i>${esc(t("lg_forecast"))}</span><span><i class="b"></i>${esc(t("lg_battery"))}</span><span><i class="bb"></i>${esc(t("lg_expected"))}</span><span><i class="tr"></i>${esc(t("lg_trip"))}</span><span><i class="c"></i>${esc(t("lg_charge"))}</span></div>
-        <h3>${esc(title)}</h3><div class="ins-kpis">${facts.join("")}</div>
-      </section>`;
+  /* What the learning centre draws from, with every time on the household's clock. */
+  _insightInput() {
+    const wall = (value) => ZD(typeof value === "number" ? new Date(value).toISOString() : value).getTime();
+    const settings = this._state.settings || {};
+    return {
+      lang: this._lang,
+      dark: this.hasAttribute("dark"),
+      now: ZD().getTime(),
+      wall,
+      money: (value, digits = 2) => this._money(value, digits),
+      unit: this._unit,
+      insight: this._insight,
+      insightAt: this._insightRev || 0,
+      stats: this._insStats || {},
+      statsAt: this._insStatsAt,
+      prices: (this._state.prices || []).map((p) => ({ t: wall(p.start), price: p.price, forecast: Boolean(p.forecast) })),
+      cars: this._cars.map((v) => ({
+        id: v.id, name: v.name, capacity: v.capacity, soc: v.soc, connected: v.connected, charging: v.charging, min_soc: v.settings?.min_soc,
+        charge_speed: v.charge_speed, charge_speed_source: v.charge_speed_source, charge_speed_learned_from: v.charge_speed_learned_from, curve: v.curve, margin: v.margin,
+        plan: v.plan ? { segments: (v.plan.segments || []).map((s) => ({ start: wall(s.start), end: wall(s.end) })), energy: v.plan.energy, cost: v.plan.cost } : null,
+        history: (v.history || []).slice(-60).map((e) => ({ start: wall(e.start), end: e.end ? wall(e.end) : null, energy: e.energy, cost: e.cost })),
+      })),
+      homeKw: Math.max(0, ...this._chargers.map((c) => Number(c.power) || 0)) || 11,
+      window: this._insight?.window || [21, 7],
+      level: settings.insight_level,
+      use: Boolean(settings.insight_use),
+    };
   }
 
-  /* The coming days' price three ways: the forecast with its uncertainty, ways it may go, and how likely each night is cheaper. */
-  _fanHtml(data, card) {
-    const t = (key, values) => this._t(`insight_${key}`, values);
-    const view = ["fan", "paths", "prob"].includes(this._fanView) ? this._fanView : "fan";
-    const now = ZD().getTime();
-    const slots = (this._state.prices || []).map((p) => ({ h: (ZD(p.start).getTime() - now) / 3600000, price: p.price, forecast: p.forecast })).filter((p) => p.h > -1 && p.h < 150).sort((a, b) => a.h - b.h);
-    if (slots.length < 6) return "";
-    const errors = data.errors || [];
-    const first = slots.find((p) => p.forecast)?.h ?? slots.at(-1).h;
-    const sd = (h) => (h < first ? 0 : errors[clamp(Math.floor((h - first) / 24), 0, errors.length - 1)] ?? 0.2);
-    const W = 600, H = 190, span = Math.max(24, slots.at(-1).h), top = Math.max(...slots.map((p) => p.price * (1 + 1.3 * sd(p.h)))) * 1.05;
-    const X = (h) => (clamp(h, 0, span) / span) * W, Y = (v) => H - 8 - (clamp(v, 0, top) / top) * (H - 16);
-    const path = (list, f) => list.map((p, i) => `${i ? "L" : "M"}${X(p.h).toFixed(1)} ${Y(f(p)).toFixed(1)}`).join("");
-    const band = (k) => `${path(slots, (p) => p.price * (1 + k * sd(p.h)))}${[...slots].reverse().map((p) => `L${X(p.h).toFixed(1)} ${Y(p.price * (1 - k * sd(p.h))).toFixed(1)}`).join("")}Z`;
-    const tonight = (data.tonight || {}).price;
-    const knownPath = `<path class="fan-k" d="${path(slots.filter((p) => p.h <= first), (p) => p.price)}"/>`;
-    let inner = "";
-    if (view === "fan") inner = `<path class="fan-b2" d="${band(1.28)}"/><path class="fan-b1" d="${band(0.67)}"/>${knownPath}<path class="fan-f" d="${path(slots.filter((p) => p.h >= first - 1), (p) => p.price)}"/>`;
-    else if (view === "paths") {
-      // Ways the prices may go: each keeps most of its error from one day to the next. Green ends cheaper than tonight, coral dearer.
-      let seed = Math.floor(now / 3600000) | 0;
-      const rnd = () => { seed = (seed + 0x6d2b79f5) | 0; let x = Math.imul(seed ^ (seed >>> 15), 1 | seed); x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x; return ((x ^ (x >>> 14)) >>> 0) / 4294967296; };
-      const normal = () => Math.sqrt(-2 * Math.log(1 - rnd())) * Math.cos(2 * Math.PI * rnd());
-      const paths = [];
-      for (let i = 0; i < 22; i++) {
-        let z = normal(), day = -1, low = Infinity;
-        const points = slots.map((p) => { const d = Math.floor(Math.max(0, p.h - first) / 24); if (d !== day) { day = d; z = 0.75 * z + 0.66 * normal(); } const v = Math.max(0.01, p.price * (1 + sd(p.h) * z)); if (p.h >= first) low = Math.min(low, v); return { h: p.h, v }; });
-        paths.push({ points, good: tonight != null && low < tonight });
+  /* The learning centre is a page of its own, fetched when first looked at. It stays in place across
+     this panel's own renders, so a chart being read or a timeline being dragged is not drawn over. */
+  _insightMount() {
+    const place = this.shadowRoot.querySelector(".insight-host");
+    if (!place) return;
+    this._insightLoad(() => this._tab === "history");
+    if (this._insight?.cars) this._insightStats(this._insight);
+    if (!this._insEl) {
+      if (!this._insWait) {
+        const url = new URL(import.meta.url);
+        this._insWait = import(`${new URL("./ev-planner-insight.js", url).href}${url.search}`)
+          .then(() => {
+            this._insEl = document.createElement("ev-planner-insight");
+            this._insEl.addEventListener("evp-insight", (event) => this._insightSaid(event.detail || {}));
+            if (this._tab === "history") this._render();
+          })
+          .catch(() => { this._insWait = null; });
       }
-      inner = `${paths.map((p, i) => `<path class="fan-path ${p.good ? "good" : "bad"}${this._fanFresh ? " draw" : ""}" pathLength="1" style="animation-delay:${i * 70}ms" d="${path(p.points, (x) => x.v)}"/>`).join("")}${knownPath}`;
+      if (!place.firstChild) place.innerHTML = `<p class="hint">${esc(this._t("insight_loading"))}</p>`;
+      return;
     }
-    let chart = `<svg class="fan" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${tonight != null ? `<line class="fan-t" x1="0" x2="${W}" y1="${Y(tonight)}" y2="${Y(tonight)}"/>` : ""}${inner}</svg><div class="ins-axis"><span>${esc(this._t("today"))}</span><span>${esc(this._money(top))}</span></div>`;
-    if (view === "prob") {
-      const rows = [];
-      for (let d = 1; d <= 5; d++) {
-        const list = slots.filter((p) => p.h >= d * 24 - 4 && p.h < d * 24 + 8).map((p) => p.price).sort((a, b) => a - b);
-        if (list.length < 3 || tonight == null) continue;
-        const np = (list[0] + list[1] + list[2]) / 3, share = clamp(phiOf((tonight - np) / (Math.max(0.03, sd(d * 24)) * np)), 0.01, 0.99);
-        rows.push(`<div class="fan-row"><span>+${d}</span><div><i class="${share >= 0.7 ? "good" : ""}" style="width:${Math.round(share * 100)}%"></i></div><b>${Math.round(share * 100)} %</b></div>`);
-      }
-      chart = rows.join("") || `<p class="hint">${esc(t("score_none"))}</p>`;
+    if (this._insEl.parentNode !== place) place.replaceChildren(this._insEl);
+    this._insEl.input = this._insightInput();
+  }
+
+  _insightSaid({ act, value }) {
+    if (act === "open") {
+      this._histClassic = value === "learned" ? "learned" : "history";
+      this._histView = this._histClassic;
+      this._render();
+      this.shadowRoot.querySelector(".content")?.scrollTo?.({ top: 0 });
+    } else if (act === "level" && Number(value) >= 50 && Number(value) <= 99) {
+      this._saveSettings({ insight_level: Number(value) });
+      this._insightAt = 0;
     }
-    const chips = `<div class="chips">${["fan", "paths", "prob"].map((k) => `<button class="${k === view ? "on" : ""}" data-act="fan-view" data-value="${k}" data-f="fan-${k}" aria-pressed="${k === view}">${esc(t(`f_${k}`))}</button>`).join("")}</div>`;
-    return card(t("f_title"), `${chips}${chart}`, t(`f_${view}_note`));
   }
 
   _settingsHtml() {
@@ -10866,6 +10326,7 @@ class EvPlannerPanel extends HTMLElement {
         break;
       case "hist-view":
         this._histView = ["sum", "cars", "learned"].includes(button.dataset.value) ? button.dataset.value : "history";
+        this._histClassic = button.dataset.value === "back" || !this._state.settings?.insight ? null : this._histView === "learned" ? "learned" : "history";
         this._render();
         break;
       case "hist-export":
@@ -10882,30 +10343,6 @@ class EvPlannerPanel extends HTMLElement {
         break;
       case "next-open":
         this._openPopup("next");
-        break;
-      case "tl-zoom":
-        this._tlZoom = button.dataset.value;
-        this._tlLeft = null;
-        this._render();
-        break;
-      case "tl-day":
-        this._tlDay = Number(button.dataset.day);
-        this._render();
-        break;
-      case "tl-go":
-        this._tlDay = Number(button.dataset.day);
-        this._tlLeft = `h${button.dataset.h}`;
-        this._render();
-        break;
-      case "fan-view":
-        this._fanView = button.dataset.value;
-        this._fanFresh = true;
-        this._render();
-        setTimeout(() => { this._fanFresh = false; }, 3000);
-        break;
-      case "insight-car":
-        this._insCar = button.dataset.value;
-        this._render();
         break;
       case "insight-level":
         this._saveSettings({ insight_level: Number(button.dataset.level) });
@@ -11768,83 +11205,6 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .learn-views::-webkit-scrollbar { display: none; }
 .learn-views button { flex: none; white-space: nowrap; }
 .learn-views button.dim { opacity: .45; }
-.ins-card h3 { display: flex; align-items: center; gap: 6px; }
-.ins-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 12px; }
-.ins-clock { width: min(100%, 260px); margin: 0 auto; display: block; } .ins-clock path { fill: var(--evp-accent); }
-.ins-clock text { text-anchor: middle; fill: var(--evp-soft); font-size: 9px; } .ins-clock text.big { fill: var(--evp-ink); font-size: 19px; font-weight: 650; }
-.ins-map { width: 100%; display: block; } .ins-map path { fill: none; stroke: var(--evp-accent); stroke-linecap: round; opacity: .55; } .ins-map circle { fill: var(--evp-card); stroke: var(--evp-ink); stroke-width: 1.6; } .ins-map circle.home { fill: var(--evp-ink); } .ins-map text { text-anchor: middle; font-size: 9.5px; fill: var(--evp-soft); }
-.ins-plot { width: 100%; height: 130px; display: block; } .ins-plot line { stroke: var(--evp-line); stroke-width: 1; vector-effect: non-scaling-stroke; } .ins-plot circle { fill: var(--evp-accent); opacity: .8; } .ins-plot circle.second { fill: var(--evp-coral); } .ins-plot path.mean { fill: none; stroke: var(--evp-soft); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
-.ins-over { position: relative; } .ins-over .ins-line.over { position: absolute; inset: 0; height: 100%; } .ins-line.over path { stroke: var(--evp-sand); }
-.ins-flow { width: 100%; display: block; overflow: visible; } .ins-flow path { opacity: .45; } .ins-flow text.nm { font-size: 10.5px; fill: var(--evp-ink); font-weight: 600; } .ins-flow text.nv { font-size: 9.5px; fill: var(--evp-soft); }
-.ins-ridge { width: 100%; display: block; } .ins-ridge path { fill: var(--evp-accent); fill-opacity: .35; stroke: var(--evp-accent); stroke-width: 1.2; } .ins-ridge line { stroke: var(--evp-line); } .ins-ridge text { font-size: 9px; fill: var(--evp-soft); } .ins-ridge text.hr { text-anchor: middle; }
-.ins-dots path { fill: none; stroke: var(--evp-ink); stroke-width: 1.6; }
-.ins-keep { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--evp-soft); } .ins-keep i { width: 7px; height: 7px; border-radius: 50%; background: var(--evp-accent); opacity: .3; } .ins-keep i:nth-of-type(2) { opacity: .45; } .ins-keep i:nth-of-type(3) { opacity: .6; } .ins-keep i:nth-of-type(4) { opacity: .8; } .ins-keep i:nth-of-type(5) { opacity: 1; }
-.ins-keep b { margin-left: 2px; padding: 6px 12px; border: 1px solid var(--evp-accent); border-radius: 10px; color: var(--evp-ink); font-weight: 600; }
-.ins-back { width: 100%; height: 120px; display: block; } .ins-back rect { fill: var(--evp-sand); opacity: .55; } .ins-back circle { fill: var(--evp-ink); } .ins-back circle.out { fill: var(--evp-bad); }
-.ins-cal { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 10px; height: 150px; align-items: end; }
-.ins-cal div { position: relative; height: 100%; display: grid; grid-template-rows: auto 1fr auto; justify-items: center; font-size: 11.5px; color: var(--evp-soft); }
-.ins-cal i { align-self: end; width: 70%; border-radius: 6px 6px 2px 2px; background: var(--evp-accent); } .ins-cal i.off { background: var(--evp-sand); } .ins-cal b { color: var(--evp-ink); font-size: 12px; }
-.ins-cal u { position: absolute; left: 8%; right: 8%; height: 2px; background: var(--evp-ink); transform: translateY(-18px); }
-.ins-dial { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 14px; align-items: center; } .ins-dial svg { width: 110px; height: 110px; }
-.ins-dial circle { fill: none; stroke: color-mix(in srgb, var(--evp-ink) 8%, transparent); stroke-width: 10; } .ins-dial circle.on { stroke: var(--evp-accent); stroke-linecap: round; } .ins-dial text { text-anchor: middle; font-size: 22px; font-weight: 650; fill: var(--evp-ink); }
-.ins-dial div { display: grid; gap: 4px; } .ins-dial b { font-size: 16px; } .ins-dial small { color: var(--evp-soft); font-size: 12.5px; }
-.ins-heat.price i { opacity: 1; }
-.tl-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
-.tl-jumps { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .tl-jumps button { flex: none; white-space: nowrap; }
-.tl-scroll { overflow-x: auto; border-radius: 14px; background: color-mix(in srgb, var(--evp-ink) 4%, transparent); scrollbar-width: thin; }
-.tl-scroll svg { display: block; max-width: none; }
-.tl-scroll path, .tl-scroll line, .tl-scroll circle, .tl-scroll text { pointer-events: none; }
-.tl-d { fill: transparent; cursor: pointer; } .tl-d.we { fill: var(--evp-ink); fill-opacity: .04; } .tl-d.on { fill: var(--evp-accent); fill-opacity: .14; }
-.tl-t { font-size: 10.5px; fill: var(--evp-soft); }
-.tl-p { fill: none; stroke: var(--evp-ink); stroke-width: 1.6; } .tl-pf { fill: none; stroke: var(--evp-sand); stroke-width: 1.6; stroke-dasharray: 4 3; } .tl-band { fill: var(--evp-sand); fill-opacity: .2; }
-.tl-b { fill: none; stroke: var(--evp-accent); stroke-width: 2.2; stroke-linejoin: round; } .tl-bf { fill: none; stroke: var(--evp-accent); stroke-width: 1.6; stroke-dasharray: 4 3; } .tl-bband { fill: var(--evp-accent); fill-opacity: .16; }
-.tl-c { fill: var(--evp-accent); } .tl-c.plan { fill: none; stroke: var(--evp-accent); stroke-width: 1.6; stroke-dasharray: 3 2; }
-.tl-trip { fill: var(--evp-coral); } .tl-now { stroke: var(--evp-ink); stroke-width: 1.5; }
-.tl-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--evp-soft); }
-.tl-legend i { display: inline-block; width: 16px; height: 3px; border-radius: 2px; margin-right: 5px; vertical-align: middle; background: var(--evp-ink); }
-.tl-legend i.pf { background: var(--evp-sand); } .tl-legend i.b { background: var(--evp-accent); } .tl-legend i.bb { height: 9px; background: var(--evp-accent); opacity: .25; } .tl-legend i.tr { width: 9px; height: 9px; border-radius: 50%; background: var(--evp-coral); } .tl-legend i.c { height: 9px; background: var(--evp-accent); }
-.tl-three { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 12px; }
-.tl-q { font: inherit; color: inherit; text-align: left; cursor: pointer; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px; align-items: center; padding: 16px; border-radius: 18px; border: 1px solid var(--evp-line); background: var(--evp-card); }
-.tl-q svg { width: 44px; height: 44px; } .tl-q circle { fill: none; stroke: color-mix(in srgb, var(--evp-ink) 8%, transparent); stroke-width: 4; } .tl-q circle.on { stroke: var(--evp-accent); stroke-linecap: round; }
-.tl-q span { display: grid; gap: 2px; min-width: 0; } .tl-q small, .tl-q i { font-size: 12.5px; color: var(--evp-soft); font-style: normal; } .tl-q b { font-size: 18px; font-weight: 650; }
-.fan { width: 100%; height: 190px; display: block; }
-.fan path { fill: none; vector-effect: non-scaling-stroke; } .fan path.fan-b2 { fill: var(--evp-sand); fill-opacity: .16; } .fan path.fan-b1 { fill: var(--evp-sand); fill-opacity: .26; }
-.fan-k { stroke: var(--evp-ink); stroke-width: 2; } .fan-f { stroke: var(--evp-sand); stroke-width: 2; stroke-dasharray: 5 4; } .fan-t { stroke: var(--evp-soft); stroke-width: 1; stroke-dasharray: 2 4; vector-effect: non-scaling-stroke; }
-.fan-path { stroke-width: 1.4; opacity: .7; } .fan-path.good { stroke: var(--evp-good); } .fan-path.bad { stroke: var(--evp-coral); }
-.fan-path.draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: fan-draw 1.5s ease-out forwards; }
-@keyframes fan-draw { to { stroke-dashoffset: 0; } }
-@media (prefers-reduced-motion: reduce) { .fan-path.draw { animation: none; stroke-dashoffset: 0; } }
-.fan-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) 46px; gap: 10px; align-items: center; font-size: 13px; padding: 5px 0; }
-.fan-row div { height: 12px; border-radius: 6px; background: color-mix(in srgb, var(--evp-ink) 6%, transparent); overflow: hidden; } .fan-row i { display: block; height: 100%; border-radius: 6px; background: var(--evp-sand); } .fan-row i.good { background: var(--evp-good); }
-.fan-row b { text-align: right; font-variant-numeric: tabular-nums; }
-.ins-card { display: grid; gap: 8px; padding: 16px; border-radius: 18px; background: var(--evp-card); border: 1px solid var(--evp-line); min-width: 0; }
-.ins-card h3 { margin: 0; font-size: 15px; font-weight: 650; }
-.ins-label { margin: 4px 0 0; font-size: 12.5px; color: var(--evp-soft); }
-.ins-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
-.ins-kpi { display: grid; gap: 2px; padding: 12px 14px; border-radius: 16px; background: color-mix(in srgb, var(--evp-ink) 4%, transparent); min-width: 0; }
-.ins-kpi small, .ins-kpi span { font-size: 12px; color: var(--evp-soft); }
-.ins-kpi b { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
-.ins-bars { display: flex; align-items: flex-end; gap: 1px; height: 64px; }
-.ins-bars i { flex: 1 1 0; min-width: 1px; border-radius: 2px 2px 0 0; background: var(--evp-accent); }
-.ins-bars.second i { background: var(--evp-coral); }
-.ins-bars.wide { gap: 8px; height: 84px; } .ins-bars.wide i { border-radius: 6px 6px 2px 2px; }
-.ins-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; text-align: center; font-size: 12px; color: var(--evp-soft); }
-.ins-days.six { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-.ins-line { width: 100%; height: 90px; display: block; } .ins-line path { fill: none; stroke: var(--evp-accent); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
-.ins-line.soft path { stroke: var(--evp-soft); }
-.ins-axis { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--evp-soft); }
-.ins-heat { display: grid; grid-template-columns: 30px repeat(24, minmax(0, 1fr)); gap: 2px; align-items: center; font-size: 11.5px; color: var(--evp-soft); }
-.ins-heat i { aspect-ratio: 1; border-radius: 3px; background: var(--evp-accent); }
-.ins-hours { display: grid; grid-template-columns: 30px repeat(4, minmax(0, 1fr)); font-size: 11px; color: var(--evp-soft); }
-.ins-scroll { overflow-x: auto; }
-.ins-table { border-collapse: collapse; width: 100%; font-size: 13px; white-space: nowrap; }
-.ins-table td, .ins-table th { text-align: left; padding: 7px 10px 7px 0; border-bottom: 1px solid var(--evp-line); font-weight: 400; }
-.ins-table th { color: var(--evp-soft); font-size: 12px; }
-.ins-model { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 12px; align-items: center; padding: 6px 0; }
-.ins-model div { display: grid; gap: 2px; } .ins-model small { color: var(--evp-soft); font-size: 12.5px; }
-.ins-ring { width: 40px; height: 40px; } .ins-ring circle { fill: none; stroke: color-mix(in srgb, var(--evp-ink) 8%, transparent); stroke-width: 4; }
-.ins-ring circle.on { stroke: var(--evp-accent); stroke-linecap: round; }
-.ins-dots { width: 100%; height: 120px; display: block; } .ins-dots circle { fill: var(--evp-accent); opacity: .55; }
 .insight-card { display: grid; gap: 4px; padding: 12px 14px; border: 1px solid var(--evp-line); border-radius: 14px; margin: 8px 0; }
 .insight-card small { color: var(--evp-soft); }
 .insight-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin: 8px 0 2px; }
