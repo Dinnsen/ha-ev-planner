@@ -68,7 +68,7 @@ const TEXT = {
     paint_black: "Sort",
     home_guard: "Vagten holder øje med måleren og skruer bilerne ned med det samme, hvis huset pludselig skal bruge mere.",
     tab_guest: "Gæst",
-    tab_history: "Historik",
+    tab_history: "Læring",
     tab_settings: "Indstillinger",
     loading: "Henter EV Planner …",
     back: "Biler",
@@ -663,7 +663,7 @@ const TEXT = {
     paint_black: "Black",
     home_guard: "The guard watches the meter and turns the cars down at once if the house suddenly needs more.",
     tab_guest: "Guest",
-    tab_history: "History",
+    tab_history: "Learning",
     tab_settings: "Settings",
     loading: "Loading EV Planner …",
     back: "Cars",
@@ -1774,7 +1774,7 @@ Object.assign(TEXT.da, {
   insight_title: "Indsigt",
   insight_off: "slået fra",
   insight_on: "logger og lærer",
-  insight_hint: "EV Planner skriver bilernes dage, ture og priserne ned, lærer jeres rytme og siger hver aften, hvilken bil der bør have laderen. Ture gemmes i 90 dage, dagstal og priser i to år. Første gang hentes det, Home Assistant allerede har gemt.",
+  insight_hint: "Logger bilernes dage, lærer rytmen og siger hver aften, hvilken bil der bør have laderen.",
   insight_log: "Log og læring",
   insight_log_hint: "Grundlaget for alt andet. Styrer ingenting.",
   insight_notify: "Besked om aftenens bil",
@@ -1814,11 +1814,12 @@ Object.assign(TEXT.da, {
   insight_score_none: "Regnskabet begynder, når første aften er gået.",
   insight_trips: "{n} ture logget",
   insight_loading: "Henter …",
-  insight_v_sum: "Sammensat",
+  insight_v_sum: "Overblik",
+  insight_off_hint: "Slå Indsigt til under Indstillinger for at se dette.",
   insight_v_cars: "Biler",
   insight_v_prices: "Elpriser",
   insight_v_charge: "Ladning",
-  insight_v_learn: "Læring",
+  insight_v_learn: "Lært",
   insight_v_ahead: "Forudsigelse",
   insight_k_30: "{kwh} kWh brugt på 30 dage",
   insight_k_night: "Nattens pris",
@@ -1951,7 +1952,7 @@ Object.assign(TEXT.en, {
   insight_title: "Insight",
   insight_off: "turned off",
   insight_on: "logging and learning",
-  insight_hint: "EV Planner writes down the cars' days, trips and the prices, learns your rhythm and says each evening which car should have the charger. Trips are kept for 90 days, daily figures and prices for two years. The first time, it reads what Home Assistant already has.",
+  insight_hint: "Logs the cars' days, learns their rhythm and says each evening which car should have the charger.",
   insight_log: "Log and learn",
   insight_log_hint: "The base for everything else. Controls nothing.",
   insight_notify: "Message about tonight's car",
@@ -1991,11 +1992,12 @@ Object.assign(TEXT.en, {
   insight_score_none: "The ledger begins after the first evening.",
   insight_trips: "{n} trips logged",
   insight_loading: "Loading …",
-  insight_v_sum: "Together",
+  insight_v_sum: "Overview",
+  insight_off_hint: "Turn Insight on in Settings to see this.",
   insight_v_cars: "Cars",
   insight_v_prices: "Prices",
   insight_v_charge: "Charging",
-  insight_v_learn: "Learning",
+  insight_v_learn: "Learned",
   insight_v_ahead: "Ahead",
   insight_k_30: "{kwh} kWh used in 30 days",
   insight_k_night: "The night's price",
@@ -9201,17 +9203,22 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   _historyHtml() {
+    // The learning centre: one row of parts. Charging (the history) and Learned are always there;
+    // the others are Insight's, and dimmed while it is off.
     const insightOn = Boolean(this._state.settings?.insight);
-    const view = this._histView === "learned" ? "learned" : this._histView === "insight" && insightOn ? "insight" : "history";
-    const switcher = `<nav class="segmented hist-views" role="tablist">${["history", "learned", ...(insightOn ? ["insight"] : [])]
-      .map((k) => `<button role="tab" data-act="hist-view" data-value="${k}" data-f="hv-${k}" aria-selected="${k === view}" class="${k === view ? "on" : ""}">${this._t(k === "history" ? "view_history" : k === "insight" ? "insight_title" : "view_learned")}</button>`)
+    const parts = { sum: "sum", history: "charge", cars: "cars", prices: "prices", learned: "learn", ahead: "ahead" };
+    const view = this._histView in parts ? this._histView : insightOn ? "sum" : "history";
+    const own = (k) => k === "history" || k === "learned";
+    const switcher = `<nav class="chips hist-views learn-views" role="tablist">${Object.keys(parts)
+      .map((k) => `<button role="tab" data-act="hist-view" data-value="${k}" data-f="hv-${k}" aria-selected="${k === view}" class="${k === view ? "on" : ""}${insightOn || own(k) ? "" : " dim"}">${this._t(`insight_v_${parts[k]}`)}</button>`)
       .join("")}</nav>`;
-    if (view === "learned") return `<div class="page stack hist-page">${switcher}${this._learnedHtml()}</div>`;
-    if (view === "insight") return `<div class="page stack hist-page">${switcher}${this._insightPageHtml()}</div>`;
+    if (!own(view)) return `<div class="page stack hist-page">${switcher}${insightOn ? this._insightPageHtml(parts[view]) : `<p class="hint">${esc(this._t("insight_off_hint"))}</p>`}</div>`;
+    if (view === "learned") return `<div class="page stack hist-page">${switcher}${this._learnedHtml()}${insightOn ? this._insightPageHtml("learn") : ""}</div>`;
+    const more = insightOn ? this._insightPageHtml("charge") : "";
     const cars = this._cars;
     const guestHistory = this._guest?.history || [];
     if (!cars.some((v) => (v.history || []).length || Object.keys(v.months || {}).length) && !guestHistory.length && !this._state.home?.history) {
-      return `<div class="page stack hist-page">${switcher}<section class="empty">${MARK}<p>${this._t(cars.length ? "car_history_empty" : "history_empty")}</p></section></div>`;
+      return `<div class="page stack hist-page">${switcher}<section class="empty">${MARK}<p>${this._t(cars.length ? "car_history_empty" : "history_empty")}</p></section>${more}</div>`;
     }
     const period = HIST_PERIODS.includes(this._histPeriod) ? this._histPeriod : "month";
     const offset = Math.min(0, this._histOffset || 0);
@@ -9227,7 +9234,7 @@ class EvPlannerPanel extends HTMLElement {
           <strong>${esc(this._periodTitle(period, start, end))}</strong>
           <button class="icon fwd" data-act="hist-move" data-step="1" data-f="hm-next" aria-label="${this._t("hist_next")}" ${offset >= 0 ? "disabled" : ""}>${ICONS.back}</button></div>
       </div>`;
-    return `<div class="page stack hist-page">${switcher}${controls}<div class="hist-body" data-scope="${esc(scope)}">${this._histBodyHtml(period, offset, scope)}</div></div>`;
+    return `<div class="page stack hist-page">${switcher}${controls}<div class="hist-body" data-scope="${esc(scope)}">${this._histBodyHtml(period, offset, scope)}</div>${more}</div>`;
   }
 
   _histBodyHtml(period, offset, scope) {
@@ -9881,13 +9888,11 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   /* Insight's page: the evening, the cars, the prices, the charging, what is learned and how it has held. */
-  _insightPageHtml() {
+  _insightPageHtml(view) {
     const t = (key, values) => this._t(`insight_${key}`, values);
-    this._insightLoad(() => this._tab === "history" && this._histView === "insight");
+    this._insightLoad(() => this._tab === "history");
     const data = this._insight;
     if (!data || !data.cars) return `<p class="hint">${esc(t("loading"))}</p>`;
-    const views = ["sum", "cars", "prices", "charge", "learn", "ahead"];
-    const view = views.includes(this._insView) ? this._insView : "sum";
     const da = this._lang === "da";
     const num = (value, digits = 0) => (value == null || Number.isNaN(Number(value)) ? "–" : Number(value).toFixed(digits).replace(".", da ? "," : "."));
     const names = Object.fromEntries(Object.entries(data.cars).map(([id, car]) => [id, car.name]));
@@ -9900,7 +9905,12 @@ class EvPlannerPanel extends HTMLElement {
     const short = (iso) => `${Number(iso.slice(8, 10))}/${Number(iso.slice(5, 7))}`;
     const sum = (list) => list.reduce((total, value) => total + (Number(value) || 0), 0);
     const kpi = (label, value, note = "") => `<div class="ins-kpi"><small>${esc(label)}</small><b>${esc(value)}</b><span>${esc(note)}</span></div>`;
-    const card = (title, body, note = "") => `<section class="ins-card"><h3>${esc(title)}</h3>${body}${note ? `<p class="hint">${esc(note)}</p>` : ""}</section>`;
+    // A card's explanation stays behind its "?".
+    let cardNo = 0;
+    const card = (title, body, note = "") => {
+      const key = `ins-${view}-${(cardNo += 1)}`;
+      return `<section class="ins-card"><h3>${esc(title)}${note ? this._helpButton(key, title) : ""}</h3>${note ? this._helpBubble(key, note) : ""}${body}</section>`;
+    };
     // Bars along a row of days or hours; each with its figure as a title.
     const bars = (list, { top = null, cls = "" } = {}) => {
       const high = top || Math.max(1e-9, ...list.map((item) => item.value || 0));
@@ -9975,8 +9985,8 @@ class EvPlannerPanel extends HTMLElement {
         return { id, list, kwh, cost, nights: list.filter(([, d]) => (d.charged || 0) > 1).length };
       });
       body = `<div class="ins-kpis">${rows.map((r) => kpi(names[r.id], `${num(r.kwh)} kWh`, t("l_note", { nights: r.nights, price: r.kwh ? this._money(r.cost / r.kwh) : "–" }))).join("")}</div>
-        ${rows.map((r, i) => card(`${names[r.id]}: ${t("l_title")}`, bars(r.list.map(([iso, d]) => ({ value: d.charged, title: `${short(iso)}: ${num(d.charged, 1)} kWh` })), { cls: i ? "second" : "" }))).join("")}
-        <p class="hint">${esc(t("l_hint"))}</p>`;
+        ${rows.map((r, i) => card(`${names[r.id]}: ${t("l_title")}`, bars(r.list.map(([iso, d]) => ({ value: d.charged, title: `${short(iso)}: ${num(d.charged, 1)} kWh` })), { cls: i ? "second" : "" }), t("l_hint"))).join("")}
+`;
     } else if (view === "learn") {
       const ring = (share) => `<svg class="ins-ring" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15"/><circle class="on" cx="18" cy="18" r="15" pathLength="100" stroke-dasharray="${Math.round(Math.min(1, share) * 100)} 100" transform="rotate(-90 18 18)"/></svg>`;
       const model = (share, title, text) => `<div class="ins-model">${ring(share)}<div><b>${esc(title)}</b><small>${esc(text)}</small></div></div>`;
@@ -10003,8 +10013,7 @@ class EvPlannerPanel extends HTMLElement {
         <div class="ins-kpis">${kpi(t("a_rate"), sc.scored ? `${Math.round((sc.rate || 0) * 100)} %` : "–", t("a_rate_note", { n: sc.scored || 0 }))}${kpi(t("a_saved"), this._money(sc.saved || 0), t("a_saved_note", { n: sc.waits || 0 }))}</div>
         ${card(t("a_ledger"), rows ? `<div class="ins-scroll"><table class="ins-table"><tr><th></th><th>${esc(t("a_pick"))}</th>${ids.map((id) => `<th>${esc(names[id])}</th>`).join("")}</tr>${rows}</table></div>` : `<p class="hint">${esc(t("score_none"))}</p>`, t("a_ledger_note"))}`;
     }
-    const chips = `<div class="chips ins-views">${views.map((k) => `<button class="${k === view ? "on" : ""}" data-act="insight-view" data-value="${k}" data-f="iv-${k}" aria-pressed="${k === view}">${esc(t(`v_${k}`))}</button>`).join("")}</div>`;
-    return `<h2 class="section-title">${ICONS.history}<span>${esc(t("title"))}</span></h2>${chips}${body}`;
+    return body;
   }
 
   _settingsHtml() {
@@ -10438,7 +10447,7 @@ class EvPlannerPanel extends HTMLElement {
         this._render();
         break;
       case "hist-view":
-        this._histView = ["learned", "insight"].includes(button.dataset.value) ? button.dataset.value : "history";
+        this._histView = ["sum", "cars", "prices", "learned", "ahead"].includes(button.dataset.value) ? button.dataset.value : "history";
         this._render();
         break;
       case "hist-export":
@@ -10455,10 +10464,6 @@ class EvPlannerPanel extends HTMLElement {
         break;
       case "next-open":
         this._openPopup("next");
-        break;
-      case "insight-view":
-        this._insView = button.dataset.value;
-        this._render();
         break;
       case "insight-car":
         this._insCar = button.dataset.value;
@@ -11321,7 +11326,11 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .field.col { grid-template-columns: 1fr; gap: 6px; }
 .field small { color: var(--evp-soft); font-size: 13px; line-height: 1.4; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.ins-views { margin: 2px 0 6px; }
+.learn-views { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; width: 100%; }
+.learn-views::-webkit-scrollbar { display: none; }
+.learn-views button { flex: none; white-space: nowrap; }
+.learn-views button.dim { opacity: .45; }
+.ins-card h3 { display: flex; align-items: center; gap: 6px; }
 .ins-card { display: grid; gap: 8px; padding: 16px; border-radius: 18px; background: var(--evp-card); border: 1px solid var(--evp-line); min-width: 0; }
 .ins-card h3 { margin: 0; font-size: 15px; font-weight: 650; }
 .ins-label { margin: 4px 0 0; font-size: 12.5px; color: var(--evp-soft); }

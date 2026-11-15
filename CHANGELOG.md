@@ -2,6 +2,13 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b15] - 2026-11-15
+
+### Changed
+
+- **History is now Learning**: one tab with everything EV Planner knows about the cars, in one row of six parts. *Overview* (tonight's car and the last 30 days), *Charging* (the history as before: each charge, the export, deleting, the guest's bill; and what each car charged each day), *Cars*, *Prices*, *Learned* (the charging speed and curve as before, with the week's rhythm, the cold and the forecast's error) and *Ahead*. With Insight off, Charging and Learned are as they were, and the other four are dimmed.
+- **Fewer words on the page.** A card's explanation is behind its "?".
+
 ## [2.5.0b14] - 2026-11-15
 
 ### Added
