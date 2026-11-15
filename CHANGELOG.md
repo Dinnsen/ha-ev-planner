@@ -7,7 +7,9 @@ All notable changes to EV Planner. The version is the one in `custom_components/
 ### Fixed
 
 - **The target slider did not follow a limit changed in the car.** With EV Planner's own steps (1, 5 or 10 %), a charge limit set in the car or its app stayed at EV Planner's old target (90 % in the panel, 80 % in the car). A change made in the car is now the new target; EV Planner's own setting, and the car's late report of the old value just after it, are not taken for one.
-- **"Plugged in at Garagelader" for a car at another charger.** A car whose own cable sensor says plugged in, while its charger has said for five minutes that no car is, is at a charger EV Planner does not know (a public one, or one not added). It now says "Plugged in at another charger", gets no plan, and is not paused or counted there.
+- **"Plugged in at Garagelader" for a car at another charger.** A car whose own cable sensor says plugged in, while its charger has said for five minutes that no car is, is at a charger EV Planner does not know (a public one, or one not added). It now says "Plugged in at another charger", gets no plan, and is not paused or counted there. It stays there until its cable comes out, so a car plugged in at its charger meanwhile is known to be the other car: Frank's Elroq at the garage charger was shown as the Epiq (plugged in at a Clever charger), and the charger charged the Elroq though it was set to pause.
+- **A charger that starts by itself when a car is plugged in** is now told again what the plan says (a pause sent while no car was there is not taken as done).
+- **The guard did not turn down a charger charging a car it did not know.** A charger at the place that draws power while none of the household's charging cars is at it is now turned down like a guest's charger when the house goes over the limit.
 
 ## [2.5.0b22] - 2026-11-15
 

@@ -1163,22 +1163,26 @@ class Household(DataUpdateCoordinator[None]):
     def _check_elsewhere(self, vehicle: Vehicle, now: datetime) -> bool:
         """Whether the car is plugged in at a charger EV Planner does not know; True when that changed.
 
-        The car says it is plugged in, and its own charger has said for a while that no car is.
+        The car says it is plugged in, and its own charger has said for a while that no car is. It
+        stays there until its cable comes out: a car plugged in at its charger later is another car.
         """
         charger = self.chargers.get(vehicle.charger_id or "")
-        odd = (
-            vehicle.connected_car is True
-            and not vehicle.plugged_by_charger
-            and charger is not None
+        known = (
+            charger is not None
             and charger.connected_entity is not None
-            and charger.connected is False
+            and not vehicle.plugged_by_charger
             and not self.pairing.floats(vehicle)
         )
-        if not odd:
-            vehicle.odd_since = None
-        elif vehicle.odd_since is None:
-            vehicle.odd_since = now
-        elsewhere = vehicle.odd_since is not None and elapsed(now, vehicle.odd_since) >= ELSEWHERE_AFTER
+        if not known or vehicle.connected_car is False:
+            vehicle.odd_since, elsewhere = None, False
+        elif vehicle.connected_car is None:
+            elsewhere = vehicle.elsewhere  # not known now (the car's integration starts): as it was
+        elif charger is not None and (charger.connected is False or vehicle.elsewhere):
+            if vehicle.odd_since is None:
+                vehicle.odd_since = now
+            elsewhere = vehicle.elsewhere or elapsed(now, vehicle.odd_since) >= ELSEWHERE_AFTER
+        else:
+            vehicle.odd_since, elsewhere = None, False
         if elsewhere is vehicle.elsewhere:
             return False
         vehicle.elsewhere = elsewhere
@@ -1195,7 +1199,11 @@ class Household(DataUpdateCoordinator[None]):
             return False
         if charger.occupant is not None:
             return charger.occupant == vehicle.vehicle_id
-        if any(other is not vehicle and other.charger_id == cid for other in self.vehicles.values()):
+        others = [other for other in self.vehicles.values() if other is not vehicle and other.charger_id == cid]
+        # A car that is plugged in at another charger is not the one here.
+        if any(not other.elsewhere for other in others):
+            return False
+        if others and vehicle.home_entity is not None and self.pairing.at_a_site(vehicle.place) is False:
             return False
         site = self.pairing.site_of(charger)
         # A car that finds its charger, and could be at this place, could be the one plugged in.
@@ -1318,6 +1326,11 @@ class Household(DataUpdateCoordinator[None]):
             if charger.connected is True and was is False:
                 charger.plugged_at = dt_util.now()
                 self.events.add(charger.plugged_at, "charger_plugged_in", charger=charger.name)
+                # Many chargers start as soon as a car is plugged in: the car there gets what its plan
+                # says, though that was sent before (a pause sent while no car was there is forgotten).
+                for vehicle in self.vehicles.values():
+                    if vehicle.charger_id == charger_id:
+                        vehicle.enforce_until = charger.plugged_at + ENFORCE_AFTER_PLUG_IN
                 self._schedule_asks(charger_id)
             if charger.connected is False and was is True:
                 # The car that was at it is asked to report, or its cloud may say it is plugged in for long.

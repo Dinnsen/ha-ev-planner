@@ -244,7 +244,7 @@ class Pairing:
         own = [
             vehicle
             for vehicle in household.vehicles.values()
-            if vehicle.at_charger == charger.charger_id and not self.floats(vehicle)
+            if vehicle.at_charger == charger.charger_id and not self.floats(vehicle) and not vehicle.elsewhere
         ]
         plugged = [vehicle for vehicle in own if vehicle.connected is True]
         if len(plugged) == 1:

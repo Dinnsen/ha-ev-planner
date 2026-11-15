@@ -118,8 +118,16 @@ async def test_a_car_plugged_in_at_another_charger_is_left_alone(
     assert tesla.elsewhere is True and tesla.at_home is False
     assert tesla.plan is None and tesla.decision.reason == "away"
     assert "elsewhere" in [event["kind"] for event in household.events.items]
-    # Home and plugged in at its own charger: it is planned again.
+    # A car plugged in at its charger now is another car: the cable has not been out.
     hass.states.async_set(CHARGER_CAR, "on")
     await settle(hass, freezer)
+    assert tesla.elsewhere is True
+    # Unplugged there, and plugged in at its own charger at home: it is planned again.
+    hass.states.async_set(CHARGER_CAR, "off")
+    hass.states.async_set(CABLE, "off")
+    await settle(hass, freezer)
     assert tesla.elsewhere is False
-    assert tesla.plan is not None
+    hass.states.async_set(CABLE, "on")
+    hass.states.async_set(CHARGER_CAR, "on")
+    await settle(hass, freezer)
+    assert tesla.elsewhere is False and tesla.plan is not None

@@ -996,6 +996,7 @@ class Vehicle:
             "last_sent": self.last_sent,
             "paused_by": self.paused_by,
             "at_charger": self.at_charger if self.finds_charger else None,
+            "elsewhere": self.elsewhere,
             "last_soc_seen": self.last_soc_seen,
             "live_active": self.live_active,
             "reminded_on": self.reminded_on,
@@ -1042,6 +1043,7 @@ class Vehicle:
         if self.finds_charger and isinstance(at_charger, str):
             # Checked against the chargers there are when the household starts.
             self.at_charger = at_charger
+        self.elsewhere = data.get("elsewhere") is True
         self.last_soc_seen = to_float(data.get("last_soc_seen"))
         self.live_active = bool(data.get("live_active"))
         reminded = data.get("reminded_on")

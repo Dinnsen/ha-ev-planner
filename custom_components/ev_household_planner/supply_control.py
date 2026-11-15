@@ -90,6 +90,8 @@ GUARD_RESTORE = timedelta(minutes=3)
 IDLE_EVERY = timedelta(minutes=5)
 # A car the guard had to stop waits at least this long, then until the meter shows room for it.
 GUARD_PAUSE = timedelta(minutes=5)
+# A charger that draws more than this (kW) charges a car.
+STRAY_KW = 1.0
 # The plan raises a car the guard watches only into what has been free on the meter, less this:
 # room for the small things that come and go (a washing machine's motor, a fridge).
 HEADROOM_MARGIN = 2.0
@@ -975,7 +977,9 @@ class SupplyControl:
             ),
         )
         guest = self._guest_charger(now)
-        if not charging and guest is None:
+        # A charger that charges a car EV Planner does not see charging there is turned down like a guest's.
+        stray = self._stray_charger(charging) if guest is None else None
+        if not charging and guest is None and stray is None:
             await self._async_restore_guest(now, reading)
             return
         self._cuts = [(at, amps) for at, amps in self._cuts if elapsed(now, at) < GUARD_SETTLE]
@@ -1005,6 +1009,7 @@ class SupplyControl:
                 settling=[[at, amps] for at, amps in self._cuts],
                 cars=[vehicle.name for vehicle in charging],
                 guest=guest.name if guest is not None else None,
+                stray=stray.name if stray is not None else None,
             )
         cars = [(vehicle, entity) for vehicle in charging if (entity := self.current_entity(vehicle)) is not None]
         for vehicle, entity in cars:
@@ -1026,7 +1031,8 @@ class SupplyControl:
         if over is None or over <= 0:
             return
         # The household's cars are at the least they can take: then the guest's charger is turned down.
-        if guest is not None and (freed := await self._async_lower_guest(guest, over, now)) > 0:
+        lower = guest or stray
+        if lower is not None and (freed := await self._async_lower_guest(lower, over, now)) > 0:
             over -= freed
             if over <= 0:
                 return
@@ -1062,6 +1068,19 @@ class SupplyControl:
 
     # ------------------------------------------------------------------
     # The guard and the guest
+
+    def _stray_charger(self, charging: list[Vehicle]) -> Charger | None:
+        """A charger at this place that draws power though none of the cars that charge is at it.
+
+        A car EV Planner took for another, or did not know: it draws all the same.
+        """
+        held = {vehicle.charger_id for vehicle in charging}
+        for charger in self.household.chargers.values():
+            if charger.charger_id in held or self.household.pairing.site_of(charger) is not self.site:
+                continue
+            if (power := self.household.charger_power(charger)) is not None and power > STRAY_KW:
+                return charger
+        return None
 
     def _guest_charger(self, now: datetime) -> Charger | None:
         """The charger at this place the guest charges at now (None when no guest does)."""

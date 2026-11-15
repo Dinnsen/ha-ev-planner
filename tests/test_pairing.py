@@ -728,3 +728,59 @@ async def test_at_an_open_place_a_car_nobody_knows_charges_at_once_and_nobody_is
     assert "open_charger" in [event["kind"] for event in household.events.items]
     state = panel_state(hass, household)
     assert state["sites"][0]["open"] is True
+
+
+async def test_two_cars_of_one_charger_one_at_another_charger(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls, presses: list[str]
+) -> None:
+    """Frank: the Epiq is plugged in at a charger EV Planner does not know; then the Elroq at the garage charger.
+
+    The garage charger is the Elroq's, not the Epiq's, though the Epiq's cable says plugged in: it starts
+    by itself, and the Elroq, set to pause, is paused there. The guard turns down a charger that charges a
+    car it does not know.
+    """
+    set_prices(hass, now, NIGHT)
+    _set_car(hass, "elroq", place="home")
+    _set_car(hass, "epiq", place="home", cable=True)
+    hass.states.async_set("binary_sensor.garage_car", "off")
+    hass.states.async_set("switch.garage", "off")
+    hass.states.async_set("sensor.garage_power", "0", {"unit_of_measurement": "kW"})
+    hass.states.async_set("sensor.garage_energy", "100.0", {"unit_of_measurement": "kWh"})
+    entry = entry_with(
+        _charger(
+            GARAGE,
+            "Garage",
+            {
+                "power": 11.0,
+                "switch_entity": "switch.garage",
+                "connected_entity": "binary_sensor.garage_car",
+                "power_entity": "sensor.garage_power",
+                "energy_entity": "sensor.garage_energy",
+            },
+        ),
+        vehicle_sub(ELROQ, "Elroq", _car("elroq", charger=GARAGE)),
+        vehicle_sub(EPIQ, "Epiq", _car("epiq", charger=GARAGE)),
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    await settle(hass, freezer)
+    household = entry.runtime_data
+    elroq: Vehicle = household.vehicles[ELROQ]
+    epiq: Vehicle = household.vehicles[EPIQ]
+    await household.async_set_vehicle(ELROQ, {"mode": "pause"})
+    for _minute in range(6):
+        await move(hass, freezer, dt_util.now() + timedelta(minutes=1))
+    assert epiq.elsewhere is True and epiq.plan is None
+    state = panel_state(hass, household)
+    assert next(car for car in state["vehicles"] if car["id"] == EPIQ)["elsewhere"] is True
+    switches.calls.clear()
+    # The Elroq is plugged in at the garage; its cloud has not seen the cable yet. The charger starts by itself.
+    hass.states.async_set("binary_sensor.garage_car", "on")
+    hass.states.async_set("switch.garage", "on")
+    await settle(hass, freezer)
+    assert elroq.connected is True and elroq.plugged_by_charger is True
+    assert epiq.elsewhere is True, "still at the other charger"
+    garage = household.chargers[GARAGE]
+    assert household.pairing.occupant(garage) == ELROQ
+    assert ("turn_off", "switch.garage") in switches.calls, "the Elroq is set to pause"
