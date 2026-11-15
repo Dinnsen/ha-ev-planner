@@ -483,9 +483,15 @@ async def test_the_evening_which_car_and_the_hold(
     assert tesla.target == 90
     tesla.calendar_target = None
     tesla.settings["min_soc"] = 20
-    # No cheaper night: the emptier car should have the charger, and it is not plugged in.
+    # No cheaper night, and both have enough for tomorrow: no car charges, and the plan holds them at their floor.
     night_prices(hass, now, 1.0, 3.0)
     await hass.async_block_till_done()
+    await insight._async_decide(now)
+    group = insight.tonight["groups"][0]
+    assert (group["pick"], group["wait"], group["reason"]) == (None, False, "enough")
+    assert tesla.insight_hold == insight.tonight["cars"][TESLA]["floor_pct"]
+    # Every night, as it chose before: the emptier car should have the charger, and it is not plugged in.
+    planner.settings["insight_style"] = 5
     notify.calls.clear()
     await insight._async_decide(now, tell=True)
     group = insight.tonight["groups"][0]

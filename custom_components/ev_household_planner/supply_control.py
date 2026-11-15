@@ -148,7 +148,9 @@ class SupplyControl:
         # The meter had no reading at the guard's last check.
         self._blind = False
         # The guest's charger, turned down by the guard: (its current setting, what it had, when).
-        self._guest_cut: tuple[str, float, datetime] | None = None
+        # The chargers the guard turned down that are not the household's cars' (the guest's, or one charging
+        # a car EV Planner does not see there): what each was at before, and when it was last turned down.
+        self._guest_cut: dict[str, tuple[float, datetime]] = {}
 
     @property
     def hass(self) -> HomeAssistant:
@@ -978,8 +980,9 @@ class SupplyControl:
         )
         guest = self._guest_charger(now)
         # A charger that charges a car EV Planner does not see charging there is turned down like a guest's.
-        stray = self._stray_charger(charging) if guest is None else None
-        if not charging and guest is None and stray is None:
+        # Every other charger that draws is turned down too, whoever is at it: the supply is what counts.
+        strays = self._stray_chargers(charging, guest)
+        if not charging and guest is None and not strays:
             await self._async_restore_guest(now, reading)
             return
         self._cuts = [(at, amps) for at, amps in self._cuts if elapsed(now, at) < GUARD_SETTLE]
@@ -1009,7 +1012,7 @@ class SupplyControl:
                 settling=[[at, amps] for at, amps in self._cuts],
                 cars=[vehicle.name for vehicle in charging],
                 guest=guest.name if guest is not None else None,
-                stray=stray.name if stray is not None else None,
+                stray=[charger.name for charger in strays] or None,
             )
         cars = [(vehicle, entity) for vehicle in charging if (entity := self.current_entity(vehicle)) is not None]
         for vehicle, entity in cars:
@@ -1031,11 +1034,11 @@ class SupplyControl:
         if over is None or over <= 0:
             return
         # The household's cars are at the least they can take: then the guest's charger is turned down.
-        lower = guest or stray
-        if lower is not None and (freed := await self._async_lower_guest(lower, over, now)) > 0:
-            over -= freed
-            if over <= 0:
-                return
+        for lower in [guest, *strays] if guest is not None else strays:
+            if (freed := await self._async_lower_guest(lower, over, now)) > 0:
+                over -= freed
+                if over <= 0:
+                    return
         # Still too much: hold the heat pump back for a while, when that is allowed, then stop the guest,
         # then the last car in line.
         if (freed := await self._async_hold_heat_pump(now)) > 0:
@@ -1069,18 +1072,23 @@ class SupplyControl:
     # ------------------------------------------------------------------
     # The guard and the guest
 
-    def _stray_charger(self, charging: list[Vehicle]) -> Charger | None:
-        """A charger at this place that draws power though none of the cars that charge is at it.
+    def _stray_chargers(self, charging: list[Vehicle], guest: Charger | None) -> list[Charger]:
+        """The chargers at this place that draw power though none of the cars that charge is at them.
 
-        A car EV Planner took for another, or did not know: it draws all the same.
+        A car EV Planner took for another, or did not know, or a renter's: it draws all the same.
         """
         held = {vehicle.charger_id for vehicle in charging}
+        found = []
         for charger in self.household.chargers.values():
-            if charger.charger_id in held or self.household.pairing.site_of(charger) is not self.site:
+            if (
+                charger.charger_id in held
+                or charger is guest
+                or self.household.pairing.site_of(charger) is not self.site
+            ):
                 continue
             if (power := self.household.charger_power(charger)) is not None and power > STRAY_KW:
-                return charger
-        return None
+                found.append(charger)
+        return found
 
     def _guest_charger(self, now: datetime) -> Charger | None:
         """The charger at this place the guest charges at now (None when no guest does)."""
@@ -1116,10 +1124,8 @@ class SupplyControl:
             return 0.0
         if not await self._async_guest_current(entity, target, now, before=current):
             return 0.0
-        if self._guest_cut is None:
-            self._guest_cut = (entity, current, now)
-        else:
-            self._guest_cut = (entity, self._guest_cut[1], now)
+        before = self._guest_cut.get(entity)
+        self._guest_cut[entity] = (before[0] if before else current, now)
         self._cuts.append((now, current - target))
         self.guard_events += 1
         return current - target
@@ -1171,22 +1177,20 @@ class SupplyControl:
 
     async def _async_restore_guest(self, now: datetime, reading: float | None) -> None:
         """Give the guest's charger back what the guard took, when the peak is over."""
-        cut = self._guest_cut
-        if cut is None:
-            return
-        entity, before, at = cut
-        if elapsed(now, at) < GUARD_HOLD:
-            return
-        shown = to_float(self.household.state_of(entity))
-        if shown is None or shown >= before - 0.5:
-            self._guest_cut = None
-            return
-        if reading is None or reading + (before - shown) > self.limit - HEADROOM_MARGIN:
-            return
-        if await self._async_guest_current(entity, before, now, before=shown):
-            self._guest_cut = None
-        else:
-            self._guest_cut = (entity, before, now)
+        for entity, (before, at) in list(self._guest_cut.items()):
+            if elapsed(now, at) < GUARD_HOLD:
+                continue
+            shown = to_float(self.household.state_of(entity))
+            if shown is None or shown >= before - 0.5:
+                self._guest_cut.pop(entity, None)
+                continue
+            if reading is None or reading + (before - shown) > self.limit - HEADROOM_MARGIN:
+                continue
+            if await self._async_guest_current(entity, before, now, before=shown):
+                self._guest_cut.pop(entity, None)
+                reading += before - shown
+            else:
+                self._guest_cut[entity] = (before, now)
 
     # ------------------------------------------------------------------
     # State and storage

@@ -1791,6 +1791,15 @@ Object.assign(TEXT.da, {
   insight_level_80: "8 af 10 dage",
   insight_level_90: "9 af 10 dage",
   insight_level_95: "19 af 20 dage",
+  insight_style: "Hvor forsigtig",
+  insight_style_hint: "Hvornår en bil skal have laderen. Se, hvad hvert valg ville have gjort, under Læring → Lært.",
+  insight_style_0: "Modig",
+  insight_style_1: "Lidt modig",
+  insight_style_2: "Mellem",
+  insight_style_3: "Anbefalet",
+  insight_style_4: "Forsigtig",
+  insight_style_5: "Hver nat",
+  insight_reason_enough: "der er nok på batterierne til en svær dag i morgen",
   insight_tonight: "I aften",
   insight_pick: "{car} bør have laderen",
   insight_none: "Ingen bil behøver laderen",
@@ -1926,6 +1935,15 @@ Object.assign(TEXT.en, {
   insight_level_80: "8 of 10 days",
   insight_level_90: "9 of 10 days",
   insight_level_95: "19 of 20 days",
+  insight_style: "How careful",
+  insight_style_hint: "When a car should have the charger. See what each choice would have done under Learning → Learned.",
+  insight_style_0: "Bold",
+  insight_style_1: "Fairly bold",
+  insight_style_2: "Middle",
+  insight_style_3: "Recommended",
+  insight_style_4: "Careful",
+  insight_style_5: "Every night",
+  insight_reason_enough: "there is enough in the batteries for a hard day tomorrow",
   insight_tonight: "Tonight",
   insight_pick: "{car} should have the charger",
   insight_none: "No car needs the charger",
@@ -9793,7 +9811,7 @@ class EvPlannerPanel extends HTMLElement {
         <p class="hint">${esc(score)}</p>${cars}
         <p class="hint">${esc(t("prices", { own: data.prices || 0, spot: data.spot || 0, fc: data.forecasts || 0 }))}</p>`;
     }
-    const level = Number(settings.insight_level || 90);
+    const style = Number.isInteger(Number(settings.insight_style)) ? Number(settings.insight_style) : 3;
     return {
       icon: "history",
       title: t("title"),
@@ -9803,7 +9821,7 @@ class EvPlannerPanel extends HTMLElement {
         ${on ? `${this._ruleRow({ icon: "bell", title: t("notify"), hint: t("notify_hint"), off: !settings.insight_notify, control: `${settings.insight_notify ? time("insight-at", "insight_notify_at", "19:30") : ""}${sw("insight_notify")}` })}
         ${this._ruleRow({ icon: "car", title: t("window"), hint: t("window_hint"), off: !settings.insight_window, control: `${settings.insight_window ? `${time("insight-from", "insight_from", "21:00")}<span class="dash">–</span>${time("insight-to", "insight_to", "07:00")}` : ""}${sw("insight_window")}` })}
         ${this._ruleRow({ icon: "sun", title: t("use"), hint: t("use_hint"), off: !settings.insight_use, control: sw("insight_use") })}
-        <div class="field col"><span>${esc(t("level"))}</span><div class="chips">${[80, 90, 95].map((v) => `<button class="${level === v ? "on" : ""}" data-act="insight-level" data-level="${v}" data-f="insight-level-${v}" aria-pressed="${level === v}">${esc(t(`level_${v}`))}</button>`).join("")}</div></div>
+        <div class="field col"><span>${esc(t("style"))}</span><div class="chips">${[0, 1, 2, 3, 4, 5].map((v) => `<button class="${style === v ? "on" : ""}" data-act="insight-style" data-style="${v}" data-f="insight-style-${v}" aria-pressed="${style === v}">${esc(t(`style_${v}`))}</button>`).join("")}</div><p class="hint">${esc(t("style_hint"))}</p></div>
         ${figures}` : ""}`,
     };
   }
@@ -9895,13 +9913,15 @@ class EvPlannerPanel extends HTMLElement {
       prices: (this._state.prices || []).map((p) => ({ t: wall(p.start), price: p.price, forecast: Boolean(p.forecast) })),
       cars: this._cars.map((v) => ({
         id: v.id, name: v.name, capacity: v.capacity, soc: v.soc, target: v.target, connected: v.connected, charging: v.charging, min_soc: v.settings?.min_soc,
+        // How the car looks and where it stands, for the pictures.
+        body: ClayScene.BODIES.includes(v.settings?.body) ? v.settings.body : "sedan", paint: v.settings?.paint === "black" ? "black" : "white", spot: v.settings?.spot || null,
         charge_speed: v.charge_speed, charge_speed_source: v.charge_speed_source, charge_speed_learned_from: v.charge_speed_learned_from, curve: v.curve, margin: v.margin,
         plan: v.plan ? { segments: (v.plan.segments || []).map((s) => ({ start: wall(s.start), end: wall(s.end) })), energy: v.plan.energy, cost: v.plan.cost } : null,
         history: (v.history || []).slice(-60).map((e) => ({ start: wall(e.start), end: e.end ? wall(e.end) : null, energy: e.energy, cost: e.cost })),
       })),
       homeKw: Math.max(0, ...this._chargers.map((c) => Number(c.power) || 0)) || 11,
       window: this._insight?.window || [21, 7],
-      level: settings.insight_level,
+      style: Number.isInteger(Number(settings.insight_style)) ? Number(settings.insight_style) : 3,
       use: Boolean(settings.insight_use),
       names: settings.insight_names || {},
       tiles: this._insTiles || null,
@@ -9956,8 +9976,8 @@ class EvPlannerPanel extends HTMLElement {
       this.shadowRoot.querySelector(".content")?.scrollTo?.({ top: 0 });
     } else if (act === "names" && value && typeof value === "object") {
       this._saveSettings({ insight_names: value });
-    } else if (act === "level" && Number(value) >= 50 && Number(value) <= 99) {
-      this._saveSettings({ insight_level: Number(value) });
+    } else if (act === "style" && Number.isInteger(Number(value)) && Number(value) >= 0 && Number(value) <= 5) {
+      this._saveSettings({ insight_style: Number(value) });
       this._insightAt = 0;
     }
   }
@@ -10412,8 +10432,8 @@ class EvPlannerPanel extends HTMLElement {
       case "next-open":
         this._openPopup("next");
         break;
-      case "insight-level":
-        this._saveSettings({ insight_level: Number(button.dataset.level) });
+      case "insight-style":
+        this._saveSettings({ insight_style: Number(button.dataset.style) });
         this._insightAt = 0;
         break;
       case "hh-toggle": {

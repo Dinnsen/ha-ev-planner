@@ -699,16 +699,19 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     assert.equal((await calls("insight")).length, 1);
     assert.equal(await inside((root) => root.querySelectorAll("nav.tabs button").length), 4);
     assert.match(await inside((root) => root.querySelector("#hero .hero").textContent), /Tesla/);
-    assert.equal(await inside((root) => root.querySelectorAll("#hero svg .hline").length), 2, "both cars are drawn");
-    assert.ok(await inside((root) => root.querySelector("#hero .hcable.live")), "the cable goes to the car that gets the charger");
+    assert.equal(await inside((root) => root.querySelectorAll("#hero svg clipPath").length), 2, "both cars are drawn by their sides");
+    assert.ok(await inside((root) => root.querySelector("#hero #h-cab").getAttribute("d")), "the cable is drawn");
+    assert.match(await inside((root) => root.querySelector("#hero .hcue").textContent), /Both cars need tonight/);
+    assert.equal(await inside((root) => root.querySelectorAll("#hero .hstep").length), 0, "no steps under the picture");
     assert.equal(await inside((root) => root.querySelectorAll(".tl-q").length), 3);
     assert.match(await inside((root) => root.querySelector(".tl-q b").textContent), /Tesla/);
     // The week for the cars: seven evenings, each car's level, and a bolt on the car that gets the charger tonight.
     assert.equal(await inside((root) => root.querySelectorAll("#wkp .wkp-col").length), 7);
-    assert.equal(await inside((root) => root.querySelectorAll('#wkp .wkp-col[data-wkp="0"] u.chg').length), 1);
+    assert.equal(await inside((root) => root.querySelectorAll('#wkp .wkp-col[data-wkp="0"] .bat.chg').length), 1);
+    assert.equal(await inside((root) => root.querySelectorAll("#tl-day .wkfact").length), 3, "both cars and the night's price, on one line");
     await tap('ev-planner-insight #wkp [data-wkp="2"]');
     assert.ok(await inside((root) => root.querySelector('#wkp [data-wkp="2"]').classList.contains("on")));
-    assert.match(await inside((root) => root.querySelector("#tl-day").textContent), /hard day/);
+    assert.match(await inside((root) => root.querySelector("#tl-day").textContent), /the night's price/);
     // The timeline is wider than the page and scrolls by itself, both cars in it; a day is chosen by a tap, the zoom by + and −.
     assert.ok(await inside((root) => { const el = root.querySelector("#tl-scroll"); return el.scrollWidth > el.clientWidth && el.scrollLeft > 0; }));
     assert.equal(await inside((root) => root.querySelectorAll("#tl .tl-bf").length), 2);
@@ -737,12 +740,23 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     assert.match(await inside((root) => root.querySelector("#places").textContent), /work · 1×/, "a place without a position is listed under the map");
     assert.equal(await page.evaluate(() => window.harness.calls.filter((c) => c.type === "history/history_during_period").length), 1);
     assert.equal(await inside((root) => root.querySelectorAll("#clock path").length), 168);
+    // A finger held on a chart reads it, and the page stays put.
+    await inside((root) => { const el = root.querySelector("#clock"), r = el.querySelector("path[data-wd]").getBoundingClientRect(); el.dispatchEvent(new PointerEvent("pointerdown", { clientX: r.x + r.width / 2, clientY: r.y + r.height / 2, pointerType: "touch", bubbles: true })); });
+    await page.waitForTimeout(260);
+    assert.equal(await inside((root) => root.querySelector("#clock .tip").hidden), false);
+    await inside((root) => root.querySelector("#clock").dispatchEvent(new PointerEvent("pointerup", { pointerType: "touch", bubbles: true })));
     assert.match(await inside((root) => root.querySelector("#sum-bil").textContent), /trips/);
     assert.equal(await inside((root) => root.querySelectorAll("#sum-wk rect").length), 13);
     // A trip made often is given a name: kept with the settings by the car and how far it goes, and shown at once.
     // A tap on the place on the map chooses it, with its name ready to be written.
     await page.locator("ev-planner-panel ev-planner-insight #map g[data-mp]").first().click({ force: true });
     assert.match(await inside((root) => root.querySelector("#trip .facts").textContent), /2×driven in 90 days/);
+    // The ten places driven to most, and the box folds away.
+    await tap('ev-planner-insight [data-mi="top"]');
+    assert.ok(await inside((root) => root.querySelectorAll("#trip .top10 button").length >= 1));
+    await tap('ev-planner-insight [data-mi="tog"]');
+    assert.equal(await inside((root) => root.querySelector("#trip .top10")), null);
+    await tap('ev-planner-insight [data-mi="trip"]');
     await page.locator("ev-planner-panel ev-planner-insight #nm-in").fill("Work place");
     await page.locator("ev-planner-panel ev-planner-insight #nm-in").press("Enter");
     assert.match(await inside((root) => root.querySelector("#map .rsvg").textContent), /Work place · 2×/);
@@ -772,6 +786,16 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     await tap('ev-planner-insight [data-tab="laer"]');
     assert.equal(await inside((root) => root.querySelectorAll("#models .model").length), 4);
     assert.match(await inside((root) => root.querySelector("#ledger-t").textContent), /3 of 4 days/);
+    // How careful: one slider, and what each choice would have done on the household's own days.
+    assert.equal(await inside((root) => root.querySelectorAll("#c9-week i").length), 7);
+    assert.equal(await inside((root) => root.querySelector("#c9-name").textContent), "Recommended");
+    await inside((root) => { const input = root.querySelector("#c9lv"); input.value = "5"; input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true })); });
+    assert.equal(await inside((root) => root.querySelector("#c9-name").textContent), "Every night");
+    assert.deepEqual((await calls("settings")).at(-1).settings, { insight_style: 5 });
+    await tap("ev-planner-insight [data-c9q]");
+    assert.equal(await inside((root) => root.querySelector("#tl-sheet").hidden), false);
+    assert.ok(await inside((root) => root.querySelectorAll("#tl-sheet .strip i").length > 80));
+    await tap("ev-planner-insight #tl-close");
     // An answer opens a sheet; from it the history is one tap away, with a way back to where one was.
     await tap('ev-planner-insight [data-tab="plan"]');
     await tap('ev-planner-insight .tl-q[data-tlsheet="kost"]');
@@ -783,8 +807,8 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     assert.equal(await read('.learn-views button[aria-selected="true"]', "data-value"), "learned");
     await tap('[data-act="hist-view"][data-value="back"]');
     assert.ok(await inside((root) => root.querySelector("#tl svg")));
-    // Fetched once a minute, not for every look. No sideways scroll on a phone.
-    assert.equal((await calls("insight")).length, 1);
+    // Fetched once a minute, not for every look (and once more after the choice of how careful). No sideways scroll on a phone.
+    assert.equal((await calls("insight")).length, 2);
     assert.equal(await page.evaluate(() => window.harness.calls.filter((c) => c.type === "recorder/statistics_during_period").length), 1);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
     // Nothing unfinished is shown.

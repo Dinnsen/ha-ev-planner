@@ -7,13 +7,16 @@ const CSS = `:host {
   --accent: #00a383; --accent-ink: #00745d; --fc: #d99600; --band: rgba(217,150,0,.16); --band2: rgba(217,150,0,.30);
   --bad: #d4513f; --car2: #5b6ee8; --cold: #3f8fd6; --sun: #e9a500; --path: rgba(20,32,28,.22); --soc: rgba(0,163,131,.16);
   --shadow: 0 1px 2px rgba(20,32,28,.05), 0 8px 28px rgba(20,32,28,.06);
+  --paint-white: #f4f6f8; --paint-white-hi: #ffffff; --paint-black: #2a2d33; --paint-black-line: #0d0f12; --glass: #26303a; --glass-dark: #56616f; --tyre: #1d2024; --rim: #9aa3ad; --headlight: #ffe9a8;
+  --p-lo: color-mix(in srgb, var(--accent) 55%, var(--card)); --p-mid: color-mix(in srgb, var(--sun) 55%, var(--card)); --p-hi: color-mix(in srgb, var(--bad) 50%, var(--card));
   display: block; color: var(--ink); font: 15px/1.5 Inter, var(--ha-font-family-body, Roboto), system-ui, sans-serif; -webkit-text-size-adjust: 100%;
 }
 :host([dark]) {
   --bg: #0e1312; --card: #161d1b; --ink: #edf3f1; --soft: #9caba6; --faint: #6f7d78; --line: #26312e; --well: #1c2523;
   --accent: #20d3a8; --accent-ink: #7be8cd; --fc: #f2b838; --band: rgba(242,184,56,.14); --band2: rgba(242,184,56,.28);
   --bad: #ff7a66; --car2: #8f9dff; --cold: #6db4f2; --sun: #ffc83d; --path: rgba(237,243,241,.20); --soc: rgba(32,211,168,.16);
-  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35); color-scheme: dark }
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35); color-scheme: dark;
+  --paint-white: #dfe4e8; --paint-white-hi: #f4f6f8; --paint-black-line: #8c96a3; --glass: #1b2128; --glass-dark: #4b5563; --tyre: #0b0d0f; --rim: #7d8692; }
 [hidden] { display: none !important; }
 .wrap { max-width: 1080px; margin: 0 auto; display: grid; gap: 18px; }
 button { -webkit-tap-highlight-color: transparent; }
@@ -128,12 +131,13 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } th, td { text
 .tl-trip { fill: var(--car2); } .tl-now { stroke: var(--ink); stroke-width: 1.5; }
 #tl svg path, #tl svg line, #tl svg circle, #tl svg text { pointer-events: none; }
 .tl-day { display: grid; gap: 8px; } .tl-day > b { font: 600 16px "Space Grotesk", sans-serif; }
-.tl-three { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 14px; }
-.tl-q { font: inherit; color: inherit; text-align: left; cursor: pointer; display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 14px; align-items: center; padding: 18px; border-radius: 22px; border: 1px solid var(--line); background: var(--card); }
-.tl-q svg { width: 48px; height: 48px; } .tl-q .ringt { fill: none; stroke: var(--well); stroke-width: 4; } .tl-q .ringv { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round; }
-.tl-q span { display: grid; gap: 2px; min-width: 0; } .tl-q small, .tl-q i { font-size: 12.5px; color: var(--soft); font-style: normal; } .tl-q b { font: 600 20px/1.2 "Space Grotesk", sans-serif; }
-.tl-sheet { position: fixed; inset: 0; z-index: 30; background: rgba(0,0,0,.45); display: grid; align-items: end; justify-items: center; }
-.tl-sheet-in { width: min(560px, 100%); max-height: 80vh; overflow: auto; background: var(--card); border-radius: 24px 24px 0 0; padding: 20px; display: grid; gap: 14px; }
+.tl-three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.tl-q { font: inherit; color: inherit; background: var(--card); border: 0; box-shadow: var(--shadow); border-radius: 20px; padding: 14px 8px 12px; display: grid; justify-items: center; align-content: start; gap: 3px; cursor: pointer; text-align: center; min-width: 0; }
+.tl-q svg { width: 58px; height: 58px; } .tl-q .ringt { fill: none; stroke: var(--well); stroke-width: 6; } .tl-q .ringv { fill: none; stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset 1.1s cubic-bezier(.2,.8,.2,1); }
+.tl-q .rn { font: 600 13px "Space Grotesk", Inter, sans-serif; fill: var(--ink); }
+.tl-q small { font-size: 11px; color: var(--soft); line-height: 1.25; } .tl-q b { font: 600 15px/1.15 "Space Grotesk", Inter, sans-serif; overflow-wrap: anywhere; }
+.tl-sheet { position: fixed; inset: 0; z-index: 30; background: rgba(0,0,0,.45); display: grid; place-items: center; padding: calc(env(safe-area-inset-top, 0px) + 64px) max(12px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 86px) max(12px, env(safe-area-inset-left, 0px)); }
+.tl-sheet-in { width: min(600px, 100%); max-height: 100%; overflow: auto; overscroll-behavior: contain; background: var(--card); border-radius: 22px; padding: 18px; display: grid; gap: 14px; align-content: start; box-shadow: var(--shadow); }
 .note { color: var(--soft); font-size: 13.5px; padding: 18px 4px; text-align: center; }
 .hero-card { gap: 12px; }
 .hsub { color: var(--soft); font-size: 14px; margin-top: -6px; }
@@ -169,18 +173,31 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } th, td { text
 .hprice b { font: 600 16px/1.2 "Space Grotesk", Inter, sans-serif; display: block; white-space: nowrap; font-variant-numeric: tabular-nums; } .hprice small { font-size: 11.5px; color: var(--soft); white-space: nowrap; font-weight: 600; }
 .hprice.good small { color: var(--accent-ink); } .hprice.bad small { color: var(--bad); } .hprice.mid small { color: var(--fc); }
 .hspark { height: 28px; flex: none; } .hspark rect { fill: var(--faint); opacity: .45; } .hspark rect.good { fill: var(--accent); opacity: 1; } .hspark rect.mid { fill: var(--fc); opacity: 1; } .hspark rect.bad { fill: var(--bad); opacity: 1; }
-.wkp { display: grid; grid-template-columns: auto repeat(7, minmax(0, 1fr)); gap: 3px; min-width: 0; }
-.wkp-lab, .wkp-col { display: grid; grid-template-rows: 16px 18px; grid-auto-rows: 24px; gap: 4px; min-width: 0; padding: 5px 2px; }
+.wkp { display: grid; grid-template-columns: auto repeat(7, minmax(0, 1fr)); gap: 3px; min-width: 0; font-size: 12px; }
+.wkp-lab, .wkp-col { display: grid; grid-template-rows: 18px 20px; grid-auto-rows: 26px; gap: 4px; min-width: 0; padding: 4px 2px; }
 .wkp-col { font: inherit; color: inherit; border: 0; background: transparent; border-radius: 12px; cursor: pointer; text-align: center; }
-.wkp-lab { padding-right: 6px; max-width: clamp(58px, 24vw, 130px); }
 .wkp-col.on { background: var(--soc); }
+.wkp-lab { padding-right: 6px; max-width: clamp(58px, 24vw, 130px); }
+.wkp-lab u { text-decoration: none; display: flex; align-items: center; gap: 6px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wkp-lab u.unit { color: var(--soft); font-size: 11px; }
+.wkp-lab s, .kpi small s, .wkfact small s { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .wkp b { font: 600 11.5px "Space Grotesk", Inter, sans-serif; align-self: center; white-space: nowrap; }
-.wkp i { font-style: normal; font-size: 11px; color: var(--soft); font-variant-numeric: tabular-nums; align-self: center; white-space: nowrap; border-radius: 999px; }
-.wkp i.fc { font-style: italic; opacity: .75; } .wkp i.best { color: var(--card); background: var(--accent); font-weight: 600; font-style: normal; opacity: 1; }
-.wkp u { text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 2px; border-radius: 8px; font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; min-width: 0; overflow: hidden; background: linear-gradient(90deg, color-mix(in srgb, var(--c, var(--line)) 30%, transparent) var(--l, 0%), var(--well) var(--l, 0%)); }
-.wkp u.chg { background: var(--c); color: var(--card); } .wkp u svg { width: 7px; height: 10px; fill: currentColor; flex: none; }
-.wkp-lab u { background: none; display: block; font-weight: 500; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 24px; text-align: left; }
-.wkp-lab s, .kpi small s { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+.wkp b.now { justify-self: center; background: var(--ink); color: var(--card); border-radius: 999px; padding: 0 7px; font-size: 10.5px; line-height: 18px; }
+.wkp .pb { position: relative; height: 20px; display: grid; align-items: end; justify-items: center; }
+.wkp .pb::before { content: ""; position: absolute; left: 50%; bottom: 0; width: 14px; height: 100%; transform: translateX(-50%); border-radius: 4px 4px 2px 2px; background: var(--card); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ink) 10%, transparent); }
+.wkp .pb span { position: relative; width: 14px; border-radius: 4px 4px 2px 2px; background: color-mix(in srgb, var(--ink) 34%, transparent); }
+.wkp .pb span.lo, .tier.lo { background: var(--p-lo); } .wkp .pb span.mid, .tier.mid { background: var(--p-mid); } .wkp .pb span.hi, .tier.hi { background: var(--p-hi); }
+.wkp .pb span.best { background: var(--accent); box-shadow: 0 0 0 2px var(--card), 0 0 0 3.5px var(--accent); } .wkp .pb span.fc { opacity: .7; }
+.tier { display: inline-block; width: 8px; height: 8px; border-radius: 3px; margin-right: 5px; text-decoration: none; }
+.wkp .bat { position: relative; justify-self: center; width: 22px; height: 26px; border-radius: 6px; background: var(--card); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ink) 16%, transparent); overflow: hidden; display: grid; place-items: center; }
+.wkp .bat::before { content: ""; position: absolute; inset: auto 0 0 0; height: var(--l, 0%); background: color-mix(in srgb, var(--c) 62%, transparent); transition: height .6s; }
+.wkp .bat.chg { background: color-mix(in srgb, var(--c) 18%, var(--card)); box-shadow: inset 0 0 0 2px var(--c); }
+.wkp .bat svg { position: relative; width: 9px; height: 13px; fill: var(--c); } .wkp .bat.none { opacity: .35; }
+.wkfacts { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 8px; }
+.wkfact { background: var(--well); border-radius: 14px; padding: 9px 11px; display: grid; gap: 1px; min-width: 0; }
+.wkfact small { font-size: 11.5px; color: var(--soft); display: flex; align-items: center; gap: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wkfact b { font: 600 17px/1.2 "Space Grotesk", Inter, sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wkfact i { font-style: normal; font-size: 11.5px; line-height: 1.3; color: var(--soft); }
 .tl-wrap { position: relative; min-width: 0; }
 .tl-ctl { position: absolute; right: 8px; top: 24px; display: grid; gap: 6px; }
 .tl-ctl button { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: 600 16px/1 Inter, system-ui, sans-serif; cursor: pointer; padding: 0; box-shadow: var(--shadow); }
@@ -194,7 +211,7 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } th, td { text
 .nm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0; }
 .nm input { font: inherit; font-size: 14px; padding: 7px 13px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--ink); min-width: 0; flex: 1 1 130px; }
 .btn.on { background: var(--ink); color: var(--card); border-color: var(--ink); }
-.rmap { position: relative; overflow: hidden; border-radius: 16px; background: var(--well); touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.rmap { position: relative; overflow: hidden; border-radius: 16px; background: var(--well); touch-action: pan-y; cursor: grab; user-select: none; -webkit-user-select: none; }
 .rmap.drag { cursor: grabbing; }
 .rmove, .rtiles { position: absolute; left: 0; top: 0; }
 .rtiles img { position: absolute; width: 256px; height: 256px; max-width: none; pointer-events: none; }
@@ -206,7 +223,55 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } th, td { text
 .rattr { position: absolute; left: 6px; bottom: 4px; font-size: 9.5px; color: var(--soft); background: color-mix(in srgb, var(--card) 72%, transparent); padding: 1px 5px; border-radius: 6px; text-decoration: none; }
 #places:empty { display: none; } #places { align-items: center; }
 .detail .tag { font-size: 11px; } .rhist { margin: -2px 0 2px; } .rhist text { font-size: 9.5px; }
-.tl-sheet-in { padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+.hcue { font-size: 13px; text-align: center; color: var(--accent-ink); font-weight: 600; } .hcue.warn { color: color-mix(in srgb, var(--fc) 75%, var(--ink)); }
+.hcue small { display: block; font-weight: 400; color: var(--soft); font-size: 12px; }
+.hcab { fill: none; stroke: var(--ink); stroke-width: 3.2; stroke-linecap: round; }
+.hflow { fill: none; stroke: var(--card); stroke-width: 1.6; stroke-dasharray: 2 9; stroke-linecap: round; animation: hdash 1s linear infinite; }
+.hpulse { transform-box: fill-box; transform-origin: center; animation: hpulse 1.8s ease-out infinite; } @keyframes hpulse { 0% { transform: scale(.6); opacity: .9; } 100% { transform: scale(2.4); opacity: 0; } }
+.chart-hold { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.chart-hold .hl { stroke: var(--ink); stroke-width: 2.2; }
+.rhint { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: var(--ink); color: var(--card); font-size: 13px; padding: 8px 13px; border-radius: 999px; pointer-events: none; opacity: 0; transition: opacity .25s; white-space: nowrap; }
+.rhint.on { opacity: .92; }
+.mi-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.mi-head h3 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mi-tog { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; font-size: 14px; transition: transform .25s; }
+.mi-tog[aria-expanded="false"] { transform: rotate(-90deg); }
+.mi-tabs { display: flex; gap: 4px; background: var(--card); padding: 3px; border-radius: 999px; width: max-content; }
+.mi-tabs button { font: 600 12.5px Inter, sans-serif; border: 0; background: transparent; color: var(--soft); padding: 6px 12px; border-radius: 999px; cursor: pointer; }
+.mi-tabs button.on { background: var(--ink); color: var(--card); }
+.top10 { display: grid; gap: 4px; }
+.top10 button { font: inherit; color: inherit; display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: center; border: 0; background: var(--card); border-radius: 12px; padding: 8px 10px; cursor: pointer; text-align: left; }
+.top10 button.on { box-shadow: inset 0 0 0 2px var(--ink); }
+.top10 .bar { display: block; height: 5px; border-radius: 3px; background: var(--c, var(--accent)); margin-top: 4px; }
+.top10 em { font-style: normal; font-weight: 600; font-variant-numeric: tabular-nums; }
+.top10 small { color: var(--soft); }
+.c9 { gap: 12px; }
+.c9h { display: flex; align-items: center; gap: 8px; }
+.c9name { font: 600 12px Inter, sans-serif; padding: 3px 10px; border-radius: 999px; background: var(--soc); color: var(--accent-ink); transition: background .3s, color .3s; }
+.c9name.hot { background: color-mix(in srgb, var(--fc) 20%, transparent); color: color-mix(in srgb, var(--fc) 70%, var(--ink)); }
+.c9name.calm { background: color-mix(in srgb, var(--car2) 16%, transparent); color: var(--car2); }
+.c9 .q { margin-left: auto; }
+.c9week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; max-width: 340px; }
+.c9week span { display: grid; justify-items: center; gap: 4px; font-size: 10.5px; color: var(--faint); }
+.c9week i { width: 100%; max-width: 30px; aspect-ratio: 1; border-radius: 50%; background: var(--well); box-shadow: inset 0 0 0 1.5px var(--line); display: grid; place-items: center; font: 600 11px "Space Grotesk", Inter, sans-serif; font-style: normal; color: var(--card); transition: background .45s, box-shadow .45s, transform .45s cubic-bezier(.2,1.6,.4,1); }
+.c9week i.on { box-shadow: none; transform: scale(1.04); }
+.c9key { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11.5px; color: var(--soft); }
+.c9key s { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+.c9stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; text-align: center; max-width: 380px; }
+.c9stats div { display: grid; gap: 1px; } .c9stats b { font: 600 22px/1.1 "Space Grotesk", Inter, sans-serif; font-variant-numeric: tabular-nums; } .c9stats b.warn { color: var(--bad); }
+.c9stats small { font-size: 11px; color: var(--soft); }
+.c9ends { display: flex; justify-content: space-between; font-size: 11px; color: var(--soft); margin-top: -8px; max-width: 380px; }
+.c9 input[type=range] { max-width: 380px; }
+.c9out { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 10px; }
+.c9out > div { background: var(--well); border-radius: 16px; padding: 12px 14px; display: grid; gap: 6px; align-content: start; }
+.c9out b.big2 { font: 600 28px/1 "Space Grotesk", Inter, sans-serif; font-variant-numeric: tabular-nums; }
+.split { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--card); }
+.strip { display: grid; grid-template-columns: repeat(13, minmax(0, 1fr)); gap: 3px; } .strip .w { display: grid; gap: 3px; }
+.strip i { aspect-ratio: 1; border-radius: 4px; background: var(--card); position: relative; }
+.strip i.short::after { content: ""; position: absolute; inset: -2px; border-radius: 5px; box-shadow: inset 0 0 0 2px var(--bad); }
+.lvl { transition: width .9s cubic-bezier(.2,.8,.2,1); }
+@media (max-width: 420px) { .tl-q { padding: 12px 6px 10px; } .tl-q svg { width: 50px; height: 50px; } .wkfact { padding: 8px 9px; } .wkfact b { font-size: 15px; } }
+@media (prefers-reduced-motion: reduce) { .hflow, .hpulse { animation: none; } .lvl, .tl-q .ringv, .c9week i { transition: none; } }
 `;
 
 /* Small tools. */
@@ -229,8 +294,43 @@ const unmerc = (x, y, z) => { const n = 256 * 2 ** z; return { lat: (Math.atan(M
 const distKm = (a, b) => { const r = Math.PI / 180, dx = (b.lon - a.lon) * r * Math.cos(((a.lat + b.lat) / 2) * r), dy = (b.lat - a.lat) * r; return 6371 * Math.sqrt(dx * dx + dy * dy); };
 const thin = (list, most) => { if (list.length <= most) return list; const k = (list.length - 1) / (most - 1); return Array.from({ length: most }, (_, i) => list[Math.round(i * k)]); };
 const N = 90;
-const CAR_BODY = "M6 66Q6 50 24 46L62 40Q84 14 118 12L150 12Q178 14 196 38L214 44Q226 48 226 62L226 68Q226 76 218 76L14 76Q6 76 6 68Z";
-const CAR_WIN = "M72 40Q90 20 118 18L132 18L132 40ZM138 18L150 18Q170 20 186 40L138 40Z";
+const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+/* The cars by their sides, from the same proportions the app draws its own cars from: [u from the front, h up]. */
+const BODIES = {"mini":{"L":4.42,"wheels":[0.8,3.53],"r":0.335,"cs":7,"ce":14,"pillars":[0.52],"cladding":false,"rails":false,"pts":[[0.1,0.3],[0.02,0.42],[0,0.55],[0.05,0.66],[0.2,0.75],[0.5,0.82],[0.85,0.87],[1.1,0.9],[1.45,1.1],[1.8,1.3],[2.1,1.41],[3.35,1.43],[3.75,1.36],[4.1,1.16],[4.28,0.98],[4.38,0.94],[4.42,0.8],[4.41,0.55],[4.36,0.4],[4.25,0.3]]},"sedan":{"L":4.72,"wheels":[0.97,3.85],"r":0.345,"cs":7,"ce":14,"pillars":[0.48],"cladding":false,"rails":false,"pts":[[0.1,0.28],[0.02,0.4],[0,0.5],[0.06,0.6],[0.25,0.69],[0.6,0.76],[1,0.82],[1.25,0.86],[1.65,1.08],[2.05,1.32],[2.4,1.42],[3.05,1.44],[3.55,1.35],[3.95,1.18],[4.25,1.03],[4.55,0.98],[4.7,0.94],[4.72,0.78],[4.7,0.52],[4.62,0.3]]},"suv":{"L":4.68,"wheels":[0.98,3.82],"r":0.37,"cs":7,"ce":14,"pillars":[0.4,0.76],"cladding":true,"rails":true,"pts":[[0.08,0.36],[0.02,0.5],[0,0.68],[0.04,0.84],[0.22,0.96],[0.6,1.02],[0.95,1.06],[1.15,1.08],[1.45,1.32],[1.75,1.58],[2,1.66],[4.3,1.68],[4.48,1.62],[4.58,1.45],[4.62,1.22],[4.66,1.12],[4.68,0.95],[4.68,0.62],[4.66,0.45],[4.58,0.36]]},"estate":{"L":4.93,"wheels":[1,3.95],"r":0.35,"cs":7,"ce":14,"pillars":[0.4,0.78],"cladding":false,"rails":true,"pts":[[0.1,0.29],[0.02,0.42],[0,0.53],[0.06,0.63],[0.25,0.72],[0.62,0.79],[1.05,0.85],[1.3,0.88],[1.7,1.1],[2.1,1.34],[2.45,1.44],[4.25,1.44],[4.55,1.36],[4.78,1.18],[4.88,1.02],[4.92,0.96],[4.93,0.82],[4.92,0.55],[4.88,0.4],[4.8,0.29]]},"van":{"L":4.71,"wheels":[0.88,3.88],"r":0.385,"cs":7,"ce":14,"pillars":[0.3,0.6,0.86],"cladding":false,"rails":false,"pts":[[0.06,0.4],[0.01,0.55],[0,0.75],[0.03,0.95],[0.15,1.07],[0.35,1.12],[0.5,1.14],[0.6,1.16],[0.8,1.42],[1.05,1.76],[1.3,1.9],[4.45,1.94],[4.6,1.88],[4.67,1.7],[4.7,1.45],[4.71,1.25],[4.71,1],[4.71,0.65],[4.68,0.48],[4.6,0.4]]}};
+const PAINTS = { white: { body: "var(--paint-white)", line: "var(--ink)", glass: "var(--glass)" }, black: { body: "var(--paint-black)", line: "var(--paint-black-line)", glass: "var(--glass-dark)" } };
+let carUid = 0;
+/* A car by its side, its battery the colour that fills the body under the windows from left to right; the dashed line is what a hard day takes. */
+function sideCar(kind, paint, o = {}) {
+  const b = BODIES[kind] || BODIES.sedan, P = PAINTS[paint] || PAINTS.white;
+  const S = o.scale || 34, flip = !!o.flip, id = `evc${(carUid += 1)}`;
+  const X = (u) => (flip ? b.L - u : u) * S, Y = (h) => -h * S;
+  const pt = (p) => `${X(p[0]).toFixed(1)} ${Y(p[1]).toFixed(1)}`;
+  const body = `M${b.pts.map(pt).join("L")}Z`, top = Math.max(...b.pts.map((p) => p[1]));
+  const g = b.pts.slice(b.cs, b.ce + 1).map((p, i, a) => (i === 0 || i === a.length - 1 ? p : [p[0] + (i === 1 ? 0.05 : i === a.length - 2 ? -0.05 : 0), p[1] - 0.075]));
+  const glass = `M${g.map(pt).join("L")}Z`;
+  const [u0, h0] = b.pts[b.cs], [u1, h1] = b.pts[b.ce], beltAt = (u) => h0 + ((u - u0) / (u1 - u0)) * (h1 - h0);
+  const roofAt = (u) => { for (let i = b.cs; i < b.ce; i += 1) { const [a, ha] = b.pts[i], [c, hc] = b.pts[i + 1]; if (u >= a && u <= c) return ha + ((u - a) / (c - a || 1)) * (hc - ha); } return top; };
+  const pillars = b.pillars.map((f) => { const u = u0 + f * (u1 - u0); return `<path d="M${X(u - 0.045)} ${Y(beltAt(u) - 0.02)}L${X(u - 0.045)} ${Y(roofAt(u) + 0.02)}L${X(u + 0.045)} ${Y(roofAt(u) + 0.02)}L${X(u + 0.045)} ${Y(beltAt(u) - 0.02)}Z" fill="${P.body}"/>`; }).join("");
+  const lvl = o.level == null ? null : clamp(o.level, 0, 100) / 100, belt = Math.min(h0, h1) - 0.02, W = b.L * S;
+  const floorX = o.floor == null ? null : W * (clamp(o.floor, 0, 100) / 100);
+  const wheels = b.wheels.map((u) => `<circle cx="${X(u)}" cy="${Y(b.r)}" r="${(b.r + 0.07) * S}" fill="var(--card)"/><circle cx="${X(u)}" cy="${Y(b.r)}" r="${b.r * S}" fill="var(--tyre)"/><circle cx="${X(u)}" cy="${Y(b.r)}" r="${b.r * 0.55 * S}" fill="var(--rim)"/><circle cx="${X(u)}" cy="${Y(b.r)}" r="${b.r * 0.16 * S}" fill="var(--tyre)"/>`).join("");
+  const nose = b.pts[3], tail = b.pts[15], port = [b.L - 0.62, beltAt(Math.min(b.L - 0.62, u1)) - 0.16];
+  const svg = `<g><clipPath id="${id}"><path d="${body}"/></clipPath><ellipse cx="${X(b.L / 2)}" cy="1.5" rx="${W * 0.47}" ry="3.2" fill="var(--ink)" opacity=".10"/><path d="${body}" fill="${P.body}"/>
+    <g clip-path="url(#${id})">${b.cladding ? `<rect x="-20" y="${Y(0.52)}" width="${W + 40}" height="${0.3 * S}" fill="var(--tyre)" opacity=".55"/>` : ""}${lvl != null ? `<rect class="lvl${o.anim ? " hfill" : ""}" x="-20" y="${Y(belt)}" width="${W * lvl + 20}" height="${(belt + 0.2) * S}" fill="${o.color || "var(--accent)"}" opacity=".82"/>` : ""}<path d="${glass}" fill="${P.glass}" opacity=".78"/>${pillars}${floorX != null ? `<line x1="${floorX}" x2="${floorX}" y1="${Y(belt)}" y2="${0.2 * S}" stroke="var(--bad)" stroke-width="2" stroke-dasharray="4 3"/>` : ""}</g>
+    <path d="${body}" fill="none" stroke="${P.line}" stroke-width="1.8" stroke-linejoin="round"/>${b.rails ? `<path d="M${X(b.pts[10][0] + 0.15)} ${Y(b.pts[10][1] + 0.05)}L${X(b.pts[11][0] - 0.1)} ${Y(b.pts[11][1] + 0.05)}" stroke="${P.line}" stroke-width="2.4" stroke-linecap="round"/>` : ""}
+    <ellipse cx="${X(nose[0] + 0.08)}" cy="${Y(nose[1] - 0.06)}" rx="${0.09 * S}" ry="${0.05 * S}" fill="var(--headlight)"/><ellipse cx="${X(tail[0] - 0.06)}" cy="${Y(tail[1] - 0.04)}" rx="${0.07 * S}" ry="${0.045 * S}" fill="var(--bad)"/>
+    <rect x="${X(port[0]) - 4}" y="${Y(port[1]) - 4}" width="8" height="8" rx="2.5" fill="${P.line}" opacity=".85"/>${wheels}</g>`;
+  return { svg, width: W, port: [X(port[0]), Y(port[1])] };
+}
+/* How careful, from bold to every night: what a hard day is, the reserve on top, how the days after tomorrow count, and whether a car that is not full charges every night. As the integration's own. */
+const STYLES = [
+  { level: 0.6, reserve: 0.05, rest: 0.5, every: false },
+  { level: 0.7, reserve: 0.05, rest: 0.5, every: false },
+  { level: 0.8, reserve: 0.05, rest: 0.5, every: false },
+  { level: 0.9, reserve: 0.1, rest: 0.5, every: false },
+  { level: 0.95, reserve: 0.15, rest: 0.5, every: false },
+  { level: 0.9, reserve: 0.1, rest: 0.9, every: true },
+];
 
 function boot(host, root) {
   const $ = (s, r = root) => r.querySelector(s), $$ = (s, r = root) => [...r.querySelectorAll(s)];
@@ -446,19 +546,23 @@ function boot(host, root) {
     for (const id of ids) if (!share.some((g) => g.includes(id))) share.push([id]);
     const st = {}, cells = {};
     for (const id of ids) { const lvl = cars[id].level; st[id] = { kwh: lvl == null ? null : (lvl / 100) * CARS[id].cap, target: ((Number(CARS[id].live.target) || 80) / 100) * CARS[id].cap, knows: CARS[id].week.length === 7 }; cells[id] = []; }
-    const wkOf = (id, d) => CARS[id].week[mod(new Date(t0 + d * DAY + DAY / 2).getDay() + 6, 7)] || {};
-    const floor = (id, d) => Math.min(st[id].target, (wkOf(id, d).p90 || 0) + 0.1 * CARS[id].cap);
-    const reach = (id, n) => { let left = st[id].kwh, k = 0; for (; k < 4; k += 1) { if (left < floor(id, n + 1 + k) - 1e-6) break; left -= wkOf(id, n + 1 + k).p90 || 0; } return k; };
+    // As careful as the household chose: what a hard day is, the reserve, how the days after count.
+    const style = STYLES[clamp(Math.round(Number(IN.style ?? 3)), 0, 5)] || STYLES[3];
+    const wdOfN = (d) => new Date(t0 + d * DAY + DAY / 2).getDay();
+    const qd = (id, d, p) => { const list = L[id].byWd[wdOfN(d)] || []; return list.length ? q(list, p) : 0; };
+    const floor = (id, d) => Math.min(st[id].target, qd(id, d, style.level) + style.reserve * CARS[id].cap);
+    const reach = (id, n) => { let left = st[id].kwh; if (left < floor(id, n + 1) - 1e-6) return 0; let k = 1; for (; k < 4; k += 1) { left -= qd(id, n + k, style.rest); if (left < floor(id, n + k + 1)) break; } return k; };
     const nights = [];
     for (let n = 0; n < 7; n += 1) {
       const picks = new Set();
       for (const g of share) {
         const able = g.filter((id) => st[id].kwh != null && st[id].knows);
         if (n === 0 && (tn.groups || []).length) { const real = (tn.groups || []).find((x) => (x.cars || []).some((id) => g.includes(id))); if (real && real.pick && g.includes(real.pick)) picks.add(real.pick); continue; }
-        // A car charges the night it must; when two would need the same night after this one, one of them goes now.
-        const must = able.filter((id) => st[id].kwh < floor(id, n + 1) - 1e-6), soon = able.filter((id) => reach(id, n) <= 1 && st[id].kwh < st[id].target - 0.5);
-        const lack = (id) => (floor(id, n + 1) - st[id].kwh) / CARS[id].cap;
-        const pick = must.length ? must.sort((a, b) => lack(b) - lack(a))[0] : soon.length > 1 ? soon.sort((a, b) => st[a].kwh / CARS[a].cap - st[b].kwh / CARS[b].cap)[0] : null;
+        // A car charges the night it must; when the cars would meet at the charger, one goes now; every night only if so chosen.
+        const r = Object.fromEntries(able.map((id) => [id, reach(id, n)])), below = able.filter((id) => st[id].kwh < st[id].target - 0.5);
+        const must = able.filter((id) => r[id] === 0), lo = Math.min(...Object.values(r)), hi = Math.max(...Object.values(r));
+        const lack = (id) => (floor(id, n + 1) - st[id].kwh) / CARS[id].cap, emptier = (a, b) => st[a].kwh / CARS[a].cap - st[b].kwh / CARS[b].cap;
+        const pick = must.length ? must.sort((a, b) => lack(b) - lack(a))[0] : able.length > 1 && lo <= 1 && lo === hi && below.length ? below.sort(emptier)[0] : style.every && below.length ? below.sort((a, b) => r[a] - r[b] || emptier(a, b))[0] : null;
         if (pick) picks.add(pick);
       }
       for (const id of ids) {
@@ -466,7 +570,7 @@ function boot(host, root) {
         cells[id].push({ level: shown, charge: picks.has(id) });
         if (x.kwh == null) continue;
         if (picks.has(id)) x.kwh = Math.max(x.kwh, x.target);
-        x.kwh = Math.max(0, x.kwh - (wkOf(id, n + 1).p50 || 0));
+        x.kwh = Math.max(0, x.kwh - qd(id, n + 1, 0.5));
       }
       nights.push({ n, wd: new Date(t0 + n * DAY + DAY / 2).getDay(), price: n === 0 ? tn.price ?? nightOf(0) : nightOf(n), fc: fcH.has(n * 24 + (IN.window || [21])[0] + 3) });
     }
@@ -478,6 +582,7 @@ function boot(host, root) {
     built = true;
     const HTML = `<div class="wrap">
   <nav class="tabs" aria-label="${tr("Områder", "Parts")}"><div id="tabs"></div></nav>
+    <div class="tl-sheet" id="tl-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="tl-sheet-h"><div class="tl-sheet-in"><div class="row"><h2 id="tl-sheet-h"></h2><button class="btn" id="tl-close">${tr("Luk", "Close")}</button></div><div id="tl-sheet-b"></div></div></div>
   <div class="panel" id="p-plan">
     <section class="card hero-card" id="hero"></section>
     <section class="card tl-card">
@@ -489,7 +594,6 @@ function boot(host, root) {
       <p class="small">${tr("Øverst de næste syv aftener: hvad hvert batteri forventes at stå på, og hvilken bil der forventes at få laderen den nat (fyldt felt med lyn). Tallet under dagen er nattens pris; den billigste er fremhævet. Tryk på en aften for at se den. Herunder tre uger bagud og en uge frem: træk sidelæns, zoom med + og −, og tryk på en dag.", "At the top the coming seven evenings: where each battery is expected to be, and which car is expected to get the charger that night (a filled field with a bolt). The figure under the day is the night's price; the cheapest is marked. Tap an evening to see it. Below, three weeks back and a week ahead: drag sideways, zoom with + and −, and tap a day.")}</p>
     </section>
     <div class="tl-three" id="tl-three"></div>
-    <div class="tl-sheet" id="tl-sheet" hidden><div class="tl-sheet-in"><div class="row"><h2 id="tl-sheet-h"></h2><button class="btn" id="tl-close">${tr("Luk", "Close")}</button></div><div id="tl-sheet-b"></div></div></div>
   </div>
   <div class="panel" id="p-bil" hidden>
     <section class="card">
@@ -526,6 +630,10 @@ function boot(host, root) {
       <div class="scroll" id="hist"></div><p class="small">${tr("Listen, eksporten, sletningen og gæstens regning er de samme som før. Knapperne åbner dem.", "The list, the export, deleting and the guest's bill are as before. The buttons open them.")}</p></section>
   </div>
   <div class="panel" id="p-laer" hidden>
+    <section class="card c9" id="c9card"><div class="c9h"><h2>${tr("Hav nok til", "Have enough for")}</h2><span class="c9name" id="c9-name"></span><button class="q" type="button" data-c9q aria-label="${tr("Hele forklaringen", "The whole explanation")}">?</button></div>
+      <div class="c9week" id="c9-week" aria-hidden="true"></div><div class="c9key" id="c9-key"></div>
+      <div class="c9stats"><div><b id="c9-n"></b><small>${tr("nætter om ugen", "nights a week")}</small></div><div><b id="c9-short"></b><small>${tr("dage under 5 %", "days under 5 %")}</small></div><div><b id="c9-morn"></b><small>${tr("om morgenen", "in the morning")}</small></div></div>
+      <input type="range" id="c9lv" min="0" max="5" step="1" value="3" aria-label="${tr("Hvor forsigtig", "How careful")}"><div class="c9ends"><span>${tr("Modig", "Bold")}</span><span>${tr("Hver nat", "Every night")}</span></div></section>
     <section class="card"><div class="row"><h2>${tr("Det har systemet lært", "This is what it has learned")}</h2><span class="demo">${tr("ringen viser, hvor moden hver model er", "the ring shows how ripe each model is")}</span></div><div id="models"></div></section>
     <div class="two">
       <section class="card"><div class="row"><h2>${tr("Afgangstider, dag for dag", "Departures, day by day")}</h2><div class="chips" id="carsel2" role="group" aria-label="${tr("Bil", "Car")}"></div></div><div id="ridge"></div><p class="small">${tr("Hver bølge er en ugedag. Smal og høj betyder fast rytme, bred og flad betyder, at dagen er svær at forudsige.", "Each wave is a weekday. Narrow and tall is a steady rhythm; wide and flat is a day that is hard to foresee.")}</p></section>
@@ -544,7 +652,6 @@ function boot(host, root) {
         <h2>${tr("Vent, eller lad på de kendte priser?", "Wait, or charge at the known prices?")}</h2>
         <div class="dial"><svg viewBox="0 0 132 132" role="img" aria-label="${tr("Sandsynlighed", "Probability")}"><circle class="track" cx="66" cy="66" r="54"/><circle id="dialv" class="val" cx="66" cy="66" r="54" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100" transform="rotate(-90 66 66)"/><line id="dialm" class="mark" x1="66" y1="2" x2="66" y2="22"/><text id="dialt" class="big" x="66" y="75" text-anchor="middle" style="font-size:26px;fill:var(--ink)">0 %</text></svg>
           <div style="display:grid;gap:6px"><p class="verdict" id="verdict"></p><p class="small" id="why" style="display:block;background:none;padding:0"></p></div></div>
-        <label class="slide"><span>${tr("En svær dag er en, som", "A hard day is one that")} <b id="lvl-t"></b> ${tr("af dagene ligger under", "of the days stay under")}</span><input type="range" id="lvl" min="50" max="95" step="5" value="90"></label>
       </section>
     </div>
     <section class="card"><div class="row"><h2>${tr("Skyggeregnskabet", "The shadow ledger")}</h2><span class="demo">${tr("hvad forudsigelserne ville have gjort", "what the predictions would have done")}</span></div><div class="scroll"><div id="ledger" style="position:relative;min-width:640px"></div></div><div class="ready"><i id="ready" style="width:0%"></i></div><p class="hero" id="ledger-t" style="font-size:clamp(17px,2.6vw,21px)"></p><p class="small">${tr("Regnskabet kører altid i baggrunden, når Indsigt er slået til. Hver aften gemmes, hvad der forventes, og bagefter sammenlignes med de rigtige priser og det rigtige forbrug.", "The ledger always runs in the background while Insight is on. Each evening what is expected is kept, and afterwards it is held against the real prices and the real use.")}</p></section>
@@ -563,8 +670,8 @@ function boot(host, root) {
       b.addEventListener("click", (ev) => { ev.stopPropagation(); const open = card.classList.toggle("help-open"); b.setAttribute("aria-expanded", String(open)); });
       head.appendChild(b);
     }
-    $("#lvl").addEventListener("change", (ev) => say("level", +ev.target.value));
-    $("#lvl").addEventListener("input", (ev) => { $("#lvl-t").textContent = `${ev.target.value} %`; });
+    $("#c9lv").addEventListener("input", (ev) => { S.c9 = +ev.target.value; careful(); });
+    $("#c9lv").addEventListener("change", (ev) => { S.c9 = +ev.target.value; IN.style = S.c9; say("style", S.c9); load(); render(true); });
   }
 
   /* ---------- the week chart: the prices ahead three ways */
@@ -598,18 +705,26 @@ function boot(host, root) {
     if (!st.wired) {
       st.wired = true;
       const at = (ev) => { const b = el.getBoundingClientRect(), gg = st.geo, px = ((ev.clientX - b.left) / b.width) * gg.W, py = ((ev.clientY - b.top) / b.width) * gg.W; return { py, i: clamp(Math.round(((px - gg.L) / (gg.W - gg.L - gg.R)) * (H - 1)), 0, H - 1) }; };
-      el.addEventListener("pointerdown", (ev) => { if (!st.geo) return; const { py } = at(ev), gg = st.geo; if (st.o.threshold && Math.abs(py - gg.y(S.T)) < 16) { st.drag = true; el.setPointerCapture(ev.pointerId); el.style.touchAction = "none"; } });
+      el.classList.add("chart-hold");
+      el.addEventListener("pointerdown", (ev) => {
+        if (!st.geo) return;
+        const { py } = at(ev), gg = st.geo;
+        if (st.o.threshold && Math.abs(py - gg.y(S.T)) < 16) { st.drag = true; el.setPointerCapture(ev.pointerId); el.style.touchAction = "none"; return; }
+        // A finger held still for a moment reads the hours under it; one that moves at once scrolls the page.
+        if (ev.pointerType !== "mouse") { clearTimeout(st.timer); st.from = [ev.clientX, ev.clientY]; st.timer = setTimeout(() => { st.hold = true; el.dispatchEvent(new PointerEvent("pointermove", { clientX: st.from[0], clientY: st.from[1], pointerType: "touch", bubbles: false })); }, 150); }
+      });
+      el.addEventListener("touchmove", (ev) => { if ((st.hold || st.drag) && ev.cancelable) ev.preventDefault(); }, { passive: false });
       el.addEventListener("pointermove", (ev) => {
         if (!st.geo) return;
         const { py, i } = at(ev), gg = st.geo;
         if (st.drag) { const unit = gg.max > 5 ? 0.1 : gg.max > 0.6 ? 0.05 : 0.005; S.T = Math.round(clamp((1 - (py - gg.Top) / gg.PH) * gg.max, gg.max * 0.03, gg.max * 0.97) / unit) * unit; render(true); return; }
-        if (ev.pointerType === "touch" && !ev.buttons) return;
+        if (ev.pointerType === "touch" && !st.hold) { if (st.from && Math.hypot(ev.clientX - st.from[0], ev.clientY - st.from[1]) > 8) { clearTimeout(st.timer); st.from = null; } return; }
         const t = $(".tip", el), s = $("[data-scrub]", el); if (!t || !s) return; s.setAttribute("x1", gg.x(i)); s.setAttribute("x2", gg.x(i)); s.style.opacity = ""; t.hidden = false;
         t.style.left = `${clamp(gg.x(i), 100, el.clientWidth - 100)}px`; t.style.top = `${Math.max(gg.Top + 46, gg.y(price[i] + 1.3 * sigma[i]) - 8)}px`;
         const p = sigma[i] ? phi((S.T - price[i]) / sigma[i]) * 100 : price[i] <= S.T ? 100 : 0;
         t.innerHTML = `${label(i)}<br><b>${esc(money(price[i]))}</b> · ${sigma[i] ? `${tr("8 af 10 gange", "8 times of 10")} ${kr(Math.max(0, price[i] - 1.2816 * sigma[i]))}–${kr(price[i] + 1.2816 * sigma[i])}` : tr("kendt pris", "known price")}${st.o.threshold ? `<br>${tr("Under", "Under")} ${esc(money(S.T))}: <b>${p.toFixed(0)} %</b>` : ""}`;
       });
-      const up = () => { st.drag = false; el.style.touchAction = ""; };
+      const up = () => { st.drag = false; st.hold = false; st.from = null; clearTimeout(st.timer); el.style.touchAction = ""; };
       el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
       el.addEventListener("pointerleave", () => { const t = $(".tip", el); if (t && !st.drag) t.hidden = true; });
     }
@@ -632,10 +747,47 @@ function boot(host, root) {
   }
 
   /* ---------- small helpers for the other pictures */
+  /* A finger that rests on a chart for a moment holds it: the page stays put, and what lies under the finger
+     (or nearest to it) shows at once as it moves. A mouse shows it as it points. */
   const tipOn = (el, sel, text) => {
-    let t = $(".tip", el); if (!t) { t = document.createElement("div"); t.className = "tip"; t.hidden = true; el.appendChild(t); }
-    el.onpointermove = (ev) => { const hit = ev.target.closest(sel); if (!hit) { t.hidden = true; return; } const b = el.getBoundingClientRect(); t.hidden = false; t.innerHTML = text(hit); t.style.left = `${clamp(ev.clientX - b.left, 90, Math.max(90, b.width - 90))}px`; t.style.top = `${ev.clientY - b.top - 12}px`; };
-    el.onpointerleave = () => (t.hidden = true);
+    if (!el) return;
+    el.classList.add("chart-hold");
+    const st = el._hold || (el._hold = {});
+    st.sel = sel; st.text = text;
+    if (st.wired) return;
+    st.wired = true;
+    const tipEl = () => { let t = $(".tip", el); if (!t) { t = document.createElement("div"); t.className = "tip"; t.hidden = true; el.appendChild(t); } return t; };
+    let timer = 0, on = false, from = null, items = null, lit = null;
+    const light = (hit) => { if (lit && lit !== hit) lit.classList.remove("hl"); lit = hit; if (hit) hit.classList.add("hl"); };
+    const show = (x, y, near) => {
+      const b = el.getBoundingClientRect(), t = tipEl(), under = root.elementFromPoint ? root.elementFromPoint(x, y) : null;
+      let hit = under && el.contains(under) ? under.closest(st.sel) : null;
+      if (!hit && near) {
+        items ||= $$(st.sel, el).map((n) => { const r = n.getBoundingClientRect(); return [n, r.left + r.width / 2, r.top + r.height / 2]; });
+        let bd = 46; for (const [n, cx, cy] of items) { const dd = Math.hypot(cx - x, cy - y); if (dd < bd) { bd = dd; hit = n; } }
+      }
+      light(hit);
+      if (!hit) { t.hidden = true; return; }
+      t.hidden = false; t.innerHTML = st.text(hit);
+      t.style.left = `${clamp(x - b.left, 90, Math.max(90, b.width - 90))}px`; t.style.top = `${y - b.top - (near ? 34 : 12)}px`;
+    };
+    const stop = () => { clearTimeout(timer); on = false; from = null; items = null; };
+    el.addEventListener("pointerdown", (ev) => {
+      if (ev.pointerType === "mouse") return;
+      stop(); from = { x: ev.clientX, y: ev.clientY };
+      timer = setTimeout(() => { if (!from) return; on = true; show(from.x, from.y, true); }, 150);
+    });
+    el.addEventListener("pointermove", (ev) => {
+      if (ev.pointerType === "mouse") { show(ev.clientX, ev.clientY, false); return; }
+      if (on) { from = { x: ev.clientX, y: ev.clientY }; show(ev.clientX, ev.clientY, true); return; }
+      if (from && Math.hypot(ev.clientX - from.x, ev.clientY - from.y) > 8) stop();
+    });
+    el.addEventListener("pointerup", (ev) => { if (ev.pointerType === "mouse") return; if (!on && from) show(ev.clientX, ev.clientY, true); stop(); });
+    el.addEventListener("pointercancel", stop);
+    el.addEventListener("pointerleave", (ev) => { if (ev.pointerType === "mouse") { tipEl().hidden = true; light(null); } });
+    // While a finger holds the chart, the page does not scroll.
+    el.addEventListener("touchmove", (ev) => { if (on && ev.cancelable) ev.preventDefault(); }, { passive: false });
+    el.addEventListener("contextmenu", (ev) => { if (from || on) ev.preventDefault(); });
   };
   const countUp = (el, to, fmt) => { if (!el) return; if (still || wrap.classList.contains("calm") || !Number.isFinite(to)) { el.textContent = fmt(to); return; } const t0 = performance.now(); const tick = (now) => { const k = Math.min(1, (now - t0) / 900); el.textContent = fmt(to * (1 - (1 - k) ** 3)); if (k < 1) requestAnimationFrame(tick); }; requestAnimationFrame(tick); };
   const kpis = (id, items) => { $(id).innerHTML = items.map((k, n) => `<div class="kpi"><small>${k[0]}</small><b data-n="${n}">${k[2](0)}</b><span>${k[3] || ""}</span></div>`).join(""); items.forEach((k, n) => countUp($(`${id} [data-n="${n}"]`), k[1], k[2])); };
@@ -646,37 +798,28 @@ function boot(host, root) {
   const carChips = (sel) => { const el = $(sel); if (el) el.innerHTML = ids.length > 1 ? ids.map((k) => `<button data-car="${esc(k)}" class="${k === S.car ? "on" : ""}">${esc(CARS[k].name)}</button>`).join("") : ""; };
 
   /* ---------- Overview: tonight, in a picture */
+  let heroRaf = 0;
   function hero() {
+    cancelAnimationFrame(heroRaf); heroRaf = 0;
     const el = $("#hero"), tn = DATA.tonight || {}, groups = tn.groups || [];
     const g = groups.find((x) => (x.cars || []).length > 1) || groups[0] || {};
     const list = ((g.cars && g.cars.length ? g.cars : ids) || []).filter((id) => CARS[id]);
-    const shown = list.slice(0, 2), pick = CARS[g.pick] ? g.pick : null, [w0, w1] = IN.window || [21, 7];
+    // Left and right as the cars stand at home.
+    const side = (id) => ({ left: 0, right: 1 })[CARS[id].live.spot] ?? list.indexOf(id) / 10;
+    const shown = list.slice(0, 2).sort((a, b) => side(a) - side(b)), pick = CARS[g.pick] ? g.pick : null, [w0, w1] = IN.window || [21, 7];
     const info = (id) => { const c = CARS[id], o = (tn.cars || {})[id] || {}, lvl = TL.cars[id].level; return { c, o, lvl, plugged: c.live.connected === true, charging: c.live.charging === true }; };
     const other = list.filter((id) => id !== pick).map(info);
     const p = pick ? info(pick) : null;
     const nights = (n) => (n === 1 ? tr("1 nat", "1 night") : `${n} ${tr("nætter", "nights")}`);
-    // What happens, in one line.
-    let head, sub;
-    const why = { needed: tr("Den har ikke nok til en svær dag i morgen.", "It does not have enough for a hard day tomorrow."), soonest: tr("Den rammer bunden først.", "It reaches its floor first."), apart: tr("Så skal bilerne ikke lade samme nat senere.", "Then the cars will not need the same night later."), cheaper: tr(`En billigere nat er ${Math.round((g.chance || 0) * 100)} % sandsynlig.`, `A cheaper night is ${Math.round((g.chance || 0) * 100)} % likely.`), full: tr("Batterierne er fyldt til det, I har bedt om.", "The batteries are filled to what you asked for."), learning: tr("Der skal mindst 28 dages kørsel til, før der anbefales noget.", "It takes at least 28 days of driving before anything is recommended.") }[g.reason] || "";
+    let head;
+    const why = { needed: tr("Den har ikke nok til en svær dag i morgen.", "It does not have enough for a hard day tomorrow."), soonest: tr("Den rammer bunden først.", "It reaches its floor first."), apart: tr("Så skal bilerne ikke lade samme nat senere.", "Then the cars will not need the same night later."), cheaper: tr(`En billigere nat er ${Math.round((g.chance || 0) * 100)} % sandsynlig.`, `A cheaper night is ${Math.round((g.chance || 0) * 100)} % likely.`), enough: tr("Der er nok på batterierne til en svær dag i morgen.", "There is enough in the batteries for a hard day tomorrow."), full: tr("Batterierne er fyldt til det, I har bedt om.", "The batteries are filled to what you asked for."), learning: tr("Der skal mindst 28 dages kørsel til, før der anbefales noget.", "It takes at least 28 days of driving before anything is recommended.") }[g.reason] || "";
     if (p && p.plugged) head = tr(`<em>${esc(p.c.name)}</em> sidder i og får laderen i nat.`, `<em>${esc(p.c.name)}</em> is plugged in and has the charger tonight.`);
     else if (p) head = tr(`Sæt <em>${esc(p.c.name)}</em> i laderen i aften.`, `Plug in <em>${esc(p.c.name)}</em> this evening.`);
     else if (g.wait) head = tr("Ingen bil behøver laderen i nat. <em>Vent på en billigere nat.</em>", "No car needs the charger tonight. <em>Wait for a cheaper night.</em>");
     else if (g.reason === "learning" || !groups.length) head = tr("Indsigt <em>lærer stadig</em> jeres rytme.", "Insight is <em>still learning</em> your rhythm.");
     else head = tr("Ingen bil behøver laderen i nat.", "No car needs the charger tonight.");
-    sub = why;
+    let sub = why;
     if (p && other.length && other[0].o.reach != null) sub += ` ${tr(`${other[0].c.name} kan vente ${nights(other[0].o.reach)}.`, `${other[0].c.name} can wait ${nights(other[0].o.reach)}.`)}`;
-    // The picture: the cars filled to their level, the hard day's floor as a mark, and the cable to the one that gets the charger.
-    const car = (id, k) => {
-      const { c, o, lvl } = info(id), flip = k === 1, x0 = flip ? 249 : 8, pct = clamp(lvl ?? 0, 0, 100), fl = o.floor_pct != null ? clamp(o.floor_pct, 0, 100) : null;
-      return `<g transform="translate(${x0} 58) scale(.62)${flip ? " translate(232 0) scale(-1 1)" : ""}"><clipPath id="hc${k}"><path d="${CAR_BODY}"/></clipPath><path class="hbody" d="${CAR_BODY}"/><g clip-path="url(#hc${k})"><rect class="hfill" x="6" y="8" width="${(220 * pct) / 100}" height="72" fill="${c.col}" opacity=".9"/><path class="hwin" d="${CAR_WIN}"/>${fl != null ? `<line class="hfloor" x1="${6 + (220 * fl) / 100}" x2="${6 + (220 * fl) / 100}" y1="8" y2="80"/>` : ""}</g><path class="hline" d="${CAR_BODY}"/><circle class="hwheel" cx="56" cy="76" r="15"/><circle class="hhub" cx="56" cy="76" r="6"/><circle class="hwheel" cx="180" cy="76" r="15"/><circle class="hhub" cx="180" cy="76" r="6"/></g>`;
-    };
-    const k = pick ? shown.indexOf(pick) : -1, cable = k === 0 ? "M190 84C172 84 168 100 150 96" : k === 1 ? "M210 84C228 84 232 100 250 96" : "M210 84C224 92 224 108 212 114";
-    const stars = [[30, 18], [72, 34], [118, 12], [160, 30], [244, 16], [290, 36], [332, 14], [372, 30]].map(([sx, sy], n) => `<circle class="hstar${still ? "" : " hglow"}" style="animation-delay:${n * 0.3}s" cx="${sx}" cy="${sy}" r="1.4"/>`).join("");
-    const scene = `<svg viewBox="0 0 400 124" role="img" aria-label="${tr("Biler og lader i aften", "Cars and charger tonight")}">${stars}<path class="hmoon" d="M206 10a11 11 0 1 0 9 17a9 9 0 0 1-9-17Z"/>
-      <line class="hground" x1="4" x2="396" y1="116" y2="116"/>${shown.map(car).join("")}
-      <rect class="hpost" x="190" y="62" width="20" height="54" rx="6"/><rect class="hscreen${pick && !still ? " hglow" : ""}" x="194" y="67" width="12" height="12" rx="3"/><path class="hbolt" d="M201 69l-4 5h3l-1 4 4-5h-3Z"/>
-      <path class="hcable${k >= 0 ? " live" : ""}" d="${cable}"/>${k >= 0 && !still ? `<path class="hdash" d="${cable}"/>` : ""}</svg>`;
-    const tell = (id, kk) => { const { c, o, lvl } = info(id), is = id === pick; const note = is ? tr("får laderen i nat", "gets the charger tonight") : o.reach != null ? (o.reach > 0 ? tr(`kan vente ${nights(o.reach)}`, `can wait ${nights(o.reach)}`) : tr("skal også lade i nat", "must also charge tonight")) : tr("lærer stadig", "still learning"); return `<div class="hcar${kk ? " r" : ""}${is ? " pick" : ""}"><strong>${esc(c.name)}</strong><b>${lvl == null ? "–" : `${nf(lvl)} %`}</b><small>${note}</small></div>`; };
     // The night's prices: the hours the plan charges in, or the cheapest three.
     const from = 16, bars = []; for (let n = 0; n < 20; n += 1) { const h = from + n; bars.push({ h, hod: h % 24, p: priceH.get(h) ?? null, fc: fcH.has(h) }); }
     const plan = pick ? TL.cars[pick].plan : [], planned = (h) => plan.some((s) => h + 1 > s.h && h < s.h + s.len);
@@ -688,15 +831,27 @@ function boot(host, root) {
       <svg viewBox="0 0 400 62" role="img" aria-label="${tr("Nattens priser", "Tonight's prices")}">${bars.map((b, n) => { if (b.p == null) return ""; const hh = Math.max(3, (b.p / ptop) * 40), on = cheap.has(b.h); return `<rect class="${st0() ? "grow" : ""}" style="animation-delay:${n * 25}ms" x="${n * 20 + 2}" y="${44 - hh}" width="16" height="${hh}" rx="4" fill="${on ? "var(--accent)" : b.fc ? "var(--fc)" : "var(--ink)"}" opacity="${on ? 1 : inWindow(b.hod) ? 0.34 : 0.14}"/>`; }).join("")}
       ${bars.filter((b) => b.hod % 3 === 0).map((b) => `<text x="${(b.h - from) * 20 + 10}" y="59" text-anchor="middle">${pad(b.hod)}</text>`).join("")}
       <line x1="${(mod(w0 - from, 24)) * 20}" x2="${Math.min(400, (mod(w0 - from, 24) + mod(w1 - w0, 24)) * 20)}" y1="47.5" y2="47.5" stroke="var(--ink)" stroke-width="1.5" opacity=".5"/></svg></div>` : "";
-    // What to do, in up to three steps.
-    const steps = [];
+    // The picture: the cars by their sides, filled to their level, a hard day's floor as a dashed line, and the cable.
+    const W = 400, G = 112;
+    const drawn = shown.map((id, k) => { const { c, o, lvl } = info(id); return sideCar(c.live.body, c.live.paint, { scale: 31, level: lvl ?? 0, floor: o.floor_pct, color: c.col, flip: k === 1, anim: st0() }); });
+    const xs = drawn.map((d, k) => (k === 0 ? 4 : W - 4 - d.width)), ports = drawn.map((d, k) => [xs[k] + d.port[0], G + d.port[1]]);
+    const kPick = pick ? shown.indexOf(pick) : -1, kIn = shown.findIndex((id) => info(id).plugged && id === pick) >= 0 ? kPick : shown.findIndex((id) => info(id).plugged);
+    const flowing = kIn >= 0 && info(shown[kIn]).charging;
+    const stars = [[30, 14], [74, 30], [120, 10], [160, 26], [246, 12], [292, 32], [336, 12], [372, 28]].map(([sx, sy], n) => `<circle class="hstar${still ? "" : " hglow"}" style="animation-delay:${n * 0.3}s" cx="${sx}" cy="${sy}" r="1.3"/>`).join("");
+    const scene = `<svg viewBox="0 0 ${W} 122" role="img" aria-label="${tr("Biler og lader i aften", "Cars and charger tonight")}">${stars}<path class="hmoon" d="M206 8a10 10 0 1 0 8 15a8 8 0 0 1-8-15Z"/>
+      <line class="hground" x1="2" x2="${W - 2}" y1="${G + 1.5}" y2="${G + 1.5}"/>${drawn.map((d, k) => `<g transform="translate(${xs[k]} ${G})">${d.svg}</g>`).join("")}
+      <rect class="hpost" x="190" y="58" width="20" height="${G - 58}" rx="6"/><rect class="hscreen${pick && !still ? " hglow" : ""}" x="194" y="63" width="12" height="9" rx="3"/>
+      ${kPick >= 0 && kIn !== kPick ? `<circle class="${still ? "" : "hpulse"}" cx="${ports[kPick][0]}" cy="${ports[kPick][1]}" r="5" fill="none" stroke="var(--accent)" stroke-width="2"/>` : ""}
+      <path class="hcab" id="h-cab"/>${flowing && !still ? '<path class="hflow" id="h-flow"/>' : ""}
+      <g id="h-plug"><rect x="-7" y="-4.5" width="12" height="9" rx="3" fill="var(--ink)"/><rect x="5" y="-3" width="4" height="1.6" rx=".8" fill="var(--ink)"/><rect x="5" y="1.4" width="4" height="1.6" rx=".8" fill="var(--ink)"/></g></svg>`;
+    const tell = (id, kk) => { const { c, o, lvl } = info(id), is = id === pick; const note = is ? tr("får laderen i nat", "gets the charger tonight") : o.reach != null ? (o.reach > 0 ? tr(`kan vente ${nights(o.reach)}`, `can wait ${nights(o.reach)}`) : tr("skal også lade i nat", "must also charge tonight")) : tr("lærer stadig", "still learning"); return `<div class="hcar${kk ? " r" : ""}${is ? " pick" : ""}"><strong>${esc(c.name)}</strong><b>${lvl == null ? "–" : `${nf(lvl)} %`}</b><small>${note}</small></div>`; };
+    // What to do, in one line: the plug, or the warning when both need the night.
     const lp = pick ? CARS[pick].live.plan : null;
-    if (p && !p.plugged) steps.push([tr(`Sæt kablet i ${p.c.name}`, `Plug in ${p.c.name}`), tr(`før kl. ${pad(w0)}`, `before ${pad(w0)}:00`)]);
-    if (p && p.plugged) steps.push([tr(`${p.c.name} sidder i`, `${p.c.name} is plugged in`), tr("intet at gøre", "nothing to do")]);
-    if (p && span) steps.push([tr(`Lader kl. ${span}`, `Charges ${span}`), lp && lp.energy ? `${nf(lp.energy)} kWh · ${esc(money(lp.cost, 0))}` : tr(`de billigste timer, ${money(cheapP)}`, `the cheapest hours, ${money(cheapP)}`)]);
-    if (g.both) steps.push([tr("Begge biler skal lade i nat", "Both cars need tonight"), tr(`lad den anden om dagen, eller byt før kl. ${pad(w0)}`, `charge the other by day, or swap before ${pad(w0)}:00`), true]);
-    else if (p && other.length) steps.push([esc(other[0].c.name), other[0].o.reach != null ? tr(`klarer sig ${nights(other[0].o.reach)} endnu`, `is fine for ${nights(other[0].o.reach)} more`) : ""]);
-    if (!p && g.wait) steps.push([tr("Lad kablet hænge", "Leave the cable"), tr(`en billigere nat er ${Math.round((g.chance || 0) * 100)} % sandsynlig`, `a cheaper night is ${Math.round((g.chance || 0) * 100)} % likely`)]);
+    let cue = "";
+    if (g.both) cue = `<p class="hcue warn">${tr("Begge biler skal lade i nat", "Both cars need tonight")}<small>${tr(`lad den anden om dagen, eller byt før kl. ${pad(w0)}`, `charge the other by day, or swap before ${pad(w0)}:00`)}</small></p>`;
+    else if (p && p.plugged) cue = `<p class="hcue">${span ? tr(`${esc(p.c.name)} lader kl. ${span}`, `${esc(p.c.name)} charges ${span}`) : tr(`${esc(p.c.name)} sidder i`, `${esc(p.c.name)} is plugged in`)}${lp && lp.energy ? ` · ${nf(lp.energy)} kWh · ${esc(money(lp.cost, 0))}` : ""}</p>`;
+    else if (p) cue = `<p class="hcue">${kIn >= 0 ? tr(`Flyt kablet til ${esc(p.c.name)} før kl. ${pad(w0)}`, `Move the cable to ${esc(p.c.name)} before ${pad(w0)}:00`) : tr(`Sæt kablet i ${esc(p.c.name)} før kl. ${pad(w0)}`, `Plug in ${esc(p.c.name)} before ${pad(w0)}:00`)}</p>`;
+    else if (g.wait) cue = `<p class="hcue">${tr("Lad kablet hænge", "Leave the cable")}<small>${tr(`en billigere nat er ${Math.round((g.chance || 0) * 100)} % sandsynlig`, `a cheaper night is ${Math.round((g.chance || 0) * 100)} % likely`)}</small></p>`;
     // The head: this evening, and the night's price against the last nights.
     const ref = night.filter((v) => v != null), tp = tn.price ?? nightOf(0), tier = tp == null || ref.length < 10 ? "" : tp <= q(ref, 0.33) ? "good" : tp >= q(ref, 0.67) ? "bad" : "mid";
     const tierT = { good: tr("en billig nat", "a cheap night"), mid: tr("en almindelig nat", "an ordinary night"), bad: tr("en dyr nat", "a dear night") }[tier] || tr("nattens pris", "the night's price");
@@ -704,8 +859,30 @@ function boot(host, root) {
     const spark = sp.length > 2 ? `<svg class="hspark" style="width:${sp.length * 8}px" viewBox="0 0 ${sp.length * 8} 28" aria-hidden="true">${sp.map((v, n) => { const hh = Math.max(3, (v / sptop) * 26); return `<rect x="${n * 8 + 1}" y="${28 - hh}" width="5.5" height="${hh}" rx="2.5" class="${n === sp.length - 1 ? tier || "mid" : ""}"/>`; }).join("")}</svg>` : "";
     el.innerHTML = `<div class="hhead"><span class="hbadge"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3a9 9 0 1 0 7 14.5A8 8 0 0 1 14 3Z"/><circle cx="5.5" cy="5" r="1"/><circle cx="19" cy="8" r=".8"/></svg></span><div class="hwhen"><b>${tr("I aften", "Tonight")}</b><small>${WDL[TODAY.getDay()]} ${TODAY.getDate()}/${TODAY.getMonth() + 1}</small></div>${tp != null ? `<div class="hprice ${tier}">${spark}<div><b>${esc(money(tp))}</b><small>${tierT}</small></div></div>` : ""}</div>
       <p class="hero">${head}</p>${sub ? `<p class="hsub">${esc(sub)}</p>` : ""}
-      <div class="hgrid">${shown.length ? `<div class="hside"><div class="hscene">${scene}</div><div class="hrow">${tell(shown[0], 0)}<div class="hmid">${tr("skift ikke bil", "no swap")}<br>${pad(w0)}–${pad(w1)}</div>${shown[1] ? tell(shown[1], 1) : "<div></div>"}</div></div>` : ""}
-      <div class="hside">${rib}${steps.length ? `<div class="hsteps">${steps.map(([a, b, warn], n) => `<div class="hstep${warn ? " warn" : ""}"><i>${warn ? "!" : n + 1}</i><div>${a}<small>${b}</small></div></div>`).join("")}</div>` : ""}</div></div>`;
+      <div class="hgrid">${shown.length ? `<div class="hside"><div class="hscene">${scene}</div><div class="hrow">${tell(shown[0], 0)}<div class="hmid">${tr("skift ikke bil", "no swap")}<br>${pad(w0)}–${pad(w1)}</div>${shown[1] ? tell(shown[1], 1) : "<div></div>"}</div>${cue}</div>` : cue}
+      <div class="hside">${rib}</div></div>`;
+    if (!shown.length) return;
+    // The cable: in the car it is plugged into; else the plug goes out to the car that should have it and back, the cable stretching and swinging loose.
+    const cab = $("#h-cab", el), flow = $("#h-flow", el), plug = $("#h-plug", el), holster = [200, 76], outlet = [200, 100];
+    const draw = (pos, sag, dir) => { const dx = pos[0] - outlet[0], d = `M${outlet[0]} ${outlet[1]}C${outlet[0] + dx * 0.15} ${outlet[1] + sag} ${pos[0] - dx * 0.35} ${pos[1] + sag * 0.9} ${pos[0] - dir * 7} ${pos[1]}`; cab.setAttribute("d", d); if (flow) flow.setAttribute("d", d); plug.setAttribute("transform", `translate(${pos[0].toFixed(1)} ${pos[1].toFixed(1)}) scale(${dir} 1)`); };
+    if (kIn >= 0) { const t = ports[kIn], dir = t[0] < 200 ? -1 : 1; draw([t[0] - dir * 6, t[1]], 10, dir); return; }
+    if (kPick < 0) { draw([holster[0] + 2, holster[1] + 10], 0, 1); plug.setAttribute("transform", `translate(${holster[0] + 2} ${holster[1] + 14}) rotate(90)`); cab.setAttribute("d", `M${outlet[0]} ${outlet[1]}C${outlet[0] + 14} ${outlet[1] + 12} ${holster[0] + 12} ${holster[1] + 26} ${holster[0] + 2} ${holster[1] + 20}`); return; }
+    const t = ports[kPick], dir = t[0] < 200 ? -1 : 1, end = [t[0] - dir * 9, t[1]];
+    if (still) { draw([(holster[0] + end[0]) / 2, (holster[1] + end[1]) / 2], 8, dir); return; }
+    const T = 3400, maxD = Math.hypot(end[0] - holster[0], end[1] - holster[1]);
+    let sag = 22, v = 0, last = performance.now(); const t0 = last;
+    const tick = (now) => {
+      if (!host.isConnected || S.tab !== "plan" || !el.isConnected) { heroRaf = 0; return; }
+      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      const t = ((now - t0) % T) / T;
+      const k = t < 0.4 ? ease(t / 0.4) : t < 0.52 ? 1 + Math.sin(((t - 0.4) / 0.12) * Math.PI) * 0.035 : t < 0.9 ? 1 - ease((t - 0.52) / 0.38) : 0;
+      const pos = [holster[0] + (end[0] - holster[0]) * k, holster[1] + (end[1] - holster[1]) * k];
+      const want = 24 * (1 - Math.hypot(pos[0] - holster[0], pos[1] - holster[1]) / maxD) + 2;
+      v += (want - sag) * 60 * dt; v *= Math.pow(0.04, dt); sag += v * dt;
+      draw(pos, sag, dir);
+      heroRaf = requestAnimationFrame(tick);
+    };
+    heroRaf = requestAnimationFrame(tick);
   }
   const st0 = () => !wrap.classList.contains("calm");
 
@@ -714,10 +891,13 @@ function boot(host, root) {
     const el = $("#wkp"), P = PLAN;
     if (!P.cars.length) { el.innerHTML = ""; return; }
     const priced = P.nights.filter((n) => n.price != null), best = priced.length > 1 ? priced.reduce((a, b) => (b.price < a.price ? b : a)).n : -1;
+    const top = Math.max(0.01, ...priced.map((n) => n.price));
     const bolt = '<svg viewBox="0 0 10 14" aria-hidden="true"><path d="M6 0L0 8h4l-1 6 7-9H6Z"/></svg>';
-    el.innerHTML = `<div class="wkp-lab"><b></b><i>${esc(IN.unit || "")}</i>${P.cars.map((id) => `<u><s style="background:${CARS[id].col}"></s>${esc(CARS[id].name)}</u>`).join("")}</div>
-      ${P.nights.map((n) => `<button class="wkp-col${tlS.day === n.n ? " on" : ""}" data-wkp="${n.n}" aria-pressed="${tlS.day === n.n}"><b>${n.n === 0 ? tr("i nat", "tonight") : WD[n.wd]}</b><i class="${n.n === best ? "best" : ""}${n.fc ? " fc" : ""}">${n.price == null ? "–" : kr(n.price)}</i>${P.cars.map((id) => { const c = P.cells[id][n.n]; return c.level == null ? "<u>–</u>" : `<u class="${c.charge ? "chg" : ""}" style="--c:${CARS[id].col};--l:${clamp(c.level, 0, 100).toFixed(0)}%" title="${esc(CARS[id].name)}: ${c.level.toFixed(0)} %${c.charge ? ` · ${tr("lader", "charges")}` : ""}">${c.charge ? bolt : ""}${c.level.toFixed(0)}</u>`; }).join("")}</button>`).join("")}`;
+    el.innerHTML = `<div class="wkp-lab"><u></u><u class="unit">${esc(IN.unit || "")}</u>${P.cars.map((id) => `<u><s style="background:${CARS[id].col}"></s>${esc(CARS[id].name)}</u>`).join("")}</div>
+      ${P.nights.map((n) => `<button class="wkp-col${tlS.day === n.n ? " on" : ""}" data-wkp="${n.n}" aria-pressed="${tlS.day === n.n}" aria-label="${n.n === 0 ? tr("i nat", "tonight") : WDL[n.wd]}"><b class="${n.n === 0 ? "now" : ""}">${n.n === 0 ? tr("nu", "now") : WD[n.wd]}</b><div class="pb">${n.price == null ? "" : `<span class="${tierOf(n.price)}${n.n === best ? " best" : ""}${n.fc ? " fc" : ""}" style="height:${Math.max(5, Math.round((n.price / top) * 18))}px"></span>`}</div>${P.cars.map((id) => { const c = P.cells[id][n.n]; return c.level == null ? '<div class="bat none"></div>' : `<div class="bat${c.charge ? " chg" : ""}" style="--c:${CARS[id].col};--l:${clamp(c.level, 0, 100).toFixed(0)}%" title="${esc(CARS[id].name)}: ${c.level.toFixed(0)} %${c.charge ? ` · ${tr("lader", "charges")}` : ""}">${c.charge ? bolt : ""}</div>`; }).join("")}</button>`).join("")}`;
   }
+  // A night's price against the nights around it: cheap, ordinary or dear.
+  const tierOf = (v) => { const ref = night.filter((x) => x != null).concat(PLAN.nights.map((n) => n.price).filter((x) => x != null)); if (v == null || ref.length < 5) return ""; return v <= q(ref, 0.33) ? "lo" : v >= q(ref, 0.67) ? "hi" : "mid"; };
   function tidslinje() {
     hero(); ugeplan();
     const Z = [1.6, 4.2, 13], w = Z[tlS.z];
@@ -759,23 +939,25 @@ function boot(host, root) {
     const nightsT = (k) => (k == null ? "–" : k === 1 ? tr("1 nat", "1 night") : `${k} ${tr("nætter", "nights")}`);
     const facts = ids.map((id) => {
       const car = TL.cars[id], c = CARS[id], name = `<s style="background:${c.col}"></s>${esc(c.name)}`, cell = PLAN.cells[id] && PLAN.cells[id][d];
-      if (d > 0) { const wk = c.week[mod(dayDate(d).getDay() + 6, 7)] || {}; return [name, c.week.length ? `${nf(wk.p50)} kWh` : "–", `${tr("svær dag", "a hard day")} ${nf(wk.p90)} kWh${cell && cell.charge ? ` · ${tr("lader natten efter", "charges that night")}` : ""}`]; }
+      if (d > 0) { const wk = c.week[mod(dayDate(d).getDay() + 6, 7)] || {}; return [name, cell && cell.level != null ? `${nf(cell.level)} %` : c.week.length ? `${nf(wk.p50)} kWh` : "–", cell && cell.charge ? tr("lader den nat", "charges that night") : `${tr("bruger ca.", "uses about")} ${nf(wk.p50)} kWh`]; }
       if (d === 0) { const o = (tn.cars || {})[id] || {}, grp = (tn.groups || []).find((x) => (x.cars || []).includes(id)) || {}; return [name, car.level == null ? "–" : `${nf(car.level)} %`, grp.pick === id ? tr("får laderen i nat", "gets the charger tonight") : o.reach != null ? `${tr("kan vente", "can wait")} ${nightsT(o.reach)}` : ""]; }
       const dt = car.trips.filter((t) => Math.floor(t.h / 24) === d), ch = car.charges.filter((x) => Math.floor(x.h / 24) === d);
-      return [name, `${nf(sum(dt, (t) => t.km))} km`, `${nf(sum(dt, (t) => t.kwh), 1)} kWh ${tr("brugt", "used")}${ch.length ? ` · ${tr("ladet", "charged")} ${nf(sum(ch, (x) => x.kwh), 1)} kWh` : ""}`];
+      return [name, `${nf(sum(dt, (t) => t.km))} km`, `${nf(sum(dt, (t) => t.kwh), 1)} kWh ${tr("brugt", "used")}${ch.length ? ` · ${tr("ladet", "charged")} ${nf(sum(ch, (x) => x.kwh), 1)}` : ""}`];
     });
-    facts.push([tr("Nattens pris", "The night's price"), money(np ?? (d === 0 ? tn.price : null)), np == null ? "" : d * 24 + w0 >= kn ? tr("prognose", "forecast") : d >= 0 ? tr("kendt", "known") : ""]);
-    if (d > 0) facts.push([tr("Billigere end i nat", "Cheaper than tonight"), chance == null ? "–" : `${clamp(chance, 1, 99)} %`, tr("sandsynlighed", "probability")]);
-    $("#tl-day").innerHTML = `<b>${d === 0 ? tr("I dag", "Today") : `${WDL[dayDate(d).getDay()]} ${dayDate(d).getDate()}/${dayDate(d).getMonth() + 1}`}</b><div class="kpis">${facts.map(([a, v, c]) => `<div class="kpi"><small>${a}</small><b style="font-size:19px">${v}</b><span>${c}</span></div>`).join("")}</div>`;
+    const npv = np ?? (d === 0 ? tn.price : null), tierP = tierOf(npv), tierN = { lo: tr("billig nat", "cheap night"), mid: tr("almindelig nat", "ordinary night"), hi: tr("dyr nat", "dear night") }[tierP] || "";
+    facts.push([d === 0 ? tr("Nattens pris", "The night's price") : `${WD[dayDate(d).getDay()]}, ${tr("nattens pris", "the night's price")}`, money(npv), `${tierP ? `<s class="tier ${tierP}"></s>${tierN}` : ""}${npv == null ? "" : d * 24 + w0 >= kn ? ` · ${tr("prognose", "forecast")}` : ""}${chance != null ? ` · ${clamp(chance, 1, 99)} % ${tr("for billigere end i nat", "cheaper than tonight")}` : ""}`]);
+    $("#tl-day").innerHTML = `<div class="wkfacts" style="--n:${facts.length}">${facts.map(([a, v, c]) => `<div class="wkfact"><small>${a}</small><b>${v}</b><i>${c}</i></div>`).join("")}</div>`;
     // Three answers.
     const all = charges.filter((c) => c.h >= TL.H0 && c.price != null), kwh = sum(all, (c) => c.kwh), cost = sum(all, (c) => c.kwh * c.price);
     const nightK = sum(charges.filter((c) => c.h >= TL.H0).flatMap((c) => c.hours), ([h, k]) => (inWindow(mod(h, 24)) ? k : 0)), allK = sum(charges.filter((c) => c.h >= TL.H0), (c) => c.kwh);
     const back = ids.flatMap((id) => CARS[id].detail.backtest || []), hits = back.filter((r) => r.actual <= r.p90 + 0.05).length;
     const g0 = (tn.groups || []).find((x) => (x.cars || []).length > 1) || (tn.groups || [])[0] || {};
-    const three = [["aften", tr("I aften", "Tonight"), g0.pick && CARS[g0.pick] ? tr(`${esc(CARS[g0.pick].name)} skal have laderen`, `${esc(CARS[g0.pick].name)} should have the charger`) : g0.wait ? tr("Vent på en billigere nat", "Wait for a cheaper night") : tr("Ingen behøver laderen", "No car needs the charger"), { needed: tr("har ikke nok til en svær dag", "not enough for a hard day"), soonest: tr("den rammer bunden først", "it reaches its floor first"), apart: tr("så de ikke mødes ved laderen", "so they do not meet at the charger"), cheaper: tr(`${Math.round((g0.chance || 0) * 100)} % chance for billigere`, `${Math.round((g0.chance || 0) * 100)} % chance of cheaper`), full: tr("batterierne er fyldt", "the batteries are full"), learning: tr("lærer stadig", "still learning") }[g0.reason] || "", 1],
-      ["kost", tr("Hvad har det kostet?", "What has it cost?"), kwh ? money(cost, 0) : "–", kwh ? `${nf(kwh)} kWh ${tr("på 3 uger", "in 3 weeks")} · ${money(cost / kwh)}/kWh` : tr("ingen ladning set de sidste 3 uger", "no charging seen in the last 3 weeks"), allK ? nightK / allK : 0],
-      ["kender", tr("Hvor godt kender den jer?", "How well does it know you?"), back.length ? `${Math.round((hits / back.length) * 100)} %` : "–", back.length ? tr(`ramt rigtigt ${hits} af ${back.length} dage`, `right on ${hits} of ${back.length} days`) : tr("lærer stadig", "still learning"), back.length ? hits / back.length : 0]];
-    $("#tl-three").innerHTML = three.map(([key, a, v, c, share]) => `<button class="tl-q" data-tlsheet="${key}"><svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15" class="ringt"/><circle cx="18" cy="18" r="15" class="ringv" pathLength="100" stroke-dasharray="${Math.round(clamp(share, 0, 1) * 100)} 100" transform="rotate(-90 18 18)"/></svg><span><small>${a}</small><b>${v}</b><i>${c}</i></span></button>`).join("");
+    const three = [["aften", tr("I aften", "Tonight"), g0.pick && CARS[g0.pick] ? esc(CARS[g0.pick].name) : g0.wait ? tr("Vent", "Wait") : tr("Ingen", "None"), { needed: tr("skal lade", "must charge"), soonest: tr("lader først", "charges first"), apart: tr("så de ikke mødes", "so they do not meet"), cheaper: tr(`${Math.round((g0.chance || 0) * 100)} % for billigere`, `${Math.round((g0.chance || 0) * 100)} % for cheaper`), enough: tr("nok til i morgen", "enough for tomorrow"), full: tr("fyldt", "full"), learning: tr("lærer stadig", "still learning") }[g0.reason] || "", 1],
+      ["kost", tr("Kostet", "Cost"), kwh ? money(cost, 0) : "–", kwh ? `${tr("3 uger", "3 weeks")} · ${Math.round((nightK / (allK || 1)) * 100)} % ${tr("om natten", "at night")}` : tr("ingen ladning", "no charging"), allK ? nightK / allK : 0],
+      ["kender", tr("Kender jer", "Knows you"), back.length ? `${Math.round((hits / back.length) * 100)} %` : "–", back.length ? tr(`${hits} af ${back.length} dage`, `${hits} of ${back.length} days`) : tr("lærer stadig", "still learning"), back.length ? hits / back.length : 0]];
+    const ringCol = ["var(--car2)", "var(--accent)", "var(--fc)"], fresh = !$("#tl-three").children.length || st0();
+    $("#tl-three").innerHTML = three.map(([key, a, v, c, share], n) => `<button class="tl-q" data-tlsheet="${key}"><svg viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="23" class="ringt"/><circle cx="28" cy="28" r="23" class="ringv" pathLength="100" stroke="${n === 0 && g0.pick && CARS[g0.pick] ? CARS[g0.pick].col : ringCol[n]}" stroke-dasharray="100" stroke-dashoffset="${fresh && !still ? 100 : 100 - Math.round(clamp(share, 0, 1) * 100)}" data-to="${100 - Math.round(clamp(share, 0, 1) * 100)}" transform="rotate(-90 28 28)"/><text class="rn" x="28" y="33" text-anchor="middle" data-n="${n}">${n === 0 ? (g0.pick ? "⚡" : g0.wait ? "⏳" : "✓") : `${Math.round(clamp(share, 0, 1) * 100)}%`}</text></svg><small>${a}</small><b>${v}</b><small>${c}</small></button>`).join("");
+    if (fresh && !still) requestAnimationFrame(() => requestAnimationFrame(() => { $$("#tl-three .ringv").forEach((r) => (r.style.strokeDashoffset = r.dataset.to)); [1, 2].forEach((n) => { const t = $(`#tl-three [data-n="${n}"]`), to = 100 - Number($$("#tl-three .ringv")[n].dataset.to); countUp(t, to, (x) => `${Math.round(x)}%`); }); }));
     tlS.go = go;
   }
   const SHEETS = {
@@ -789,6 +971,14 @@ function boot(host, root) {
   function kort(c, places, pick, home) {
     const el = $("#map"), W = Math.max(260, el.clientWidth || 320), Hh = Math.round(clamp(W * 0.62, 230, 420)), shown = places.filter((p) => p.pos);
     const sel = pick.place && pick.place.shown ? pick.place.shown : places.find((p) => p.list.includes(pick)) || null;
+    // A place just chosen: the map goes to its road, so the trip fills the map.
+    if (S.fit && sel && sel.pos) {
+      S.fit = false;
+      const pts = [home, sel.pos, ...(pick.route || sel.route || [])];
+      let z = 17, box = null;
+      for (; z > 3; z -= 1) { const xy = pts.map((p) => merc(p, z)), xs = xy.map((v) => v[0]), ys = xy.map((v) => v[1]); box = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]; if (box[1] - box[0] <= W - 90 && box[3] - box[2] <= Hh - 80) break; }
+      S.map = { car: c.id, z, ...unmerc((box[0] + box[1]) / 2, (box[2] + box[3]) / 2, z) };
+    }
     if (!S.map || S.map.car !== c.id) {
       // The first look: home and the nearest places, as many as most of the trips go to. A far one now and then is found by zooming out.
       const near = [...shown].sort((a, b) => distKm(a.pos, home) - distKm(b.pos, home)), all = sum(near, (p) => p.count), fit = [home];
@@ -815,34 +1005,52 @@ function boot(host, root) {
       [text, side] = tries; taken.push(boxOf(text, side));
       return `<g class="hit" data-mp="${places.indexOf(p)}"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="16" fill="transparent"/><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${on ? 7.5 : 6}" fill="${on ? "var(--ink)" : "var(--card)"}" stroke="${on ? "var(--card)" : c.col}" stroke-width="2.5"/><text x="${(x + (side ? -11 : 11)).toFixed(1)}" y="${(y + 4).toFixed(1)}" text-anchor="${side ? "end" : "start"}">${esc(text)}</text></g>`;
     }).reverse().join("");
-    el.innerHTML = `<div class="rmap" style="height:${Hh}px"><div class="rmove"><div class="rtiles">${tiles}</div><svg class="rsvg" width="${W}" height="${Hh}" viewBox="0 0 ${W} ${Hh}" style="width:${W}px;height:${Hh}px" role="img" aria-label="${tr("Kort over turene", "Map of the trips")}">${roads}${mine ? `<path class="${st0() ? "draw" : ""}" pathLength="1" d="${mine}" fill="none" stroke="var(--ink)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>` : ""}
+    el.innerHTML = `<div class="rmap" style="height:${Hh}px"><div class="rmove"><div class="rtiles">${tiles}</div><svg class="rsvg" width="${W}" height="${Hh}" viewBox="0 0 ${W} ${Hh}" style="width:${W}px;height:${Hh}px" role="img" aria-label="${tr("Kort over turene", "Map of the trips")}">${roads}${mine ? `<path d="${mine}" fill="none" stroke="var(--ink)" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/><path class="${st0() ? "draw" : ""}" pathLength="1" d="${mine}" fill="none" stroke="#fff" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/>` : ""}
       <circle cx="${hx.toFixed(1)}" cy="${hy.toFixed(1)}" r="8" fill="var(--ink)" stroke="var(--card)" stroke-width="2.5"/><text x="${(hx + 12).toFixed(1)}" y="${(hy + 4).toFixed(1)}">${esc(HOME)}</text>${marks}</svg></div>
       <div class="tl-ctl"><button data-mz="1" aria-label="${tr("Zoom ind", "Zoom in")}">+</button><button data-mz="-1" aria-label="${tr("Zoom ud", "Zoom out")}">−</button><button data-mz="0" aria-label="${tr("Vis det hele", "Show it all")}">⤢</button></div>
-      ${IN.tiles ? '<a class="rattr" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a>' : ""}</div>`;
-    // Dragged to move, pinched or + and − to zoom; a tap on a place chooses it, with its name ready to be written.
-    const box = $(".rmap", el), move = $(".rmove", el), fingers = new Map();
+      ${IN.tiles ? '<a class="rattr" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a>' : ""}<div class="rhint">${tr("Brug to fingre for at flytte kortet", "Use two fingers to move the map")}</div></div>`;
+    // A mouse drags it; on a phone one finger scrolls the page and two move and zoom the map. + and − zoom; a tap on a place chooses it.
+    const box = $(".rmap", el), move = $(".rmove", el), fingers = new Map(), hintEl = $(".rhint", el);
     for (const img of $$(".rtiles img", el)) img.addEventListener("error", () => img.remove());
-    let from = null, gap = 0, hit = null;
+    let from = null, two = null, hit = null, hintAt = 0;
     const spread = () => { const [a, b] = [...fingers.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+    const midOf = () => { const [a, b] = [...fingers.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
     const again = () => { wrap.classList.add("calm"); biler(); };
     const zoom = (by) => { const next = clamp(S.map.z + by, 3, 18); if (next === S.map.z) return; S.map.z = next; again(); };
-    box.addEventListener("pointerdown", (ev) => { if (ev.target.closest("[data-mz], .rattr")) return; fingers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY }); hit = ev.target.closest("[data-mp]"); if (fingers.size === 1) from = { x: ev.clientX, y: ev.clientY, moved: false }; else { from = null; gap = spread(); move.style.transform = ""; } try { box.setPointerCapture(ev.pointerId); } catch (_err) { /* a pointer that is already gone */ } });
+    const hint = () => { const now = Date.now(); if (now - hintAt < 2500) return; hintAt = now; hintEl.classList.add("on"); setTimeout(() => hintEl.classList.remove("on"), 1400); };
+    box.addEventListener("pointerdown", (ev) => {
+      if (ev.target.closest("[data-mz], .rattr")) return;
+      fingers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      if (fingers.size === 1) { hit = ev.target.closest("[data-mp]"); from = { x: ev.clientX, y: ev.clientY, moved: false, touch: ev.pointerType !== "mouse" }; if (!from.touch) try { box.setPointerCapture(ev.pointerId); } catch (_err) { /* gone */ } }
+      else if (fingers.size === 2) { from = null; hit = null; const b = box.getBoundingClientRect(), m = midOf(); two = { gap: spread(), m0: m, m, k: 1, ox: m.x - b.left, oy: m.y - b.top }; move.style.transformOrigin = `${two.ox}px ${two.oy}px`; for (const id of fingers.keys()) try { box.setPointerCapture(id); } catch (_err) { /* gone */ } }
+    });
     box.addEventListener("pointermove", (ev) => {
       if (!fingers.has(ev.pointerId)) return;
       fingers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
-      if (fingers.size === 2 && gap) { const now = spread(); if (now > gap * 1.5) { fingers.clear(); zoom(1); } else if (now < gap / 1.5) { fingers.clear(); zoom(-1); } return; }
+      if (two && fingers.size === 2) { two.m = midOf(); two.k = clamp(spread() / (two.gap || 1), 0.25, 4); move.style.transform = `translate(${two.m.x - two.m0.x}px, ${two.m.y - two.m0.y}px) scale(${two.k})`; return; }
       if (!from) return;
       const dx = ev.clientX - from.x, dy = ev.clientY - from.y;
       if (!from.moved && Math.hypot(dx, dy) < 6) return;
-      from.moved = true; box.classList.add("drag"); move.style.transform = `translate(${dx}px, ${dy}px)`;
+      from.moved = true;
+      if (from.touch) { hint(); return; }
+      box.classList.add("drag"); move.style.transform = `translate(${dx}px, ${dy}px)`;
     });
+    box.addEventListener("touchmove", (ev) => { if (fingers.size >= 2 && ev.cancelable) ev.preventDefault(); }, { passive: false });
     const done = (ev) => {
       if (!fingers.has(ev.pointerId)) return;
       fingers.delete(ev.pointerId);
+      if (two) {
+        // Two fingers let go: the map stays where they left it, at the nearest whole zoom.
+        const g = two; two = null; fingers.clear();
+        const dz = clamp(Math.round(Math.log2(g.k)), 3 - z, 18 - z), f = 2 ** dz;
+        const wx = (x0 + g.ox) * f, wy = (y0 + g.oy) * f, sx = g.ox + (g.m.x - g.m0.x), sy = g.oy + (g.m.y - g.m0.y);
+        Object.assign(S.map, { z: z + dz }, unmerc(wx - sx + W / 2, wy - sy + Hh / 2, z + dz));
+        again(); return;
+      }
       const was = from; from = null; box.classList.remove("drag");
       if (!was) return;
-      if (was.moved) { Object.assign(S.map, unmerc(cx - (ev.clientX - was.x), cy - (ev.clientY - was.y), z)); again(); return; }
-      if (hit && ev.type === "pointerup") { const p = places[+hit.dataset.mp]; if (p && p.last) { S.pickTrip = p.last.id; S.naming = !p.last.zone; render(true); } }
+      if (was.moved && !was.touch) { Object.assign(S.map, unmerc(cx - (ev.clientX - was.x), cy - (ev.clientY - was.y), z)); again(); return; }
+      if (!was.moved && hit && ev.type === "pointerup") { const p = places[+hit.dataset.mp]; if (p && p.last) { S.pickTrip = p.last.id; S.naming = !p.last.zone; S.fit = true; S.mi = { ...(S.mi || {}), open: true, tab: "trip" }; render(true); } }
     };
     box.addEventListener("pointerup", done); box.addEventListener("pointercancel", done);
     box.addEventListener("click", (ev) => { const b = ev.target.closest("[data-mz]"); if (!b) return; ev.stopPropagation(); if (b.dataset.mz === "0") { S.map = null; again(); } else zoom(Number(b.dataset.mz)); });
@@ -900,7 +1108,12 @@ function boot(host, root) {
           <svg class="rhist" viewBox="0 0 400 74" role="img" aria-label="${tr("Forbrug pr. tur gennem 90 dage", "Use per trip through 90 days")}"><line x1="8" x2="392" y1="${YR(avgE).toFixed(1)}" y2="${YR(avgE).toFixed(1)}" stroke="var(--ink)" stroke-dasharray="4 4" opacity=".6"/>${legs.map((t) => `<circle class="hit" data-trip="${t.id}" cx="${XR(t.d).toFixed(1)}" cy="${YR(clamp(t.eff, lo, hi)).toFixed(1)}" r="${t === pick ? 5.5 : 3.6}" fill="${tempCol(t.temp)}" opacity="${t === pick ? 1 : 0.75}" ${t === pick ? 'stroke="var(--ink)" stroke-width="2"' : ""}/>`).join("")}<text x="8" y="72">${dm(0)}</text><text x="200" y="72" text-anchor="middle">${tr("kWh pr. 100 km, tur for tur · farve: temperatur", "kWh per 100 km, trip by trip · colour: temperature")}</text><text x="392" y="72" text-anchor="end">${tr("i går", "yesterday")}</text></svg>
           <span class="tag">${tr("Den valgte tur", "The chosen trip")}</span>`;
       }
-      if (!typing) $("#trip").innerHTML = `<div class="row"><h3>${esc(pick.from)} → ${esc(pick.to)}</h3><span class="demo">${WDL[dateOf(pick.d).getDay()]} ${dm(pick.d)}</span></div>${naming}${route}<div class="facts"><span><b>${pick.est ? `${tr("ca.", "about")} ${pad(Math.floor(pick.dep / 60))}` : `${hm(pick.dep)}–${hm(pick.arr)}`}</b>${pick.est ? tr("afgang, på timen", "departure, to the hour") : tr("afgang–ankomst", "departure–arrival")}</span><span><b>${nf(pick.km)} km</b>${pick.est ? tr("fra kilometertælleren", "from the odometer") : `${Math.round(pick.arr - pick.dep)} min`}</span><span><b>${nf(pick.kwh, 1)} kWh</b>${nf(pick.eff, 1)} ${tr("pr. 100 km", "per 100 km")}</span><span><b>${pick.soc0 == null || pick.soc1 == null ? "–" : `${nf(pick.soc0)} → ${nf(pick.soc1)} %`}</b>${tr("batteri", "battery")}</span><span><b>${pick.temp == null ? "–" : `${Math.round(pick.temp) + 0}°`}</b>${tr("ude", "outside")}</span><span><b>${np ? esc(money(pick.kwh * np, 0)) : "–"}</b>${tr("strøm, ca.", "power, about")}</span></div>`;
+      // The trip, or the ten places driven to most; folded away when the map should have the room.
+      const mi = S.mi || (S.mi = { open: true, tab: "trip" }), mapped = Boolean(homeAt && located.length), when0 = `${WDL[dateOf(pick.d).getDay()]} ${dm(pick.d)}`;
+      const selP = pick.place && pick.place.shown ? pick.place.shown : places.find((p) => p.list.includes(pick)) || null, ten = [...places].sort((a, b) => b.count - a.count).slice(0, 10), most = Math.max(1, ...ten.map((p) => p.count));
+      const miHead = `<div class="mi-head"><h3>${esc(pick.from)} → ${esc(pick.to)}</h3>${mapped ? `<div class="mi-tabs" role="tablist"><button role="tab" data-mi="trip" aria-selected="${mi.tab === "trip"}" class="${mi.tab === "trip" ? "on" : ""}">${tr("Turen", "The trip")}</button><button role="tab" data-mi="top" aria-selected="${mi.tab === "top"}" class="${mi.tab === "top" ? "on" : ""}">Top 10</button></div>` : ""}<button class="mi-tog" data-mi="tog" aria-expanded="${mi.open}" aria-label="${tr("Vis eller skjul", "Show or hide")}">▾</button></div>`;
+      const topTen = `<div class="top10">${ten.map((p, k) => `<button data-place="${places.indexOf(p)}" class="${p === selP ? "on" : ""}"><small>${k + 1}</small><span><span>${esc(p.name)}</span><span class="bar" style="width:${((p.count / most) * 100).toFixed(0)}%;--c:${c.col}"></span></span><em>${p.count}×</em></button>`).join("")}</div>`;
+      if (!typing) $("#trip").innerHTML = !mi.open ? miHead : mapped && mi.tab === "top" ? `${miHead}${topTen}` : `${miHead}<span class="demo">${when0}</span>${naming}${route}<div class="facts"><span><b>${pick.est ? `${tr("ca.", "about")} ${pad(Math.floor(pick.dep / 60))}` : `${hm(pick.dep)}–${hm(pick.arr)}`}</b>${pick.est ? tr("afgang, på timen", "departure, to the hour") : tr("afgang–ankomst", "departure–arrival")}</span><span><b>${nf(pick.km)} km</b>${pick.est ? tr("fra kilometertælleren", "from the odometer") : `${Math.round(pick.arr - pick.dep)} min`}</span><span><b>${nf(pick.kwh, 1)} kWh</b>${nf(pick.eff, 1)} ${tr("pr. 100 km", "per 100 km")}</span><span><b>${pick.soc0 == null || pick.soc1 == null ? "–" : `${nf(pick.soc0)} → ${nf(pick.soc1)} %`}</b>${tr("batteri", "battery")}</span><span><b>${pick.temp == null ? "–" : `${Math.round(pick.temp) + 0}°`}</b>${tr("ude", "outside")}</span><span><b>${np ? esc(money(pick.kwh * np, 0)) : "–"}</b>${tr("strøm, ca.", "power, about")}</span></div>`;
       S.pickNow = pick.id;
     }
     // per day
@@ -983,8 +1196,83 @@ function boot(host, root) {
     $("#hist").innerHTML = rows.length ? `<table style="min-width:520px"><tr><th>${tr("Hvornår", "When")}</th><th>${tr("Bil", "Car")}</th><th>kWh</th><th>${tr("Pris pr. kWh", "Price per kWh")}</th><th>${tr("I alt", "Total")}</th></tr>${rows.map((e) => `<tr><td>${stamp(e.start)}${e.end ? `–${pad(new Date(e.end).getHours())}.${pad(new Date(e.end).getMinutes())}` : ""}</td><td>${esc(e.name)}</td><td>${nf(e.energy, 1)}</td><td>${e.cost != null && e.energy ? esc(money(e.cost / e.energy)) : "–"}</td><td>${e.cost != null ? esc(money(e.cost)) : "–"}</td></tr>`).join("")}</table>` : none(tr("EV Planner har ikke styret en ladning endnu.", "EV Planner has not run a charge yet."));
   }
 
+  /* ---------- Learned: how careful. What each choice would have done on the household's own days. */
+  const NAMES9 = () => (da ? ["Modig", "Lidt modig", "Mellem", "Anbefalet", "Forsigtig", "Hver nat"] : ["Bold", "Fairly bold", "Middle", "Recommended", "Careful", "Every night"]);
+  const HOW9 = () => STYLES.map((st, i) => (i === 5 ? tr("den laveste bil lader hver nat, den ikke er fuld (som før)", "the lowest car charges every night it is not full (as before)") : tr(`en bil lader kun, når den ellers ikke har til en ${{ 0.6: "6-af-10", 0.7: "7-af-10", 0.8: "8-af-10", 0.9: "9-af-10", 0.95: "19-af-20" }[st.level]}-dag og ${Math.round(st.reserve * 100)} % i reserve, eller når bilerne ellers ville mødes ved laderen`, `a car charges only when it would not have enough for a ${{ 0.6: "6-in-10", 0.7: "7-in-10", 0.8: "8-in-10", 0.9: "9-in-10", 0.95: "19-in-20" }[st.level]} day and ${Math.round(st.reserve * 100)} % in reserve, or when the cars would otherwise meet at the charger`)));
+  let runsFor = null, RUNS = [];
+  // The cars that share a charger (or the one car): each night one of them may have it.
+  const c9cars = () => { const groups = ((DATA.tonight || {}).groups || []).map((g) => (g.cars || []).filter((id) => CARS[id] && daily[id])); return (groups.find((g) => g.length > 1) || groups[0] || ids.slice(0, 2)).filter((id) => daily[id]); };
+  function simulate(style, list) {
+    const wd = (d) => dateOf(d).getDay(), byWd = {}, full = {}, soc = {}, per = {};
+    for (const id of list) { byWd[id] = Array.from({ length: 7 }, () => []); daily[id].forEach((v, d) => byWd[id][wd(d)].push(v)); full[id] = (CARS[id].cap * clamp(Number(CARS[id].live.target) || 80, 10, 100)) / 100; soc[id] = full[id]; per[id] = 0; }
+    const need = (id, d, p) => q(byWd[id][wd(d)], p);
+    const nightsList = [], shortDays = []; let short = 0, morning = 0, mornings = 0;
+    for (let d = 0; d < N - 1; d += 1) {
+      const floor = (id, a) => Math.min(full[id], need(id, d + a, style.level) + style.reserve * CARS[id].cap);
+      const reach = (id) => { let left = soc[id]; if (left < floor(id, 1) - 1e-6) return 0; let k = 1; for (let a = 1; a < 4; a += 1) { left -= need(id, d + a, style.rest); if (left < floor(id, a + 1)) break; k = a + 1; } return k; };
+      const r = Object.fromEntries(list.map((id) => [id, reach(id)])), must = list.filter((id) => r[id] === 0), below = list.filter((id) => soc[id] < full[id] - 0.5);
+      const lo = Math.min(...Object.values(r)), hi = Math.max(...Object.values(r)), emptier = (a, b) => soc[a] / CARS[a].cap - soc[b] / CARS[b].cap;
+      let pick = null;
+      if (must.length) pick = must.sort((a, b) => (floor(b, 1) - soc[b]) / CARS[b].cap - (floor(a, 1) - soc[a]) / CARS[a].cap)[0];
+      else if (list.length > 1 && lo <= 1 && lo === hi && below.length) pick = below.sort(emptier)[0];
+      else if (style.every && below.length) pick = below.sort((a, b) => r[a] - r[b] || emptier(a, b))[0];
+      if (pick) { soc[pick] = Math.max(soc[pick], full[pick]); per[pick] += 1; }
+      nightsList.push(pick);
+      for (const id of list) {
+        const u = daily[id][d + 1];
+        morning += (soc[id] / CARS[id].cap) * 100; mornings += 1;
+        // A day longer than a full battery reaches is no failing of the choice: no charging at home could do it.
+        if (u > soc[id] - 0.05 * CARS[id].cap && u <= full[id] - 0.05 * CARS[id].cap) { short += 1; shortDays.push([d + 1, id]); }
+        soc[id] = Math.max(0, soc[id] - u);
+      }
+    }
+    const weeks = (N - 1) / 7;
+    return { nights: nightsList, perWeek: sum(Object.values(per)) / weeks, per: Object.fromEntries(list.map((id) => [id, per[id] / weeks])), short, shortDays, morning: mornings ? morning / mornings : 0, days: N - 1, list };
+  }
+  function careful() {
+    const list = c9cars(), card = $("#c9card");
+    if (!card) return;
+    card.hidden = !list.length || !list.every((id) => CARS[id].known >= 28 || sum(daily[id]) > 0);
+    if (card.hidden) return;
+    if (runsFor !== daily) { runsFor = daily; RUNS = STYLES.map((st) => simulate(st, list)); }
+    const i = clamp(S.c9 ?? Math.round(Number(IN.style ?? 3)), 0, 5), r = RUNS[i], input = $("#c9lv");
+    if (root.activeElement !== input) input.value = String(i);
+    const name = $("#c9-name"); name.textContent = NAMES9()[i]; name.className = `c9name${i <= 1 ? " hot" : i === 5 ? " calm" : ""}`;
+    // A typical week: the nights a car charges, spread over the week, each car its share.
+    const n = clamp(Math.round(r.perWeek), 0, 7), shares = list.map((id) => [id, r.per[id]]).sort((a, b) => b[1] - a[1]);
+    const counts = Object.fromEntries(list.map((id) => [id, 0])); let left = n;
+    for (const [id, v] of shares) { const k = Math.min(left, Math.round((v / (r.perWeek || 1)) * n)); counts[id] = k; left -= k; } if (left > 0 && shares.length) counts[shares[0][0]] += left;
+    const order = [0, 3, 5, 1, 4, 6, 2], week = Array(7).fill(null), queue = []; const most = Math.max(0, ...Object.values(counts));
+    for (let k = 0; k < most; k += 1) for (const [id] of shares) if (counts[id] > k) queue.push(id);
+    order.slice(0, n).forEach((d, k) => (week[d] = queue[k]));
+    const initial = (id) => { const word = String(CARS[id].name || "?").trim(), first = word[0] || "?"; return list.filter((x) => x !== id && String(CARS[x].name || "").trim()[0] === first).length ? word.slice(0, 2) : first.toUpperCase(); };
+    const days = da ? ["Ma", "Ti", "On", "To", "Fr", "Lø", "Sø"] : ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+    $("#c9-week").innerHTML = days.map((d, k) => `<span><i class="${week[k] ? "on" : ""}" style="${week[k] ? `background:${CARS[week[k]].col}` : ""}">${week[k] ? esc(initial(week[k])) : ""}</i>${d}</span>`).join("");
+    $("#c9-key").innerHTML = list.map((id) => `<span><s style="background:${CARS[id].col}"></s>${esc(initial(id))} · ${esc(CARS[id].name)} ${tr("lader", "charges")}</span>`).join("");
+    $("#c9-n").textContent = nf(r.perWeek, 1);
+    const sh = $("#c9-short"); sh.textContent = String(r.short); sh.className = r.short ? "warn" : "";
+    $("#c9-morn").textContent = `${Math.round(r.morning)} %`;
+  }
+  // The whole explanation, behind the "?".
+  const c9sheet = () => {
+    const list = c9cars(), i = clamp(S.c9 ?? Math.round(Number(IN.style ?? 3)), 0, 5), r = RUNS[i];
+    if (!r) return none(tr("Der er ikke kørsel nok endnu.", "There is not enough driving yet."));
+    const full = Math.floor(r.perWeek), half = r.perWeek - full >= 0.35, shortSet = new Set(r.shortDays.map(([d]) => d - 1));
+    const cells = r.nights.map((pk, d) => `<i class="${shortSet.has(d) ? "short" : ""}" style="${pk ? `background:${CARS[pk].col}` : ""}" title="${WD[dateOf(d).getDay()]} ${dm(d)}"></i>`), weeks = [];
+    for (let w = 0; w < Math.ceil(cells.length / 7); w += 1) weeks.push(`<div class="w">${cells.slice(w * 7, w * 7 + 7).join("")}</div>`);
+    return `<p class="small" style="display:block">${esc(NAMES9()[i])}: ${esc(HOW9()[i])}.</p>
+      <div class="c9out"><div><span class="small" style="display:block">${tr("Laderen bruges", "The charger is used")}</span><b class="big2">${nf(r.perWeek, 1)}</b><span class="small" style="display:block">${tr("nætter om ugen", "nights a week")}</span><div class="split">${list.map((id) => `<i style="width:${((r.per[id] / 7) * 100).toFixed(1)}%;background:${CARS[id].col}"></i>`).join("")}</div><span class="small" style="display:block">${list.map((id) => `${esc(CARS[id].name)} ${nf(r.per[id], 1)}`).join(" · ")}</span></div>
+      <div><span class="small" style="display:block">${tr("Dage et batteri ville gå under 5 %", "Days a battery would go under 5 %")}</span><b class="big2" style="${r.short ? "color:var(--bad)" : ""}">${r.short}</b><span class="small" style="display:block">${tr(`af ${r.days * list.length} bil-dage`, `of ${r.days * list.length} car days`)}${r.short ? `, ${tr("fx", "e.g.")} ${r.shortDays.slice(0, 3).map(([d, id]) => `${dm(d)} (${esc(CARS[id].name)})`).join(", ")}` : ""}</span></div>
+      <div><span class="small" style="display:block">${tr("Batteri om morgenen, i snit", "Battery in the morning, on average")}</span><b class="big2">${Math.round(r.morning)} %</b></div></div>
+      <div class="detail"><span class="tag">${tr("De 90 nætter, uge for uge", "The 90 nights, week by week")}</span><div class="strip">${weeks.join("")}</div><div class="legend">${list.map((id) => `<span><i class="dot" style="background:${CARS[id].col}"></i>${esc(CARS[id].name)} ${tr("lader", "charges")}</span>`).join("")}<span><i class="dot" style="background:var(--card);box-shadow:inset 0 0 0 2px var(--bad)"></i>${tr("under 5 % dagen efter", "under 5 % the day after")}</span></div></div>
+      <h3>${tr("Sådan vælger den", "How it chooses")}</h3><p class="small" style="display:block">${tr("En bil lader den nat, den ellers ikke har nok til en svær dag i morgen med reserven oveni, eller når begge biler ellers ville skulle lade samme nat. Dagene derefter regnes som typiske dage. »Hver nat« er den gamle måde: den laveste bil lader hver nat, den ikke er fuld.", "A car charges the night it would otherwise not have enough for a hard day tomorrow with the reserve on top, or when both cars would otherwise need the same night. The days after are counted as typical days. »Every night« is the old way: the lowest car charges every night it is not full.")}</p>
+      <p class="small" style="display:block">${tr(`Regnet på jeres egne ${r.days} dage med det forbrug, bilerne har haft, og deres mål. En dag længere, end et fuldt batteri rækker til, tæller ikke med. Laderen styres kun efter dette, når »Lad planen vente på en billigere nat« er slået til.`, `Worked out on your own ${r.days} days with the use the cars had, and their targets. A day longer than a full battery reaches does not count. The charger follows this only when »Let the plan wait for a cheaper night« is on.`)}</p>`;
+  };
+  SHEETS.style = [() => `${tr("Hav nok til", "Have enough for")} · ${NAMES9()[clamp(S.c9 ?? Math.round(Number(IN.style ?? 3)), 0, 5)]}`, c9sheet];
+
   /* ---------- Learned */
   function laering() {
+    careful();
     carChips("#carsel2");
     const least = ids.length ? Math.min(...ids.map((id) => CARS[id].known)) : 0, measured = sum(IN.cars || [], (v) => (v.charge_speed_source === "learned" ? Number(v.charge_speed_learned_from) || 1 : 0));
     const MODELS = [[tr("Køremønster", "Driving pattern"), tr("Hvornår hver bil kører, pr. ugedag og time.", "When each car drives, by weekday and hour."), least, 42, tr("dages data", "days of data")], [tr("Forbrug og temperatur", "Use and temperature"), tr("kWh pr. dag og hvad kulden koster.", "kWh a day and what the cold costs."), least, 56, tr("dages data", "days of data")], [tr("Prisprognosens fejl", "The forecast's error"), tr("Hvor langt prognosen plejer at ligge fra den rigtige pris.", "How far the forecast tends to be from the real price."), DATA.forecasts || 0, 30, tr("dages prognoser", "days of forecasts")], [tr("Ladehastighed og tab", "Charging speed and loss"), tr("Hvad laderen faktisk giver, og hvad der går tabt.", "What the charger really gives, and what is lost."), measured, 5, tr("ladninger målt", "charges measured")]];
@@ -1042,9 +1330,6 @@ function boot(host, root) {
     $("#verdict").textContent = wait ? tr("Venter på en billigere nat", "Waits for a cheaper night") : g.pick && CARS[g.pick] ? tr(`${CARS[g.pick].name} lader i nat`, `${CARS[g.pick].name} charges tonight`) : tr("Ingen ladning nødvendig i nat", "No charging needed tonight");
     $("#verdict").style.color = wait ? "var(--accent-ink)" : "var(--fc)";
     $("#why").textContent = `${tr(`Det er ${p} % sandsynligt, at en af de næste nætter bliver billigere end i nat`, `It is ${p} % likely that one of the coming nights is cheaper than tonight`)}${tn.price != null ? ` (${money(tn.price)})` : ""}. ${tr("Grænsen for at vente er 70 %, og kun når bilerne kan klare en svær dag imens.", "The limit for waiting is 70 %, and only when the cars can manage a hard day meanwhile.")}${IN.use ? "" : ` ${tr("Planen følger ikke dette endnu; det er slået fra under Indstillinger.", "The plan does not follow this yet; it is off in Settings.")}`}`;
-    const lvl = clamp(Math.round((Number(IN.level) || 90) / 5) * 5, 50, 95);
-    if (root.activeElement !== $("#lvl")) $("#lvl").value = String(lvl);
-    $("#lvl-t").textContent = `${$("#lvl").value} %`;
     // the shadow ledger
     const sc = DATA.score || {}, led = Object.entries(DATA.ledger || {}).sort((a, b) => (a[0] < b[0] ? -1 : 1)), [w0, w1] = IN.window || [21, 7];
     const pts = [];
@@ -1076,15 +1361,17 @@ function boot(host, root) {
   }
   root.addEventListener("click", (ev) => {
     if (!built) return;
-    const t = ev.target.closest("[data-wkp],[data-tlz],[data-tlnow],[data-day],[data-tlsheet],#tl-close,#tl-sheet,[data-open],[data-tab],[data-car],[data-v],[data-trip],[data-name],[data-place]");
+    const t = ev.target.closest("[data-wkp],[data-tlz],[data-tlnow],[data-day],[data-tlsheet],#tl-close,#tl-sheet,[data-open],[data-tab],[data-car],[data-v],[data-trip],[data-name],[data-place],[data-mi],[data-c9q]");
     if (!t) return;
     if (t.dataset.open) { $("#tl-sheet").hidden = true; say("open", t.dataset.open); return; }
-    if (t.dataset.place) { const p = ((CARS[S.car] || {}).places || [])[+t.dataset.place]; if (p && p.last) { S.pickTrip = p.last.id; S.naming = !p.last.zone; render(true); } return; }
+    if (t.dataset.mi) { const mi = S.mi || (S.mi = { open: true, tab: "trip" }); if (t.dataset.mi === "tog") mi.open = !mi.open; else { mi.tab = t.dataset.mi; mi.open = true; } render(true); return; }
+    if (t.dataset.place) { const p = ((CARS[S.car] || {}).places || [])[+t.dataset.place]; if (p && p.last) { S.pickTrip = p.last.id; S.naming = false; S.fit = true; S.mi = { ...(S.mi || {}), tab: "trip" }; render(true); } return; }
     if (t.dataset.name) { S.naming = t.dataset.name === "open"; render(true); if (S.naming) $("#nm-in")?.focus(); return; }
     if (t.dataset.wkp) { tlS.day = +t.dataset.wkp; tlS.at = tlS.day * 24 + 18; tlS.left = null; }
     else if (t.dataset.tlz) { tlS.z = clamp(tlS.z + Number(t.dataset.tlz), 0, 2); tlS.left = null; }
     else if ("tlnow" in t.dataset) { tlS.day = 0; tlS.at = null; tlS.left = null; }
     else if (t.dataset.day) tlS.day = +t.dataset.day;
+    else if ("c9q" in t.dataset) { const [h, body] = SHEETS.style; $("#tl-sheet-h").textContent = h(); $("#tl-sheet-b").innerHTML = body(); $("#tl-sheet").hidden = false; return; }
     else if (t.dataset.tlsheet) { const [h, body] = SHEETS[t.dataset.tlsheet]; $("#tl-sheet-h").textContent = h(); $("#tl-sheet-b").innerHTML = body(); $("#tl-sheet").hidden = false; return; }
     else if (t.id === "tl-close" || t.id === "tl-sheet") { if (t.id === "tl-sheet" && ev.target !== t) return; $("#tl-sheet").hidden = true; return; }
     else if (t.dataset.tab) { S.tab = t.dataset.tab; for (const id of Object.keys(charts)) charts[id].first = true; render(false); if (host.getBoundingClientRect().top < 0) host.scrollIntoView({ block: "start" }); return; }
@@ -1119,7 +1406,7 @@ function boot(host, root) {
       load();
       if (!built || again) { build(); render(false); } else render(!fresh);
     },
-    stop() { if (raf) cancelAnimationFrame(raf); raf = 0; },
+    stop() { if (raf) cancelAnimationFrame(raf); raf = 0; cancelAnimationFrame(heroRaf); heroRaf = 0; },
     start() { if (built && IN) render(true); },
   };
 }
@@ -1135,7 +1422,7 @@ class EvPlannerInsight extends HTMLElement {
   /* What the panel knows. Drawn again only when something that is shown has changed. */
   set input(value) {
     this.toggleAttribute("dark", !!value.dark);
-    const key = JSON.stringify([value.lang, value.dark, value.insightAt, value.statsAt, Math.floor(value.now / 3600000), value.level, value.use, (value.cars || []).map((c) => [c.id, Math.round(Number(c.soc) || 0), c.connected, c.charging, c.plan && c.plan.segments.length, (c.history || []).length]), (value.prices || []).length, value.names, value.tracksAt, (value.zones || []).length, value.tiles]);
+    const key = JSON.stringify([value.lang, value.dark, value.insightAt, value.statsAt, Math.floor(value.now / 3600000), value.style, value.use, (value.cars || []).map((c) => [c.id, Math.round(Number(c.soc) || 0), c.connected, c.charging, c.plan && c.plan.segments.length, (c.history || []).length, c.body, c.paint, c.spot]), (value.prices || []).length, value.names, value.tracksAt, (value.zones || []).length, value.tiles]);
     if (key === this._key) return;
     const fresh = !this._key;
     this._key = key;

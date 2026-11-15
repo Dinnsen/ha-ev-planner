@@ -4,12 +4,25 @@ All notable changes to EV Planner. The version is the one in `custom_components/
 
 ## [2.5.0b23] - 2026-11-15
 
+### Added
+
+- **How careful, in one slider (Learning → Learned).** From »Bold« to »Every night«, with what each choice would have done on the household's own 90 days: how many nights a week the charger is used, which car, how often a battery would have gone under 5 %, and the battery in the morning. A »?« opens the whole explanation and the 90 nights week by week. The same six choices are under Settings → Insight, in place of »Always have enough for«. Before, a car got the charger nearly every night whatever the level was set to, and every day after tomorrow was counted as a hard day; now a car charges the night it must, or when the cars would otherwise meet at the charger, and the days in between count as typical days. »Every night« keeps the old way. With »Let the plan wait for a cheaper night« on, a night no car needs the charger holds them at their floor.
+- **The cars by their sides in the evening's picture**, drawn from the body and colour chosen for each car and standing left and right as at home. The battery fills the body from left to right; the dashed line is what a hard day takes.
+- **The cable shows what to do.** It sits in the car that is plugged in (with the power running in it while it charges); when the car that should have the charger is not plugged in, the plug goes out to it and back, the cable stretching and swinging loose, and its port pulses. The steps under the picture are gone: one line says what to do, and warns when both cars need the night.
+
+### Changed
+
+- **The cars' week** is smaller and calmer: short day names, »now« as a small pill, each car a small battery filled to the expected level (with a bolt and an edge the night it charges), and the night's price as a bar in muted green, yellow or red for a cheap, ordinary or dear night; the cheapest has a ring. The chosen evening's figures (each car and the night's price) stand on one line.
+- **The three answers** stand on one line as rings that fill as they come in, and their sheets open between the top bar and the tab bar, scrolling inside, so nothing hides under the tabs.
+- **The map:** a place that is tapped (on the map or in the list) brings the map to its road, drawn white on top of the others; on a phone one finger scrolls the page and two move and zoom the map. The trip's box folds away, and has a Top 10 of the places driven to most.
+- **Charts are read with a held finger.** Rest a finger on a chart for a moment and slide: the page stays put and whatever is under the finger (or the nearest dot) shows at once, without marking text. The week's clock, every trip, km a week, use per day, the price's rhythm, every charge, said and done, and the coming days' prices.
+
 ### Fixed
 
 - **The target slider did not follow a limit changed in the car.** With EV Planner's own steps (1, 5 or 10 %), a charge limit set in the car or its app stayed at EV Planner's old target (90 % in the panel, 80 % in the car). A change made in the car is now the new target; EV Planner's own setting, and the car's late report of the old value just after it, are not taken for one.
 - **"Plugged in at Garagelader" for a car at another charger.** A car whose own cable sensor says plugged in, while its charger has said for five minutes that no car is, is at a charger EV Planner does not know (a public one, or one not added). It now says "Plugged in at another charger", gets no plan, and is not paused or counted there. It stays there until its cable comes out, so a car plugged in at its charger meanwhile is known to be the other car: Frank's Elroq at the garage charger was shown as the Epiq (plugged in at a Clever charger), and the charger charged the Elroq though it was set to pause.
 - **A charger that starts by itself when a car is plugged in** is now told again what the plan says (a pause sent while no car was there is not taken as done).
-- **The guard did not turn down a charger charging a car it did not know.** A charger at the place that draws power while none of the household's charging cars is at it is now turned down like a guest's charger when the house goes over the limit.
+- **The guard did not turn down a charger charging a car it did not know.** The supply is what counts: every charger at the place that draws power while none of the household's charging cars is at it (a car taken for another, a car EV Planner does not know, a renter's) is now turned down like a guest's charger when the house goes over the limit, and given its current back when the peak is over. Each charger turned down is given back its own.
 
 ## [2.5.0b22] - 2026-11-15
 
