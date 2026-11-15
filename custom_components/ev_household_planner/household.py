@@ -198,6 +198,10 @@ type EVPlannerConfigEntry = ConfigEntry[Household]
 
 TICK = timedelta(minutes=1)
 ENFORCE_AFTER_PLUG_IN = timedelta(minutes=3)
+# A car that says it is plugged in while its charger says nothing is, for this long, is at another charger.
+ELSEWHERE_AFTER = timedelta(minutes=5)
+# A car's limit that still reads what it was this soon after EV Planner set it is a late report, not a change.
+LIMIT_REPORT_LAG = timedelta(minutes=15)
 # A session without a charging sensor ends when the charge level has not risen for this long.
 IDLE_END = timedelta(minutes=30)
 # language: the language of notifications; "auto" follows Home Assistant's language.
@@ -1096,6 +1100,7 @@ class Household(DataUpdateCoordinator[None]):
             vehicle.soc = state_float(self.hass.states.get(vehicle.soc_entity))
         if vehicle.target_entity:
             vehicle.target_from_car = state_float(self.hass.states.get(vehicle.target_entity))
+            self._follow_car_limit(vehicle)
         vehicle.pause_floor = self._pause_floor(vehicle)
         if vehicle.capacity_entity:
             vehicle.capacity_from_car = meter_value(self.hass.states.get(vehicle.capacity_entity))
@@ -1117,6 +1122,68 @@ class Household(DataUpdateCoordinator[None]):
             if charging is not None and vehicle.charging is not None and charging != vehicle.charging:
                 vehicle.charging_changed_at = dt_util.now()
             vehicle.charging = charging
+        self._check_elsewhere(vehicle, dt_util.now())
+
+    def _follow_car_limit(self, vehicle: Vehicle) -> None:
+        """The car's own limit was changed in the car or its app: with EV Planner's own steps, it is the new target.
+
+        Without own steps the car's limit is the target already.
+        """
+        limit, seen = vehicle.target_from_car, vehicle.limit_seen
+        if limit is None:
+            return
+        vehicle.limit_seen = limit
+        sent = vehicle.limit_sent
+        if sent is not None and abs(limit - sent) < 0.5:
+            # The car has what EV Planner set: from now on another value is a change.
+            vehicle.limit_sent_at = None
+            return
+        step = vehicle.own_step
+        if step is None or seen is None or abs(limit - seen) < 0.5:
+            return
+        now = dt_util.now()
+        if (
+            vehicle.limit_sent_at is not None
+            and vehicle.limit_before is not None
+            and abs(limit - vehicle.limit_before) < 0.5
+            and elapsed(now, vehicle.limit_sent_at) < LIMIT_REPORT_LAG
+        ):
+            return
+        target = to_float(vehicle.settings.get(SET_TARGET_SOC))
+        value = float(max(10.0, min(100.0, round(limit / step) * step)))
+        if target is not None and (
+            abs(value - target) < 0.5 or abs(self.car_target_value(vehicle, target) - limit) < 0.5
+        ):
+            return
+        vehicle.settings[SET_TARGET_SOC] = value
+        self.events.add(now, "settings", vehicle=vehicle.name, changes={SET_TARGET_SOC: value}, by="car")
+        self.async_save()
+        self.schedule_recalculate()
+
+    def _check_elsewhere(self, vehicle: Vehicle, now: datetime) -> bool:
+        """Whether the car is plugged in at a charger EV Planner does not know; True when that changed.
+
+        The car says it is plugged in, and its own charger has said for a while that no car is.
+        """
+        charger = self.chargers.get(vehicle.charger_id or "")
+        odd = (
+            vehicle.connected_car is True
+            and not vehicle.plugged_by_charger
+            and charger is not None
+            and charger.connected_entity is not None
+            and charger.connected is False
+            and not self.pairing.floats(vehicle)
+        )
+        if not odd:
+            vehicle.odd_since = None
+        elif vehicle.odd_since is None:
+            vehicle.odd_since = now
+        elsewhere = vehicle.odd_since is not None and elapsed(now, vehicle.odd_since) >= ELSEWHERE_AFTER
+        if elsewhere is vehicle.elsewhere:
+            return False
+        vehicle.elsewhere = elsewhere
+        self.events.add(now, "elsewhere" if elsewhere else "elsewhere_ended", vehicle=vehicle.name)
+        return True
 
     def _charger_holds(self, vehicle: Vehicle) -> bool:
         """The car's charger says a car is plugged in, and no other car or a guest can be it."""
@@ -1224,7 +1291,7 @@ class Household(DataUpdateCoordinator[None]):
         """A rising charge level while plugged in at home is charging; count its energy."""
         previous = vehicle.last_soc_seen if vehicle.last_soc_seen is not None else old
         vehicle.last_soc_seen = new
-        if vehicle.connected is False or vehicle.home is False:
+        if vehicle.connected is False or vehicle.home is False or vehicle.elsewhere:
             return
         vehicle.meter.reading(new)
         power = self.vehicle_power(vehicle)
@@ -1403,6 +1470,10 @@ class Household(DataUpdateCoordinator[None]):
         soc = vehicle.current_soc
         if soc is None:
             vehicle.plan, vehicle.plan_error = None, None
+            return
+        if vehicle.elsewhere:
+            # At a charger EV Planner does not know: nothing to plan there.
+            vehicle.plan, vehicle.plan_error, vehicle.planned_at = None, "elsewhere", now
             return
         aim = self._aim(vehicle, now)
         if self.solar_of(vehicle).only(vehicle):
@@ -1743,6 +1814,8 @@ class Household(DataUpdateCoordinator[None]):
                 replan = True
                 self._check_late(vehicle, now)
             self._count_time(vehicle, now)
+            if self._check_elsewhere(vehicle, now):
+                replan = True
         for vehicle in self.vehicles.values():
             await self._async_auto_climate(vehicle, now)
         if self.guest.finished_long_ago(now):
@@ -3015,6 +3088,8 @@ class Household(DataUpdateCoordinator[None]):
             return
         domain = entity_id.split(".", 1)[0]
         value = self.car_target_value(vehicle, value)
+        vehicle.limit_before = vehicle.limit_seen
+        vehicle.limit_sent, vehicle.limit_sent_at = value, dt_util.now()
         try:
             async with asyncio.timeout(COMMAND_TIMEOUT):
                 await self.hass.services.async_call(

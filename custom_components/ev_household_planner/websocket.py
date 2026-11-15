@@ -439,6 +439,8 @@ def vehicle_state(household: Household, vehicle: Vehicle) -> dict[str, Any]:
         "session": session_state(vehicle, now),
         "connected": vehicle.connected,
         "home": vehicle.home,
+        # Plugged in at a charger EV Planner does not know: left alone there.
+        "elsewhere": vehicle.elsewhere,
         "charging": vehicle.charging,
         "charger": {"id": charger.charger_id, "name": charger.name} if charger else None,
         "deadline": vehicle.deadline.isoformat() if vehicle.deadline else None,
@@ -782,7 +784,7 @@ async def ws_vehicle_preview(
     vehicle = _vehicle(household, msg["vehicle_id"])
     trial = Vehicle(vehicle.vehicle_id, vehicle.name, dict(vehicle.config), {**vehicle.settings, **msg["settings"]})
     trial.soc, trial.connected, trial.home = vehicle.soc, vehicle.connected, vehicle.home
-    trial.charging = vehicle.charging
+    trial.charging, trial.elsewhere = vehicle.charging, vehicle.elsewhere
     trial.calendar_event, trial.calendar_target = vehicle.calendar_event, vehicle.calendar_target
     trial.target_from_car = (
         float(msg["settings"][SET_TARGET_SOC])

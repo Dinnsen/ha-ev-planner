@@ -313,6 +313,16 @@ class Vehicle:
     # Live values, read from the car's entities.
     soc: float | None = None
     target_from_car: float | None = None
+    # The car's limit last seen (kept while the car is offline), and the last one EV Planner set: a
+    # change that is neither was made in the car or its app.
+    limit_seen: float | None = None
+    limit_sent: float | None = None
+    limit_sent_at: datetime | None = None
+    limit_before: float | None = None
+    # The car says it is plugged in, and its charger has said for a while that nothing is: it is at
+    # another charger, one EV Planner does not know. EV Planner leaves it alone there.
+    elsewhere: bool = False
+    odd_since: datetime | None = None
     # The level under which the car cannot be paused (a Mercedes: its charge limit goes no lower than 50 %,
     # so "pause" by the limit does nothing below it). None: it can be paused at any level.
     pause_floor: float | None = None
@@ -638,6 +648,8 @@ class Vehicle:
         one, an unknown location counts as away: better to leave a charge
         on the road alone than to stop it.
         """
+        if self.elsewhere:
+            return False
         if self.home_entity is None:
             return self.home
         return self.home is True

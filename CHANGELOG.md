@@ -2,6 +2,13 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b23] - 2026-11-15
+
+### Fixed
+
+- **The target slider did not follow a limit changed in the car.** With EV Planner's own steps (1, 5 or 10 %), a charge limit set in the car or its app stayed at EV Planner's old target (90 % in the panel, 80 % in the car). A change made in the car is now the new target; EV Planner's own setting, and the car's late report of the old value just after it, are not taken for one.
+- **"Plugged in at Garagelader" for a car at another charger.** A car whose own cable sensor says plugged in, while its charger has said for five minutes that no car is, is at a charger EV Planner does not know (a public one, or one not added). It now says "Plugged in at another charger", gets no plan, and is not paused or counted there.
+
 ## [2.5.0b22] - 2026-11-15
 
 ### Fixed

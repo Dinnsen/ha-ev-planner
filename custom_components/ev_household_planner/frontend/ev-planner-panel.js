@@ -98,6 +98,7 @@ const TEXT = {
     setup_notify_text: "Under Konfigurer: de mobiler, der får besked om planen og om problemer.",
     connected: "Tilsluttet",
     connected_at: "Tilsluttet ved {charger}",
+    connected_elsewhere: "Tilsluttet en anden lader",
     tl_forecast: "Prognose",
     climate_ready: "Klar",
     climate_heating: "Varmer op",
@@ -274,6 +275,7 @@ const TEXT = {
     vstatus_off: "Fra",
     vstatus_paused: "Pause",
     vstatus_unplugged: "Ikke tilsluttet",
+    vstatus_elsewhere: "Anden lader",
     vstatus_planned: "Planlagt",
     vstatus_charging: "Lader",
     vstatus_charging_now: "Lader nu",
@@ -692,6 +694,7 @@ const TEXT = {
     setup_notify_text: "Under Configure: the phones that are told about the plan and about problems.",
     connected: "Plugged in",
     connected_at: "Plugged in at {charger}",
+    connected_elsewhere: "Plugged in at another charger",
     tl_forecast: "Forecast",
     climate_ready: "Ready",
     climate_heating: "Heating",
@@ -867,6 +870,7 @@ const TEXT = {
     vstatus_off: "Off",
     vstatus_paused: "Paused",
     vstatus_unplugged: "Not plugged in",
+    vstatus_elsewhere: "Other charger",
     vstatus_planned: "Planned",
     vstatus_charging: "Charging",
     vstatus_charging_now: "Charging now",
@@ -5882,7 +5886,8 @@ class EvPlannerPanel extends HTMLElement {
   /* "Tilsluttet · klar kl. 07.00" */
   _carSubline(v) {
     const parts = [];
-    if (v.home === false) parts.push(this._t("away"));
+    if (v.elsewhere) parts.push(this._t("connected_elsewhere"));
+    else if (v.home === false) parts.push(this._t("away"));
     else if (v.connected === true) parts.push(v.charger?.name ? this._t("connected_at", { charger: v.charger.name }) : this._t("connected"));
     else if (v.connected === false) parts.push(this._t("not_connected"));
     if (v.mode !== "off") parts.push(this._readyText(v.deadline));
@@ -5900,6 +5905,7 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   _statusText(v) {
+    if (v.elsewhere) return this._t("vstatus_elsewhere");
     return TEXT.en[`vstatus_${v.status}`] ? this._t(`vstatus_${v.status}`) : String(v.status || "–");
   }
 
