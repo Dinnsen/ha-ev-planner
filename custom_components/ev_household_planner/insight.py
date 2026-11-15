@@ -36,7 +36,18 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
-from .insight_model import CarOutlook, backtest, choose, efficiency, forecast_errors, needs, night_price, score
+from .insight_model import (
+    DEFAULT_STYLE,
+    STYLES,
+    CarOutlook,
+    backtest,
+    choose,
+    efficiency,
+    forecast_errors,
+    needs,
+    night_price,
+    score,
+)
 from .planner import PriceSlot
 
 if TYPE_CHECKING:
@@ -55,8 +66,10 @@ SET_INSIGHT_FROM = "insight_from"
 SET_INSIGHT_TO = "insight_to"
 # The plan waits for a cheaper night when Insight expects one and the cars can do without.
 SET_INSIGHT_USE = "insight_use"
-# How hard a day the cars must always have enough for: 80, 90 or 95 (% of days).
+# How hard a day the cars must always have enough for: 80, 90 or 95 (% of days). Before the styles.
 SET_INSIGHT_LEVEL = "insight_level"
+# How careful: 0 (bold) to 5 (every night), see insight_model.STYLES.
+SET_INSIGHT_STYLE = "insight_style"
 SET_INSIGHT_NAMES = "insight_names"
 INSIGHT_SETTINGS: dict[str, Any] = {
     SET_INSIGHT: False,
@@ -67,6 +80,7 @@ INSIGHT_SETTINGS: dict[str, Any] = {
     SET_INSIGHT_TO: "07:00",
     SET_INSIGHT_USE: False,
     SET_INSIGHT_LEVEL: 90,
+    SET_INSIGHT_STYLE: DEFAULT_STYLE,
     # The names the household gave the trips it makes often: {car: [{"km": how far, "name": its name}]}.
     SET_INSIGHT_NAMES: {},
 }
@@ -553,7 +567,7 @@ class Insight:
             return None
         days = self.data["days"].get(vehicle.vehicle_id) or {}
         base, slope = efficiency(days)
-        level = number(self.household.settings.get(SET_INSIGHT_LEVEL)) or 90.0
+        style = self.style
         return CarOutlook(
             vehicle_id=vehicle.vehicle_id,
             soc_kwh=soc / 100 * vehicle.capacity,
@@ -561,9 +575,18 @@ class Insight:
             target_kwh=vehicle.wanted_target / 100 * vehicle.capacity,
             history=needs(days, base, slope),
             today=dt_util.as_local(now).date(),
-            level=min(0.99, max(0.5, level / 100)),
+            level=style["level"],
             known_need=self._known_need(vehicle, now),
+            reserve=style["reserve"],
+            rest=style["rest"],
         )
+
+    @property
+    def style(self) -> dict[str, Any]:
+        """How careful the household wants it (0 bold … 5 every night)."""
+        value = number(self.household.settings.get(SET_INSIGHT_STYLE))
+        index = int(value) if value is not None and 0 <= value < len(STYLES) else DEFAULT_STYLE
+        return STYLES[index]
 
     def _known_need(self, vehicle: Vehicle, now: datetime) -> float:
         """A ready-by time with its own target within a day and a half: the car must have that."""
@@ -597,7 +620,10 @@ class Insight:
                 cars = [car for vehicle in group if (car := self.outlook(vehicle, now)) is not None]
                 entry["cars"].update({car.vehicle_id: car.as_dict() for car in cars})
                 entry["groups"].append(
-                    {"cars": [car.vehicle_id for car in cars], **choose(cars, tonight, later, errors)}
+                    {
+                        "cars": [car.vehicle_id for car in cars],
+                        **choose(cars, tonight, later, errors, every=self.style["every"]),
+                    }
                 )
             entry["wait"] = any(group["wait"] for group in entry["groups"])
             self.tonight = entry
@@ -615,7 +641,9 @@ class Insight:
             for vehicle_id in group["cars"]:
                 vehicle = self.household.vehicles.get(vehicle_id)
                 car = (self.tonight.get("cars") or {}).get(vehicle_id) or {}
-                hold = float(car["floor_pct"]) if use and group["wait"] and car.get("floor_pct") else None
+                # A night no car needs the charger, the plan holds them at their floor as well.
+                rests = group["wait"] or group.get("reason") == "enough"
+                hold = float(car["floor_pct"]) if use and rests and car.get("floor_pct") else None
                 if vehicle is not None and vehicle.insight_hold != hold:
                     vehicle.insight_hold = hold
                     changed = True

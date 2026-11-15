@@ -29,6 +29,18 @@ RESERVE = 0.10
 TOP = 0.80
 LOOKAHEAD = 4
 MIN_PROBABILITY = 0.70
+# How careful the household wants it, from bold (0) to every night (5): what a hard day is, the reserve
+# kept on top of it, how the days after tomorrow are counted, and whether a car that is not full gets the
+# charger every night. 5 is how it chose before there was a choice.
+STYLES: tuple[dict[str, Any], ...] = (
+    {"level": 0.60, "reserve": 0.05, "rest": 0.5, "every": False},
+    {"level": 0.70, "reserve": 0.05, "rest": 0.5, "every": False},
+    {"level": 0.80, "reserve": 0.05, "rest": 0.5, "every": False},
+    {"level": 0.90, "reserve": 0.10, "rest": 0.5, "every": False},
+    {"level": 0.95, "reserve": 0.15, "rest": 0.5, "every": False},
+    {"level": 0.90, "reserve": 0.10, "rest": 0.9, "every": True},
+)
+DEFAULT_STYLE = 3
 # The forecast's error (relative, one standard deviation) a number of nights ahead, until it is learned.
 DEFAULT_ERROR = (0.10, 0.17, 0.24, 0.31, 0.38, 0.45)
 MILD = 15.0
@@ -108,6 +120,8 @@ class CarOutlook:
     today: date
     level: float = 0.90
     known_need: float = 0.0  # a trip in the calendar tomorrow (kWh), which the pattern cannot know
+    reserve: float = RESERVE  # kept on top of a hard day, of the battery
+    rest: float = 0.9  # how the days after tomorrow are counted (0.5: a typical day)
 
     @property
     def ripe(self) -> bool:
@@ -119,7 +133,7 @@ class CarOutlook:
 
     def floor(self, ahead: int = 1) -> float:
         """What the car must have the morning ``ahead`` days from now: a hard day and the reserve."""
-        wanted = self.need(ahead, self.level) + RESERVE * self.capacity
+        wanted = self.need(ahead, self.level) + self.reserve * self.capacity
         if ahead == 1:
             wanted = max(wanted, self.known_need)
         return min(self.target_kwh, wanted)
@@ -132,7 +146,7 @@ class CarOutlook:
             return 0
         nights = 1
         for ahead in range(1, LOOKAHEAD):
-            left -= self.need(ahead, 0.9)
+            left -= self.need(ahead, self.rest)
             if left < self.floor(ahead + 1):
                 break
             nights = ahead + 1
@@ -164,9 +178,18 @@ def chance_cheaper(tonight: float | None, later: Sequence[float | None], errors:
 
 
 def choose(
-    cars: Sequence[CarOutlook], tonight: float | None, later: Sequence[float | None], errors: Sequence[float]
+    cars: Sequence[CarOutlook],
+    tonight: float | None,
+    later: Sequence[float | None],
+    errors: Sequence[float],
+    *,
+    every: bool = True,
 ) -> dict[str, Any]:
-    """Which car gets the charger tonight (``pick``), or none (``wait``), and why."""
+    """Which car gets the charger tonight (``pick``), or none (``wait``), and why.
+
+    Without ``every`` a car charges only the night it must, or when two would otherwise meet at the
+    charger; with it, the car that is not full and reaches its floor first gets every night.
+    """
     cars = [car for car in cars if car.ripe]
     if not cars:
         return {"pick": None, "wait": False, "reason": "learning", "both": False, "chance": 0.0}
@@ -187,6 +210,8 @@ def choose(
         return {**result, "pick": pick.vehicle_id, "reason": "apart"}
     if shortest >= 2 and (len(cars) == 1 or longest >= 3) and chance >= MIN_PROBABILITY:
         return {**result, "pick": None, "wait": True, "reason": "cheaper"}
+    if not every:
+        return {**result, "pick": None, "reason": "enough"}
     pick = min(below, key=lambda car: (reach[car.vehicle_id], car.soc_kwh / car.capacity))
     return {**result, "pick": pick.vehicle_id, "reason": "soonest"}
 

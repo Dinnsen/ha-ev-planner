@@ -595,10 +595,15 @@ async def test_what_the_panel_and_the_export_get_and_what_is_kept(
     await client.send_json({"id": 2, "type": "ev_household_planner/state"})
     assert (await client.receive_json())["result"]["insight"]["groups"]
     await client.send_json(
-        {"id": 3, "type": "ev_household_planner/settings", "settings": {"insight_level": 95, "insight_to": "06:30"}}
+        {
+            "id": 3,
+            "type": "ev_household_planner/settings",
+            "settings": {"insight_level": 95, "insight_to": "06:30", "insight_style": 1},
+        }
     )
     assert (await client.receive_json())["success"]
     assert planner.settings["insight_level"] == 95
+    assert planner.settings["insight_style"] == 1
     # A trip made often can be given a name; the prices from now on are sent with the rest.
     names = {TESLA: [{"km": 24.3, "name": "Work", "lat": 56.2, "lon": 10.1}]}
     await client.send_json({"id": 4, "type": "ev_household_planner/settings", "settings": {"insight_names": names}})

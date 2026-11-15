@@ -124,6 +124,21 @@ def test_which_car_gets_the_charger() -> None:
     assert (apart["pick"], apart["reason"]) == ("a", "apart")
     # A car alone waits as well.
     assert choose([light("a", 46.0)], 2.0, [1.0, 1.0, 1.0], [])["wait"] is True
+    # Not every night: a car that has enough is not charged though no cheaper night comes.
+    calm = choose([light("a", 46.0), light("b", 47.0)], 1.0, [2.0, 2.0, 2.0], [], every=False)
+    assert (calm["pick"], calm["wait"], calm["reason"]) == (None, False, "enough")
+    # ... and what must charge still does.
+    assert choose([car("a", 20.0), car("b", 46.0)], 1.0, [1.0], [], every=False)["pick"] == "a"
+
+
+def test_the_styles_go_from_bold_to_every_night() -> None:
+    from custom_components.ev_household_planner.insight_model import DEFAULT_STYLE, STYLES
+
+    assert len(STYLES) == 6 and STYLES[DEFAULT_STYLE]["every"] is False and STYLES[-1]["every"] is True
+    floors = [car("a", 30.0, level=s["level"], reserve=s["reserve"]).floor(1) for s in STYLES[:5]]
+    assert floors == sorted(floors), "each step keeps more"
+    # Counting the days after tomorrow as typical days lets a car wait longer.
+    assert car("a", 46.0, rest=0.5).reach >= car("a", 46.0).reach
 
 
 def test_the_nights_price_is_its_cheapest_hours() -> None:
