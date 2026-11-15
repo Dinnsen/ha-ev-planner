@@ -20,7 +20,7 @@ of spot prices from Energi Data Service (when the price sensor says which price 
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import date, datetime, timedelta
 import itertools
 import logging
@@ -113,7 +113,7 @@ def hourly(slots: Iterable[PriceSlot], day: date, *, forecast: bool = False) -> 
 
 
 def days_from_statistics(
-    rows: Mapping[str, list[Mapping[str, Any]]],
+    rows: Mapping[str, Sequence[Mapping[str, Any]]],
     sources: Mapping[str, str | None],
     capacity: float | None,
 ) -> dict[str, dict[str, Any]]:
