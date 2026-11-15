@@ -653,7 +653,7 @@ async def test_the_guard_turns_the_guests_charger_down_and_gives_it_back(
 ) -> None:
     from homeassistant.core import ServiceCall
 
-    from custom_components.ev_household_planner.supply_control import GUARD_HOLD
+    from custom_components.ev_household_planner.supply_control import GUARD_RESTORE
 
     meter = "sensor.house_current"
     amps = "input_number.carport_amps"
@@ -696,7 +696,7 @@ async def test_the_guard_turns_the_guests_charger_down_and_gives_it_back(
     assert household.guest.house_hold is None
 
     # The peak is over: when the guard has waited, the charger gets its 16 A back.
-    freezer.move_to(dt_util.now() + GUARD_HOLD + timedelta(seconds=5))
+    freezer.move_to(dt_util.now() + GUARD_RESTORE + timedelta(seconds=5))
     hass.states.async_set(amps, "9", {"min": 6, "max": 16})
     hass.states.async_set(meter, "12", {"unit_of_measurement": "A"})
     await hass.async_block_till_done()

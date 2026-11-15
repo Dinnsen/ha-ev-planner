@@ -557,7 +557,7 @@ async def test_the_guard_gives_a_car_charging_outside_its_plan_its_current_back(
     await hass.async_block_till_done()
     assert [c.data["value"] for c in calls] == [9]
     # The kettle is off. When the guard has waited, the charger has its 16 A again.
-    freezer.move_to(dt_util.now() + GUARD_HOLD + timedelta(seconds=5))
+    freezer.move_to(dt_util.now() + GUARD_RESTORE + timedelta(seconds=5))
     hass.states.async_set(METER, "11", {"unit_of_measurement": "A"})
     await hass.async_block_till_done()
     assert calls[-1].data["value"] == 16

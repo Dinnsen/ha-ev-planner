@@ -85,6 +85,8 @@ GUARD_SMALL = 0.2
 # After the guard turned a car down, it goes back up as soon as the meter has shown room for this long
 # (and not only after the place's usual window): the cut was for a peak that is over.
 GUARD_RESTORE = timedelta(minutes=3)
+# A charger the guard turned down is given its current back at most this often.
+RESTORE_EVERY = timedelta(minutes=10)
 # Without a car charging, the charger is set to what the place has room for now (at most its full
 # current), so a car that is plugged in later starts at what it may take; not more often than this.
 IDLE_EVERY = timedelta(minutes=5)
@@ -151,6 +153,8 @@ class SupplyControl:
         # The chargers the guard turned down that are not the household's cars' (the guest's, or one charging
         # a car EV Planner does not see there): what each was at before, and when it was last turned down.
         self._guest_cut: dict[str, tuple[float, datetime]] = {}
+        self._restored_at: dict[str, datetime] = {}
+        self._blind_at: datetime | None = None
 
     @property
     def hass(self) -> HomeAssistant:
@@ -1001,6 +1005,8 @@ class SupplyControl:
         self._over_since = None
         # Without a reading the guard holds the cars at their least at every check: written once, not each time.
         blind, self._blind = self._blind, reading is None
+        if reading is None:
+            self._blind_at = now
         if not (blind and reading is None):
             self.household.events.add(
                 now,
@@ -1189,11 +1195,19 @@ class SupplyControl:
             for vehicle in self.cars()
             if self.plan is not None and (self.plan.amps_at(vehicle.vehicle_id, now) or 0) > 0
         }
+        if self._blind_at is not None and elapsed(now, self._blind_at) < GUARD_RESTORE:
+            return  # the meter was gone a moment ago: not trusted with a raise yet
+        # Up only when the house has left room for it all the last few minutes, and not more often than
+        # every few minutes for one charger, so a house that comes and goes does not make it go up and down.
+        peak = self.house_peak_within(now, GUARD_RESTORE)
         for entity, (before, at) in list(self._guest_cut.items()):
             if entity in planned:
                 self._guest_cut.pop(entity, None)
                 continue
-            if elapsed(now, at) < GUARD_HOLD:
+            if elapsed(now, at) < GUARD_RESTORE:
+                continue
+            last = self._restored_at.get(entity)
+            if last is not None and elapsed(now, last) < RESTORE_EVERY:
                 continue
             shown = to_float(self.household.state_of(entity))
             if shown is None or shown >= before - 0.5:
@@ -1201,6 +1215,9 @@ class SupplyControl:
                 continue
             if reading is None or reading + (before - shown) > self.limit - HEADROOM_MARGIN:
                 continue
+            if peak is None or peak + self.cars_amps() + (before - shown) > self.limit - HEADROOM_MARGIN:
+                continue
+            self._restored_at[entity] = now
             if await self._async_guest_current(entity, before, now, before=shown):
                 self._guest_cut.pop(entity, None)
                 reading += before - shown
