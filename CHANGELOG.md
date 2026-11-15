@@ -2,6 +2,12 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b22] - 2026-11-15
+
+### Fixed
+
+- **"Not quite ready" of a car that was ready.** A target raised and then lowered again in the evening (to where the car already was, so nothing was left to charge) left the first promise standing: the morning said "80 % of 90 % (planned 90 %)" and the car was taught to finish an hour earlier from then on. The promise now follows the target down. Found in Frank's support file.
+
 ## [2.5.0b21] - 2026-11-15
 
 ### Fixed

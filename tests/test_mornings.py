@@ -13,6 +13,7 @@ from custom_components.ev_household_planner.const import ACTION_CHARGE_NOW
 
 from .conftest import (
     CHARGING,
+    LIMIT,
     NIGHT,
     SOC,
     TESLA,
@@ -82,6 +83,26 @@ async def test_the_morning_receipt_says_how_it_went(
     assert tesla.learned.margin == 0 and tesla.learned.on_time == 1
     await move(hass, freezer, _at(now, 7, 5))
     assert len(_tagged(notify, "receipt")) == 1
+
+
+async def test_a_target_lowered_in_the_evening_is_not_a_late_morning(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    notify = NotifyCalls(hass)
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass)
+    entry = await _setup(hass, freezer)
+    tesla = entry.runtime_data.vehicles[TESLA]
+    assert tesla.night is not None and tesla.night["planned_soc"] == 80
+    # The target is taken down to where the car is: nothing is left to charge, and the promise of 80 % goes with it.
+    hass.states.async_set(LIMIT, "50")
+    await settle(hass, freezer)
+    assert tesla.night is not None and tesla.night["target"] == 50 and tesla.night["planned_soc"] == 50
+    await move(hass, freezer, _at(now, 7, 0))
+    receipt = _tagged(notify, "receipt")
+    assert len(receipt) == 1 and receipt[0]["message"].startswith("Ready at 07:00: 50 % of 50 %")
+    assert tesla.last_receipt is not None and tesla.last_receipt["late"] is False
+    assert tesla.learned.margin == 0
 
 
 async def test_a_late_morning_makes_the_next_plan_finish_earlier(
