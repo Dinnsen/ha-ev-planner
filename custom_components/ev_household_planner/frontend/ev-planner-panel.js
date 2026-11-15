@@ -1824,9 +1824,9 @@ Object.assign(TEXT.da, {
   phases_word: "faser",
   place_needs_meter: "Kræver måler",
   place_no_supply_help: "Ingen fælles forsyning er sat op for stedet. Den sættes op under integrationen → stedet → Forsyning (sikring, faser og måler). Så kan vagten og deling mellem bilerne slås til her.",
-  place_open: "Fremmede biler lader med det samme",
+  place_open: "Åben lader",
   place_open_short: "åben for lejere",
-  place_open_hint: "Til et sommerhus, I lejer ud: laderen står tændt, så en bil, der ikke er jeres, lader, så snart den sættes i, og I bliver ikke spurgt, hvilken bil det er. Jeres egne biler kendes stadig og følger deres plan. Kræver at laderen har en kontakt.",
+  place_open_hint: "Biler, der ikke er jeres, lader straks og uden spørgsmål. Til et sommerhus, I lejer ud. Kræver en kontakt på laderen.",
 });
 Object.assign(TEXT.en, {
   settings_notifications: "Messages",
@@ -1950,9 +1950,9 @@ Object.assign(TEXT.en, {
   phases_word: "phases",
   place_needs_meter: "Needs a meter",
   place_no_supply_help: "No shared supply is set up for the place. It is set up under the integration → the place → Supply (fuse, phases and meter). Then the guard and how the cars share it can be turned on here.",
-  place_open: "Other cars charge at once",
+  place_open: "Open charger",
   place_open_short: "open to renters",
-  place_open_hint: "For a summer house you let out: the charger is left on, so a car that is not yours charges as soon as it is plugged in, and you are not asked which car it is. Your own cars are still found and follow their plans. Needs a switch on the charger.",
+  place_open_hint: "Cars that are not yours charge right away, with no questions asked. For a summer house you let out. Needs a switch on the charger.",
 });
 const STATUS_TONE = {
   planned: "teal",
@@ -11463,7 +11463,7 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 .toast svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
 .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 20; animation: fade .2s; }
 .sheet { position: fixed; z-index: 21; left: 50%; bottom: 0; transform: translateX(-50%); width: min(520px, 100%); background: var(--evp-solid); border-radius: 22px 22px 0 0;
-  padding: 18px 20px calc(22px + var(--evp-safe-bottom)); animation: up .3s cubic-bezier(.2,.8,.2,1); max-height: 90vh; overflow: auto; }
+  padding: 18px 20px calc(22px + var(--evp-safe-bottom)); animation: up .3s cubic-bezier(.2,.8,.2,1); max-height: min(90vh, calc(100dvh - 72px - var(--evp-safe-top) - var(--safe-area-inset-top, 0px))); overflow: auto; }
 .sheet header { display: flex; justify-content: space-between; align-items: center; }
 .sheet.stay, .scrim.stay { animation: none; }
 /* ---------- the climate: the cabin from above (as in Tesla's app) */

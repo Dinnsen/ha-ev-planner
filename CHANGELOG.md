@@ -2,6 +2,13 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b13] - 2026-11-15
+
+### Fixed
+
+- **A tall sheet went up under the top bar** on a phone, so its title and its Done button could not be reached. A sheet now stops under the bar.
+- **"Other cars charge at once"** is called **Open charger**, with a short explanation: cars that are not yours charge right away, with no questions asked.
+
 ## [2.5.0b12] - 2026-11-15
 
 ### Fixed
