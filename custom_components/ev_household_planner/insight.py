@@ -341,9 +341,11 @@ class Insight:
                 await self._async_decide(now, tell=True)
             if self._task is None and self._tried != local.date() and self._wants_backfill():
                 self._tried = local.date()
-                self._task = self.household.config_entry.async_create_background_task(
+                task = self.household.config_entry.async_create_background_task(
                     self.hass, self._async_backfill(now), f"{DOMAIN} insight backfill"
                 )
+                # A task that had nothing to wait for is done already.
+                self._task = None if task.done() else task
         except Exception:  # the log is a bonus: it never stops the planning
             _LOGGER.exception("Insight could not write its log")
 

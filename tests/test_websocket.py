@@ -15,6 +15,7 @@ from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
 from custom_components.ev_household_planner.const import DOMAIN
 from custom_components.ev_household_planner.diagnostics import async_get_config_entry_diagnostics
+from custom_components.ev_household_planner.insight import INSIGHT_SETTINGS
 from custom_components.ev_household_planner.websocket import _notify_name, state_patch
 
 from .conftest import CARPORT, MERCEDES, TESLA, settle
@@ -179,6 +180,7 @@ async def test_guest_commands(
         "price_add": None,
         "update_widgets": None,
         "places": {},
+        **INSIGHT_SETTINGS,
     }
     msg = await _ws(client, 90, type="ev_household_planner/settings", settings={"language": "da"})
     assert msg["success"] and init_integration.runtime_data.settings["language"] == "da"

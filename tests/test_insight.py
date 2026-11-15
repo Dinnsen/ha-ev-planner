@@ -110,7 +110,7 @@ def test_the_small_readers() -> None:
 
 
 def test_days_from_statistics() -> None:
-    day = datetime(2026, 11, 2, tzinfo=dt_util.UTC)
+    day = datetime(2026, 11, 3, tzinfo=dt_util.get_default_time_zone())
     hour = 3600
 
     def rows(values: list[tuple[int, float | None]], key: str) -> list[dict[str, Any]]:
