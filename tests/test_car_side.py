@@ -11,7 +11,6 @@ from homeassistant.util import dt as dt_util
 from .conftest import (
     CABLE,
     CHARGER_CAR,
-    LIMIT,
     NIGHT,
     TESLA,
     SwitchCalls,
@@ -26,6 +25,9 @@ from .conftest import (
     vehicle_sub,
 )
 
+# An input_number: the number domain's own set_value belongs to EV Planner's number entities.
+LIMIT = "input_number.tesla_limit"
+
 
 async def test_with_own_steps_a_limit_changed_in_the_car_becomes_the_target(
     hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
@@ -36,11 +38,11 @@ async def test_with_own_steps_a_limit_changed_in_the_car_becomes_the_target(
         sent.append(call.data["value"])
         hass.states.async_set(call.data["entity_id"], str(call.data["value"]), {"min": 50, "max": 100, "step": 10})
 
-    hass.services.async_register("number", "set_value", record)
+    hass.services.async_register("input_number", "set_value", record)
     set_prices(hass, now, NIGHT)
     set_tesla(hass)
     hass.states.async_set(LIMIT, "80", {"min": 50, "max": 100, "step": 10})
-    entry = entry_with(charger_sub(), vehicle_sub(TESLA, "Tesla", tesla_data()))
+    entry = entry_with(charger_sub(), vehicle_sub(TESLA, "Tesla", tesla_data(target_entity=LIMIT)))
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
@@ -73,17 +75,11 @@ async def test_a_late_report_of_the_old_limit_is_not_a_change(
     async def keep(call: ServiceCall) -> None:
         """The car's cloud takes its time: the entity still says the old limit."""
 
-    hass.services.async_register("number", "set_value", keep)
+    hass.services.async_register("input_number", "set_value", keep)
     set_prices(hass, now, NIGHT)
     set_tesla(hass)
-    entry = entry_with(
-        charger_sub(),
-        vehicle_sub(
-            TESLA,
-            "Tesla",
-            tesla_data(),
-        ),
-    )
+    hass.states.async_set(LIMIT, "80")
+    entry = entry_with(charger_sub(), vehicle_sub(TESLA, "Tesla", tesla_data(target_entity=LIMIT)))
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
@@ -104,7 +100,8 @@ async def test_a_car_plugged_in_at_another_charger_is_left_alone(
     set_tesla(hass, cable=False)
     hass.states.async_set(CHARGER_CAR, "off")
     entry = entry_with(
-        charger_sub(carport_data(connected_entity=CHARGER_CAR)), vehicle_sub(TESLA, "Tesla", tesla_data())
+        charger_sub(carport_data(connected_entity=CHARGER_CAR)),
+        vehicle_sub(TESLA, "Tesla", tesla_data(target_entity=LIMIT)),
     )
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
