@@ -251,6 +251,8 @@ SETTINGS_SCHEMA = vol.Schema(
                         {
                             vol.Required("km"): vol.All(vol.Coerce(float), vol.Range(min=0, max=3000)),
                             vol.Required("name"): vol.All(cv.string, vol.Length(min=1, max=40)),
+                            vol.Optional("lat"): vol.All(vol.Coerce(float), vol.Range(min=-90, max=90)),
+                            vol.Optional("lon"): vol.All(vol.Coerce(float), vol.Range(min=-180, max=180)),
                         }
                     )
                 ],

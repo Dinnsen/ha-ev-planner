@@ -194,6 +194,16 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } th, td { text
 .nm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0; }
 .nm input { font: inherit; font-size: 14px; padding: 7px 13px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--ink); min-width: 0; flex: 1 1 130px; }
 .btn.on { background: var(--ink); color: var(--card); border-color: var(--ink); }
+.rmap { position: relative; overflow: hidden; border-radius: 16px; background: var(--well); touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.rmap.drag { cursor: grabbing; }
+.rmove, .rtiles { position: absolute; left: 0; top: 0; }
+.rtiles img { position: absolute; width: 256px; height: 256px; max-width: none; pointer-events: none; }
+.rsvg { position: absolute; left: 0; top: 0; overflow: hidden; }
+.rsvg text { font-size: 11.5px; font-weight: 600; fill: var(--ink); paint-order: stroke; stroke: var(--card); stroke-width: 3.5px; stroke-linejoin: round; }
+.rmap .tl-ctl { top: 8px; }
+.rattr { position: absolute; left: 6px; bottom: 4px; font-size: 9.5px; color: var(--soft); background: color-mix(in srgb, var(--card) 72%, transparent); padding: 1px 5px; border-radius: 6px; pointer-events: none; }
+#places:empty { display: none; } #places { align-items: center; }
+.detail .tag { font-size: 11px; } .rhist { margin: -2px 0 2px; } .rhist text { font-size: 9.5px; }
 .tl-sheet-in { padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
 `;
 
@@ -211,6 +221,11 @@ const esc = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const arc = (cx, cy, r0, r1, a0, a1) => { const p = (rr, a) => `${(cx + rr * Math.cos(a)).toFixed(1)} ${(cy + rr * Math.sin(a)).toFixed(1)}`; return `M${p(r0, a0)}L${p(r1, a0)}A${r1} ${r1} 0 0 1 ${p(r1, a1)}L${p(r0, a1)}A${r0} ${r0} 0 0 0 ${p(r0, a0)}Z`; };
 const nice = (top) => { const raw = top / 3, pow = 10 ** Math.floor(Math.log10(Math.max(raw, 1e-6))), k = raw / pow; return (k >= 5 ? 5 : k >= 2 ? 2 : 1) * pow; };
 const DAY = 86400000;
+/* The map: Web Mercator, as every tiled map uses. */
+const merc = (p, z) => { const n = 256 * 2 ** z, k = Math.sin((clamp(p.lat, -85, 85) * Math.PI) / 180); return [((p.lon + 180) / 360) * n, (0.5 - Math.log((1 + k) / (1 - k)) / (4 * Math.PI)) * n]; };
+const unmerc = (x, y, z) => { const n = 256 * 2 ** z; return { lat: (Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n))) * 180) / Math.PI, lon: (x / n) * 360 - 180 }; };
+const distKm = (a, b) => { const r = Math.PI / 180, dx = (b.lon - a.lon) * r * Math.cos(((a.lat + b.lat) / 2) * r), dy = (b.lat - a.lat) * r; return 6371 * Math.sqrt(dx * dx + dy * dy); };
+const thin = (list, most) => { if (list.length <= most) return list; const k = (list.length - 1) / (most - 1); return Array.from({ length: most }, (_, i) => list[Math.round(i * k)]); };
 const N = 90;
 const CAR_BODY = "M6 66Q6 50 24 46L62 40Q84 14 118 12L150 12Q178 14 196 38L214 44Q226 48 226 62L226 68Q226 76 218 76L14 76Q6 76 6 68Z";
 const CAR_WIN = "M72 40Q90 20 118 18L132 18L132 40ZM138 18L150 18Q170 20 186 40L138 40Z";
@@ -321,7 +336,24 @@ function boot(host, root) {
         let kwh = r.whole > 0 ? r.whole : s0 != null && s1 != null ? ((s0 - s1) / 100) * c.cap + onWay * 0.9 : null;
         if (kwh == null || kwh <= 0 || (kwh / r.km) * 100 < 6 || (kwh / r.km) * 100 > 60) kwh = (r.km * clamp(dayEff, 8, 45)) / 100;
         const hod = mod(r.h0, 24), dep = hod * 60 + 20;
-        est.push({ car: id, d, dep, arr: Math.min((hod + r.h1 - r.h0 + 1) * 60 - 5, dep + Math.max(8, r.km * 1.1)), km: r.km, kwh, eff: (kwh / r.km) * 100, soc0: s0, soc1: s1, temp: tm.get(r.h0) ?? temp[Math.min(d, N)], est: true });
+        est.push({ car: id, d, dep, arr: Math.min((hod + r.h1 - r.h0 + 1) * 60 - 5, dep + Math.max(8, r.km * 1.1)), km: r.km, kwh, eff: (kwh / r.km) * 100, soc0: s0, soc1: s1, temp: tm.get(r.h0) ?? temp[Math.min(d, N)], est: true, h0: r.h0, h1: r.h1 });
+      }
+      // Where the car was, for the days Home Assistant still has its positions: each stretch gets its road and where it went.
+      const home = IN.home && Number.isFinite(IN.home.lat) && Number.isFinite(IN.home.lon) ? IN.home : null;
+      const track = ((IN.tracks || {})[c.src.tracker] || []).map(([ms, lat, lon]) => ({ h: (IN.wall(ms) - t0) / 3600000, lat, lon })).filter((p) => Number.isFinite(p.h) && Number.isFinite(p.lat) && Number.isFinite(p.lon)).sort((a, b) => a.h - b.h);
+      if (track.length > 1) {
+        let i0 = 0;
+        for (const t of [...est].sort((a, b) => a.h0 - b.h0)) {
+          if (t.h1 + 1 < track[0].h) continue;
+          while (i0 < track.length && track[i0].h < t.h0) i0 += 1;
+          const pts = []; if (i0 > 0) pts.push(track[i0 - 1]);
+          for (let i = i0; i < track.length && track[i].h < t.h1 + 1; i += 1) pts.push(track[i]);
+          if (pts.length < 2) continue;
+          t.route = thin(pts, 80); t.b = pts[pts.length - 1];
+          const far = home ? pts.reduce((m, p) => (distKm(p, home) > distKm(m, home) ? p : m)) : t.b;
+          // Out and home again within the stretch: it went to the farthest point.
+          t.dest = home && distKm(t.b, home) < 0.25 ? (distKm(far, home) > 0.3 ? far : null) : t.b;
+        }
       }
       // Where the stretches went is not known, so they are told apart by how far: out, on, and back home.
       const byDay = {}; for (const t of est) (byDay[t.d] ||= []).push(t);
@@ -330,10 +362,22 @@ function boot(host, root) {
       const groups = [];
       for (const t of [...outs].sort((a, b) => a.km - b.km)) { const g = groups[groups.length - 1]; if (g && t.km - g.km <= Math.max(1.5, g.km * 0.12)) { g.list.push(t); g.km = mean(g.list.map((x) => x.km)); } else groups.push({ km: t.km, list: [t] }); }
       const top = [...groups].sort((a, b) => b.list.length - a.list.length).slice(0, 6);
-      // A place has the name the household gave it, else the zone a logged trip of that length went to, else how far it is.
-      const given = (IN.names || {})[id] || [];
-      for (const g of groups) { const fits = (km) => Math.abs(km - g.km) <= Math.max(1.5, g.km * 0.12), own = given.find((x) => fits(Number(x.km))), zone = Object.values(logged).flat().find((t) => t.from === HOME && t.to !== HOME && fits(t.km)); g.custom = Boolean(own); g.name = own ? String(own.name) : zone ? zone.to : top.includes(g) ? `≈ ${nf(g.km, g.km < 10 ? 1 : 0)} km` : OTHER; for (const t of g.list) { t.to = g.name; t.place = g; } }
+      // A place has the name the household gave it, else the zone it lies in, else the zone a logged trip of that length went to, else how far it is.
+      const given = (IN.names || {})[id] || [], zones = (IN.zones || []).filter((z) => !z.home && Number.isFinite(z.lat) && Number.isFinite(z.lon));
+      for (const g of groups) {
+        const ds = g.list.map((t) => t.dest).filter(Boolean);
+        if (ds.length) g.pos = { lat: q(ds.map((p) => p.lat), 0.5), lon: q(ds.map((p) => p.lon), 0.5) };
+        const fits = (km) => Math.abs(km - g.km) <= Math.max(1.5, g.km * 0.12), own = given.find((x) => fits(Number(x.km))), inZone = g.pos ? zones.find((z) => distKm(g.pos, z) * 1000 <= Math.max(Number(z.radius) || 0, 150)) : null, zone = Object.values(logged).flat().find((t) => t.from === HOME && t.to !== HOME && fits(t.km));
+        if (!g.pos && own && Number.isFinite(Number(own.lat)) && Number.isFinite(Number(own.lon))) g.pos = { lat: Number(own.lat), lon: Number(own.lon) };
+        g.custom = Boolean(own); g.name = own ? String(own.name) : inZone ? String(inZone.name) : zone ? zone.to : g.pos || top.includes(g) ? `≈ ${nf(g.km, g.km < 10 ? 1 : 0)} km` : OTHER;
+        for (const t of g.list) { t.to = g.name; t.place = g; }
+      }
       for (const t of est) { if (t.leg === "out") t.from = HOME; else if (t.leg === "back") { t.from = t.from0.to; t.to = HOME; t.place = t.from0.place; } else t.from = t.from0.to; delete t.from0; }
+      // The places this car goes to, the most visited first: those of one name are one place.
+      const byName = new Map(), spot = (name) => { if (!byName.has(name)) byName.set(name, { name, list: [], custom: false, pos: null, groups: [] }); return byName.get(name); };
+      for (const g of groups) { if (g.name === OTHER) continue; const p = spot(g.name); p.list.push(...g.list); p.groups.push(g); p.custom = p.custom || g.custom; p.pos = p.pos || g.pos || null; g.shown = p; }
+      for (const t of Object.values(logged).flat()) { if (t.to === HOME || t.to === tr("Ude", "Away")) continue; const p = spot(t.to), z = zones.find((x) => x.name === t.to); p.list.push(t); if (!p.pos && z) p.pos = { lat: z.lat, lon: z.lon }; }
+      c.places = [...byName.values()].map((p) => { const last = [...p.list].sort((a, b) => b.d - a.d || b.dep - a.dep)[0], road = [...p.list].sort((a, b) => b.d - a.d).find((t) => t.route); return Object.assign(p, { km: mean(p.list.map((t) => t.km)), count: p.list.length, last, route: road ? road.route : null }); }).sort((a, b) => b.count - a.count);
       trips.push(...Object.values(logged).flat(), ...est);
       /* Charging: each stretch of hours the car's energy meter rose. */
       const sess = []; let cur = null;
@@ -450,7 +494,7 @@ function boot(host, root) {
       <div class="row"><h2>${tr("90 dage med bilen", "90 days with the car")}</h2><div class="chips" id="carsel" role="group" aria-label="${tr("Bil", "Car")}"></div></div>
       <div class="sumg" id="sum-bil"></div>
     </section>
-    <section class="card"><div class="row"><h2>${tr("Kortet over turene", "The map of the trips")}</h2><span class="demo">${tr("tykkere streg = oftere", "thicker line = more often")}</span></div><div id="map"></div><div class="detail" id="trip"></div><p class="small">${tr("Steder kendes kun for ture, der er logget, mens Indsigt har været slået til. Ældre ture er fundet i kilometertælleren og samlet efter, hvor langt de var. Giv en tur et navn, så hedder alle ture af den længde det, på kortet og i listerne. Vælg en anden tur ved at trykke på den under »Hver tur«.", "Places are only known for trips logged while Insight has been on. Older trips are found in the odometer and gathered by how far they went. Name a trip, and every trip of that length has the name, on the map and in the lists. Choose another trip by tapping it under “Every trip”.")}</p></section>
+    <section class="card"><div class="row"><h2>${tr("Kortet over turene", "The map of the trips")}</h2><span class="demo">${tr("tykkere streg = oftere", "thicker line = more often")}</span></div><div id="map"></div><div class="chips" id="places"></div><div class="detail" id="trip"></div><p class="small">${tr("Tryk på et sted på kortet for at vælge det og give det et navn; tallet er, hvor mange gange der er kørt dertil på 90 dage. Stederne findes ud fra bilens position de dage, Home Assistant stadig har den (ca. 10), og ældre ture af samme længde regnes til samme sted. Ture, der ikke kan placeres, står under kortet. Kortet hentes fra CARTO og OpenStreetMap, som Home Assistants eget kort.", "Tap a place on the map to choose it and give it a name; the figure is how many times it was driven to in 90 days. The places are found from the car's position on the days Home Assistant still has it (about 10), and older trips of the same length are counted to the same place. Trips that cannot be placed are listed under the map. The map is fetched from CARTO and OpenStreetMap, as Home Assistant's own map is.")}</p></section>
     <section class="card"><div class="row"><h2>${tr("Forbrug pr. dag", "Use per day")}</h2><span class="demo" id="daily-t"></span></div><div class="scroll"><div id="daily" style="position:relative;min-width:640px"></div></div></section>
     <div class="two">
       <section class="card"><div class="row"><h2>${tr("Ugeuret", "The week's clock")}</h2><span class="demo">${tr("hvornår bilen er væk", "when the car is away")}</span></div><div id="clock" style="max-width:420px;margin:0 auto;width:100%;position:relative"></div><p class="small">${tr("Inderst mandag, yderst søndag. Jo mørkere felt, jo oftere er bilen ude i den time. Peg på et felt.", "Monday innermost, Sunday outermost. The darker a field, the more often the car is out that hour. Point at a field.")}</p></section>
@@ -738,6 +782,70 @@ function boot(host, root) {
     kender: [() => tr("Hvor godt kender den jer?", "How well does it know you?"), () => { const sc = DATA.score || {}, row = (ok, a, b) => `<div><i class="${ok ? "" : "gap"}">${ok ? "✓" : "!"}</i><div><b>${a}</b><small>${b}</small></div></div>`; const back = ids.flatMap((id) => CARS[id].detail.backtest || []), hits = back.filter((r) => r.actual <= r.p90 + 0.05).length; return `<div class="chk">${ids.map((id) => row(CARS[id].known >= 28, `${tr("Ugens rytme", "The week's rhythm")} · ${esc(CARS[id].name)}`, `${CARS[id].known} ${tr("dage", "days")} · ${CARS[id].known >= 28 ? tr("moden", "ripe") : tr("moden efter 28", "ripe after 28")}`)).join("")}${ids.filter((id) => CARS[id].cold > 0).map((id) => row(true, `${tr("Kuldens pris", "The cost of cold")} · ${esc(CARS[id].name)}`, `+${nf(CARS[id].cold * 100, 1)} % ${tr("pr. grad under 15 °C", "per degree under 15 °C")}`)).join("")}${(IN.cars || []).filter((v) => Number.isFinite(Number(v.charge_speed)) && v.charge_speed != null).map((v) => row(v.charge_speed_source === "learned", `${tr("Ladehastighed", "Charging speed")} · ${esc(v.name)}`, `${nf(v.charge_speed, 1)} % ${tr("i timen", "an hour")} · ${v.charge_speed_source === "learned" ? tr("målt", "measured") : tr("regnet ud, indtil der er målt", "worked out, until measured")}`)).join("")}${row((DATA.forecasts || 0) >= 14, tr("Prisprognosens fejl", "The forecast's error"), `${DATA.forecasts || 0} ${tr("dage gemt", "days kept")}${(DATA.forecasts || 0) >= 14 ? "" : ` · ${tr("brugbar efter ca. 2 uger", "usable after about 2 weeks")}`}`)}${row(back.length > 0, tr("Sagt og sket", "Said and done"), back.length ? tr(`${hits} af ${back.length} dage under den svære dag`, `${hits} of ${back.length} days under the hard day`) : sc.scored ? `${sc.hits}/${sc.scored}` : tr("ingen dage endnu", "no days yet"))}</div>`; }],
   };
 
+  /* ---------- Driving: the real map. Home, the places the car goes to with how often, and the chosen trip's road. */
+  let asked = false;
+  function kort(c, places, pick, home) {
+    const el = $("#map"), W = Math.max(260, el.clientWidth || 320), Hh = Math.round(clamp(W * 0.62, 230, 420)), shown = places.filter((p) => p.pos);
+    const sel = pick.place && pick.place.shown ? pick.place.shown : places.find((p) => p.list.includes(pick)) || null;
+    if (!S.map || S.map.car !== c.id) {
+      // The first look: home and the nearest places, as many as most of the trips go to. A far one now and then is found by zooming out.
+      const near = [...shown].sort((a, b) => distKm(a.pos, home) - distKm(b.pos, home)), all = sum(near, (p) => p.count), fit = [home];
+      let seen = 0; for (const p of near) { fit.push(p.pos); seen += p.count; if (seen >= all * 0.85) break; }
+      let z = 15, box = null;
+      for (; z > 3; z -= 1) { const xy = fit.map((p) => merc(p, z)), xs = xy.map((v) => v[0]), ys = xy.map((v) => v[1]); box = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]; if (box[1] - box[0] <= W - 110 && box[3] - box[2] <= Hh - 90) break; }
+      S.map = { car: c.id, z, ...unmerc((box[0] + box[1]) / 2, (box[2] + box[3]) / 2, z) };
+    }
+    const z = S.map.z, n = 2 ** z, [cx, cy] = merc(S.map, z), x0 = cx - W / 2, y0 = cy - Hh / 2, P = (p) => { const [x, y] = merc(p, z); return [x - x0, y - y0]; };
+    let tiles = "";
+    for (let tx = Math.floor(x0 / 256); tx * 256 < x0 + W; tx += 1) for (let ty = Math.floor(y0 / 256); ty * 256 < y0 + Hh; ty += 1) { if (ty < 0 || ty >= n) continue; tiles += `<img alt="" draggable="false" src="https://basemaps.cartocdn.com/${IN.dark ? "dark_all" : "light_all"}/${z}/${mod(tx, n)}/${ty}@2x.png" style="left:${Math.round(tx * 256 - x0)}px;top:${Math.round(ty * 256 - y0)}px">`; }
+    const line = (pts) => pts.map((p, i) => { const [x, y] = P(p); return `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`; }).join("");
+    const roads = shown.map((p) => `<path class="hit" data-mp="${places.indexOf(p)}" d="${line(p.route || [home, p.pos])}" fill="none" stroke="${c.col}" stroke-width="${Math.min(8, 2 + Math.sqrt(p.count) * 0.8).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round" opacity=".42"/>`).join("");
+    const [hx, hy] = P(home);
+    const mine = pick.route ? line(pick.route) : sel && sel.pos ? line(sel.route || [home, sel.pos]) : "";
+    // Each place's name beside it, on the side with room; where two would lie over each other, the lesser one keeps only its count.
+    const taken = [[hx + 10, hy - 9, hx + 14 + HOME.length * 7, hy + 9]], over = (b) => taken.some((t) => b[0] < t[2] && b[2] > t[0] && b[1] < t[3] && b[3] > t[1]);
+    const marks = [...shown].sort((a, b) => (b === sel) - (a === sel) || b.count - a.count).map((p) => {
+      const [x, y] = P(p.pos), on = p === sel;
+      if (x < -20 || y < -20 || x > W + 20 || y > Hh + 20) return "";
+      let text = `${p.name} · ${p.count}×`, side = 0;
+      const boxOf = (t, left) => (left ? [x - 13 - t.length * 6.6, y - 9, x - 9, y + 9] : [x + 9, y - 9, x + 13 + t.length * 6.6, y + 9]);
+      const tries = [[text, x > W - 130], [text, !(x > W - 130)], [`${p.count}×`, false], [`${p.count}×`, true]].find(([t, left]) => { const b = boxOf(t, left); return b[0] > 2 && b[2] < W - 2 && !over(b); }) || [`${p.count}×`, false];
+      [text, side] = tries; taken.push(boxOf(text, side));
+      return `<g class="hit" data-mp="${places.indexOf(p)}"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="16" fill="transparent"/><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${on ? 7.5 : 6}" fill="${on ? "var(--ink)" : "var(--card)"}" stroke="${on ? "var(--card)" : c.col}" stroke-width="2.5"/><text x="${(x + (side ? -11 : 11)).toFixed(1)}" y="${(y + 4).toFixed(1)}" text-anchor="${side ? "end" : "start"}">${esc(text)}</text></g>`;
+    }).reverse().join("");
+    el.innerHTML = `<div class="rmap" style="height:${Hh}px"><div class="rmove"><div class="rtiles">${tiles}</div><svg class="rsvg" width="${W}" height="${Hh}" viewBox="0 0 ${W} ${Hh}" style="width:${W}px;height:${Hh}px" role="img" aria-label="${tr("Kort over turene", "Map of the trips")}">${roads}${mine ? `<path class="${st0() ? "draw" : ""}" pathLength="1" d="${mine}" fill="none" stroke="var(--ink)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>` : ""}
+      <circle cx="${hx.toFixed(1)}" cy="${hy.toFixed(1)}" r="8" fill="var(--ink)" stroke="var(--card)" stroke-width="2.5"/><text x="${(hx + 12).toFixed(1)}" y="${(hy + 4).toFixed(1)}">${esc(HOME)}</text>${marks}</svg></div>
+      <div class="tl-ctl"><button data-mz="1" aria-label="${tr("Zoom ind", "Zoom in")}">+</button><button data-mz="-1" aria-label="${tr("Zoom ud", "Zoom out")}">−</button><button data-mz="0" aria-label="${tr("Vis det hele", "Show it all")}">⤢</button></div>
+      <small class="rattr">© OpenStreetMap · © CARTO</small></div>`;
+    // Dragged to move, pinched or + and − to zoom; a tap on a place chooses it, with its name ready to be written.
+    const box = $(".rmap", el), move = $(".rmove", el), fingers = new Map();
+    for (const img of $$(".rtiles img", el)) img.addEventListener("error", () => img.remove());
+    let from = null, gap = 0, hit = null;
+    const spread = () => { const [a, b] = [...fingers.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+    const again = () => { wrap.classList.add("calm"); biler(); };
+    const zoom = (by) => { const next = clamp(S.map.z + by, 3, 17); if (next === S.map.z) return; S.map.z = next; again(); };
+    box.addEventListener("pointerdown", (ev) => { if (ev.target.closest("[data-mz]")) return; fingers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY }); hit = ev.target.closest("[data-mp]"); if (fingers.size === 1) from = { x: ev.clientX, y: ev.clientY, moved: false }; else { from = null; gap = spread(); move.style.transform = ""; } try { box.setPointerCapture(ev.pointerId); } catch (_err) { /* a pointer that is already gone */ } });
+    box.addEventListener("pointermove", (ev) => {
+      if (!fingers.has(ev.pointerId)) return;
+      fingers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      if (fingers.size === 2 && gap) { const now = spread(); if (now > gap * 1.5) { fingers.clear(); zoom(1); } else if (now < gap / 1.5) { fingers.clear(); zoom(-1); } return; }
+      if (!from) return;
+      const dx = ev.clientX - from.x, dy = ev.clientY - from.y;
+      if (!from.moved && Math.hypot(dx, dy) < 6) return;
+      from.moved = true; box.classList.add("drag"); move.style.transform = `translate(${dx}px, ${dy}px)`;
+    });
+    const done = (ev) => {
+      if (!fingers.has(ev.pointerId)) return;
+      fingers.delete(ev.pointerId);
+      const was = from; from = null; box.classList.remove("drag");
+      if (!was) return;
+      if (was.moved) { Object.assign(S.map, unmerc(cx - (ev.clientX - was.x), cy - (ev.clientY - was.y), z)); again(); return; }
+      if (hit && ev.type === "pointerup") { const p = places[+hit.dataset.mp]; if (p && p.last) { S.pickTrip = p.last.id; S.naming = !p.last.zone; render(true); } }
+    };
+    box.addEventListener("pointerup", done); box.addEventListener("pointercancel", done);
+    box.addEventListener("click", (ev) => { const b = ev.target.closest("[data-mz]"); if (!b) return; ev.stopPropagation(); if (b.dataset.mz === "0") { S.map = null; again(); } else zoom(Number(b.dataset.mz)); });
+  }
+
   /* ---------- Driving */
   function biler() {
     carChips("#carsel");
@@ -757,21 +865,40 @@ function boot(host, root) {
     if (!pick) { $("#map").innerHTML = none(tr("Kortet tegnes, når den første tur er set.", "The map is drawn when the first trip is seen.")); $("#trip").innerHTML = ""; $("#trip").hidden = true; }
     else {
       $("#trip").hidden = false;
-      const edges = {}; for (const t of mine) { const key = [t.from, t.to].sort().join("|"); edges[key] = (edges[key] || 0) + 1; }
-      const P = (n) => (PLACES[n] || PLACES[HOME]).map((v, k) => (k ? v * 2.6 + 6 : v * 4.2 + 10)), curve = (a, b) => { const [x1, y1] = P(a), [x2, y2] = P(b), mx = (x1 + x2) / 2 + (y2 - y1) * 0.14, my = (y1 + y2) / 2 - (x2 - x1) * 0.14; return `M${x1.toFixed(1)} ${y1.toFixed(1)}Q${mx.toFixed(1)} ${my.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`; };
-      const used = new Set(mine.flatMap((t) => [t.from, t.to]));
-      $("#map").innerHTML = `<svg viewBox="0 0 440 250"><path d="M0 190Q90 150 150 200T300 210T440 170V250H0Z" fill="var(--well)"/><path d="M330 0Q350 60 420 70L440 60V0Z" fill="var(--well)"/>
-        ${Object.entries(edges).map(([key, n]) => { const [a, b] = key.split("|"); return a === b ? "" : `<path d="${curve(a, b)}" fill="none" stroke="${c.col}" stroke-width="${Math.min(9, 1 + Math.sqrt(n) * 0.9).toFixed(1)}" opacity=".28" stroke-linecap="round"/>`; }).join("")}
-        <path id="route" class="draw" pathLength="1" d="${curve(pick.from, pick.to)}" fill="none" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round"/>
-        ${still ? "" : `<circle r="5" fill="${c.col}" stroke="var(--card)" stroke-width="2"><animateMotion dur="2.4s" repeatCount="indefinite" path="${curve(pick.from, pick.to)}"/></circle>`}
-        ${[...used].map((n) => { const [px, py] = P(n); return `<circle cx="${px}" cy="${py}" r="${n === HOME ? 7 : 5}" fill="${n === pick.from || n === pick.to ? "var(--ink)" : "var(--card)"}" stroke="var(--ink)" stroke-width="1.5"/><text x="${px}" y="${py - 11}" text-anchor="middle" style="fill:var(--ink);font-weight:500">${esc(n)}</text>`; }).join("")}</svg>`;
+      const places = c.places || [], located = places.filter((p) => p.pos), homeAt = IN.home && Number.isFinite(IN.home.lat) && Number.isFinite(IN.home.lon) ? IN.home : null;
+      if (!IN.tracks && !asked) { asked = true; say("tracks"); }
+      if (homeAt && located.length) kort(c, places, pick, homeAt);
+      else {
+        const edges = {}; for (const t of mine) { const key = [t.from, t.to].sort().join("|"); edges[key] = (edges[key] || 0) + 1; }
+        const P = (n) => (PLACES[n] || PLACES[HOME]).map((v, k) => (k ? v * 2.6 + 6 : v * 4.2 + 10)), curve = (a, b) => { const [x1, y1] = P(a), [x2, y2] = P(b), mx = (x1 + x2) / 2 + (y2 - y1) * 0.14, my = (y1 + y2) / 2 - (x2 - x1) * 0.14; return `M${x1.toFixed(1)} ${y1.toFixed(1)}Q${mx.toFixed(1)} ${my.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`; };
+        const used = new Set(mine.flatMap((t) => [t.from, t.to]));
+        $("#map").innerHTML = `<svg viewBox="0 0 440 250"><path d="M0 190Q90 150 150 200T300 210T440 170V250H0Z" fill="var(--well)"/><path d="M330 0Q350 60 420 70L440 60V0Z" fill="var(--well)"/>
+          ${Object.entries(edges).map(([key, n]) => { const [a, b] = key.split("|"); return a === b ? "" : `<path d="${curve(a, b)}" fill="none" stroke="${c.col}" stroke-width="${Math.min(9, 1 + Math.sqrt(n) * 0.9).toFixed(1)}" opacity=".28" stroke-linecap="round"/>`; }).join("")}
+          <path id="route" class="draw" pathLength="1" d="${curve(pick.from, pick.to)}" fill="none" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round"/>
+          ${still ? "" : `<circle r="5" fill="${c.col}" stroke="var(--card)" stroke-width="2"><animateMotion dur="2.4s" repeatCount="indefinite" path="${curve(pick.from, pick.to)}"/></circle>`}
+          ${[...used].map((n) => { const [px, py] = P(n); return `<circle cx="${px}" cy="${py}" r="${n === HOME ? 7 : 5}" fill="${n === pick.from || n === pick.to ? "var(--ink)" : "var(--card)"}" stroke="var(--ink)" stroke-width="1.5"/><text x="${px}" y="${py - 11}" text-anchor="middle" style="fill:var(--ink);font-weight:500">${esc(n)}</text>`; }).join("")}</svg>`;
+      }
+      const lost = homeAt && located.length ? places.filter((p) => !p.pos) : [];
+      $("#places").innerHTML = lost.length ? `<span class="demo">${tr("Uden sted på kortet:", "Not placed on the map:")}</span>${lost.map((p) => `<button data-place="${places.indexOf(p)}" class="${pick.place && pick.place.shown === p ? "on" : ""}">${esc(p.name)} · ${p.count}×</button>`).join("")}` : "";
       const np = mean(night.filter((v) => v != null));
       // A trip made often can be given a name: it is known by how far it goes.
-      const place = pick.place || null, often = place ? place.list.length : 1, typing = S.naming && root.activeElement && root.activeElement.id === "nm-in";
+      const place = pick.place || null, often = place ? (place.shown ? place.shown.count : place.list.length) : 1, typing = S.naming && root.activeElement && root.activeElement.id === "nm-in";
       const naming = pick.zone ? "" : S.naming
         ? `<form class="nm" id="nm"><input id="nm-in" maxlength="30" value="${place && place.custom ? esc(place.name) : ""}" placeholder="${tr("fx Arbejde", "e.g. Work")}" aria-label="${tr("Turens navn", "The trip's name")}"><button class="btn on" type="submit">${tr("Gem", "Save")}</button><button class="btn" type="button" data-name="cancel">${tr("Fortryd", "Cancel")}</button></form>`
-        : `<div class="nm"><button class="btn" data-name="open">✎ ${place && place.custom ? tr("Skift navn", "Change the name") : tr("Giv turen et navn", "Name this trip")}</button><span class="demo">${often > 1 ? tr(`kørt ${often} gange på 90 dage`, `driven ${often} times in 90 days`) : ""}</span></div>`;
-      if (!typing) $("#trip").innerHTML = `<div class="row"><h3>${esc(pick.from)} → ${esc(pick.to)}</h3><span class="demo">${WDL[dateOf(pick.d).getDay()]} ${dm(pick.d)}</span></div>${naming}<div class="facts"><span><b>${pick.est ? `${tr("ca.", "about")} ${pad(Math.floor(pick.dep / 60))}` : `${hm(pick.dep)}–${hm(pick.arr)}`}</b>${pick.est ? tr("afgang, på timen", "departure, to the hour") : tr("afgang–ankomst", "departure–arrival")}</span><span><b>${nf(pick.km)} km</b>${pick.est ? tr("fra kilometertælleren", "from the odometer") : `${Math.round(pick.arr - pick.dep)} min`}</span><span><b>${nf(pick.kwh, 1)} kWh</b>${nf(pick.eff, 1)} ${tr("pr. 100 km", "per 100 km")}</span><span><b>${pick.soc0 == null || pick.soc1 == null ? "–" : `${nf(pick.soc0)} → ${nf(pick.soc1)} %`}</b>${tr("batteri", "battery")}</span><span><b>${pick.temp == null ? "–" : `${Math.round(pick.temp) + 0}°`}</b>${tr("ude", "outside")}</span><span><b>${np ? esc(money(pick.kwh * np, 0)) : "–"}</b>${tr("strøm, ca.", "power, about")}</span></div>`;
+        : `<div class="nm"><button class="btn" data-name="open">✎ ${place && place.custom ? tr("Skift navn", "Change the name") : tr("Giv turen et navn", "Name this trip")}</button></div>`;
+      // The trip through the 90 days: every time it was driven, out and home, with what it took.
+      const ref = place && place.name !== OTHER ? place.shown || place : null;
+      const legs = ref ? mine.filter((t) => t.place && (t.place.shown || t.place) === ref) : pick.zone ? mine.filter((t) => t.zone && [t.from, t.to].sort().join("|") === [pick.from, pick.to].sort().join("|")) : [pick];
+      let route = "";
+      if (legs.length > 1) {
+        const lk = sum(legs, (t) => t.km), lw = sum(legs, (t) => t.kwh), le = legs.map((t) => t.eff).filter((v) => v > 0), outs = legs.filter((t) => t.to !== HOME), dep = outs.length ? q(outs.map((t) => t.dep), 0.5) : null;
+        const lo = Math.min(...le), hi = Math.max(...le), span = Math.max(1, hi - lo), XR = (d) => 8 + (d / (N - 1)) * 384, YR = (e) => 8 + (1 - (e - lo) / span) * 44, avgE = lk ? (lw / lk) * 100 : mean(le);
+        route = `<span class="tag">${tr(`Alle ${legs.length} ture på ruten`, `All ${legs.length} trips on the route`)}</span>
+          <div class="facts"><span><b>${often}×</b>${tr("kørt på 90 dage", "driven in 90 days")}</span><span><b>${nf(lw / legs.length, 1)} kWh</b>${tr("i snit pr. tur", "on average a trip")}</span><span><b>${nf(avgE, 1)}</b>${tr("kWh pr. 100 km i snit", "kWh per 100 km on average")}</span><span><b>${nf(lo)}–${nf(hi)}</b>${tr("lavest–højest pr. 100 km", "lowest–highest per 100 km")}</span><span><b>${dep == null ? "–" : `${tr("ca.", "about")} ${pad(Math.floor(dep / 60))}`}</b>${tr("typisk afgang", "usual departure")}</span><span><b>${np ? esc(money((lw / legs.length) * np, 0)) : "–"}</b>${tr("strøm pr. tur, ca.", "power a trip, about")}</span><span><b>${nf(lk)} km</b>${tr("i alt", "in all")}</span><span><b>${nf(lw)} kWh</b>${tr("i alt", "in all")}</span></div>
+          <svg class="rhist" viewBox="0 0 400 74" role="img" aria-label="${tr("Forbrug pr. tur gennem 90 dage", "Use per trip through 90 days")}"><line x1="8" x2="392" y1="${YR(avgE).toFixed(1)}" y2="${YR(avgE).toFixed(1)}" stroke="var(--ink)" stroke-dasharray="4 4" opacity=".6"/>${legs.map((t) => `<circle class="hit" data-trip="${t.id}" cx="${XR(t.d).toFixed(1)}" cy="${YR(clamp(t.eff, lo, hi)).toFixed(1)}" r="${t === pick ? 5.5 : 3.6}" fill="${tempCol(t.temp)}" opacity="${t === pick ? 1 : 0.75}" ${t === pick ? 'stroke="var(--ink)" stroke-width="2"' : ""}/>`).join("")}<text x="8" y="72">${dm(0)}</text><text x="200" y="72" text-anchor="middle">${tr("kWh pr. 100 km, tur for tur · farve: temperatur", "kWh per 100 km, trip by trip · colour: temperature")}</text><text x="392" y="72" text-anchor="end">${tr("i går", "yesterday")}</text></svg>
+          <span class="tag">${tr("Den valgte tur", "The chosen trip")}</span>`;
+      }
+      if (!typing) $("#trip").innerHTML = `<div class="row"><h3>${esc(pick.from)} → ${esc(pick.to)}</h3><span class="demo">${WDL[dateOf(pick.d).getDay()]} ${dm(pick.d)}</span></div>${naming}${route}<div class="facts"><span><b>${pick.est ? `${tr("ca.", "about")} ${pad(Math.floor(pick.dep / 60))}` : `${hm(pick.dep)}–${hm(pick.arr)}`}</b>${pick.est ? tr("afgang, på timen", "departure, to the hour") : tr("afgang–ankomst", "departure–arrival")}</span><span><b>${nf(pick.km)} km</b>${pick.est ? tr("fra kilometertælleren", "from the odometer") : `${Math.round(pick.arr - pick.dep)} min`}</span><span><b>${nf(pick.kwh, 1)} kWh</b>${nf(pick.eff, 1)} ${tr("pr. 100 km", "per 100 km")}</span><span><b>${pick.soc0 == null || pick.soc1 == null ? "–" : `${nf(pick.soc0)} → ${nf(pick.soc1)} %`}</b>${tr("batteri", "battery")}</span><span><b>${pick.temp == null ? "–" : `${Math.round(pick.temp) + 0}°`}</b>${tr("ude", "outside")}</span><span><b>${np ? esc(money(pick.kwh * np, 0)) : "–"}</b>${tr("strøm, ca.", "power, about")}</span></div>`;
       S.pickNow = pick.id;
     }
     // per day
@@ -947,9 +1074,10 @@ function boot(host, root) {
   }
   root.addEventListener("click", (ev) => {
     if (!built) return;
-    const t = ev.target.closest("[data-wkp],[data-tlz],[data-tlnow],[data-day],[data-tlsheet],#tl-close,#tl-sheet,[data-open],[data-tab],[data-car],[data-v],[data-trip],[data-name]");
+    const t = ev.target.closest("[data-wkp],[data-tlz],[data-tlnow],[data-day],[data-tlsheet],#tl-close,#tl-sheet,[data-open],[data-tab],[data-car],[data-v],[data-trip],[data-name],[data-place]");
     if (!t) return;
     if (t.dataset.open) { $("#tl-sheet").hidden = true; say("open", t.dataset.open); return; }
+    if (t.dataset.place) { const p = ((CARS[S.car] || {}).places || [])[+t.dataset.place]; if (p && p.last) { S.pickTrip = p.last.id; S.naming = !p.last.zone; render(true); } return; }
     if (t.dataset.name) { S.naming = t.dataset.name === "open"; render(true); if (S.naming) $("#nm-in")?.focus(); return; }
     if (t.dataset.wkp) { tlS.day = +t.dataset.wkp; tlS.at = tlS.day * 24 + 18; tlS.left = null; }
     else if (t.dataset.tlz) { tlS.z = clamp(tlS.z + Number(t.dataset.tlz), 0, 2); tlS.left = null; }
@@ -970,7 +1098,8 @@ function boot(host, root) {
     if (!pick || !input) return;
     const km = Math.round((pick.place ? pick.place.km : pick.km) * 10) / 10, name = input.value.trim().slice(0, 30);
     const list = ((IN.names || {})[pick.car] || []).filter((x) => Math.abs(Number(x.km) - km) > Math.max(1.5, km * 0.12));
-    if (name) list.push({ km, name });
+    const at = pick.place && pick.place.pos ? { lat: Math.round(pick.place.pos.lat * 1e5) / 1e5, lon: Math.round(pick.place.pos.lon * 1e5) / 1e5 } : {};
+    if (name) list.push({ km, name, ...at });
     IN.names = { ...(IN.names || {}), [pick.car]: list };
     S.naming = false;
     say("names", IN.names);
@@ -1004,7 +1133,7 @@ class EvPlannerInsight extends HTMLElement {
   /* What the panel knows. Drawn again only when something that is shown has changed. */
   set input(value) {
     this.toggleAttribute("dark", !!value.dark);
-    const key = JSON.stringify([value.lang, value.dark, value.insightAt, value.statsAt, Math.floor(value.now / 3600000), value.level, value.use, (value.cars || []).map((c) => [c.id, Math.round(Number(c.soc) || 0), c.connected, c.charging, c.plan && c.plan.segments.length, (c.history || []).length]), (value.prices || []).length, value.names]);
+    const key = JSON.stringify([value.lang, value.dark, value.insightAt, value.statsAt, Math.floor(value.now / 3600000), value.level, value.use, (value.cars || []).map((c) => [c.id, Math.round(Number(c.soc) || 0), c.connected, c.charging, c.plan && c.plan.segments.length, (c.history || []).length]), (value.prices || []).length, value.names, value.tracksAt, (value.zones || []).length]);
     if (key === this._key) return;
     const fresh = !this._key;
     this._key = key;

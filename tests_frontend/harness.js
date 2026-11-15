@@ -126,6 +126,8 @@ const harness = {
         return this.insight || {};
       case "recorder/statistics_during_period":
         return this.statistics || {};
+      case "history/history_during_period":
+        return this.history || {};
       default:
         this.unknown.push(message.type);
         throw { code: "unknown_command", message: `Unknown command: ${message.type}` };

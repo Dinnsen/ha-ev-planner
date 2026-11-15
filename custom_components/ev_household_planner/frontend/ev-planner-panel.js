@@ -5455,6 +5455,8 @@ class EvPlannerPanel extends HTMLElement {
     } catch (_err) {
       home = false;
     }
+    // Home Assistant's sidebar is hidden for this user (or the app runs as a kiosk): its menu button is not shown either.
+    if (this._hass?.dockedSidebar === "always_hidden" || this._hass?.kioskMode) home = true;
     const slot = this.shadowRoot.querySelector(".menu");
     if (home && slot && !this._embed && !this.hasAttribute("card") && !this.hasAttribute("app")) {
       const button = document.createElement("button");
@@ -7791,7 +7793,7 @@ class EvPlannerPanel extends HTMLElement {
       "opportunistic", "opportunistic_level", "follow_level", "keep_charger_on", "charge_on_late", "use_earliest_start", "earliest_start",
       "morning_time", "midday_time", "evening_time", "climate_temperature", "climate_minutes", "climate_auto", "climate_below", "climate_plugged_only",
       "join_period", "join_within", "continuous", "prefer_early", "early_within", "topup", "topup_level",
-      "solar", "body", "paint", "spot",
+      "solar", "body", "paint", "spot", "target_step", "climate_entity",
     ].map((key) => s[key]);
   }
 
@@ -8124,7 +8126,7 @@ class EvPlannerPanel extends HTMLElement {
     const body = !open || open.key === "notify" ? "" : open.rows.join("");
     this._patch(
       root.querySelector(".car-page .sheet-slot"),
-      JSON.stringify([this._sheet, this._ruleValues(s), s.reminder, s.reminder_time, s.reminder_soc, s.reminder_price_enabled, s.reminder_price, s.reminder_days, s.reminder_repeat, s.reminder_horizon, s.notify_targets, s.live_notification, s.notify_done, s.notify_receipt, s.notify_away, this._state.config?.notify, this._currency, lang]),
+      JSON.stringify([this._sheet, this._ruleValues(s), v.target_steps, s.reminder, s.reminder_time, s.reminder_soc, s.reminder_price_enabled, s.reminder_price, s.reminder_days, s.reminder_repeat, s.reminder_horizon, s.notify_targets, s.live_notification, s.notify_done, s.notify_receipt, s.notify_away, this._state.config?.notify, this._currency, lang]),
       open
         ? `<div class="scrim in-page" data-act="sheet-close"></div>
           <div class="sheet in-page" role="dialog" aria-modal="true" aria-label="${esc(open.title)}">
@@ -9828,6 +9830,23 @@ class EvPlannerPanel extends HTMLElement {
       .finally(() => { this._insStatsAt = Date.now(); this._insStatsBusy = false; if (this._tab === "history") this._render(); });
   }
 
+  /* Where the cars were, for the days Home Assistant still has it: asked for when the map is first looked at. */
+  _insightTracks() {
+    const data = this._insight;
+    if (!data?.cars || this._insTracksBusy || Date.now() - (this._insTracksAt || 0) < 1800000 || !this._hass?.callWS) return;
+    const ids = [...new Set(Object.values(data.cars).map((car) => car.sources?.tracker).filter(Boolean))];
+    if (!ids.length) { this._insTracks = {}; this._insTracksAt = Date.now(); return; }
+    this._insTracksBusy = true;
+    this._hass
+      .callWS({ type: "history/history_during_period", start_time: new Date(Date.now() - 10 * 86400000).toISOString(), end_time: new Date().toISOString(), entity_ids: ids, minimal_response: false, no_attributes: false, significant_changes_only: false })
+      .then((rows) => {
+        // Only the time and the position are kept.
+        this._insTracks = Object.fromEntries(Object.entries(rows || {}).map(([id, list]) => [id, (list || []).map((row) => [Number(row.lu ?? row.lc) * 1000, Number(row.a?.latitude), Number(row.a?.longitude)]).filter((p) => p.every(Number.isFinite))]));
+      })
+      .catch(() => { this._insTracks = {}; })
+      .finally(() => { this._insTracksAt = Date.now(); this._insTracksBusy = false; if (this._tab === "history") this._render(); });
+  }
+
   /* What the learning centre draws from, with every time on the household's clock. */
   _insightInput() {
     const wall = (value) => ZD(typeof value === "number" ? new Date(value).toISOString() : value).getTime();
@@ -9855,6 +9874,13 @@ class EvPlannerPanel extends HTMLElement {
       level: settings.insight_level,
       use: Boolean(settings.insight_use),
       names: settings.insight_names || {},
+      tracks: this._insTracks || null,
+      tracksAt: this._insTracksAt || 0,
+      // Home and the household's zones, so a place that lies in one has its name.
+      home: this._insightHome(),
+      zones: Object.values(this._hass?.states || {})
+        .filter((state) => state.entity_id.startsWith("zone."))
+        .map((state) => ({ name: state.attributes.friendly_name || state.entity_id.slice(5), lat: Number(state.attributes.latitude), lon: Number(state.attributes.longitude), radius: Number(state.attributes.radius) || 100, home: state.entity_id === "zone.home" })),
     };
   }
 
@@ -9883,7 +9909,14 @@ class EvPlannerPanel extends HTMLElement {
     this._insEl.input = this._insightInput();
   }
 
+  _insightHome() {
+    const zone = this._hass?.states?.["zone.home"]?.attributes, config = this._hass?.config || {};
+    const lat = Number(zone?.latitude ?? config.latitude), lon = Number(zone?.longitude ?? config.longitude);
+    return Number.isFinite(lat) && Number.isFinite(lon) && (lat || lon) ? { lat, lon } : null;
+  }
+
   _insightSaid({ act, value }) {
+    if (act === "tracks") { this._insightTracks(); return; }
     if (act === "open") {
       this._histClassic = value === "learned" ? "learned" : "history";
       this._histView = this._histClassic;

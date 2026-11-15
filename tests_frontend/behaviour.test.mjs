@@ -87,6 +87,22 @@ test("a mode button stores the mode at once", async () => {
   });
 });
 
+test("the steps of the target move at once when another is chosen", async () => {
+  await withPanel("two-cars", { size: PHONE }, async ({ tap, read, waitForCall, calls }) => {
+    await tap('.tabs button[data-tab="cars"]');
+    await tap('[data-act="open-car"][data-id="tesla_model_y"]');
+    await tap('[data-act="car-view"][data-view="rules"]');
+    await tap('[data-act="tile"][data-tile="battery"]');
+    assert.equal(await read('.sheet [data-act="tstep"][aria-checked="true"]', "data-value"), "auto");
+    for (const step of ["5", "1", "10"]) {
+      await tap(`.sheet [data-act="tstep"][data-value="${step}"]`);
+      assert.equal(await read('.sheet [data-act="tstep"][aria-checked="true"]', "data-value"), step);
+    }
+    await waitForCall("vehicle_set");
+    assert.equal((await calls("vehicle_set")).at(-1).settings.target_step, "10");
+  });
+});
+
 test("changing a rule shows the plan it would give, then stores it", async () => {
   await withPanel("two-cars", { size: PHONE }, async ({ page, tap, read, calls, waitForCall, state }) => {
     await tap('.tabs button[data-tab="cars"]');
@@ -664,10 +680,16 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     "sensor.energy": [{ start: hour(9, 1), change: 9.5 }, { start: hour(9, 2), change: 6.2 }],
   };
   insight.cars[a].sources.energy = "sensor.energy";
+  // Where the car was on those days, as Home Assistant's history has it: out to a place and home again.
+  insight.cars[a].sources.tracker = "device_tracker.car";
+  const at = (day, h, minute, lat, lon) => ({ s: "not_home", a: { latitude: lat, longitude: lon }, lu: new Date(hour(day, h)).getTime() / 1000 + minute * 60 });
+  const history = { "device_tracker.car": [8, 9].flatMap((day) => [at(day, 6, 0, 55, 10), at(day, 7, 10, 55.05, 10.07), at(day, 7, 40, 55.15, 10.2), at(day, 16, 5, 55.1, 10.12), at(day, 16, 40, 55, 10)]) };
   insight.cars[b].sources.soc = "sensor.soc_b";
   statistics["sensor.soc_b"] = [{ start: hour(7, 1), mean: 40 }, { start: hour(7, 2), mean: 52 }, { start: hour(7, 3), mean: 66 }, { start: hour(7, 4), mean: 70 }];
   await withPanel({ ...state, settings: { ...state.settings, insight: true } }, { size: PHONE }, async ({ page, tap, read, calls, push }) => {
-    await page.evaluate(([data, rows]) => { window.harness.insight = data; window.harness.statistics = rows; }, [insight, statistics]);
+    const tiles = [];
+    await page.route("https://basemaps.cartocdn.com/**", (route) => { tiles.push(route.request().url()); return route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"/>' }); });
+    await page.evaluate(([data, rows, past]) => { window.harness.insight = data; window.harness.statistics = rows; window.harness.history = past; window.harness.hass.config = { latitude: 55, longitude: 10 }; }, [insight, statistics, history]);
     await page.evaluate(() => window.harness.panel._setTab("history"));
     // The learning centre is a page of its own, fetched now: tonight in a picture, the timeline and three answers.
     const inside = (fn, arg) => page.evaluate(([code, value]) => new Function("root", "value", `return (${code})(root, value)`)(window.harness.panel.shadowRoot.querySelector("ev-planner-insight").shadowRoot, value), [fn.toString(), arg]);
@@ -706,17 +728,28 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     // Driving: the logged trip with its places, and the older ones found in the odometer, told apart by how far.
     await tap('ev-planner-insight [data-tab="bil"]');
     assert.equal(await inside((root) => root.querySelectorAll("#trips circle").length), 5);
-    assert.match(await inside((root) => root.querySelector("#map").textContent), /Home.*work|work.*Home/s);
-    assert.match(await inside((root) => root.querySelector("#map").textContent), /≈ 24 km/);
+    // The map is a real one, asked for when Driving is first looked at: home, the place the car went to with how often, and its road.
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector("ev-planner-insight").shadowRoot.querySelector("#map .rsvg"));
+    assert.ok(tiles.length > 0 && tiles.every((url) => /\/light_all\/\d+\/\d+\/\d+@2x\.png$/.test(url)), "the map's tiles are asked for");
+    assert.match(await inside((root) => root.querySelector("#map .rsvg").textContent), /Home/);
+    assert.match(await inside((root) => root.querySelector("#map .rsvg").textContent), /≈ 24 km · 2×/);
+    assert.match(await inside((root) => root.querySelector("#places").textContent), /work · 1×/, "a place without a position is listed under the map");
+    assert.equal(await page.evaluate(() => window.harness.calls.filter((c) => c.type === "history/history_during_period").length), 1);
     assert.equal(await inside((root) => root.querySelectorAll("#clock path").length), 168);
     assert.match(await inside((root) => root.querySelector("#sum-bil").textContent), /trips/);
     assert.equal(await inside((root) => root.querySelectorAll("#sum-wk rect").length), 13);
     // A trip made often is given a name: kept with the settings by the car and how far it goes, and shown at once.
-    await tap('ev-planner-insight [data-name="open"]');
+    // A tap on the place on the map chooses it, with its name ready to be written.
+    await page.locator("ev-planner-panel ev-planner-insight #map g[data-mp]").first().click({ force: true });
+    assert.match(await inside((root) => root.querySelector("#trip .facts").textContent), /2×driven in 90 days/);
     await page.locator("ev-planner-panel ev-planner-insight #nm-in").fill("Work place");
     await page.locator("ev-planner-panel ev-planner-insight #nm-in").press("Enter");
-    assert.match(await inside((root) => root.querySelector("#map").textContent), /Work place/);
-    assert.deepEqual((await calls("settings")).at(-1).settings, { insight_names: { [a]: [{ km: 24.2, name: "Work place" }] } });
+    assert.match(await inside((root) => root.querySelector("#map .rsvg").textContent), /Work place · 2×/);
+    assert.deepEqual((await calls("settings")).at(-1).settings, { insight_names: { [a]: [{ km: 24.2, name: "Work place", lat: 55.15, lon: 10.2 }] } });
+    // The map zooms with + and −.
+    const zoomed = await inside((root) => root.querySelector("#map .rtiles img").src);
+    await tap('ev-planner-insight #map [data-mz="1"]');
+    assert.notEqual(await inside((root) => root.querySelector("#map .rtiles img").src), zoomed);
     // An explanation is behind the card's "?".
     assert.equal(await inside((root) => getComputedStyle(root.querySelector("#p-bil .card p.small")).display), "none");
     await tap("ev-planner-insight #p-bil .q");

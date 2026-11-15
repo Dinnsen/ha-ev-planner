@@ -2,6 +2,19 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b20] - 2026-11-15
+
+### Added
+
+- **A real map under Driving**, in a light style (dark in the dark theme), fetched from CARTO and OpenStreetMap as Home Assistant's own map is. It shows home, the places the car goes to, each with how many times it was driven to in 90 days, and the chosen trip's road. It is dragged to move and zoomed with + and − or two fingers. The places are found from the car's position on the days Home Assistant still has it (about 10), and a place that lies in one of your zones has the zone's name; older trips of the same length are counted to the same place.
+- **A tap on a place on the map chooses it**, with its name ready to be written. A name is kept with the place's position, so the place stays on the map when Home Assistant no longer has the positions. Trips that cannot be placed are listed under the map and can be named there.
+- **A known trip through the 90 days**: under the map, every time the chosen route was driven, out and home: how often, kWh a trip and per 100 km on average, the lowest and the highest, the usual departure, what a trip costs in power, km and kWh in all, and each trip's use as a dot coloured by the temperature. A tap on a dot chooses that trip.
+- **The home button shows by itself** where Home Assistant's own menu is hidden for the user (the sidebar set to always hidden, or a kiosk), not only with `?home`.
+
+### Fixed
+
+- **"Target steps" did not move when another step was chosen** (a car's rules → Battery): the choice was stored, but the row was not drawn again until the sheet was closed and opened. Reported by Frank.
+
 ## [2.5.0b19] - 2026-11-15
 
 ### Added
