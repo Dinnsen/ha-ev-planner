@@ -253,8 +253,13 @@ function boot(host, root) {
     const near = (m, h, back, span) => { for (let k = 0; k <= span; k += 1) { const v = m.get(h + (back ? -k : k)); if (v != null) return v; } return null; };
     for (const id of ids) {
       const c = CARS[id];
-      const odo = hmap(c.src.odometer, "change", (v) => v > 0 && v < 400), soc = hmap(c.src.soc, "mean", (v) => v >= 0 && v <= 100), en = hmap(c.src.energy, "change", (v) => v > 0.05 && v < 150), tm = hmap(c.src.temperature, "mean", (v) => v > -40 && v < 55);
+      const odo = hmap(c.src.odometer, "change", (v) => v > 0 && v < 400), soc = hmap(c.src.soc, "mean", (v) => v >= 0 && v <= 100), meter = hmap(c.src.energy, "change", (v) => v > 0.05 && v < 150), tm = hmap(c.src.temperature, "mean", (v) => v > -40 && v < 55);
       c.socH = soc;
+      // Charging is also seen as the battery rising while the car stands still. Where the car's energy meter
+      // misses most of that (some cars' meters do), the battery's own rise is what counts.
+      const rise = new Map();
+      for (const [h, v] of soc) { const before = soc.get(h - 1); if (before != null && v - before > 0.8 && !(odo.get(h) > 1)) rise.set(h, ((v - before) / 100) * c.cap); }
+      const en = sum([...meter.values()]) < 0.5 * sum([...rise.values()]) ? rise : meter;
       const logged = {};
       for (const t of DATA.trips || []) {
         if (t.vehicle !== id || !t.start) continue;
@@ -274,7 +279,9 @@ function boot(host, root) {
         if (logged[d]) continue;
         const s0 = near(soc, r.h0 - 1, true, 5), s1 = near(soc, r.h1 + 1, false, 2), day = c.days[isoOf(d)] || {};
         const dayEff = day.km > 5 && day.used > 0 ? (day.used / day.km) * 100 : c.base || 18;
-        let kwh = r.whole > 0 ? r.whole : s0 != null && s1 != null ? ((s0 - s1) / 100) * c.cap : null;
+        // What the battery fell, and what was charged on the way.
+        let onWay = 0; for (let h = r.h0; h <= r.h1; h += 1) onWay += meter.get(h) || 0;
+        let kwh = r.whole > 0 ? r.whole : s0 != null && s1 != null ? ((s0 - s1) / 100) * c.cap + onWay * 0.9 : null;
         if (kwh == null || kwh <= 0 || (kwh / r.km) * 100 < 6 || (kwh / r.km) * 100 > 60) kwh = (r.km * clamp(dayEff, 8, 45)) / 100;
         const hod = mod(r.h0, 24), dep = hod * 60 + 20;
         est.push({ car: id, d, dep, arr: Math.min((hod + r.h1 - r.h0 + 1) * 60 - 5, dep + Math.max(8, r.km * 1.1)), km: r.km, kwh, eff: (kwh / r.km) * 100, soc0: s0, soc1: s1, temp: tm.get(r.h0) ?? temp[Math.min(d, N)], est: true });

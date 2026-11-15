@@ -664,6 +664,8 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     "sensor.energy": [{ start: hour(9, 1), change: 9.5 }, { start: hour(9, 2), change: 6.2 }],
   };
   insight.cars[a].sources.energy = "sensor.energy";
+  insight.cars[b].sources.soc = "sensor.soc_b";
+  statistics["sensor.soc_b"] = [{ start: hour(7, 1), mean: 40 }, { start: hour(7, 2), mean: 52 }, { start: hour(7, 3), mean: 66 }, { start: hour(7, 4), mean: 70 }];
   await withPanel({ ...state, settings: { ...state.settings, insight: true } }, { size: PHONE }, async ({ page, tap, read, calls, push }) => {
     await page.evaluate(([data, rows]) => { window.harness.insight = data; window.harness.statistics = rows; }, [insight, statistics]);
     await page.evaluate(() => window.harness.panel._setTab("history"));
@@ -710,7 +712,9 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     await tap('ev-planner-insight [data-v="prob"]');
     assert.ok(await inside((root) => root.querySelectorAll("#wk-pris .pbar").length > 10));
     await tap('ev-planner-insight [data-v="fan"]');
-    assert.match(await inside((root) => root.querySelector("#kpi-lad").textContent), /1 charges/);
+    assert.match(await inside((root) => root.querySelector("#kpi-lad").textContent), /2 charges/);
+    // The other car has no energy meter: its charging is seen as the battery rising while it stands still.
+    assert.match(await inside((root) => root.querySelector("#flow").textContent), /Mercedes/);
     assert.ok(await inside((root) => root.querySelector("#flow svg .flow")));
     // Learned: four models with a ring each, and what was said against what was done.
     await tap('ev-planner-insight [data-tab="laer"]');

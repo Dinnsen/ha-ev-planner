@@ -2,6 +2,13 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b18] - 2026-11-15
+
+### Fixed
+
+- **Learning: a car whose energy meter misses its charging** (seen on a Mercedes, where the meter rose 1 kWh in three days) now has its charging read from the battery rising while the car stands still, so its charges, their price and its share of the power are shown.
+- **Learning: a long trip with a fast charge on the way** counts what was charged on the way as used, so its kWh per 100 km is no longer far too low.
+
 ## [2.5.0b17] - 2026-11-15
 
 ### Added
