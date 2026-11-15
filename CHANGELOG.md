@@ -4,6 +4,10 @@ All notable changes to EV Planner. The version is the one in `custom_components/
 
 ## [2.5.0b13] - 2026-11-15
 
+### Added
+
+- **A way back to Home Assistant's front page.** Opened from a shortcut with `?home` at the end (`/ev-planner?home`), the panel shows a home button in its top bar: for a tablet on the wall, where Home Assistant's own menu is hidden.
+
 ### Fixed
 
 - **A tall sheet went up under the top bar** on a phone, so its title and its Done button could not be reached. A sheet now stops under the bar.

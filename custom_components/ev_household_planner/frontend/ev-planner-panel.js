@@ -1770,6 +1770,7 @@ Object.assign(TEXT.da, {
   price_add_hint: "Fx afgifter og nettarif, når pris-sensoren kun har spotprisen. 0 når sensoren har den fulde pris.",
   price_add_sum: "+{price}/kWh",
   widgets_refresh_on: "opdaterer widgets",
+  ha_home: "Til Home Assistants forside",
   insight_title: "Indsigt",
   insight_off: "slået fra",
   insight_on: "logger og lærer",
@@ -1896,6 +1897,7 @@ Object.assign(TEXT.en, {
   price_add_hint: "E.g. taxes and grid tariffs when the price sensor has the spot price only. 0 when the sensor has the full price.",
   price_add_sum: "+{price}/kWh",
   widgets_refresh_on: "refreshes widgets",
+  ha_home: "To Home Assistant's front page",
   insight_title: "Insight",
   insight_off: "turned off",
   insight_on: "logging and learning",
@@ -5424,8 +5426,30 @@ class EvPlannerPanel extends HTMLElement {
       this._menu = document.createElement("ha-menu-button");
       this._menu.hass = this._hass;
       this._menu.narrow = this._narrow;
-      slot.appendChild(this._menu);
+      slot.prepend(this._menu);
     };
+    // Opened from a shortcut with ?home (a tablet on the wall, where Home Assistant's own menu is hidden):
+    // a button back to Home Assistant's front page. It is remembered while the tab is open.
+    let home = false;
+    try {
+      if (new URLSearchParams(location.search).has("home")) sessionStorage.setItem("evp-home", "1");
+      home = sessionStorage.getItem("evp-home") === "1";
+    } catch (_err) {
+      home = false;
+    }
+    const slot = this.shadowRoot.querySelector(".menu");
+    if (home && slot && !this._embed && !this.hasAttribute("card") && !this.hasAttribute("app")) {
+      const button = document.createElement("button");
+      button.className = "icon home-go";
+      button.setAttribute("aria-label", this._t("ha_home"));
+      button.title = this._t("ha_home");
+      button.innerHTML = ICONS.home;
+      button.addEventListener("click", () => {
+        history.pushState(null, "", "/");
+        window.dispatchEvent(new CustomEvent("location-changed", { bubbles: true, composed: true }));
+      });
+      slot.appendChild(button);
+    }
     if (customElements.get("ha-menu-button")) addMenu();
     else customElements.whenDefined("ha-menu-button").then(addMenu, () => {});
     const content = this.shadowRoot.querySelector(".content");
@@ -10690,6 +10714,8 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
   border-bottom: 1px solid var(--app-header-border-bottom, var(--evp-line));
 }
 .menu:empty { width: 8px; }
+.menu { display: flex; align-items: center; }
+.home-go svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; }
 .brand svg { width: 28px; height: 28px; }
 .tabs { display: flex; gap: 4px; justify-self: end; }
@@ -11463,7 +11489,7 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 .toast svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
 .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 20; animation: fade .2s; }
 .sheet { position: fixed; z-index: 21; left: 50%; bottom: 0; transform: translateX(-50%); width: min(520px, 100%); background: var(--evp-solid); border-radius: 22px 22px 0 0;
-  padding: 18px 20px calc(22px + var(--evp-safe-bottom)); animation: up .3s cubic-bezier(.2,.8,.2,1); max-height: min(90vh, calc(100dvh - 72px - var(--evp-safe-top) - var(--safe-area-inset-top, 0px))); overflow: auto; }
+  padding: 18px 20px calc(22px + var(--evp-safe-bottom)); animation: up .3s cubic-bezier(.2,.8,.2,1); max-height: min(90vh, calc(100% - 72px - var(--evp-safe-top) - var(--safe-area-inset-top, 0px))); overflow: auto; }
 .sheet header { display: flex; justify-content: space-between; align-items: center; }
 .sheet.stay, .scrim.stay { animation: none; }
 /* ---------- the climate: the cabin from above (as in Tesla's app) */
