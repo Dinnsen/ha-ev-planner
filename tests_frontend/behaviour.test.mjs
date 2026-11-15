@@ -630,3 +630,55 @@ test("every time is shown on Home Assistant's clock, also from another time zone
     assert.equal(await page.evaluate(() => window.harness.panel._time("2026-01-15T07:00:00+09:00")), "23:00");
   });
 });
+
+test("Insight's page shows the evening, the cars, the prices, the charging, the learning and the ledger", async () => {
+  const state = fixture("two-cars");
+  const [a, b] = state.vehicles.map((v) => v.id);
+  const days = Object.fromEntries(Array.from({ length: 40 }, (_, i) => [`2026-10-${String((i % 28) + 1).padStart(2, "0")}`, { km: 20 + i, used: 4 + i / 5, charged: i % 3 ? null : 12, temp: 10 - (i % 12), out: 7 + (i % 3) }]));
+  const car = (name) => ({ name, sources: { soc: "sensor.soc", odometer: "sensor.odo", tracker: null, temperature: null, energy: null }, days: 40, first: "2026-10-01", km_30: 900, trips: 1 });
+  const detail = { kwh_km: 0.17, cold: 0.02, week: Array.from({ length: 7 }, (_, i) => ({ p50: 5 + i, p90: 20 + i })), days, needs: { "2026-10-11": 30, "2026-10-12": 3 } };
+  const outlook = { soc_kwh: 30, p50: 6, p90: 24, floor: 30, floor_pct: 50, reach: 0, ripe: true };
+  const tonight = { price: 1.2, cars: { [a]: outlook, [b]: { ...outlook, reach: 3 } }, groups: [{ cars: [a, b], pick: a, wait: false, reason: "needed", both: true, chance: 0.4 }], wait: false };
+  const insight = {
+    enabled: true,
+    cars: { [a]: car("Tesla"), [b]: car("Mercedes") },
+    prices: 3,
+    spot: 700,
+    forecasts: 2,
+    done: {},
+    tonight,
+    score: { scored: 4, hits: 3, rate: 0.75, waits: 1, saved: 12.5, ripe: false },
+    window: [21, 7],
+    detail: { [a]: detail, [b]: { ...detail, days: {} } },
+    price_days: Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`2026-0${9 + Math.floor(i / 30)}-${String((i % 30) + 1).padStart(2, "0")}`.replace("010-", "10-"), { night: i % 9 ? 1 + (i % 5) / 10 : null, mean: 2, own: i > 55 }])),
+    errors: [0.1, 0.17, 0.24, 0.31, 0.38, 0.45],
+    trips: [{ vehicle: a, start: "2026-10-10T07:00:00+02:00", end: "2026-10-10T07:40:00+02:00", from: "home", to: "work", km: 31.2, kwh: 5.1, temp: 8 }],
+    ledger: { "2026-10-10": { cars: { [a]: outlook, [b]: outlook }, groups: [{ pick: a }] }, "2026-10-11": { cars: { [a]: outlook }, groups: [{ wait: true }] } },
+  };
+  await withPanel({ ...state, settings: { ...state.settings, insight: true } }, { size: PHONE }, async ({ page, tap, read, calls }) => {
+    await page.evaluate((data) => { window.harness.insight = data; }, insight);
+    await page.evaluate(() => window.harness.panel._setTab("history"));
+    await tap('[data-act="hist-view"][data-value="insight"]');
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector(".ins-views"));
+    assert.equal((await calls("insight")).length, 1);
+    assert.match(await read(".insight-card strong"), /Tesla/);
+    for (const view of ["cars", "prices", "charge", "learn", "ahead", "sum"]) {
+      await tap(`[data-act="insight-view"][data-value="${view}"]`);
+      assert.equal(await read('.ins-views button[aria-pressed="true"]', "data-value"), view);
+      assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".ins-card, .ins-kpi").length > 0), view);
+    }
+    await tap('[data-act="insight-view"][data-value="cars"]');
+    assert.match(await read(".ins-table"), /home → work/);
+    await tap(`[data-act="insight-car"][data-value="${b}"]`);
+    assert.match(await read(".ins-card .hint"), /./);
+    await tap('[data-act="insight-view"][data-value="ahead"]');
+    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".ins-table .warn-text").length), 2);
+    // Fetched once a minute, not for every look. No sideways scroll on a phone.
+    assert.equal((await calls("insight")).length, 1);
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+    // The settings sheet shows the same figures.
+    await page.evaluate(() => window.harness.panel._setTab("settings"));
+    await tap('[data-act="tile"][data-tile="insight"]');
+    assert.match(await read(".sheet .insight-card strong"), /should have the charger/);
+  });
+});

@@ -582,6 +582,12 @@ async def test_what_the_panel_and_the_export_get_and_what_is_kept(
     assert result["enabled"] is True and result["cars"][TESLA]["days"] == 40
     assert len(result["detail"][TESLA]["week"]) == 7 and result["detail"][TESLA]["week"][0]["p90"] == 3.0
     assert result["window"] == [21, 7] and result["tonight"]["groups"]
+    assert len(result["detail"][TESLA]["needs"]) == 40 and len(result["errors"]) == 6
+    insight.data["prices"] = {"2026-10-18": [2.0] * 24, "2026-10-19": [1.0] * 23 + [None]}
+    insight.data["spot"] = {"2026-10-17": [None] * 24}
+    shown = insight.detail()["price_days"]
+    assert shown["2026-10-18"] == {"night": 1.0, "mean": 2.0, "own": True}
+    assert shown["2026-10-17"] == {"night": 2.0, "mean": None, "own": False}
     await client.send_json({"id": 2, "type": "ev_household_planner/state"})
     assert (await client.receive_json())["result"]["insight"]["groups"]
     await client.send_json(

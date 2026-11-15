@@ -2,6 +2,12 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b14] - 2026-11-15
+
+### Added
+
+- **Insight has its own page** (History → Insight, when Insight is on), in six parts. *Together*: tonight's choice of car, the last 30 days of driving for each car against the night's price. *Cars*: when each car leaves home through the week, 90 days of driving, the week as it is learned, and the latest trips with their places, km, kWh and temperature. *Prices*: the night's price and the day's mean for 90 days, the night's price by weekday, and the forecast's error for each day ahead. *Charging*: what each car charged each day, and about what it cost. *Learning*: how far each thing learned has come, and what the cold costs. *Ahead*: how likely a cheaper night is, and the ledger of what was expected against what happened.
+
 ## [2.5.0b13] - 2026-11-15
 
 ### Added

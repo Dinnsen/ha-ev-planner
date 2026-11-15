@@ -71,6 +71,7 @@ LEDGER_KEEP = 180
 INSIGHT_STORAGE_KEY = f"{DOMAIN}.{{entry_id}}.insight"
 TRIPS_KEEP = timedelta(days=90)
 LOOKAHEAD_DAYS = 6
+PRICE_DAYS_SHOWN = 365
 DAYS_KEEP = 730
 FORECASTS_KEEP = 180
 SAVE_DELAY = 300.0
@@ -822,10 +823,24 @@ class Insight:
                     for ahead in sorted(range(7), key=lambda ahead: (today + timedelta(days=ahead)).weekday())
                 ],
                 "days": {day: days[day] for day in sorted(days)[-90:]},
+                "needs": {day.isoformat(): round(value, 1) for day, value in history[-90:]},
+            }
+        start, end = self.window
+        prices = {**self.data["spot"], **self.data["prices"]}
+        price_days = {}
+        for key in sorted(prices)[-PRICE_DAYS_SHOWN:]:
+            known = [price for price in prices[key] if price is not None]
+            price_days[key] = {
+                "night": night_price(prices, date.fromisoformat(key), start, end),
+                "mean": round(sum(known) / len(known), 4) if known else None,
+                "own": key in self.data["prices"],
             }
         return {
             **self.summary(),
             "detail": cars,
+            # The night's price and the day's mean, for each of the days the panel draws (or simulates on).
+            "price_days": price_days,
+            "errors": forecast_errors(self.data["forecasts"], self.data["prices"]),
             "trips": self.data["trips"][-200:],
             "ledger": {day: self.data["ledger"][day] for day in sorted(self.data["ledger"])[-30:]},
         }

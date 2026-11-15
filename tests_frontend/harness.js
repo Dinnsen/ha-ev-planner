@@ -122,6 +122,8 @@ const harness = {
         return { unused: [] };
       case "layout":
         return { layout: message.layout };
+      case "insight":
+        return this.insight || {};
       default:
         this.unknown.push(message.type);
         throw { code: "unknown_command", message: `Unknown command: ${message.type}` };

@@ -1814,6 +1814,56 @@ Object.assign(TEXT.da, {
   insight_score_none: "Regnskabet begynder, når første aften er gået.",
   insight_trips: "{n} ture logget",
   insight_loading: "Henter …",
+  insight_v_sum: "Sammensat",
+  insight_v_cars: "Biler",
+  insight_v_prices: "Elpriser",
+  insight_v_charge: "Ladning",
+  insight_v_learn: "Læring",
+  insight_v_ahead: "Forudsigelse",
+  insight_k_30: "{kwh} kWh brugt på 30 dage",
+  insight_k_night: "Nattens pris",
+  insight_k_night_note: "snit af 30 nætters billigste timer",
+  insight_k_kept: "Dage med priser",
+  insight_k_kept_note: "{fc} dages prognoser gemt",
+  insight_sum_title: "De sidste 30 dage",
+  insight_sum_note: "Søjlerne er km pr. dag for hver bil. Stregen er prisen i nattens tre billigste timer.",
+  insight_c_days: "Dage med kørsel",
+  insight_c_days_note: "af de sidste 90",
+  insight_c_avg: "Typisk køredag",
+  insight_c_avg_note: "fra {low} til {high} km",
+  insight_c_eff: "kWh pr. 100 km",
+  insight_c_eff_note: "+{cold} % pr. grad under 15 °C",
+  insight_c_clock: "Hvornår bilen kører hjemmefra",
+  insight_c_clock_note: "Første afgang hver dag de sidste 90 dage. Jo mørkere felt, jo oftere.",
+  insight_c_trips: "Seneste ture",
+  insight_c_trips_none: "Ingen ture logget endnu. De kommer, når bilen har kørt.",
+  insight_p_night: "Nattens pris, 90 dage",
+  insight_p_night_note: "{own} dage er jeres egen pris fra prissensoren, {spot} dage er spotpriser hentet bagud og regnet om.",
+  insight_p_mean: "Døgnets snitpris, 90 dage",
+  insight_p_week: "Nattens pris pr. ugedag",
+  insight_p_week_note: "Snit over det seneste år.",
+  insight_p_error: "Prisprognosens fejl pr. dag frem",
+  insight_p_error_note: "Lært af {fc} dages gemte prognoser; indtil der er nok, bruges et forsigtigt skøn.",
+  insight_l_title: "ladet pr. dag",
+  insight_l_note: "{nights} dage med ladning · ca. {price}/kWh",
+  insight_l_hint: "Prisen er et skøn: det ladede gange nattens billigste timer den dag. Ladning ude er talt med.",
+  insight_g_models: "Det har EV Planner lært",
+  insight_g_rhythm: "{car}: ugens rytme",
+  insight_g_rhythm_note: "{days} dage. Bruges fra 28 dage.",
+  insight_g_forecast: "Prisprognosens fejl",
+  insight_g_forecast_note: "{fc} dages prognoser gemt. Brugbar efter ca. 4 uger.",
+  insight_g_ledger: "Skyggeregnskabet",
+  insight_g_cold: "Kulde koster",
+  insight_g_cold_none: "For få køredage med temperatur endnu.",
+  insight_a_wait: "ingen (venter)",
+  insight_a_chance: "En billigere nat inden for rækkevidde er {pct} % sandsynlig. Nattens pris: {price}.",
+  insight_a_rate: "Ramt rigtigt",
+  insight_a_rate_note: "af {n} bil-dage",
+  insight_a_saved: "Kunne være sparet",
+  insight_a_saved_note: "på {n} nætter, hvor den ville vente",
+  insight_a_ledger: "Sagt og sket",
+  insight_a_pick: "Lader",
+  insight_a_ledger_note: "For hver bil: svær dag, som forventet / det, dagen efter tog (kWh). Rødt er dage, der blev sværere end forventet.",
   widgets_refresh_hint: "Beder iOS-appen opdatere sine widgets, når en bils status ændres (højst hvert 15. minut).",
   climate_entity: "Klima",
   climate_entity_hint: "Det, der starter bilens klima. Findes selv på bilens enhed; vælg et andet her.",
@@ -1941,6 +1991,56 @@ Object.assign(TEXT.en, {
   insight_score_none: "The ledger begins after the first evening.",
   insight_trips: "{n} trips logged",
   insight_loading: "Loading …",
+  insight_v_sum: "Together",
+  insight_v_cars: "Cars",
+  insight_v_prices: "Prices",
+  insight_v_charge: "Charging",
+  insight_v_learn: "Learning",
+  insight_v_ahead: "Ahead",
+  insight_k_30: "{kwh} kWh used in 30 days",
+  insight_k_night: "The night's price",
+  insight_k_night_note: "mean of 30 nights' cheapest hours",
+  insight_k_kept: "Days with prices",
+  insight_k_kept_note: "{fc} days of forecasts kept",
+  insight_sum_title: "The last 30 days",
+  insight_sum_note: "The bars are km a day for each car. The line is the price of the night's three cheapest hours.",
+  insight_c_days: "Days with driving",
+  insight_c_days_note: "of the last 90",
+  insight_c_avg: "A typical day of driving",
+  insight_c_avg_note: "from {low} to {high} km",
+  insight_c_eff: "kWh per 100 km",
+  insight_c_eff_note: "+{cold} % per degree under 15 °C",
+  insight_c_clock: "When the car leaves home",
+  insight_c_clock_note: "The first departure of each of the last 90 days. The darker, the more often.",
+  insight_c_trips: "The latest trips",
+  insight_c_trips_none: "No trips logged yet. They come once the car has driven.",
+  insight_p_night: "The night's price, 90 days",
+  insight_p_night_note: "{own} days are your own price from the price sensor, {spot} days are spot prices fetched from before and recalculated.",
+  insight_p_mean: "The day's mean price, 90 days",
+  insight_p_week: "The night's price by weekday",
+  insight_p_week_note: "The mean of the last year.",
+  insight_p_error: "The forecast's error for each day ahead",
+  insight_p_error_note: "Learned from {fc} days of kept forecasts; until there are enough, a careful guess is used.",
+  insight_l_title: "charged a day",
+  insight_l_note: "{nights} days with charging · about {price}/kWh",
+  insight_l_hint: "The price is an estimate: what was charged times the night's cheapest hours that day. Charging away from home is counted too.",
+  insight_g_models: "What EV Planner has learned",
+  insight_g_rhythm: "{car}: the week's rhythm",
+  insight_g_rhythm_note: "{days} days. Used from 28 days.",
+  insight_g_forecast: "The forecast's error",
+  insight_g_forecast_note: "{fc} days of forecasts kept. Of use after about 4 weeks.",
+  insight_g_ledger: "The ledger",
+  insight_g_cold: "The cold costs",
+  insight_g_cold_none: "Too few days of driving with a temperature yet.",
+  insight_a_wait: "none (waits)",
+  insight_a_chance: "A cheaper night within reach is {pct} % likely. The night's price: {price}.",
+  insight_a_rate: "Right",
+  insight_a_rate_note: "of {n} car-days",
+  insight_a_saved: "Could have been saved",
+  insight_a_saved_note: "on {n} nights it would have waited",
+  insight_a_ledger: "Said and done",
+  insight_a_pick: "Charges",
+  insight_a_ledger_note: "For each car: a hard day as expected / what the day after took (kWh). Red is a day that was harder than expected.",
   widgets_refresh_hint: "Asks the iOS app to refresh its widgets when a car's status changes (at most every 15 minutes).",
   climate_entity: "Climate",
   climate_entity_hint: "What starts the car's climate. Found on the car's own device; choose another here.",
@@ -9101,11 +9201,13 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   _historyHtml() {
-    const view = this._histView === "learned" ? "learned" : "history";
-    const switcher = `<nav class="segmented hist-views" role="tablist">${["history", "learned"]
-      .map((k) => `<button role="tab" data-act="hist-view" data-value="${k}" data-f="hv-${k}" aria-selected="${k === view}" class="${k === view ? "on" : ""}">${this._t(k === "history" ? "view_history" : "view_learned")}</button>`)
+    const insightOn = Boolean(this._state.settings?.insight);
+    const view = this._histView === "learned" ? "learned" : this._histView === "insight" && insightOn ? "insight" : "history";
+    const switcher = `<nav class="segmented hist-views" role="tablist">${["history", "learned", ...(insightOn ? ["insight"] : [])]
+      .map((k) => `<button role="tab" data-act="hist-view" data-value="${k}" data-f="hv-${k}" aria-selected="${k === view}" class="${k === view ? "on" : ""}">${this._t(k === "history" ? "view_history" : k === "insight" ? "insight_title" : "view_learned")}</button>`)
       .join("")}</nav>`;
     if (view === "learned") return `<div class="page stack hist-page">${switcher}${this._learnedHtml()}</div>`;
+    if (view === "insight") return `<div class="page stack hist-page">${switcher}${this._insightPageHtml()}</div>`;
     const cars = this._cars;
     const guestHistory = this._guest?.history || [];
     if (!cars.some((v) => (v.history || []).length || Object.keys(v.months || {}).length) && !guestHistory.length && !this._state.home?.history) {
@@ -9710,13 +9812,7 @@ class EvPlannerPanel extends HTMLElement {
     const sw = (key) => `<button class="switch" role="switch" data-act="hh-toggle" data-key="${key}" data-f="hh-${key}" aria-checked="${Boolean(settings[key])}" aria-label="${esc(t(key === "insight" ? "log" : key.slice(8)))}"><i></i></button>`;
     const time = (id, key, fallback) => `<label class="chip-input time on"><input type="time" step="900" id="${id}" data-insight="${key}" value="${esc(settings[key] || fallback)}" aria-label="${esc(t("title"))}"></label>`;
     const on = Boolean(settings.insight);
-    if (this._sheet === "insight" && on && !this._insightBusy && Date.now() - (this._insightAt || 0) > 60000) {
-      this._insightBusy = true;
-      this._ws("ev_household_planner/insight")
-        .then((data) => { this._insight = data; })
-        .catch(() => {})
-        .finally(() => { this._insightAt = Date.now(); this._insightBusy = false; if (this._sheet === "insight") this._render(); });
-    }
+    if (this._sheet === "insight" && on) this._insightLoad(() => this._sheet === "insight");
     const data = this._insight;
     const names = Object.fromEntries((this._state.vehicles || []).map((v) => [v.id, v.name]));
     const num = (value, digits = 0) => (value == null ? "–" : Number(value).toFixed(digits).replace(".", this._lang === "da" ? "," : "."));
@@ -9772,6 +9868,143 @@ class EvPlannerPanel extends HTMLElement {
         <div class="field col"><span>${esc(t("level"))}</span><div class="chips">${[80, 90, 95].map((v) => `<button class="${level === v ? "on" : ""}" data-act="insight-level" data-level="${v}" data-f="insight-level-${v}" aria-pressed="${level === v}">${esc(t(`level_${v}`))}</button>`).join("")}</div></div>
         ${figures}` : ""}`,
     };
+  }
+
+  /* Insight's figures are fetched when they are looked at, at most once a minute. */
+  _insightLoad(still) {
+    if (this._insightBusy || Date.now() - (this._insightAt || 0) <= 60000) return;
+    this._insightBusy = true;
+    this._ws("ev_household_planner/insight")
+      .then((data) => { this._insight = data; })
+      .catch(() => {})
+      .finally(() => { this._insightAt = Date.now(); this._insightBusy = false; if (still()) this._render(); });
+  }
+
+  /* Insight's page: the evening, the cars, the prices, the charging, what is learned and how it has held. */
+  _insightPageHtml() {
+    const t = (key, values) => this._t(`insight_${key}`, values);
+    this._insightLoad(() => this._tab === "history" && this._histView === "insight");
+    const data = this._insight;
+    if (!data || !data.cars) return `<p class="hint">${esc(t("loading"))}</p>`;
+    const views = ["sum", "cars", "prices", "charge", "learn", "ahead"];
+    const view = views.includes(this._insView) ? this._insView : "sum";
+    const da = this._lang === "da";
+    const num = (value, digits = 0) => (value == null || Number.isNaN(Number(value)) ? "–" : Number(value).toFixed(digits).replace(".", da ? "," : "."));
+    const names = Object.fromEntries(Object.entries(data.cars).map(([id, car]) => [id, car.name]));
+    const ids = Object.keys(data.cars);
+    const carId = ids.includes(this._insCar) ? this._insCar : ids[0];
+    const detail = (data.detail || {})[carId] || {};
+    const days = Object.entries(detail.days || {});
+    const wd = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((d) => this._t(`day_${d}`));
+    const weekday = (iso) => (new Date(`${iso}T12:00:00`).getDay() + 6) % 7;
+    const short = (iso) => `${Number(iso.slice(8, 10))}/${Number(iso.slice(5, 7))}`;
+    const sum = (list) => list.reduce((total, value) => total + (Number(value) || 0), 0);
+    const kpi = (label, value, note = "") => `<div class="ins-kpi"><small>${esc(label)}</small><b>${esc(value)}</b><span>${esc(note)}</span></div>`;
+    const card = (title, body, note = "") => `<section class="ins-card"><h3>${esc(title)}</h3>${body}${note ? `<p class="hint">${esc(note)}</p>` : ""}</section>`;
+    // Bars along a row of days or hours; each with its figure as a title.
+    const bars = (list, { top = null, cls = "" } = {}) => {
+      const high = top || Math.max(1e-9, ...list.map((item) => item.value || 0));
+      return `<div class="ins-bars ${cls}">${list.map((item) => `<i class="${item.cls || ""}" title="${esc(item.title || "")}" style="height:${Math.max(item.value ? 3 : 1, ((item.value || 0) / high) * 100)}%"></i>`).join("")}</div>`;
+    };
+    // A line through a row of figures, with holes where there is none.
+    const line = (values, { height = 90, cls = "" } = {}) => {
+      const known = values.filter((v) => v != null);
+      if (known.length < 2) return "";
+      const low = Math.min(...known), high = Math.max(...known), span = high - low || 1;
+      let path = "", pen = false;
+      values.forEach((v, i) => {
+        if (v == null) { pen = false; return; }
+        path += `${pen ? "L" : "M"}${((i / (values.length - 1)) * 300).toFixed(1)} ${(height - 6 - ((v - low) / span) * (height - 12)).toFixed(1)}`;
+        pen = true;
+      });
+      return `<svg class="ins-line ${cls}" viewBox="0 0 300 ${height}" preserveAspectRatio="none" aria-hidden="true"><path d="${path}"/></svg><div class="ins-axis"><span>${esc(this._money(low))}</span><span>${esc(this._money(high))}</span></div>`;
+    };
+    const tonight = data.tonight || {};
+    const groups = (tonight.groups || [])
+      .map((g) => {
+        const head = g.pick ? t("pick", { car: names[g.pick] || "" }) : t("none");
+        const why = t(`reason_${g.reason}`, { pct: Math.round((g.chance || 0) * 100) });
+        const cars = g.cars.map((id) => { const c = (tonight.cars || {})[id] || {}; return `<small><b>${esc(names[id] || "")}</b>: ${esc(t("car_line", { kwh: num(c.soc_kwh), p50: num(c.p50), p90: num(c.p90), n: c.reach ?? "–" }))}</small>`; }).join("");
+        return `<div class="insight-card"><strong>${esc(head)}</strong><small>${esc(why)}</small>${g.both ? `<small class="warn-text">${esc(t("both"))}</small>` : ""}${cars}</div>`;
+      })
+      .join("");
+    const carChips = ids.length > 1 ? `<div class="chips">${ids.map((id) => `<button class="${id === carId ? "on" : ""}" data-act="insight-car" data-value="${esc(id)}" data-f="ic-${esc(id)}" aria-pressed="${id === carId}">${esc(names[id])}</button>`).join("")}</div>` : "";
+    const priceDays = Object.entries(data.price_days || {});
+    const last = (n) => priceDays.slice(-n);
+    const weekBars = (detail.week || []).map((d, i) => `<div class="insight-col" title="${esc(`${wd[i]}: ${num(d.p50)} / ${num(d.p90)} kWh`)}"><div class="insight-bars"><i class="hard" style="height:${Math.max(2, (d.p90 / Math.max(1, ...detail.week.map((x) => x.p90 || 0))) * 100)}%"></i><i style="height:${Math.max(2, (d.p50 / Math.max(1, ...detail.week.map((x) => x.p90 || 0))) * 100)}%"></i></div><small>${esc(wd[i])}</small></div>`).join("");
+    let body = "";
+    if (view === "sum") {
+      const month = (id) => Object.values(((data.detail || {})[id] || {}).days || {}).slice(-30);
+      const nights = last(30).map(([, p]) => p.night).filter((v) => v != null);
+      body = `${card(t("tonight"), groups || `<p class="hint">${esc(t("reason_learning"))}</p>`)}
+        <div class="ins-kpis">${ids.map((id) => kpi(names[id], `${num(sum(month(id).map((d) => d.km)))} km`, t("k_30", { kwh: num(sum(month(id).map((d) => d.used))) }))).join("")}
+        ${kpi(t("k_night"), nights.length ? this._money(sum(nights) / nights.length) : "–", t("k_night_note"))}
+        ${kpi(t("k_kept"), `${data.prices + data.spot}`, t("k_kept_note", { fc: data.forecasts }))}</div>
+        ${card(t("sum_title"), `${ids.map((id) => `<p class="ins-label">${esc(names[id])}</p>${bars(month(id).map((d) => ({ value: d.km })), { cls: id === ids[0] ? "" : "second" })}`).join("")}<p class="ins-label">${esc(t("k_night"))}</p>${line(last(30).map(([, p]) => p.night), { height: 70 })}`, t("sum_note"))}`;
+    } else if (view === "cars") {
+      const driven = days.filter(([, d]) => (d.km || 0) >= 1);
+      const heat = Array.from({ length: 7 }, () => Array(24).fill(0));
+      for (const [iso, d] of days) if (d.out != null) heat[weekday(iso)][Math.min(23, Math.floor(d.out))] += 1;
+      const most = Math.max(1, ...heat.flat());
+      const clock = `<div class="ins-heat">${heat.map((row, i) => `<span>${esc(wd[i])}</span>${row.map((n, h) => `<i title="${esc(`${wd[i]} ${h}:00 · ${n}`)}" style="opacity:${n ? 0.2 + 0.8 * (n / most) : 0.06}"></i>`).join("")}`).join("")}</div><div class="ins-hours"><span></span><span>0</span><span>6</span><span>12</span><span>18</span></div>`;
+      const kms = driven.map(([, d]) => d.km);
+      const trips = (data.trips || []).filter((trip) => trip.vehicle === carId).slice(-20).reverse();
+      const tripRows = trips.map((trip) => `<tr><td>${esc(this._day(trip.start))} ${esc(this._time(trip.start))}–${esc(this._time(trip.end))}</td><td>${esc(trip.from || "")} → ${esc(trip.to || "")}</td><td>${trip.km == null ? "–" : `${num(trip.km, 1)} km`}</td><td>${trip.kwh == null ? "–" : `${num(trip.kwh, 1)} kWh`}</td><td>${trip.temp == null ? "" : `${num(trip.temp)}°`}</td></tr>`).join("");
+      body = `${carChips}
+        <div class="ins-kpis">${kpi(t("c_days"), `${driven.length}/${days.length}`, t("c_days_note"))}${kpi(t("c_avg"), `${num(kms.length ? sum(kms) / kms.length : 0)} km`, t("c_avg_note", { low: num(Math.min(...(kms.length ? kms : [0]))), high: num(Math.max(...(kms.length ? kms : [0]))) }))}${kpi(t("c_eff"), `${num((detail.kwh_km || 0) * 100, 1)}`, t("c_eff_note", { cold: num((detail.cold || 0) * 100, 1) }))}</div>
+        ${card(t("c_clock"), clock, t("c_clock_note"))}
+        ${card(t("days90"), bars(days.map(([iso, d]) => ({ value: d.km, title: `${short(iso)}: ${num(d.km)} km` }))))}
+        ${card(t("week", { days: (data.cars[carId] || {}).days }), `<div class="insight-week">${weekBars}</div>`, t("week_legend"))}
+        ${card(t("c_trips"), tripRows ? `<div class="ins-scroll"><table class="ins-table">${tripRows}</table></div>` : `<p class="hint">${esc(t("c_trips_none"))}</p>`)}`;
+    } else if (view === "prices") {
+      const shown = last(90);
+      const byDay = Array.from({ length: 7 }, () => []);
+      for (const [iso, p] of last(365)) if (p.night != null) byDay[weekday(iso)].push(p.night);
+      const rhythm = byDay.map((list, i) => ({ value: list.length ? sum(list) / list.length : 0, title: `${wd[i]}: ${list.length ? this._money(sum(list) / list.length) : "–"}` }));
+      const errors = (data.errors || []).map((e, i) => ({ value: e, title: `+${i + 1}: ±${Math.round(e * 100)} %` }));
+      body = `${card(t("p_night"), line(shown.map(([, p]) => p.night)), t("p_night_note", { own: data.prices, spot: data.spot }))}
+        ${card(t("p_mean"), line(shown.map(([, p]) => p.mean), { cls: "soft" }))}
+        ${card(t("p_week"), `${bars(rhythm, { cls: "wide" })}<div class="ins-days">${wd.map((d) => `<span>${esc(d)}</span>`).join("")}</div>`, t("p_week_note"))}
+        ${card(t("p_error"), `${bars(errors, { cls: "wide", top: 0.6 })}<div class="ins-days six">${[1, 2, 3, 4, 5, 6].map((d) => `<span>+${d}</span>`).join("")}</div>`, t("p_error_note", { fc: data.forecasts }))}`;
+    } else if (view === "charge") {
+      const prices = data.price_days || {};
+      const rows = ids.map((id) => {
+        const list = Object.entries(((data.detail || {})[id] || {}).days || {});
+        const kwh = sum(list.map(([, d]) => d.charged));
+        const cost = sum(list.map(([iso, d]) => (d.charged || 0) * ((prices[iso] || {}).night || 0)));
+        return { id, list, kwh, cost, nights: list.filter(([, d]) => (d.charged || 0) > 1).length };
+      });
+      body = `<div class="ins-kpis">${rows.map((r) => kpi(names[r.id], `${num(r.kwh)} kWh`, t("l_note", { nights: r.nights, price: r.kwh ? this._money(r.cost / r.kwh) : "–" }))).join("")}</div>
+        ${rows.map((r, i) => card(`${names[r.id]}: ${t("l_title")}`, bars(r.list.map(([iso, d]) => ({ value: d.charged, title: `${short(iso)}: ${num(d.charged, 1)} kWh` })), { cls: i ? "second" : "" }))).join("")}
+        <p class="hint">${esc(t("l_hint"))}</p>`;
+    } else if (view === "learn") {
+      const ring = (share) => `<svg class="ins-ring" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15"/><circle class="on" cx="18" cy="18" r="15" pathLength="100" stroke-dasharray="${Math.round(Math.min(1, share) * 100)} 100" transform="rotate(-90 18 18)"/></svg>`;
+      const model = (share, title, text) => `<div class="ins-model">${ring(share)}<div><b>${esc(title)}</b><small>${esc(text)}</small></div></div>`;
+      const sc = data.score || {};
+      const dots = days.filter(([, d]) => (d.km || 0) >= 20 && d.used > 0 && d.temp != null).map(([, d]) => [d.temp, (d.used / d.km) * 100]).filter(([, e]) => e > 8 && e < 45);
+      const scatter = dots.length > 4 ? `<svg class="ins-dots" viewBox="0 0 300 120" aria-hidden="true">${dots.map(([temp, e]) => `<circle cx="${(((temp + 10) / 40) * 300).toFixed(1)}" cy="${(114 - ((e - 8) / 37) * 108).toFixed(1)}" r="3"/>`).join("")}</svg><div class="ins-axis"><span>-10°</span><span>30°</span></div>` : `<p class="hint">${esc(t("g_cold_none"))}</p>`;
+      body = `${card(t("g_models"), `${ids.map((id) => model((data.cars[id].days || 0) / 28, t("g_rhythm", { car: names[id] }), t("g_rhythm_note", { days: data.cars[id].days }))).join("")}
+        ${model((data.forecasts || 0) / 28, t("g_forecast"), t("g_forecast_note", { fc: data.forecasts }))}
+        ${model((sc.scored || 0) / 21, t("g_ledger"), sc.scored ? t("score", { rate: Math.round((sc.rate || 0) * 100), n: sc.scored, saved: this._money(sc.saved || 0) }) : t("score_none"))}`)}
+        ${carChips}
+        ${card(t("g_cold"), scatter, t("eff", { kwh: num((detail.kwh_km || 0) * 100, 1), cold: num((detail.cold || 0) * 100, 1) }))}
+        ${card(t("sources"), `<p class="hint">${esc(Object.entries((data.cars[carId] || {}).sources || {}).map(([kind, entity]) => `${t(`src_${kind}`)}: ${entity || t("src_missing")}`).join(" · "))}</p>`)}`;
+    } else {
+      const ledger = Object.entries(data.ledger || {}).reverse();
+      const rows = ledger.map(([iso, entry]) => {
+        const g = (entry.groups || [])[0] || {};
+        const next = new Date(new Date(`${iso}T12:00:00`).getTime() + 86400000).toISOString().slice(0, 10);
+        const cells = ids.map((id) => { const c = (entry.cars || {})[id]; const actual = (((data.detail || {})[id] || {}).needs || {})[next]; return `<td class="${c && actual != null && actual > c.p90 ? "warn-text" : ""}">${c ? `${num(c.p90)} / ${actual == null ? "…" : num(actual)}` : "–"}</td>`; }).join("");
+        return `<tr><td>${esc(short(iso))}</td><td>${esc(g.pick ? names[g.pick] || "" : g.wait ? t("a_wait") : "–")}</td>${cells}</tr>`;
+      }).join("");
+      const sc = data.score || {};
+      const chance = Math.max(0, ...(tonight.groups || []).map((g) => g.chance || 0));
+      body = `${card(t("tonight"), groups || `<p class="hint">${esc(t("reason_learning"))}</p>`, t("a_chance", { pct: Math.round(chance * 100), price: tonight.price == null ? "–" : this._money(tonight.price) }))}
+        <div class="ins-kpis">${kpi(t("a_rate"), sc.scored ? `${Math.round((sc.rate || 0) * 100)} %` : "–", t("a_rate_note", { n: sc.scored || 0 }))}${kpi(t("a_saved"), this._money(sc.saved || 0), t("a_saved_note", { n: sc.waits || 0 }))}</div>
+        ${card(t("a_ledger"), rows ? `<div class="ins-scroll"><table class="ins-table"><tr><th></th><th>${esc(t("a_pick"))}</th>${ids.map((id) => `<th>${esc(names[id])}</th>`).join("")}</tr>${rows}</table></div>` : `<p class="hint">${esc(t("score_none"))}</p>`, t("a_ledger_note"))}`;
+    }
+    const chips = `<div class="chips ins-views">${views.map((k) => `<button class="${k === view ? "on" : ""}" data-act="insight-view" data-value="${k}" data-f="iv-${k}" aria-pressed="${k === view}">${esc(t(`v_${k}`))}</button>`).join("")}</div>`;
+    return `<h2 class="section-title">${ICONS.history}<span>${esc(t("title"))}</span></h2>${chips}${body}`;
   }
 
   _settingsHtml() {
@@ -10205,7 +10438,7 @@ class EvPlannerPanel extends HTMLElement {
         this._render();
         break;
       case "hist-view":
-        this._histView = button.dataset.value === "learned" ? "learned" : "history";
+        this._histView = ["learned", "insight"].includes(button.dataset.value) ? button.dataset.value : "history";
         this._render();
         break;
       case "hist-export":
@@ -10222,6 +10455,14 @@ class EvPlannerPanel extends HTMLElement {
         break;
       case "next-open":
         this._openPopup("next");
+        break;
+      case "insight-view":
+        this._insView = button.dataset.value;
+        this._render();
+        break;
+      case "insight-car":
+        this._insCar = button.dataset.value;
+        this._render();
         break;
       case "insight-level":
         this._saveSettings({ insight_level: Number(button.dataset.level) });
@@ -11080,6 +11321,35 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .field.col { grid-template-columns: 1fr; gap: 6px; }
 .field small { color: var(--evp-soft); font-size: 13px; line-height: 1.4; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ins-views { margin: 2px 0 6px; }
+.ins-card { display: grid; gap: 8px; padding: 16px; border-radius: 18px; background: var(--evp-card); border: 1px solid var(--evp-line); min-width: 0; }
+.ins-card h3 { margin: 0; font-size: 15px; font-weight: 650; }
+.ins-label { margin: 4px 0 0; font-size: 12.5px; color: var(--evp-soft); }
+.ins-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.ins-kpi { display: grid; gap: 2px; padding: 12px 14px; border-radius: 16px; background: color-mix(in srgb, var(--evp-ink) 4%, transparent); min-width: 0; }
+.ins-kpi small, .ins-kpi span { font-size: 12px; color: var(--evp-soft); }
+.ins-kpi b { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.ins-bars { display: flex; align-items: flex-end; gap: 1px; height: 64px; }
+.ins-bars i { flex: 1 1 0; min-width: 1px; border-radius: 2px 2px 0 0; background: var(--evp-accent); }
+.ins-bars.second i { background: var(--evp-coral); }
+.ins-bars.wide { gap: 8px; height: 84px; } .ins-bars.wide i { border-radius: 6px 6px 2px 2px; }
+.ins-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; text-align: center; font-size: 12px; color: var(--evp-soft); }
+.ins-days.six { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.ins-line { width: 100%; height: 90px; display: block; } .ins-line path { fill: none; stroke: var(--evp-accent); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.ins-line.soft path { stroke: var(--evp-soft); }
+.ins-axis { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--evp-soft); }
+.ins-heat { display: grid; grid-template-columns: 30px repeat(24, minmax(0, 1fr)); gap: 2px; align-items: center; font-size: 11.5px; color: var(--evp-soft); }
+.ins-heat i { aspect-ratio: 1; border-radius: 3px; background: var(--evp-accent); }
+.ins-hours { display: grid; grid-template-columns: 30px repeat(4, minmax(0, 1fr)); font-size: 11px; color: var(--evp-soft); }
+.ins-scroll { overflow-x: auto; }
+.ins-table { border-collapse: collapse; width: 100%; font-size: 13px; white-space: nowrap; }
+.ins-table td, .ins-table th { text-align: left; padding: 7px 10px 7px 0; border-bottom: 1px solid var(--evp-line); font-weight: 400; }
+.ins-table th { color: var(--evp-soft); font-size: 12px; }
+.ins-model { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 12px; align-items: center; padding: 6px 0; }
+.ins-model div { display: grid; gap: 2px; } .ins-model small { color: var(--evp-soft); font-size: 12.5px; }
+.ins-ring { width: 40px; height: 40px; } .ins-ring circle { fill: none; stroke: color-mix(in srgb, var(--evp-ink) 8%, transparent); stroke-width: 4; }
+.ins-ring circle.on { stroke: var(--evp-accent); stroke-linecap: round; }
+.ins-dots { width: 100%; height: 120px; display: block; } .ins-dots circle { fill: var(--evp-accent); opacity: .55; }
 .insight-card { display: grid; gap: 4px; padding: 12px 14px; border: 1px solid var(--evp-line); border-radius: 14px; margin: 8px 0; }
 .insight-card small { color: var(--evp-soft); }
 .insight-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin: 8px 0 2px; }
