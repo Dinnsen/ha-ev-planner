@@ -85,6 +85,8 @@ SPOT_URL = "https://api.energidataservice.dk/dataset/{dataset}"
 SPOT_SPLIT = date(2025, 10, 1)
 SPOT_CHUNK = timedelta(days=92)
 SPOT_TIMEOUT = 60
+SPOT_PAUSE = 3.0
+SPOT_TRIES = 4
 # The household's price over spot plus tariffs (VAT), when no day is known both ways.
 DEFAULT_FACTOR = 1.25
 
@@ -212,7 +214,7 @@ class Insight:
         self.data: dict[str, Any] = self._empty()
         self._sources: dict[str, tuple[Any, dict[str, str | None]]] = {}
         self._price_hour: tuple[date, int] | None = None
-        self._tried: date | None = None
+        self._tried: tuple[date, int] | None = None
         self._task: asyncio.Task[None] | None = None
         # What is expected tonight, for the panel: made each hour and when the evening's message goes out.
         self.tonight: dict[str, Any] = {}
@@ -339,8 +341,8 @@ class Insight:
                 self._changed()
             elif self._minute(SET_INSIGHT_NOTIFY_AT, "19:30") == (local.hour, local.minute):
                 await self._async_decide(now, tell=True)
-            if self._task is None and self._tried != local.date() and self._wants_backfill():
-                self._tried = local.date()
+            if self._task is None and self._tried != (local.date(), local.hour) and self._wants_backfill():
+                self._tried = (local.date(), local.hour)
                 task = self.household.config_entry.async_create_background_task(
                     self.hass, self._async_backfill(now), f"{DOMAIN} insight backfill"
                 )
@@ -670,10 +672,12 @@ class Insight:
             for vehicle in list(self.household.vehicles.values()):
                 if vehicle.vehicle_id not in done["cars"]:
                     await self._async_backfill_car(vehicle, now)
+            # The cars' days are in: tonight is looked at again with them.
+            await self._async_decide(now)
             if "prices" not in done:
                 await self._async_import_prices(now)
             self._changed()
-        except Exception as err:  # tried again tomorrow
+        except Exception as err:  # tried again in an hour
             _LOGGER.warning("Insight could not read the older data: %s", err)
             self.household.events.add(now, "insight_backfill", error=str(err) or type(err).__name__)
         finally:
@@ -743,12 +747,17 @@ class Insight:
             "limit": "0",
         }
         session = async_get_clientsession(self.hass)
-        async with asyncio.timeout(SPOT_TIMEOUT):
-            response = await session.get(
-                SPOT_URL.format(dataset="Elspotprices" if old else "DayAheadPrices"), params=params
-            )
-            response.raise_for_status()
-            body = await response.json()
+        url = SPOT_URL.format(dataset="Elspotprices" if old else "DayAheadPrices")
+        for attempt in range(SPOT_TRIES):
+            # The service allows only a few questions a minute: one at a time, with a pause between.
+            await asyncio.sleep(SPOT_PAUSE * (1 + 4 * attempt))
+            async with asyncio.timeout(SPOT_TIMEOUT):
+                response = await session.get(url, params=params)
+                if response.status == 429 and attempt + 1 < SPOT_TRIES:
+                    continue
+                response.raise_for_status()
+                body = await response.json()
+            break
         records = body.get("records") if isinstance(body, Mapping) else None
         return [record for record in records if isinstance(record, Mapping)] if isinstance(records, list) else []
 

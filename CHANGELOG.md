@@ -2,6 +2,13 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b11] - 2026-11-15
+
+### Fixed
+
+- **Insight's first fetch of older prices was turned away** by Energi Data Service for asking too fast. It asks for one period at a time now, with a pause between, waits longer when it is told to, and tries again an hour later if it still fails.
+- **Tonight's expectation was made before the cars' older days were read**, and said "still learning" for the first hour. It is made again as soon as they are in.
+
 ## [2.5.0b10] - 2026-11-15
 
 Insight: EV Planner writes down what the cars do, learns their rhythm, and says each evening which car should have the charger. All of it is off until it is turned on, and the plan only follows it when that is turned on too.

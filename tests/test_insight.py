@@ -7,9 +7,11 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
+from aiohttp import ClientResponseError
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.util import dt as dt_util
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
@@ -334,9 +336,14 @@ async def test_the_first_time_reads_what_is_already_there(
     }
     aioclient_mock.get("https://api.energidataservice.dk/dataset/Elspotprices", json=old)
     aioclient_mock.get("https://api.energidataservice.dk/dataset/DayAheadPrices", json=new)
-    with patch("homeassistant.components.recorder.get_instance", return_value=recorder):
+    pause = AsyncMock()
+    with (
+        patch("homeassistant.components.recorder.get_instance", return_value=recorder),
+        patch("custom_components.ev_household_planner.insight.asyncio.sleep", pause),
+    ):
         await insight.async_tick(now)
         await hass.async_block_till_done(wait_background_tasks=True)
+    assert pause.await_count >= 2
     assert insight.data["days"][TESLA][yesterday.date().isoformat()] == {
         "km": 42.0,
         "used": None,
@@ -367,7 +374,15 @@ async def test_the_first_time_reads_what_is_already_there(
     # An answer that is not what was asked for is no prices.
     aioclient_mock.clear_requests()
     aioclient_mock.get("https://api.energidataservice.dk/dataset/DayAheadPrices", json=["odd"])
-    assert await insight._async_spot("DK1", today, today + timedelta(days=1)) == []
+    with patch("custom_components.ev_household_planner.insight.asyncio.sleep", pause):
+        assert await insight._async_spot("DK1", today, today + timedelta(days=1)) == []
+        # Asked too often: it waits longer each time, and gives up after four.
+        aioclient_mock.clear_requests()
+        aioclient_mock.get("https://api.energidataservice.dk/dataset/DayAheadPrices", status=429)
+        pause.reset_mock()
+        with pytest.raises(ClientResponseError):
+            await insight._async_spot("DK1", today, today + timedelta(days=1))
+    assert [call.args[0] for call in pause.await_args_list] == [3.0, 15.0, 27.0, 39.0]
 
 
 def seed(insight: Insight, now: datetime, kwh: float = 3.0) -> None:
