@@ -378,11 +378,44 @@ async def test_the_first_time_reads_what_is_already_there(
         assert await insight._async_spot("DK1", today, today + timedelta(days=1)) == []
         # Asked too often: it waits longer each time, and gives up after four.
         aioclient_mock.clear_requests()
-        aioclient_mock.get("https://api.energidataservice.dk/dataset/DayAheadPrices", status=429)
+        aioclient_mock.get(
+            "https://api.energidataservice.dk/dataset/DayAheadPrices",
+            status=429,
+            text="Rate limit is exceeded. Try again in 7 seconds.",
+        )
         pause.reset_mock()
         with pytest.raises(ClientResponseError):
             await insight._async_spot("DK1", today, today + timedelta(days=1))
-    assert [call.args[0] for call in pause.await_args_list] == [3.0, 15.0, 27.0, 39.0]
+        assert [call.args[0] for call in pause.await_args_list] == [3.0, 9.0, 3.0, 9.0, 3.0, 9.0, 3.0]
+        # Told to wait very long, or not told how long: it stops at once, or waits a minute.
+        aioclient_mock.clear_requests()
+        aioclient_mock.get(
+            "https://api.energidataservice.dk/dataset/DayAheadPrices", status=429, text="Try again in 9000 seconds."
+        )
+        pause.reset_mock()
+        with pytest.raises(ClientResponseError):
+            await insight._async_spot("DK1", today, today + timedelta(days=1))
+        assert pause.await_count == 1
+        aioclient_mock.clear_requests()
+        aioclient_mock.get("https://api.energidataservice.dk/dataset/DayAheadPrices", status=429, text="No.")
+        pause.reset_mock()
+        with pytest.raises(ClientResponseError):
+            await insight._async_spot("DK1", today, today + timedelta(days=1))
+        assert pause.await_args_list[1].args[0] == 62.0
+        # A fetch that was stopped goes on from where it was, with what it had.
+        aioclient_mock.clear_requests()
+        aioclient_mock.get("https://api.energidataservice.dk/dataset/DayAheadPrices", json=new)
+        hass.states.async_set(
+            PRICE_ENTITY, "1", {"region_code": "DK1", "tariffs": {"additional_tariffs": {"a": 0.5}, "tariffs": {}}}
+        )
+        del done["prices"]
+        done["spot_next"] = (today - timedelta(days=1)).isoformat()
+        insight.data["spot_raw"] = {"2025-01-01": [1.0] * 24}
+        insight.data["spot"] = {}
+        await insight._async_import_prices(now)
+    assert "spot_next" not in done and insight.data["spot_raw"] == {}
+    assert insight.data["spot"]["2025-01-01"][0] == 1.875 and done["prices"]["days"] == 2
+    assert len(aioclient_mock.mock_calls) == 1
 
 
 def seed(insight: Insight, now: datetime, kwh: float = 3.0) -> None:

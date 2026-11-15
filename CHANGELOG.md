@@ -2,6 +2,12 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b12] - 2026-11-15
+
+### Fixed
+
+- **Insight's fetch of older prices was still turned away.** Energi Data Service says how long to wait, and Insight now waits that long. What is fetched is kept as it comes, so a fetch that is stopped goes on from where it was instead of starting over.
+
 ## [2.5.0b11] - 2026-11-15
 
 ### Fixed

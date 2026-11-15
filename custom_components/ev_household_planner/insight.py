@@ -24,6 +24,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from datetime import date, datetime, timedelta
 import itertools
 import logging
+import re
 from statistics import median
 from typing import TYPE_CHECKING, Any
 
@@ -87,6 +88,8 @@ SPOT_CHUNK = timedelta(days=92)
 SPOT_TIMEOUT = 60
 SPOT_PAUSE = 3.0
 SPOT_TRIES = 4
+# Told to wait longer than this, the fetch stops and goes on from there an hour later.
+SPOT_WAIT_MAX = 600.0
 # The household's price over spot plus tariffs (VAT), when no day is known both ways.
 DEFAULT_FACTOR = 1.25
 
@@ -227,6 +230,7 @@ class Insight:
             "prices": {},
             "spot": {},
             "forecasts": {},
+            "spot_raw": {},
             "ledger": {},
             "done": {"cars": {}},
             "live": {},
@@ -714,15 +718,21 @@ class Insight:
             done["prices"] = {"at": now.isoformat(), "days": 0, "area": None}
             return
         today = dt_util.as_local(now).date()
-        records: list[Mapping[str, Any]] = []
+        # What is fetched is kept as it comes, so a fetch that is stopped goes on from where it was.
+        spot: dict[str, list[float | None]] = self.data["spot_raw"]
         begin = today - timedelta(days=DAYS_KEEP)
+        if (reached := done.get("spot_next")) is not None:
+            begin = max(begin, date.fromisoformat(str(reached)))
         while begin <= today:
             end = min(begin + SPOT_CHUNK, today + timedelta(days=1))
             if begin < SPOT_SPLIT < end:
                 end = SPOT_SPLIT
-            records.extend(await self._async_spot(area, begin, end))
+            spot.update(spot_hours(await self._async_spot(area, begin, end)))
             begin = end
-        spot = spot_hours(records)
+            done["spot_next"] = begin.isoformat()
+            self._changed()
+        self.data["spot_raw"] = {}
+        done.pop("spot_next", None)
         tariffs = tariff_hours(state.attributes)
         factor = price_factor(self.data["prices"], spot, tariffs)
         add = self.household.price_add or 0.0
@@ -749,15 +759,20 @@ class Insight:
         session = async_get_clientsession(self.hass)
         url = SPOT_URL.format(dataset="Elspotprices" if old else "DayAheadPrices")
         for attempt in range(SPOT_TRIES):
-            # The service allows only a few questions a minute: one at a time, with a pause between.
-            await asyncio.sleep(SPOT_PAUSE * (1 + 4 * attempt))
+            # The service allows only so many questions: one at a time, with a pause between.
+            await asyncio.sleep(SPOT_PAUSE)
             async with asyncio.timeout(SPOT_TIMEOUT):
                 response = await session.get(url, params=params)
+                wait = None
                 if response.status == 429 and attempt + 1 < SPOT_TRIES:
-                    continue
-                response.raise_for_status()
-                body = await response.json()
-            break
+                    # "Rate limit is exceeded. Try again in 42 seconds."
+                    said = re.search(r"(\d+)\s*second", await response.text())
+                    wait = float(said.group(1)) if said else 60.0
+                if wait is None or wait > SPOT_WAIT_MAX:
+                    response.raise_for_status()
+                    body = await response.json()
+                    break
+            await asyncio.sleep(wait + 2)
         records = body.get("records") if isinstance(body, Mapping) else None
         return [record for record in records if isinstance(record, Mapping)] if isinstance(records, list) else []
 
