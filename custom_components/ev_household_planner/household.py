@@ -1469,6 +1469,7 @@ class Household(DataUpdateCoordinator[None]):
                 vehicle.other_cost = make(other, other_aim).cost
             except PlanError:
                 vehicle.other_cost = None
+        self._lower_night(vehicle)
         try:
             plan = make(prices, aim)
             if stable:
@@ -1520,21 +1521,27 @@ class Household(DataUpdateCoordinator[None]):
         return deadline - margin
 
     @staticmethod
+    def _lower_night(vehicle: Vehicle) -> None:
+        """A target lowered after the promise for the ready-by time was made takes the promise down with it.
+
+        Lowered to where the car already is, nothing is left to plan. Left standing, the promise made the
+        morning say "not quite ready" of a car that was, and taught the car a margin it had not earned.
+        """
+        night, deadline = vehicle.night, vehicle.deadline
+        if not night or deadline is None or night.get("deadline") != deadline.isoformat():
+            return
+        target = round(vehicle.target, 1)
+        if target < (to_float(night.get("target")) or 0.0):
+            vehicle.night = {
+                **night,
+                "target": target,
+                "planned_soc": min(to_float(night.get("planned_soc")) or 0.0, target),
+            }
+
+    @staticmethod
     def _note_night(vehicle: Vehicle, now: datetime) -> None:
         """Remember what the plan for the ready-by time promises, for the morning receipt."""
         plan, deadline = vehicle.plan, vehicle.deadline
-        night = vehicle.night
-        if night and deadline is not None and night.get("deadline") == deadline.isoformat():
-            # The target was lowered after the promise was made, perhaps to where the car already is, so that
-            # nothing is left to plan: the promise follows it down. Left standing it made the morning say
-            # "not quite ready" of a car that was, and taught the car a margin it had not earned.
-            target = round(vehicle.target, 1)
-            if target < (to_float(night.get("target")) or 0.0):
-                vehicle.night = {
-                    **night,
-                    "target": target,
-                    "planned_soc": min(to_float(night.get("planned_soc")) or 0.0, target),
-                }
         if plan is None or deadline is None or not plan.segments:
             return
         earlier = dt_util.parse_datetime(str(vehicle.night.get("deadline"))) if vehicle.night else None
