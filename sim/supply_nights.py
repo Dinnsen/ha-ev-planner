@@ -227,6 +227,7 @@ class SupplyResult:
     not_back: list[str] = field(default_factory=list)  # expect_back that did not come
     fought: list[str] = field(default_factory=list)  # a change in the app that EV Planner undid at once
     log: list[str] = field(default_factory=list)  # every current change, for the report
+    left_low: list[str] = field(default_factory=list)  # chargers left under their full current with nothing charging
 
 
 def _forecast(night: SupplyNight, moment: datetime) -> list[dict[str, Any]]:
@@ -337,8 +338,10 @@ async def run_supply_night(
         before = amps_set[car.key]
         current_changes[car.key] += 1
         change_times[car.key].append(now)
-        if got[car.key] <= 0:
-            idle.append((now, car.key))  # nothing draws there now: idle, unless a start follows
+        if got[car.key] <= 0 and amps < car.max_amps:
+            # Nothing draws there now, and it is not set to its full current (which it is when nothing
+            # charges): idle, unless a start follows.
+            idle.append((now, car.key))
         if (when := user_at.get(car.key)) is not None and now - when < timedelta(minutes=2):
             fought.append(
                 f"{now.astimezone(ZONE):%H:%M:%S} car {car.key}: {before:g} -> {amps:g} A, {(now - when).seconds} s after the app"
@@ -587,6 +590,13 @@ async def run_supply_night(
         if last is None or last < amps:
             not_back.append(f"car {key} at {last} A by {by}, not {amps:g} A")
 
+    # Nothing charges at the end: each charger is left at its full current (a car plugged in while Home
+    # Assistant is away charges at all the charger gives).
+    left_low = [
+        f"car {car.key} at {amps_set[car.key]:g} A"
+        for car in night.cars
+        if car.adjustable and got[car.key] <= 0 and amps_set[car.key] < car.max_amps - 0.5
+    ]
     ready = {car.key: at_deadline.get(car.key, socs[car.key]) >= car.target - 0.5 for car in night.cars}
     result = Result(name=night.name, version=version(), tags=["supply", *night.tags], private=False)
     result.energy, result.cost = energy, cost
@@ -618,6 +628,7 @@ async def run_supply_night(
         not_back,
         fought,
         log,
+        left_low,
     )
 
 

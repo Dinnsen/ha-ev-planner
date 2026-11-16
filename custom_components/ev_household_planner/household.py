@@ -1503,12 +1503,14 @@ class Household(DataUpdateCoordinator[None]):
             # The forecast promises enough sun before the ready-by time; the plan waits for it.
             vehicle.plan, vehicle.plan_error, vehicle.planned_at = None, "solar_expected", now
             return
+        held_kw = self.supply_of(vehicle).held_kw(vehicle)
         car = Car(
             soc=soc + sun,
             target=vehicle.target,
             capacity=vehicle.capacity,
-            power=(power := self.vehicle_power(vehicle)),
-            speed=vehicle.charge_speed(power)[0],
+            power=(power := min(full_kw := self.vehicle_power(vehicle), held_kw or full_kw)),
+            # Held below its full current for the house: done when it is done at that.
+            speed=vehicle.charge_speed(full_kw)[0] * (power / full_kw if full_kw > 0 else 1.0),
             curve=vehicle.learned.speeds(),
         )
         every = self.vehicle_prices(vehicle, now)

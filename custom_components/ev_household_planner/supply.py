@@ -34,12 +34,13 @@ BUFFER = timedelta(hours=1)
 EPSILON = 1e-6
 
 
-def share_room(wants: Sequence[tuple[float, float]], room: float) -> list[float]:
+def share_room(wants: Sequence[tuple[float, float]], room: float, tiers: Sequence[int] | None = None) -> list[float]:
     """The room on a supply shared between chargers, in whole amps (rounded down).
 
     ``wants`` is (the least, the most) of each, the one to keep its current longest first. Each gets its
-    least first, as long as there is room for it (0 for one there is none for: it has to stop), then
-    what is left goes to them in turn, up to the most each takes.
+    least first, as long as there is room for it (0 for one there is none for: it has to stop). What is left
+    is shared evenly, up to the most each takes: the chargers of the first tier (``tiers``, 0 first; a car
+    set to come first) before the others.
     """
     out = [0.0] * len(wants)
     left = room
@@ -47,11 +48,21 @@ def share_room(wants: Sequence[tuple[float, float]], room: float) -> list[float]
         if high >= low and left >= low - EPSILON:
             out[index] = low
             left -= low
-    for index, (low, high) in enumerate(wants):
-        if out[index] > 0:
-            extra = max(0.0, min(high - low, left))
-            out[index] += extra
-            left -= extra
+    levels = list(tiers) if tiers is not None else [0] * len(wants)
+    for tier in sorted(set(levels)):
+        open_ = [i for i in range(len(wants)) if levels[i] == tier and out[i] > 0 and out[i] < wants[i][1]]
+        while open_ and left > EPSILON:
+            each = left / len(open_)
+            full = [i for i in open_ if wants[i][1] - out[i] <= each + EPSILON]
+            if not full:
+                for i in open_:
+                    out[i] += each
+                left = 0.0
+                break
+            for i in full:
+                left -= wants[i][1] - out[i]
+                out[i] = wants[i][1]
+            open_ = [i for i in open_ if i not in full]
     return [float(int(value + EPSILON)) for value in out]
 
 

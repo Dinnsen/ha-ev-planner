@@ -173,8 +173,9 @@ def test_a_departure_at_the_cheapest_prices_never_goes_over_them() -> None:
 def test_the_room_is_shared_the_one_kept_longest_first() -> None:
     # Room for all: each gets what it may have, in whole amps.
     assert share_room([(6, 16), (6, 16)], 40) == [16.0, 16.0]
-    # Not for all: the first keeps the most, the other its least.
-    assert share_room([(6, 16), (6, 16)], 20.5) == [14.0, 6.0]
+    # Not for all: shared evenly, or the one set to come first before the other.
+    assert share_room([(6, 16), (6, 16)], 20.5) == [10.0, 10.0]
+    assert share_room([(6, 16), (6, 16)], 20, [1, 0]) == [6.0, 14.0]
     # Not even the least for the last one: it has to stop.
     assert share_room([(6, 16), (6, 16)], 11) == [11.0, 0.0]
     assert share_room([(6, 16)], 5.9) == [0.0]

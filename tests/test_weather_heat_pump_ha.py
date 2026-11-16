@@ -136,9 +136,9 @@ async def test_the_guard_holds_the_heat_pump_back_before_it_stops_a_car(
     household.vehicles[TESLA].last_sent = None
     calls.clear()
     switches.calls.clear()
-    # 33 A with the car's 16: a house of 17 leaves 5 A, under the least a charger gives. Holding the heat
+    # 32 A with the car's 16: a house of 16 leaves 5 A, under the least a charger gives. Holding the heat
     # pump back frees its 2.9 A: the car goes on at 7 A.
-    hass.states.async_set(METER, "33", {"unit_of_measurement": "A"})
+    hass.states.async_set(METER, "32", {"unit_of_measurement": "A"})
     await hass.async_block_till_done()
     assert [c.data["value"] for c in calls] == [7]
     assert ("turn_on", BLOCK) in switches.calls

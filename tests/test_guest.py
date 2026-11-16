@@ -740,12 +740,12 @@ async def test_the_guard_turns_the_guests_charger_down_and_gives_it_back(
     switches.calls.clear()
 
     # 30 A on a supply of 23 A with the guest's 16: a house of 14, and the guest's charger goes down to the
-    # 8 A left under the limit (less the margin). Nothing is stopped.
+    # 7 A left under the limit (less the margin). Nothing is stopped.
     hass.states.async_set(meter, "30", {"unit_of_measurement": "A"})
     await hass.async_block_till_done()
-    assert sent == [8]
+    assert sent == [7]
     assert ("turn_off", CHARGER_SWITCH) not in switches.calls
-    assert supply._sent[amps][0] == 8
+    assert supply._sent[amps][0] == 7
     assert household.guest.house_hold is None
 
     # The peak is over: when the house has been quiet for the window, the charger gets its 16 A back.
@@ -790,10 +790,10 @@ async def test_the_guard_turns_down_a_charger_that_charges_a_car_it_does_not_see
     await settle(hass, freezer)
     hass.states.async_set(amps, "16", {"min": 6, "max": 16})
     sent.clear()
-    # The charger measures 11 kW (15.9 A): a house of 14.1, and 7 A are left for it.
+    # The charger measures 11 kW (15.9 A): a house of 14.1, and 6 A are left for it.
     hass.states.async_set(meter, "30", {"unit_of_measurement": "A"})
     await hass.async_block_till_done()
-    assert sent == [7]
+    assert sent == [6]
     assert any(
         event["kind"] == "guard" and any(item["who"] == "stray" for item in event.get("chargers") or [])
         for event in entry.runtime_data.events.items

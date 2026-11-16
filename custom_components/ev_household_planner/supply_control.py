@@ -99,9 +99,9 @@ ECHO = timedelta(minutes=2)
 GUARD_PAUSE = timedelta(minutes=5)
 # A charger that draws more than this (kW) charges a car.
 STRAY_KW = 1.0
-# The cars never get the last amp under the limit: room for the small things that come and go
-# (a fridge, a washing machine's motor) and for a meter that is a moment behind.
-HEADROOM_MARGIN = 1.0
+# The cars never get the last two amps under the limit: room for the small things that come and go
+# (a fridge, a washing machine's motor) and for a meter that is a moment behind (25 A: the cars stay under 23).
+HEADROOM_MARGIN = 2.0
 # The house's peaks are kept this long: a charger goes up only into what has been free all the time
 # since it last changed (at least the place's window), so a dishwasher or a dryer that heats in bursts
 # every ten minutes is not given to a car in the gap between two of them.
@@ -142,6 +142,8 @@ class Channel:
     high: float
     want: float | None  # the most it is to be given (None: not raised by the supply)
     known: bool = True  # what it is set to is known (from EV Planner or the charger)
+    tier: int = 1  # 0: a car set to come first gets the room before the others
+    planned: float | None = None  # its share in the joint plan now (used only without a meter)
 
 
 class SupplyControl:
@@ -317,6 +319,18 @@ class SupplyControl:
         value = self.setting(self.knob(entity), self._now())
         return value is not None and value < self.full_amps(vehicle, entity) - 1
 
+    def held_kw(self, vehicle: Vehicle) -> float | None:
+        """What the car charges at while the guard holds it below its full current (kW), else None: the plan
+        then works out when it is done at that."""
+        if not self.active or not self.guard or (raw := self.current_entity(vehicle)) is None:
+            return None
+        if not self.household.is_charging(vehicle):
+            return None
+        value = self.setting(self.knob(raw), self._now())
+        if value is None or value >= round(self.full_amps(vehicle, raw)) - 0.5:
+            return None
+        return kw(value, self.phases)
+
     # ------------------------------------------------------------------
     # The chargers that draw now
 
@@ -367,18 +381,33 @@ class SupplyControl:
                 high = max(low, min(high, float(round(self.full_amps(vehicle, raw)))))
                 setting = self.setting(entity, now)
                 value = high if setting is None else setting
+                # With the meter, a charger gets the room there is, whatever started the car (the plan, charge now,
+                # its app): the plan only starts and stops it. Without one, the joint plan's share is all there is.
                 want: float | None = None
                 decision = vehicle.decision
                 if decision is not None and decision.reason == REASON_SOLAR:
                     want = None  # the sun sets it
-                elif (planned := self.plan_amps(vehicle, now)) is not None and planned > 0:
-                    want = max(low, min(high, float(round(planned))))
                 elif decision is None or decision.control != CONTROL_PAUSE:
-                    want = high  # charging now (or left to itself): all it may have
+                    want = high
+                planned = self.plan_amps(vehicle, now)
+                share = max(low, min(high, float(round(planned)))) if planned else None
                 draw = measured if measured is not None else value
+                first = 0 if vehicle.settings.get(SET_PRIORITY) == PRIORITY_FIRST else 1
                 out.append(
                     Channel(
-                        entity, WHO_CAR, vehicle.name, vehicle, None, draw, value, low, high, want, setting is not None
+                        entity,
+                        WHO_CAR,
+                        vehicle.name,
+                        vehicle,
+                        None,
+                        draw,
+                        value,
+                        low,
+                        high,
+                        want,
+                        setting is not None,
+                        first,
+                        share,
                     )
                 )
             else:
@@ -823,50 +852,60 @@ class SupplyControl:
 
     def no_room_to_start(self, vehicle: Vehicle, now: datetime) -> bool:
         """A car whose current is set, about to start, for which the meter has not shown the least a charger
-        gives free (6 A) all the last while: it is not started yet."""
+        gives free (6 A) all the last while, with the others at their share: it is not started yet."""
         if not self.guard or self.household.is_charging(vehicle) or self._started(vehicle):
             return False
-        if (raw := self.current_entity(vehicle)) is None:
-            return False
-        room = self.room_to_start(vehicle, now)
-        return room is not None and room < self.bounds(self.knob(raw))[0]
+        found = self._start_shares(vehicle, now)
+        return found is not None and found[1][-1] <= 0
 
     def room_to_start(self, vehicle: Vehicle, now: datetime) -> float | None:
-        """What the car may start at: the limit less the house's peak of late and what the others draw."""
-        channels = self.channels(now)
+        """What the car would start at, with the room shared evenly with the chargers that charge now."""
+        found = self._start_shares(vehicle, now)
+        return None if found is None else found[1][-1]
+
+    def _start_shares(self, vehicle: Vehicle, now: datetime) -> tuple[list[Channel], list[float]] | None:
+        """The chargers that charge now and the car about to start (last), with the share of each when it does."""
+        if (raw := self.current_entity(vehicle)) is None:
+            return None
+        entity = self.knob(raw)
+        channels = [channel for channel in self.channels(now) if channel.vehicle is not vehicle]
         peak = self.house_peak_within(now, self.headroom_window, channels)
         if peak is None:
             return None
         held = self._held_amps if self._held_until is not None else 0.0
-        others = sum(
-            channel.draw if channel.vehicle is None or self.household.is_charging(channel.vehicle) else channel.value
-            for channel in channels
-            if channel.vehicle is not vehicle
-        )
-        return self.limit - peak - held - HEADROOM_MARGIN - others
+        low, high = self.bounds(entity)
+        high = max(low, min(high, float(round(self.full_amps(vehicle, raw)))))
+        tier = 0 if vehicle.settings.get(SET_PRIORITY) == PRIORITY_FIRST else 1
+        new = Channel(entity, WHO_CAR, vehicle.name, vehicle, None, 0.0, high, low, high, high, True, tier)
+        order = [*reversed(channels), new]  # the one to keep its current longest first, the new car last
+        wants = [(channel.low, max(channel.low, channel.value)) for channel in order]
+        shares = share_room(wants, self.limit - peak - held - HEADROOM_MARGIN, [channel.tier for channel in order])
+        return order, shares
 
     async def async_before_start(self, vehicle: Vehicle, now: datetime) -> None:
-        """Set the car's current to what there is room for before it is started (with the guard)."""
-        if not self.active or not self.guard or (raw := self.current_entity(vehicle)) is None:
+        """Set the car's current to its share of the room before it is started (with the guard); the chargers
+        that charge already go down to theirs first, so the room is shared evenly."""
+        if not self.active or not self.guard or self.current_entity(vehicle) is None:
             return
         if self.household.is_charging(vehicle):
             return  # it charges already: the guard and the raises have it
-        entity = self.knob(raw)
-        if self._easee_device(entity) is None and self.hass.states.get(entity) is None:
-            return
         await self._async_unclamp(now, force=True)
-        room = self.room_to_start(vehicle, now)
-        if room is None:
+        found = self._start_shares(vehicle, now)
+        if found is None:
             return
-        low, high = self.bounds(entity)
-        high = max(low, min(high, float(round(self.full_amps(vehicle, raw)))))
-        planned = self.plan_amps(vehicle, now)
-        want = max(low, min(high, float(round(planned)))) if planned else high
-        target = max(low, min(want, float(int(room))))
-        value = self.setting(entity, now)
+        order, shares = found
+        new = order[-1]
+        assert new.entity is not None
+        if self._easee_device(new.entity) is None and self.hass.states.get(new.entity) is None:
+            return
+        for channel, share in zip(order[:-1], shares[:-1], strict=True):
+            if channel.entity is not None and 0 < share < channel.value - 0.5:
+                await self._async_set(channel.entity, share, now, "share", channel.name, channel.who)
+        target = max(new.low, shares[-1])
+        value = self.setting(new.entity, now)
         if value is not None and abs(value - target) < 0.5:
             return
-        await self._async_set(entity, target, now, "start", vehicle.name, WHO_CAR)
+        await self._async_set(new.entity, target, now, "start", vehicle.name, WHO_CAR)
 
     async def async_before_guest_start(self, charger: Charger, now: datetime) -> None:
         """Set the guest's charger to what there is room for before it is switched on (with the guard)."""
@@ -995,6 +1034,9 @@ class SupplyControl:
             error = str(err) or type(err).__name__
         if error is None:
             self._sent[entity] = (value, now)
+            if who == WHO_CAR:
+                # The plan works out again when the car is done at what it gets now.
+                self.household.schedule_recalculate()
         else:
             _LOGGER.warning("Could not set %s to %s A: %s", entity, value, error)
         self.household.events.add(
@@ -1042,14 +1084,16 @@ class SupplyControl:
         channels = self.channels(now)
         if not self.guard:
             for channel in channels:
-                if channel.entity is None or channel.want is None or channel.who != WHO_CAR:
+                if channel.entity is None or channel.who != WHO_CAR or channel.planned is None:
                     continue
-                await self._async_toward(channel, channel.want, now)
+                await self._async_toward(channel, channel.planned, now)
+            await self._async_rest(channels, now)
             return
         reading = self._meter_reading()
         if reading is None:
             await self._async_blind(channels, now)
             return
+        await self._async_rest(channels, now)
         if reading > self.limit or self._over_since is not None:
             return  # the guard is on it
         await self._async_adjust(channels, now)
@@ -1066,44 +1110,113 @@ class SupplyControl:
         elif self._easee_device(channel.entity) is not None and (last is None or elapsed(now, last[1]) >= EASEE_RENEW):
             await self._async_set(channel.entity, target, now, "renew", channel.name, channel.who)
 
+    def _changed_at(self, entity: str) -> datetime | None:
+        """When the current behind ``entity`` last changed: set by EV Planner, or seen to change (its app)."""
+        last = self._sent.get(entity)
+        state = self.hass.states.get(entity)
+        moments = [moment for moment in (last[1] if last else None, state.last_changed if state else None) if moment]
+        return max(moments) if moments else None
+
     async def _async_adjust(self, channels: list[Channel], now: datetime) -> None:
-        """With the meter and no overload: the plan's lower shares at once, and the chargers up into the room
-        there has been all the time since each last changed.
+        """With the meter and no overload: the chargers up into the room there has been all the time since each
+        last changed.
 
         Up at most as often as the charger allows (a Zaptec every 15 minutes), and only when the house has left
         the room all the place's wait after a peak. A car that would not be ready in time otherwise waits only
-        the charger's own time. Straight to what it is to have, not a step at a time; the one to keep its current
-        longest first.
+        the charger's own time. Straight to its share, not a step at a time: the room is shared evenly, a car set
+        to come first before the others.
         """
         held = self._held_amps if self._held_until is not None else 0.0
-        eligible: list[tuple[Channel, timedelta]] = []
+        windows: dict[str, timedelta] = {}
         for channel in channels:
             if channel.entity is None or channel.want is None:
                 continue
             last = self._sent.get(channel.entity)
-            if channel.want < channel.value - 0.5:
-                await self._async_set(channel.entity, channel.want, now, "plan", channel.name, channel.who)
-                channel.value = channel.want
-                continue
             every = self._raise_every(channel.entity)
+            changed = self._changed_at(channel.entity)
             if channel.want > channel.value + 0.5:
-                if last is None or elapsed(now, last[1]) >= every:
-                    eligible.append((channel, every if self._behind(channel) else max(every, self.headroom_window)))
+                if changed is None or elapsed(now, changed) >= every:
+                    windows[channel.entity] = every if self._behind(channel) else max(every, self.headroom_window)
             elif self._easee_device(channel.entity) is not None and (
                 last is None or elapsed(now, last[1]) >= EASEE_RENEW
             ):
                 await self._async_set(channel.entity, channel.value, now, "renew", channel.name, channel.who)
-        for channel, window in sorted(eligible, key=lambda item: channels.index(item[0]), reverse=True):
-            assert channel.entity is not None and channel.want is not None
+        order = list(reversed(channels))
+        for window in sorted(set(windows.values())):
             peak = self.house_peak_within(now, window, channels)
             if peak is None:
                 return
-            others = sum(other.value if other.entity else other.draw for other in channels if other is not channel)
-            room = self.limit - peak - held - HEADROOM_MARGIN - others
-            share = float(int(min(channel.want, room) + 1e-6))
-            if share >= max(channel.low, channel.value + 1):
-                await self._async_set(channel.entity, share, now, "raise", channel.name, channel.who)
-                channel.value = share
+            room = self.limit - peak - held - HEADROOM_MARGIN
+            wants = [
+                (
+                    channel.low,
+                    max(
+                        channel.low,
+                        channel.want
+                        if channel.entity and windows.get(channel.entity) == window and channel.want
+                        else channel.value,
+                    ),
+                )
+                for channel in order
+            ]
+            shares = share_room(wants, room, [channel.tier for channel in order])
+            for channel, share in zip(order, shares, strict=True):
+                if channel.entity and windows.get(channel.entity) == window and share >= channel.value + 1:
+                    await self._async_set(channel.entity, share, now, "raise", channel.name, channel.who)
+                    channel.value = share
+
+    def _settings_here(self) -> list[tuple[str, float, Charger | None, Vehicle | None]]:
+        """The chargers' current settings at this place: each charger's, and a car's that is a charger's
+        (a Zaptec's) rather than the car's own (which would wake the car). With what the charger gives (kW)."""
+        out: list[tuple[str, float, Charger | None, Vehicle | None]] = []
+        seen: set[str] = set()
+        for charger in self.household.chargers.values():
+            raw = charger.config.get(CONF_CURRENT_ENTITY)
+            if raw and self.household.pairing.site_of(charger) is self.site and str(raw) not in seen:
+                seen.add(str(raw))
+                out.append((str(raw), charger.power, charger, None))
+        for vehicle in self.cars():
+            raw = vehicle.config.get(CONF_CURRENT_ENTITY)
+            if not raw or str(raw) in seen:
+                continue
+            entry = er.async_get(self.hass).async_get(str(raw))
+            if entry is None or entry.platform != "zaptec":
+                continue
+            seen.add(str(raw))
+            charger = self.household.chargers.get(vehicle.charger_id or "")
+            rated = vehicle.configured_power if charger is None else min(vehicle.configured_power, charger.power)
+            out.append((str(raw), rated, charger, vehicle))
+        return out
+
+    async def _async_rest(self, channels: list[Channel], now: datetime) -> None:
+        """A charger nothing charges at (unplugged, or done) is set to its full current, once: a car plugged in
+        while Home Assistant is away charges at all the charger gives, not at what it was left at. Not one the
+        guard has stopped for a while: that starts again at what there is room for."""
+        active = {channel.entity for channel in channels if channel.entity}
+        waiting = {vehicle.charger_id for vehicle in self.cars() if vehicle.vehicle_id in self._paused}
+        guest = self.household.guest
+        if guest.house_hold is not None and now < guest.house_hold and guest.charger is not None:
+            waiting.add(guest.charger.charger_id)
+        for raw, rated, charger, vehicle in self._settings_here():
+            if charger is not None and charger.charger_id in waiting:
+                continue
+            if vehicle is not None and (vehicle.vehicle_id in self._paused or vehicle.charger_id in waiting):
+                continue
+            entity = self.knob(raw)
+            if entity in active or self._easee_device(entity) is not None or self.hass.states.get(entity) is None:
+                continue  # an Easee limit runs out by itself
+            power = self.household.charger_power(charger) if charger is not None else None
+            if power is not None and power > 0.5:
+                continue
+            low, high = self.bounds(entity)
+            full = max(low, min(high, float(round(amps_for(rated, self.phases)))))
+            value = self.setting(entity, now)
+            if value is not None and value >= full - 0.5:
+                continue
+            last = self._sent.get(entity)
+            if last is not None and abs(last[0] - full) < 0.5:
+                continue  # sent already: the charger has not caught up
+            await self._async_set(entity, full, now, "rest", charger.name, None)
 
     def _behind(self, channel: Channel) -> bool:
         """The car would not be ready in time at what it gets now: it is short in the plan."""
@@ -1120,20 +1233,17 @@ class SupplyControl:
     async def _async_unclamp(self, now: datetime, force: bool = False) -> None:
         """A Zaptec charger whose installation EV Planner turns: its own setting back to full, when it was
         left lower (by EV Planner before, or by hand) and nothing charges there."""
-        for charger in self.household.chargers.values():
-            raw = charger.config.get(CONF_CURRENT_ENTITY)
-            if not raw or self.household.pairing.site_of(charger) is not self.site:
-                continue
-            raw = str(raw)
+        for raw, rated, charger, _vehicle in self._settings_here():
             if self.knob(raw) == raw:
                 continue
-            if (power := self.household.charger_power(charger)) is not None and power > 0.5 and not force:
+            power = self.household.charger_power(charger) if charger is not None else None
+            if power is not None and power > 0.5 and not force:
                 continue
             last = self._unclamped.get(raw)
             if last is not None and elapsed(now, last) < UNCLAMP_EVERY:
                 continue
             low, high = self.bounds(raw)
-            full = max(low, min(high, float(round(amps_for(charger.power, self.phases)))))
+            full = max(low, min(high, float(round(amps_for(rated, self.phases)))))
             shown = to_float(self.household.state_of(raw))
             if shown is None or shown >= full - 0.5:
                 continue
@@ -1149,11 +1259,10 @@ class SupplyControl:
             self.household.events.add(now, "current_unclamp", entity=raw, amps=full, before=shown)
 
     async def async_idle(self, now: datetime) -> None:
-        """A charger with nothing charging is left as it is: the next start sets what there is room for then.
-
-        Only a Zaptec charger's own setting, now that its installation is turned, is set back to full.
-        """
+        """A charger with nothing charging at it goes to its full current (once); the next start sets what there
+        is room for then. A Zaptec charger's own setting, now that its installation is turned, is full too."""
         if self.active:
+            await self._async_rest(self.channels(now), now)
             await self._async_unclamp(now)
 
     # ------------------------------------------------------------------
@@ -1280,11 +1389,12 @@ class SupplyControl:
         )
         order = list(reversed(channels))  # the one to keep its current longest first
         wants = [(channel.low, max(channel.low, channel.value)) for channel in order]
-        shares = share_room(wants, room)
+        tiers = [channel.tier for channel in order]
+        shares = share_room(wants, room, tiers)
         if any(share <= 0 for share in shares) and (freed := await self._async_hold_heat_pump(now)) > 0:
             self._cuts.append((now, freed))
             room += freed
-            shares = share_room(wants, room)
+            shares = share_room(wants, room, tiers)
         given = dict(zip((id(channel) for channel in order), shares, strict=True))
         for channel in channels:  # the one to be turned down first first
             share = given[id(channel)]
