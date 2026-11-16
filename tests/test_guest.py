@@ -361,6 +361,58 @@ async def test_guest_lookup(hass: HomeAssistant, guest_household: MockConfigEntr
         await _press(hass, "look_up")
 
 
+async def test_a_tesla_with_lfp_cells_is_known_by_its_vin(
+    hass: HomeAssistant, guest_household: MockConfigEntry
+) -> None:
+    """DN96146: a 2021 Model 3 "standard range" with Tesla's 60 kWh LFP pack; the dataset guessed 51 kWh."""
+    household = guest_household.runtime_data
+    await household.guest.async_set_input("license_plate", "DN96146")
+    car = VehicleLookupResult(
+        plate="DN96146",
+        vin="LRW3E7FA0MC123456",
+        brand="TESLA",
+        model="Model 3",
+        variant="standard range",
+        model_year=2021,
+        fuel_type="El",
+        source="m",
+        raw={},
+    )
+    options = [
+        {"kwh": 51.0, "label": "Standard Range Plus 2021"},
+        {"kwh": 52.5, "label": "Standard Range Plus LFP 2020"},
+    ]
+    battery = BatteryLookupResult(battery_capacity=51.0, source="open", match_score=109, raw={}, options=options)
+    with (
+        patch("custom_components.ev_household_planner.guest.async_lookup_vehicle", AsyncMock(return_value=car)),
+        patch("custom_components.ev_household_planner.guest.async_decode_vin_nhtsa", AsyncMock(return_value=None)),
+        patch(
+            "custom_components.ev_household_planner.guest.async_lookup_battery_open_ev_data",
+            AsyncMock(return_value=battery),
+        ),
+    ):
+        await _press(hass, "look_up")
+    results = household.guest.results
+    assert household.guest.inputs["battery_capacity"] == 60.0
+    assert (results["battery_from"], results["battery_options"]) == ("vin", [])
+    # Two motors: the variants for one motor go, and the one left is the battery.
+    car.vin = "LRW3E7EB0MC123456"
+    options = [{"kwh": 51.0, "label": "Standard Range Plus 2021"}, {"kwh": 76.0, "label": "LR 2021"}]
+    battery = BatteryLookupResult(battery_capacity=51.0, source="open", match_score=90, raw={}, options=options)
+    household.guest.plates.clear()
+    with (
+        patch("custom_components.ev_household_planner.guest.async_lookup_vehicle", AsyncMock(return_value=car)),
+        patch("custom_components.ev_household_planner.guest.async_decode_vin_nhtsa", AsyncMock(return_value=None)),
+        patch(
+            "custom_components.ev_household_planner.guest.async_lookup_battery_open_ev_data",
+            AsyncMock(return_value=battery),
+        ),
+    ):
+        await _press(hass, "look_up")
+    assert household.guest.inputs["battery_capacity"] == 76.0
+    assert household.guest.results["battery_options"] == []
+
+
 async def test_guest_charger_choice(hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory) -> None:
     set_prices(hass, now, NIGHT)
     entry = entry_with(

@@ -2,6 +2,12 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b26] - 2026-11-16
+
+### Fixed
+
+- **A Tesla's battery from its VIN.** NHTSA does not decode Teslas built in Shanghai or Berlin, and the dataset cannot tell a Model 3 "standard range" with LG cells (51 kWh) from one with Tesla's 60 kWh LFP pack: DN96146 was looked up as 51 kWh. Tesla's VIN says it: an F or Q in place 7 is LFP, which is 60 kWh in a Model 3 or Y from 2021 on (55 kWh before). The VIN also tells one motor from two, so the dataset's Long Range and Performance variants are not offered for a car with one motor, and the other way round.
+
 ## [2.5.0b25] - 2026-11-16
 
 ### Changed

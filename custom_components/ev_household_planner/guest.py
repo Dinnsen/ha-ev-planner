@@ -28,8 +28,11 @@ from .api import (
     async_decode_vin_nhtsa,
     async_lookup_battery_open_ev_data,
     async_lookup_vehicle,
+    battery_from_tesla_vin,
     battery_from_vin,
     clean_identifier,
+    fits_drive,
+    tesla_vin,
 )
 from .const import (
     CONTROL_CHARGE,
@@ -413,13 +416,24 @@ class GuestSession:
         self._set_service_health("open_ev_data", battery.raw is not None or battery.battery_capacity is None)
         # The surest first: a battery chosen for this car before, then the one its VIN says, then the dataset's.
         kept = self.plates.get(clean_identifier(plate))
-        from_vin = battery_from_vin(decoded)
         capacity, score, source, origin = battery.battery_capacity, battery.match_score, battery.source, "data"
+        options = battery.options
+        # A Tesla's VIN tells one motor from two: the dataset's variants that do not fit go.
+        tesla = tesla_vin(normalized.vin)
+        if tesla is not None and options:
+            fitting = [option for option in options if fits_drive(option["label"], tesla["dual"])]
+            if fitting:
+                options = fitting
+                if not any(abs(option["kwh"] - (capacity or 0)) < 0.05 for option in options):
+                    capacity = options[0]["kwh"]
+        from_vin = battery_from_tesla_vin(normalized.vin)
         if from_vin is not None:
-            capacity, score, source, origin = from_vin, 95.0, "VIN (NHTSA)", "vin"
+            capacity, score, source, origin = from_vin, 95.0, "VIN (Tesla)", "vin"
+        elif (from_nhtsa := battery_from_vin(decoded)) is not None:
+            capacity, score, source, origin = from_nhtsa, 95.0, "VIN (NHTSA)", "vin"
         if kept is not None:
             capacity, score, origin = kept, 100.0, "chosen"
-        options = [] if origin == "vin" else battery.options
+        options = [] if origin == "vin" else options
         self.results.update(
             {
                 "car_brand": normalized.brand,

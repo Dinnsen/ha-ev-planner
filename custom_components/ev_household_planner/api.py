@@ -341,6 +341,43 @@ def battery_from_vin(decoded: VehicleLookupResult | None) -> float | None:
     return None
 
 
+# Tesla's own VIN: positions 1-3 the maker, 4 the model, 7 the battery (F and Q: LFP), 8 the motors, 10 the year.
+TESLA_MAKERS = ("5YJ", "7SA", "LRW", "XP7", "7G2")
+TESLA_YEARS = {code: 2010 + index for index, code in enumerate("ABCDEFGHJKLMNPRSTVWXY")}
+TESLA_DUAL = {"B", "C", "E", "K", "L", "Q", "T", "N", "P"}
+TESLA_SINGLE = {"A", "D", "G", "J", "R", "S"}
+
+
+def tesla_vin(vin: str | None) -> dict[str, Any] | None:
+    """What a Tesla's VIN says of its battery: LFP or not, one motor or two, and the year."""
+    vin = clean_identifier(vin or "")
+    if len(vin) != 17 or not vin.startswith(TESLA_MAKERS):
+        return None
+    model, cell, motor = vin[3], vin[6], vin[7]
+    dual = True if motor in TESLA_DUAL and model in "3Y" else False if motor in TESLA_SINGLE else None
+    return {"model": model, "lfp": cell in "FQ", "dual": dual, "year": TESLA_YEARS.get(vin[9])}
+
+
+def battery_from_tesla_vin(vin: str | None) -> float | None:
+    """A Model 3 or Y with LFP cells has Tesla's 60 kWh pack from 2021 on (55 kWh before): the VIN says which."""
+    info = tesla_vin(vin)
+    if info is None or not info["lfp"] or info["model"] not in "3Y":
+        return None
+    year = info["year"]
+    return 55.0 if year is not None and year < 2021 else 60.0
+
+
+def fits_drive(label: str, dual: bool | None) -> bool:
+    """Whether a dataset variant fits a car with two motors (``dual``) or one."""
+    if dual is None:
+        return True
+    text = label.lower()
+    two = re.search(r"\b(lr|long range|performance|dual|awd|4wd|4x4|all.wheel)\b", text) is not None
+    if re.search(r"\b(rwd|fwd|single)\b", text) and not re.search(r"\b(awd|dual|performance)\b", text):
+        two = False
+    return two == dual
+
+
 def _extract_candidates(node: Any, inherited_brand: str | None = None) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     if isinstance(node, list):
