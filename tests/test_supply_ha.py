@@ -793,6 +793,10 @@ async def test_a_paused_car_is_judged_by_its_chargers_meter_not_by_what_its_clou
     # setting goes back to full, as in the test above).
     assert not supply._charges(tesla)
     assert all(channel.vehicle is not tesla for channel in supply.channels(dt_util.now()))
+    # The supply's meter reports after the stop, as it does.
+    await move(hass, freezer, dt_util.now() + timedelta(seconds=10))
+    hass.states.async_set(METER, "3.1", {"unit_of_measurement": "A"})
+    await hass.async_block_till_done()
     # Charge now again: started at what there is room for (all of it), not at the 7 A of before.
     calls.clear()
     await household.async_set_vehicle(TESLA, {"mode": "charge_now"})
