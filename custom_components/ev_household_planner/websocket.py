@@ -20,7 +20,6 @@ from .const import (
     CONF_SUPPLY_SHARE,
     CONF_SUPPLY_WAIT,
     CONTROL_FAILS_ISSUE,
-    DEFAULT_SUPPLY_WAIT,
     DOMAIN,
     FORGET_RESUME,
     GUEST_BATTERY,
@@ -121,7 +120,7 @@ from .planner import PlanError
 from .prices import price_issue
 from .rules import VehiclePlan, parse_hhmm
 from .schema import vol
-from .vehicle import Vehicle, to_float
+from .vehicle import Vehicle
 
 ENTRY = vol.Optional("entry_id")
 PERCENT = vol.All(vol.Coerce(float), vol.Range(min=0, max=100))
@@ -288,7 +287,7 @@ SETTINGS_SCHEMA = vol.Schema(
             cv.string: vol.Schema(
                 {
                     vol.Optional(CONF_SUPPLY_GUARD): cv.boolean,
-                    vol.Optional(CONF_SUPPLY_WAIT): vol.All(vol.Coerce(int), vol.Range(min=5, max=30)),
+                    vol.Optional(CONF_SUPPLY_WAIT): vol.All(vol.Coerce(int), vol.Range(min=10, max=30)),
                     vol.Optional(CONF_SUPPLY_SHARE): vol.In(SHARE_OPTIONS),
                     vol.Optional("open_charging"): cv.boolean,
                 }
@@ -635,9 +634,8 @@ def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
                 "price_entity": household.site_price_entity(site.site_id),
                 "own_price": household.site_price_entity(site.site_id) != household.price_entity,
                 "guard": bool(household.supplies[site.site_id].config.get(CONF_SUPPLY_GUARD)),
-                "wait": int(
-                    to_float(household.supplies[site.site_id].config.get(CONF_SUPPLY_WAIT)) or DEFAULT_SUPPLY_WAIT
-                ),
+                # As the guard uses it (5, set before 2.5.0b29, is 10 now).
+                "wait": int(household.supplies[site.site_id].headroom_window.total_seconds() // 60),
                 "share": household.supplies[site.site_id].share,
                 "margin": household.supplies[site.site_id].margin,
                 "has_meter": bool(household.supplies[site.site_id].meters),

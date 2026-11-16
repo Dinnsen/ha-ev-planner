@@ -10289,7 +10289,7 @@ class EvPlannerPanel extends HTMLElement {
               off: !site.guard,
               control: site.has_meter ? `<button class="switch" role="switch" data-act="place-set" data-site="${id}" data-key="supply_guard" data-value="${site.guard ? "" : "1"}" data-f="pg-${id}" aria-checked="${Boolean(site.guard)}" aria-label="${esc(this._t("place_guard"))}"><i></i></button>` : `<span class="soft">${this._t("place_needs_meter")}</span>`,
               extra: site.guard
-                ? `<div class="rule-under"><div class="inline-values"><span>${this._t("place_wait")}${this._helpButton(`wait-${site.id}`, this._t("place_wait"))}</span><div class="chips">${[5, 10, 15, 20, 30]
+                ? `<div class="rule-under"><div class="inline-values"><span>${this._t("place_wait")}${this._helpButton(`wait-${site.id}`, this._t("place_wait"))}</span><div class="chips">${[10, 15, 20, 30]
                     .map((m) => `<button data-act="place-set" data-site="${id}" data-key="supply_wait" data-value="${m}" data-f="pw-${id}-${m}" class="${wait === m ? "on" : ""}" aria-pressed="${wait === m}">${m} ${this._t("minutes_short")}</button>`)
                     .join("")}</div></div>${this._helpBubble(`wait-${site.id}`, this._t("place_wait_hint"))}</div>`
                 : "",

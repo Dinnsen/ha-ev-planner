@@ -773,8 +773,8 @@ def supply_nights() -> list[SupplyNight]:
             tags=["shortage"],
         ),
         # No Equalizer: the guard is all that turns the cars down when the house needs more. Both cars need
-        # most of the night at full current, and five peaks take some of it: the place waits 5 minutes after a
-        # peak before the cars get more (the shortest it can be set to).
+        # most of the night at full current, and five peaks take some of it: the place waits its usual
+        # 10 minutes after a peak before the cars get more (the shortest it can be set to).
         SupplyNight(
             "guard-spikes",
             monday,
@@ -785,21 +785,7 @@ def supply_nights() -> list[SupplyNight]:
             plug_in="22:00",
             equalizer=False,
             guard=True,
-            wait=5,
             tags=["guard"],
-        ),
-        # The same night with the place's usual 10 minutes after a peak: shown, not held to the ready-by time.
-        SupplyNight(
-            "guard-spikes-wait-10",
-            monday,
-            [SupplyCar("a", 20, 80, adjustable=True), SupplyCar("b", 25, 80, adjustable=True, priority="first")],
-            fuse=25,
-            limit=23,
-            house=_spiky(4),
-            plug_in="22:00",
-            equalizer=False,
-            guard=True,
-            tags=["guard", "tight"],
         ),
         SupplyNight(
             "guard-spikes-easee-delay",
@@ -815,7 +801,6 @@ def supply_nights() -> list[SupplyNight]:
             equalizer=False,
             guard=True,
             latency=1,
-            wait=5,
             tags=["guard", "easee"],
         ),
         SupplyNight(

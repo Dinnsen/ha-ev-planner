@@ -257,11 +257,11 @@ class SupplyControl:
 
     @property
     def headroom_window(self) -> timedelta:
-        """How long the guard looks back for the house's peaks before it turns the cars up (5-30 min)."""
+        """How long the guard looks back for the house's peaks before it turns the cars up (10-30 min; 5, set before, counts as 10)."""
         minutes = to_float(self.config.get(CONF_SUPPLY_WAIT))
         if minutes is None:
             return HEADROOM_WINDOW
-        return timedelta(minutes=max(5.0, min(30.0, minutes)))
+        return timedelta(minutes=max(10.0, min(30.0, minutes)))
 
     @property
     def guard(self) -> bool:
