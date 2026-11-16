@@ -102,6 +102,7 @@ from .const import (
     PART_TYPES,
     PLANNING_HORIZON,
     PROBLEM_RECHECK,
+    REASON_NO_ROOM,
     REASON_SOLAR,
     REASON_WAITING,
     RECALCULATE_DELAY,
@@ -2092,8 +2093,8 @@ class Household(DataUpdateCoordinator[None]):
                 # The sun shines on it: charge on the surplus.
                 decision = Decision(CONTROL_CHARGE, REASON_SOLAR)
             if decision.control == CONTROL_CHARGE and self.supply_of(vehicle).holds_off(vehicle, now):
-                # The guard paused it: the house needs the current for a while.
-                decision = Decision(CONTROL_PAUSE, REASON_WAITING)
+                # No room on the supply now (or the guard stopped it): it starts when the meter shows the room.
+                decision = Decision(CONTROL_PAUSE, REASON_NO_ROOM)
             changed = decision != vehicle.decision
             vehicle.decision = decision
             self.events.changed(
@@ -2134,7 +2135,7 @@ class Household(DataUpdateCoordinator[None]):
 
     async def async_pause_for_house(self, vehicle: Vehicle) -> bool:
         """The guard: stop this car now, as the house needs the current. True when it was stopped."""
-        vehicle.decision = Decision(CONTROL_PAUSE, REASON_WAITING)
+        vehicle.decision = Decision(CONTROL_PAUSE, REASON_NO_ROOM)
         stopped = await self._async_apply(vehicle, force=True, urgent=True)
         self.events.add(dt_util.now(), "guard_pause", vehicle=vehicle.name, stopped=stopped)
         self.async_update_listeners()
@@ -2325,10 +2326,13 @@ class Household(DataUpdateCoordinator[None]):
                 charger.guest_last_sent = None
                 self.async_save()
             return
+        supply = self.supplies[self.pairing.site_of(charger).site_id]
+        if desired == CONTROL_CHARGE and charger.guest_last_sent != CONTROL_CHARGE and supply.guest_waits(charger, now):
+            desired = CONTROL_PAUSE  # no room on the supply now: it starts when the meter shows it
         if desired == charger.guest_last_sent:
             return
         if desired == CONTROL_CHARGE:
-            await self.supplies[self.pairing.site_of(charger).site_id].async_before_guest_start(charger, now)
+            await supply.async_before_guest_start(charger, now)
         if await self._async_switch(charger.switch_entity, desired == CONTROL_CHARGE) is None:
             charger.guest_last_sent = desired
             self.async_save()

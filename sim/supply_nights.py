@@ -100,6 +100,10 @@ class SupplyNight:
     user_sets: list[tuple[str, str, float]] = field(default_factory=list)  # (local time, car, amps) set in the app
     expect_back: list[tuple[str, str, float]] = field(default_factory=list)  # (by local time, car, amps) set again
     wait: int | None = None  # minutes the place waits after a peak before the cars get more (5-30; 10 if not set)
+    margin: float | None = None  # amps kept free under the limit (0-3; 1 if not set)
+    meter_every: int = 0  # seconds between two reports of the supply's meter (0: each look at the house)
+    mode_sets: list[tuple[str, str, str]] = field(default_factory=list)  # (local time, car, mode) chosen in the app
+    expect_start: list[tuple[str, str, str]] = field(default_factory=list)  # (from, by local time, car) it starts
 
     def meter_lost(self, local: datetime) -> bool:
         now = local.strftime("%H:%M")
@@ -168,6 +172,8 @@ def _entry(night: SupplyNight) -> MockConfigEntry:
         options["supply_share"] = night.share
     if night.wait is not None:
         options["supply_wait"] = night.wait
+    if night.margin is not None:
+        options["supply_margin"] = night.margin
     if night.weather:
         options["weather_entity"] = WEATHER
     if night.heat_pump_meter:
@@ -231,6 +237,7 @@ class SupplyResult:
     fought: list[str] = field(default_factory=list)  # a change in the app that EV Planner undid at once
     log: list[str] = field(default_factory=list)  # every current change, for the report
     left_low: list[str] = field(default_factory=list)  # chargers left under their full current with nothing charging
+    late_starts: list[str] = field(default_factory=list)  # expect_start that did not come
 
 
 def _forecast(night: SupplyNight, moment: datetime) -> list[dict[str, Any]]:
@@ -403,6 +410,7 @@ async def run_supply_night(
                 suggested_object_id=f"car_{car.key}_amps",
             )
     got = {car.key: 0.0 for car in night.cars}
+    meter_at: dict[str, datetime | None] = {"at": None}
 
     def publish(moment: datetime) -> None:
         plugged = night.at(night.day, night.plug_in) <= moment
@@ -454,7 +462,14 @@ async def run_supply_night(
             hass.states.async_set(METER, "unavailable")
         elif night.frozen(local):
             pass  # the meter has stopped: its last value stays, and nothing says so
+        elif (
+            night.meter_every
+            and meter_at["at"] is not None
+            and (moment - meter_at["at"]).total_seconds() < night.meter_every
+        ):
+            pass  # the meter reports only every so often: until then its last value stands
         else:
+            meter_at["at"] = moment
             hass.states.async_set(METER, str(round(house + sum(got.values()), 1)), {"unit_of_measurement": "A"})
 
     async def tick(moment: datetime) -> None:
@@ -478,6 +493,7 @@ async def run_supply_night(
     at_deadline: dict[str, float] = {}
     cost = energy = 0.0
     user_sets = sorted((night.at(night.day, at), key, amps) for at, key, amps in night.user_sets)
+    mode_sets = sorted((night.at(night.day, at), key, mode) for at, key, mode in night.mode_sets)
     with patch(f"custom_components.{DOMAIN}.household.Household._async_switch", switch):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
@@ -505,6 +521,10 @@ async def run_supply_night(
             for item in [p for p in pending if p[0] <= moment]:
                 amps_set[item[1]] = item[2]
                 pending.remove(item)
+            while mode_sets and mode_sets[0][0] <= moment:
+                _at, key, mode = mode_sets.pop(0)
+                log.append(f"{moment.astimezone(ZONE):%H:%M:%S} car {key}: {mode} in the app")
+                await household.async_set_vehicle(f"car_{key}", {"mode": mode})
             while user_sets and user_sets[0][0] <= moment:
                 _at, key, amps = user_sets.pop(0)
                 car = next(c for c in night.cars if c.key == key)
@@ -593,6 +613,11 @@ async def run_supply_night(
         if last is None or last < amps:
             not_back.append(f"car {key} at {last} A by {by}, not {amps:g} A")
 
+    late_starts = [
+        f"car {key} not started between {frm} and {by}"
+        for frm, by, key in night.expect_start
+        if not any(night.at(night.day, frm) <= t <= night.at(night.day, by) for t in starts[key])
+    ]
     # Nothing charges at the end: each charger is left at its full current (a car plugged in while Home
     # Assistant is away charges at all the charger gives).
     left_low = [
@@ -632,6 +657,7 @@ async def run_supply_night(
         fought,
         log,
         left_low,
+        late_starts,
     )
 
 
@@ -1009,6 +1035,53 @@ def supply_nights() -> list[SupplyNight]:
             charging_lag=90,
             meter_gaps=[("17:40", "18:00")],
             tags=["guard", "frank", "meter-gap"],
+        ),
+        # Frank, 12.42: paused in the app and set to charge now again 15 seconds later. The supply's meter
+        # reports every half minute, so it still shows the car's current: the car starts when it reports.
+        SupplyNight(
+            "frank-pause-and-start-again",
+            monday,
+            [SupplyCar("a", 60, 100, adjustable=True, mode="charge_now", capacity=82)],
+            fuse=25,
+            limit=25,
+            house=_flat(2.0),
+            plug_in="12:30",
+            until="13:30",
+            equalizer=False,
+            guard=True,
+            step=15,
+            zaptec=True,
+            echo=45,
+            charger_meter=True,
+            charging_lag=90,
+            meter_every=30,
+            mode_sets=[("12:42:00", "a", "pause"), ("12:42:15", "a", "charge_now")],
+            expect_start=[("12:42:15", "12:43:15", "a")],
+            tags=["guard", "frank", "no-overload"],
+        ),
+        # Frank, 13.17: the same with the oven on when charge now is chosen again (12.7 A in the house):
+        # it starts at once at the 11 A there is room for, with 1 A kept free.
+        SupplyNight(
+            "frank-pause-and-start-with-the-oven",
+            monday,
+            [SupplyCar("a", 60, 100, adjustable=True, mode="charge_now", capacity=82)],
+            fuse=25,
+            limit=25,
+            house=_step(2.0, 12.7, "13:19", "13:50"),
+            plug_in="13:00",
+            until="14:30",
+            equalizer=False,
+            guard=True,
+            step=15,
+            zaptec=True,
+            echo=45,
+            charger_meter=True,
+            charging_lag=90,
+            meter_every=30,
+            mode_sets=[("13:17:30", "a", "pause"), ("13:21:45", "a", "charge_now")],
+            expect_start=[("13:21:45", "13:22:45", "a")],
+            expect_back=[("14:10", "a", 16)],
+            tags=["guard", "frank", "no-overload"],
         ),
         # The same spiky night without the guard, for comparison: here the fuse is on its own.
         SupplyNight(

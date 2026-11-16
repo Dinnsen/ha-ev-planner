@@ -70,7 +70,18 @@ def _entry(current: str = AMPS, **options: Any) -> MockConfigEntry:
         ),
         vehicle_sub(TESLA, "Tesla", tesla_data(current_entity=current, charge_power=11.0)),
         vehicle_sub(SKODA, "Skoda", skoda),
-        options={"supply_limit": 23, "supply_phases": "3", "supply_reserve": 5, **options},
+        # A margin of 2 A, as before 2.5.0b29 (the default is 1 A): the numbers below are worked out with it.
+        options={
+            key: value
+            for key, value in {
+                "supply_limit": 23,
+                "supply_phases": "3",
+                "supply_reserve": 5,
+                "supply_margin": 2,
+                **options,
+            }.items()
+            if value is not None
+        },
     )
 
 
@@ -303,17 +314,16 @@ async def test_the_guard_stops_a_car_when_even_the_least_is_too_much(
     assert [c.data["value"] for c in calls] == [6]
     assert ("turn_off", CHARGE_SWITCH) in switches.calls
     tesla = household.vehicles[TESLA]
-    assert tesla.decision.control == "pause" and tesla.decision.reason == "waiting"
+    assert tesla.decision.control == "pause" and tesla.decision.reason == "no_room"
+    assert tesla.status() == "waiting_for_room"
     assert supply.holds_off(tesla, dt_util.now())
-    # It waits, also while the meter shows little room, then starts again when there is room.
+    # It waits its while, and then while the meter shows too little room (23 - 20 - 2 = 1 A).
     later = dt_util.now() + GUARD_PAUSE + timedelta(seconds=1)
     hass.states.async_set(METER, "20", {"unit_of_measurement": "A"})
     assert supply.holds_off(tesla, later)
+    # The house now is what counts: 8 A leaves 13 A, and it starts again.
     hass.states.async_set(METER, "8", {"unit_of_measurement": "A"})
-    supply.cars_amps = lambda: 0.0  # type: ignore[method-assign]  # the car is paused
-    # The 40 A of a moment ago still counts: room is what was free all the last quarter of an hour.
-    assert supply.holds_off(tesla, later)
-    assert not supply.holds_off(tesla, later + HEADROOM_WINDOW)
+    assert not supply.holds_off(tesla, later)
 
 
 async def test_a_watched_car_goes_up_only_into_free_room(
@@ -492,14 +502,13 @@ async def test_a_car_is_started_at_what_there_is_room_for(
     await household.async_set_vehicle(TESLA, {"mode": "charge_now"})
     await settle(hass, freezer)
     assert ("turn_on", CHARGE_SWITCH) not in switches.calls
-    assert tesla.decision.control == "pause" and tesla.decision.reason == "waiting"
+    assert tesla.decision.control == "pause" and tesla.decision.reason == "no_room"
     assert any(event["kind"] == "start_waits" and event["waits"] for event in household.events.items)
-    # The oven is off, and has been for the place's window: the current goes to the 11 A there is room
-    # for (10 A in the house), then the car is started.
+    # The oven goes off: at the meter's next reading the current goes to the 11 A there is room for
+    # (10 A in the house), and the car is started. Nothing waits for the house to have been quiet.
+    await move(hass, freezer, dt_util.now() + timedelta(seconds=15))
     hass.states.async_set(METER, "10", {"unit_of_measurement": "A"})
-    freezer.move_to(dt_util.now() + HEADROOM_WINDOW + timedelta(minutes=1))
-    hass.states.async_set(METER, "9.9", {"unit_of_measurement": "A"})  # the meter reports as it does
-    await move(hass, freezer, dt_util.now() + timedelta(seconds=5))
+    await move(hass, freezer, dt_util.now() + timedelta(seconds=2))
     assert ("turn_on", CHARGE_SWITCH) in switches.calls
     assert calls and calls[0].data == {"entity_id": AMPS, "value": 11.0}
 
@@ -672,3 +681,77 @@ async def test_a_zaptec_charger_is_turned_on_its_installation(
     )
     supply._knobs.clear()
     assert supply.knob(own) == own
+
+
+async def test_a_car_paused_and_started_again_waits_only_for_the_meters_next_reading(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    """Frank, 12.42: paused, then charge now again. The car's own meter falls at once, the supply's shows the
+    car's current for half a minute more. The car starts when the supply's meter reports, and what it showed
+    meanwhile is not kept as the house's."""
+    from custom_components.ev_household_planner.websocket import vehicle_state
+
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass, soc=20, switch=True, charging=True)
+    _skoda(hass, soc=20)
+    hass.states.async_set(METER, "2", {"unit_of_measurement": "A"})
+    entry = _entry(supply_meter=[METER], supply_guard=True)
+    await _setup(hass, freezer, entry)
+    household = entry.runtime_data
+    supply = household.supply
+    tesla = household.vehicles[TESLA]
+    hass.states.async_set(AMPS, "16", {"min": 6, "max": 16})
+    await household.async_set_vehicle(TESLA, {"mode": "charge_now"})
+    await settle(hass, freezer)
+    # Charging: 17.3 A on the meter, 16 of them the car's.
+    hass.states.async_set(METER, "17.3", {"unit_of_measurement": "A"})
+    await move(hass, freezer, dt_util.now() + timedelta(seconds=10))
+    # Paused: the car stops at once; the supply's meter has not reported since.
+    await household.async_set_vehicle(TESLA, {"mode": "pause"})
+    set_tesla(hass, soc=20, switch=False, charging=False)
+    await settle(hass, freezer)
+    switches.calls.clear()
+    await household.async_set_vehicle(TESLA, {"mode": "charge_now"})
+    await settle(hass, freezer)
+    # 23 - 17.3 - 2 is under 6 A, as far as the meter shows: it waits, and says so.
+    assert tesla.decision.reason == "no_room" and tesla.status() == "waiting_for_room"
+    assert ("turn_on", CHARGE_SWITCH) not in switches.calls
+    assert vehicle_state(household, tesla)["room_free"] == 3.7
+    # The meter reports: 2 A in the house, and the car is started at once.
+    hass.states.async_set(METER, "2", {"unit_of_measurement": "A"})
+    await move(hass, freezer, dt_util.now() + timedelta(seconds=2))
+    assert ("turn_on", CHARGE_SWITCH) in switches.calls
+    assert tesla.decision.control == "charge"
+    assert vehicle_state(household, tesla)["room_free"] is None
+    # The 17.3 A were never the house's: the window the raises look back over does not have them.
+    peak = supply.house_peak(dt_util.now())
+    assert peak is not None and peak < 3
+
+
+async def test_the_margin_is_the_places_setting_from_none_to_three_amps(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    """The margin under the fuse: 1 A unless the place says otherwise; 0 runs right up to the fuse."""
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass, soc=20, switch=True, charging=True)
+    _skoda(hass, soc=20)
+    hass.states.async_set(METER, "10", {"unit_of_measurement": "A"})
+    entry = _entry(supply_meter=[METER], supply_guard=True, supply_margin=None)
+    calls = await _setup(hass, freezer, entry)
+    household = entry.runtime_data
+    supply = household.supply
+    assert supply.margin == 1.0
+    await household.async_set_vehicle(TESLA, {"mode": "charge_now"})
+    await settle(hass, freezer)
+    supply._sent.clear()
+    hass.states.async_set(AMPS, "16", {"min": 6, "max": 16})
+    calls.clear()
+    # The kettle again: 30 A with the car's 16, a house of 14. With 1 A kept free the car gets 8 A, not 7.
+    hass.states.async_set(METER, "30", {"unit_of_measurement": "A"})
+    await hass.async_block_till_done()
+    assert [c.data["value"] for c in calls] == [8]
+    # The setting is kept between 0 and 3 A.
+    assert supply.site is not None
+    for value, margin in ((0, 0.0), (2.5, 2.5), (5, 3.0), (-1, 0.0)):
+        supply.site.data["supply_margin"] = value
+        assert supply.margin == margin

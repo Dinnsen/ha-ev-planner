@@ -173,6 +173,7 @@ const TEXT = {
     why_late: "Klar-tiden er gået, og bilen er ikke nået til {target}. Den lader videre, til den er der.",
     why_full: "Bilen har nået sit mål på {target}.",
     why_paused: "Sat på pause af dig.",
+    why_no_room: "Forsyningen har ikke 6 A fri lige nu. Den starter, så snart måleren viser plads.",
     why_busy: "Laderen bruges af en anden lige nu.",
     why_kept: "Planen bliver liggende: en ny ville kun spare få øre.",
     why_early: "Lader tidligt: højst {within}/kWh mere end den billigste plan.",
@@ -287,6 +288,8 @@ const TEXT = {
     vstatus_charger_busy: "Laderen er optaget",
     vstatus_charging_solar: "Lader på solen",
     vstatus_waiting_for_sun: "Venter på solen",
+    vstatus_waiting_for_room: "Venter på plads",
+    room_free: "Venter på plads · {free} A fri",
     vstatus_solar_only: "Lader kun på solen",
     vstatus_solar_expected: "Solen ventes at klare resten",
     rule_solar: "Lad på solen",
@@ -773,6 +776,7 @@ const TEXT = {
     why_late: "The ready-by time has passed and the car has not reached {target}. It charges on until it has.",
     why_full: "The car has reached its target of {target}.",
     why_paused: "Paused by you.",
+    why_no_room: "The supply does not have 6 A free right now. It starts as soon as the meter shows room.",
     why_busy: "Someone else is using the charger right now.",
     why_kept: "The plan stays: a new one would save only a few cents.",
     why_early: "Charging early: at most {within}/kWh more than the cheapest plan.",
@@ -886,6 +890,8 @@ const TEXT = {
     vstatus_charger_busy: "Charger in use",
     vstatus_charging_solar: "Charging on the sun",
     vstatus_waiting_for_sun: "Waiting for the sun",
+    vstatus_waiting_for_room: "Waiting for room",
+    room_free: "Waiting for room · {free} A free",
     vstatus_solar_only: "Charges only on the sun",
     vstatus_solar_expected: "The sun is expected to do the rest",
     rule_solar: "Charge on the sun",
@@ -1779,6 +1785,9 @@ Object.assign(TEXT.da, {
   place_share_need_hint: "Hver bil får en del efter, hvor meget den mangler.",
   place_no_supply: "Ingen fælles forsyning sat op for stedet.",
   place_own_price: "eget prisområde",
+  place_margin: "Sikkerhedsmargin",
+  place_margin_zero: "0 A: ingen luft til sikringen",
+  place_margin_hint: "Holdes fri under hovedsikringen på den travleste fase. Sættes under Enheder og tjenester → EV Planner → stedet. 0 A kører helt op til sikringen; den kan springe.",
   price_add: "Lægges til hver pris",
   price_add_hint: "Fx afgifter og nettarif, når pris-sensoren kun har spotprisen. 0 når sensoren har den fulde pris.",
   price_add_sum: "+{price}/kWh",
@@ -1924,6 +1933,9 @@ Object.assign(TEXT.en, {
   place_share_need_hint: "Each car gets a share by how much it lacks.",
   place_no_supply: "No shared supply set up for the place.",
   place_own_price: "own price area",
+  place_margin: "Safety margin",
+  place_margin_zero: "0 A: no room under the fuse",
+  place_margin_hint: "Kept free under the main fuse on the busiest phase. Set under Devices & services → EV Planner → the place. 0 A runs right up to the fuse; it may blow.",
   price_add: "Added to every price",
   price_add_hint: "E.g. taxes and grid tariffs when the price sensor has the spot price only. 0 when the sensor has the full price.",
   price_add_sum: "+{price}/kWh",
@@ -2016,6 +2028,7 @@ const STATUS_TONE = {
   no_plan: "sand",
   charger_busy: "sand",
   not_enough_prices: "sand",
+  waiting_for_room: "sand",
   no_soc: "coral",
   no_price_data: "coral",
   no_window: "coral",
@@ -7666,6 +7679,7 @@ class EvPlannerPanel extends HTMLElement {
     else if (reason === "late") text = this._t("why_late", { target: this._pct(v.target) });
     else if (reason === "full") text = this._t("why_full", { target: this._pct(v.target) });
     else if (reason === "paused") text = this._t("why_paused");
+    else if (reason === "no_room") text = this._t("why_no_room");
     else if (reason === "charger_busy") text = this._t("why_busy");
     else if (reason === "planned") {
       text = isNum(now) && deadline ? this._t("why_planned", { price: this._money(now), time: deadline }) : this._t("why_planned_plain");
@@ -7700,6 +7714,7 @@ class EvPlannerPanel extends HTMLElement {
     const charging = v.control === "charge";
     let text = this._statusText(v);
     if (["no_price_data", "not_enough_prices", "no_window", "ceiling_too_low"].includes(v.status)) text = this._t(`err_${v.status}`);
+    if (v.status === "waiting_for_room" && isNum(v.room_free)) text = this._t("room_free", { free: this._num(v.room_free, 1) });
     const plan = shown.plan;
     if (plan && (v.status === "planned" || (v.status === "charging" && charging))) {
       const timing = this._planTiming(plan.segments, v.status === "charging");
@@ -9901,14 +9916,17 @@ class EvPlannerPanel extends HTMLElement {
           }),
         );
       })
-      .catch(() => { this._insTracks = {}; })
-      .finally(() => { this._insTracksAt = Date.now(); this._insTracksBusy = false; if (this._tab === "history") this._render(); });
+      // Failed (Home Assistant restarting): none yet, so they are asked for again in a minute.
+      .catch(() => { this._insTracks = null; this._insTracksFailed = true; setTimeout(() => { if (this._insMap) this._insightTracks(); }, 61000); })
+      .finally(() => { this._insTracksAt = this._insTracksFailed ? Date.now() - 1800000 + 60000 : Date.now(); this._insTracksFailed = false; this._insTracksBusy = false; if (this._tab === "history") this._render(); });
   }
 
   /* The map under Driving is Home Assistant's own: OpenStreetMap through its map tiles, opened by a token that changes
      every half hour. Where Home Assistant has no such tiles (before 2026.9) the roads are drawn without a map under them. */
-  _insightTiles() {
-    if (this._insTilesBusy || Date.now() - (this._insTilesAt || 0) < 1200000 || !this._hass?.callWS) return;
+  _insightTiles(again = false) {
+    // Again (a tile was turned away): at most every two minutes, so a map that cannot be had is not asked for in a loop.
+    const every = again ? 120000 : 1200000;
+    if (this._insTilesBusy || Date.now() - (this._insTilesAt || 0) < every || !this._hass?.callWS) return;
     this._insTilesBusy = true;
     this._hass
       .callWS({ type: "map_tiles/access_token" })
@@ -9994,6 +10012,7 @@ class EvPlannerPanel extends HTMLElement {
 
   _insightSaid({ act, value }) {
     if (act === "tracks") { this._insMap = true; this._insightTiles(); this._insightTracks(); return; }
+    if (act === "tiles") { this._insightTiles(true); return; }
     if (act === "open") {
       this._histClassic = value === "learned" ? "learned" : "history";
       this._histView = this._histClassic;
@@ -10290,7 +10309,9 @@ class EvPlannerPanel extends HTMLElement {
           <dl class="sources">
             <div><dt>${this._t("price_sensor")}</dt><dd>${esc(this._entityName(site.price_entity || this._state.config?.price_entity))}${site.own_price ? ` <span class="tag">${this._t("place_own_price")}</span>` : ""}</dd></div>
             <div><dt>${this._t("tile_supply")}${sup ? "" : this._helpButton(`supply-${site.id}`, this._t("tile_supply"))}</dt><dd>${sup ? `${Math.round(sup.limit)} A · ${sup.phases} ${this._t("phases_word")}` : this._t("off")}</dd></div>
+            ${sup && site.guard && isNum(site.margin) ? `<div><dt>${this._t("place_margin")}${this._helpButton(`margin-${site.id}`, this._t("place_margin"))}</dt><dd>${this._num(site.margin, 1)} A${Number(site.margin) === 0 ? ` <span class="tag warn">⚠ ${this._t("place_margin_zero")}</span>` : ""}</dd></div>` : ""}
           </dl>
+          ${sup && site.guard && isNum(site.margin) ? this._helpBubble(`margin-${site.id}`, this._t("place_margin_hint")) : ""}
           ${sup ? "" : this._helpBubble(`supply-${site.id}`, this._t("place_no_supply_help"))}
           ${this._ruleRow({
             icon: "charger",
@@ -11406,6 +11427,7 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .house-pic { display: block; width: 100%; aspect-ratio: 1.6; border-radius: 10px; overflow: hidden; background: #eef1f4; }
 .house-pic svg { display: block; width: 100%; height: 100%; }
 .tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--evp-a) 16%, transparent); color: var(--evp-ink); }
+.tag.warn { color: color-mix(in srgb, #B42318 70%, var(--evp-ink)); background: color-mix(in srgb, var(--evp-coral) 16%, transparent); }
 .select-wrap { display: block; }
 .select-wrap select { width: 100%; max-width: 100%; padding: 9px 12px; border: 1px solid var(--evp-line); border-radius: 10px; background: var(--evp-card); }
 @media (max-width: 520px) { .dep-two { grid-template-columns: minmax(0, 1fr); } }

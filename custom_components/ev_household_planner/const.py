@@ -151,6 +151,11 @@ CONF_EXPORT_PRICE: Final = "export_price"
 CONF_EXPORT_PRICE_ENTITY: Final = "export_price_entity"
 CONF_SUPPLY_METER: Final = "supply_meter"
 CONF_SUPPLY_RESERVE: Final = "supply_reserve"
+# What is kept free under the limit on the busiest phase (A, 0-3): the cars get the limit less the house
+# less this. 0 runs the supply right up to its fuse, with nothing for a reading that comes late.
+CONF_SUPPLY_MARGIN: Final = "supply_margin"
+DEFAULT_SUPPLY_MARGIN: Final = 1.0
+MAX_SUPPLY_MARGIN: Final = 3.0
 # Shared supply: lower the cars at once when the house draws more than planned (needs a meter and a current setting).
 CONF_SUPPLY_GUARD: Final = "supply_guard"
 # A place's own price sensor (a summer house in another price area); none: the household's.
@@ -417,6 +422,8 @@ REASON_LOW_PRICE: Final = "low_price"
 REASON_PLANNED: Final = "planned"
 REASON_KEEP_ON: Final = "keep_on"
 REASON_WAITING: Final = "waiting"
+# Charging is decided, but the supply has no room (6 A) for the car now: it starts when the meter shows it.
+REASON_NO_ROOM: Final = "no_room"
 REASON_CHARGER_BUSY: Final = "charger_busy"
 REASON_SOLAR: Final = "solar"
 REASON_LATE: Final = "late"
@@ -436,6 +443,7 @@ STATUS_CHARGER_BUSY: Final = "charger_busy"
 STATUS_NO_SOC: Final = "no_soc"
 STATUS_SOLAR: Final = "charging_solar"
 STATUS_WAITING_SUN: Final = "waiting_for_sun"
+STATUS_WAITING_ROOM: Final = "waiting_for_room"
 ERROR_INVALID_INPUT: Final = "invalid_input"
 ERROR_LIMIT_NOT_ABOVE_SOC: Final = "limit_not_above_soc"
 ERROR_NO_PRICE_DATA: Final = "no_price_data"
@@ -458,6 +466,7 @@ VEHICLE_STATUS_OPTIONS: Final = [
     STATUS_NO_SOC,
     STATUS_SOLAR,
     STATUS_WAITING_SUN,
+    STATUS_WAITING_ROOM,
     ERROR_NO_PRICE_DATA,
     ERROR_NOT_ENOUGH_PRICES,
     ERROR_NO_WINDOW,
@@ -619,6 +628,7 @@ SITE_KEYS: Final = (
     CONF_SUPPLY_PHASES,
     CONF_SUPPLY_METER,
     CONF_SUPPLY_RESERVE,
+    CONF_SUPPLY_MARGIN,
     CONF_SUPPLY_GUARD,
     CONF_SUPPLY_WAIT,
     CONF_SUPPLY_SHARE,

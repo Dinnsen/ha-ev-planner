@@ -101,6 +101,7 @@ from .const import (
     STATUS_PLANNED,
     STATUS_SOLAR,
     STATUS_UNPLUGGED,
+    STATUS_WAITING_ROOM,
     STATUS_WAITING_SUN,
     TARGET_STEP_AUTO,
     TARGET_STEPS,
@@ -136,6 +137,7 @@ REASON_STATUS = {
     "charger_busy": STATUS_CHARGER_BUSY,
     "solar": STATUS_SOLAR,
     "late": STATUS_CHARGING,
+    "no_room": STATUS_WAITING_ROOM,
 }
 
 

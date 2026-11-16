@@ -33,6 +33,7 @@ from .const import (
     CONF_HEAT_PUMP_POWER,
     CONF_SUPPLY_GUARD,
     CONF_SUPPLY_LIMIT,
+    CONF_SUPPLY_MARGIN,
     CONF_SUPPLY_METER,
     CONF_SUPPLY_PHASES,
     CONF_SUPPLY_RESERVE,
@@ -41,8 +42,11 @@ from .const import (
     CONF_WEATHER_ENTITY,
     CONTROL_CHARGE,
     CONTROL_PAUSE,
+    DEFAULT_SUPPLY_MARGIN,
     DEFAULT_SUPPLY_RESERVE,
+    MAX_SUPPLY_MARGIN,
     PRIORITY_FIRST,
+    REASON_NO_ROOM,
     REASON_SOLAR,
     SET_KNOWN_PRICES,
     SET_MUST_SOC,
@@ -99,9 +103,16 @@ ECHO = timedelta(minutes=2)
 GUARD_PAUSE = timedelta(minutes=5)
 # A charger that draws more than this (kW) charges a car.
 STRAY_KW = 1.0
-# The cars never get the last two amps under the limit: room for the small things that come and go
-# (a fridge, a washing machine's motor) and for a meter that is a moment behind (25 A: the cars stay under 23).
-HEADROOM_MARGIN = 2.0
+# A charger that draws less than it did a moment ago (stopped, paused, turned down): until the meter has reported
+# after that, and at most this long, what the house seems to draw is not kept among its peaks. The two meters do
+# not report at the same moment, and the house is not to be remembered as drawing what the charger drew.
+FADE_SETTLE = timedelta(seconds=60)
+# The meter's report must come this long after the fall to be taken to show it.
+FADE_GRACE = timedelta(seconds=3)
+# A fall of less than this (A) is a charger's ordinary wobble, not a change.
+FADE_MIN = 1.0
+# A car waiting for room makes the household decide again at most this often, when the meter shows the room.
+WAKE_EVERY = timedelta(seconds=10)
 # The house's peaks are kept this long: a charger goes up only into what has been free all the time
 # since it last changed (at least the place's window), so a dishwasher or a dryer that heats in bursts
 # every ten minutes is not given to a car in the gap between two of them.
@@ -190,6 +201,14 @@ class SupplyControl:
         self._waiting: set[str] = set()
         # What turns each charger's current, as last found (a Zaptec's installation, or the setting itself).
         self._knobs: dict[str, tuple[str, datetime]] = {}
+        # What each charger drew when last looked at, and those that draw less now than a moment ago: what they
+        # drew, and since when they draw less (the meter may not have shown it yet).
+        self._drawn: dict[str, float] = {}
+        # When a car waiting for room was last found to have it (the household is asked to decide again).
+        self._woken_at: datetime | None = None
+        # The guest waits for room on the supply before it is started.
+        self._guest_waiting = False
+        self._fading: dict[str, tuple[float, datetime]] = {}
 
     @property
     def hass(self) -> HomeAssistant:
@@ -246,6 +265,12 @@ class SupplyControl:
     def guard(self) -> bool:
         """The guard is on, and has a meter to watch."""
         return self.active and bool(self.config.get(CONF_SUPPLY_GUARD)) and bool(self.meters)
+
+    @property
+    def margin(self) -> float:
+        """What is kept free under the limit on the busiest phase (A, 0-3): the place's setting, else 1 A."""
+        value = to_float(self.config.get(CONF_SUPPLY_MARGIN))
+        return DEFAULT_SUPPLY_MARGIN if value is None else max(0.0, min(MAX_SUPPLY_MARGIN, value))
 
     @property
     def reserve(self) -> float:
@@ -479,11 +504,46 @@ class SupplyControl:
             channels = self.channels(self._now())
         return max(0.0, reading - sum(channel.draw for channel in channels))
 
+    @staticmethod
+    def _channel_key(channel: Channel) -> str:
+        if channel.charger is not None:
+            return channel.charger.charger_id
+        if channel.vehicle is not None:
+            return channel.vehicle.charger_id or channel.vehicle.vehicle_id
+        return channel.entity or channel.name
+
+    def _fading_now(self, channels: list[Channel], now: datetime) -> bool:
+        """A charger draws less than a moment ago, and the meter may not show it yet."""
+        seen: dict[str, float] = {}
+        for channel in channels:
+            key = self._channel_key(channel)
+            seen[key] = seen.get(key, 0.0) + channel.draw
+        for key, amps in self._drawn.items():
+            if seen.get(key, 0.0) < amps - FADE_MIN:
+                before = self._fading.get(key)
+                if before is None or before[0] < amps:
+                    self._fading[key] = (amps, now)
+        self._drawn = {key: amps for key, amps in seen.items() if amps >= 0.5}
+        for key, (amps, since) in list(self._fading.items()):
+            left = amps - seen.get(key, 0.0)
+            if left < FADE_MIN or elapsed(now, since) >= FADE_SETTLE or self._meter_reported_since(since + FADE_GRACE):
+                del self._fading[key]
+        return bool(self._fading)
+
+    def _meter_reported_since(self, moment: datetime) -> bool:
+        """Every phase of the meter has reported at or after ``moment``."""
+        states = [self.hass.states.get(entity) for entity in self.meters]
+        return bool(states) and all(state is not None and state.last_reported >= moment for state in states)
+
     def note_house(self, now: datetime, channels: list[Channel] | None = None) -> float | None:
         """Keep the house's current now for the window the raises look back over."""
+        if channels is None:
+            channels = self.channels(now)
         house = self.house_now(channels)
         if house is None:
             return None
+        if self._fading_now(channels, now):
+            return house  # the meter may still show a charger that has just gone down: not a peak of the house
         minute = now.replace(second=0, microsecond=0)
         self._house_peaks[minute] = max(house, self._house_peaks.get(minute, 0.0))
         cutoff = minute - max(PEAKS_KEPT, self.headroom_window)
@@ -511,7 +571,7 @@ class SupplyControl:
         if peak is None:
             return None
         held = self._held_amps if self._held_until is not None else 0.0
-        return self.limit - peak - held - HEADROOM_MARGIN
+        return self.limit - peak - held - self.margin
 
     def sample(self, now: datetime) -> bool:
         """A minute of the house; at the end of each hour, the hour goes into the forecast. True when saved."""
@@ -707,7 +767,7 @@ class SupplyControl:
         ]
         cheap = cheap_hours(slots)
         # With the guard, the cars never get its margin: the plan leaves it out, so it is long enough.
-        limit = self.limit - (HEADROOM_MARGIN if self.guard else 0.0)
+        limit = self.limit - (self.margin if self.guard else 0.0)
         fallback = self.house_fallback(now)
         self.plan = plan_supply(
             slots, cars, now, limit=limit, house=lambda slot: self.house_at(slot, cheap, fallback), share=self.share
@@ -835,8 +895,7 @@ class SupplyControl:
         """The guard stopped this car, or there is no room on the supply to start it: it waits for room."""
         until = self._paused.get(vehicle.vehicle_id)
         if until is not None:
-            room = self.room_for_cars(now)
-            free = None if room is None else room - self.cars_amps()
+            free = self.free_now(now)
             if not self.guard or (now >= until and (free is None or free >= MIN_AMPS)):
                 del self._paused[vehicle.vehicle_id]
                 return False
@@ -850,9 +909,62 @@ class SupplyControl:
             self.household.events.add(now, "start_waits", vehicle=vehicle.name, waits=waits)
         return waits
 
+    def _wake_waiting(self, now: datetime) -> None:
+        """A car that waits for room is looked at again as soon as the meter shows the room: the household then
+        decides again, and starts it."""
+        if not (self._waiting or self._paused or self._guest_waiting) or (
+            self._woken_at is not None and elapsed(now, self._woken_at) < WAKE_EVERY
+        ):
+            return
+        guest = self.household.guest.charger
+        if (
+            self._guest_waiting
+            and guest is not None
+            and (free := self.free_now(now, without=guest)) is not None
+            and free >= MIN_AMPS
+        ):
+            self._woken_at = now
+            self.household.schedule_recalculate()
+            return
+        for vehicle in self.cars():
+            if vehicle.decision is None or vehicle.decision.reason != REASON_NO_ROOM:
+                continue
+            until = self._paused.get(vehicle.vehicle_id)
+            if until is not None:
+                free = self.free_now(now)
+                ready = now >= until and (free is None or free >= MIN_AMPS)
+            else:
+                ready = vehicle.vehicle_id in self._waiting and not self.no_room_to_start(vehicle, now)
+            if ready:
+                self._woken_at = now
+                self.household.schedule_recalculate()
+                return
+
+    def guest_waits(self, charger: Charger, now: datetime) -> bool:
+        """The guest is about to be started, and the meter does not show the least a charger gives (6 A) free now:
+        it waits, as a car of the household does, and starts when the meter shows the room."""
+        if not self.guard or self.household.pairing.site_of(charger) is not self.site:
+            return False
+        free = self.free_now(now, without=charger)
+        waits = free is not None and free < MIN_AMPS
+        if waits != self._guest_waiting:
+            self._guest_waiting = waits
+            self.household.events.add(now, "start_waits", vehicle="guest", waits=waits)
+        return waits
+
+    def free_now(self, now: datetime, without: Charger | None = None) -> float | None:
+        """What the meter shows free for one more car now: the limit, less the house now, less the chargers that
+        charge (but ``without``, the one to start), less the margin (None without a reading)."""
+        channels = [channel for channel in self.channels(now) if without is None or channel.charger is not without]
+        house = self.note_house(now, channels)
+        if house is None:
+            return None
+        held = self._held_amps if self._held_until is not None else 0.0
+        return self.limit - house - held - self.margin - sum(channel.draw for channel in channels)
+
     def no_room_to_start(self, vehicle: Vehicle, now: datetime) -> bool:
-        """A car whose current is set, about to start, for which the meter has not shown the least a charger
-        gives free (6 A) all the last while, with the others at their share: it is not started yet."""
+        """A car whose current is set, about to start, for which the meter does not show the least a charger
+        gives (6 A) free now, with the others at their share: it is not started yet."""
         if not self.guard or self.household.is_charging(vehicle) or self._started(vehicle):
             return False
         found = self._start_shares(vehicle, now)
@@ -869,7 +981,8 @@ class SupplyControl:
             return None
         entity = self.knob(raw)
         channels = [channel for channel in self.channels(now) if channel.vehicle is not vehicle]
-        peak = self.house_peak_within(now, self.headroom_window, channels)
+        # A start goes by the house now: the guard turns it down if the house then needs more.
+        peak = self.note_house(now, channels)
         if peak is None:
             return None
         held = self._held_amps if self._held_until is not None else 0.0
@@ -879,7 +992,7 @@ class SupplyControl:
         new = Channel(entity, WHO_CAR, vehicle.name, vehicle, None, 0.0, high, low, high, high, True, tier)
         order = [*reversed(channels), new]  # the one to keep its current longest first, the new car last
         wants = [(channel.low, max(channel.low, channel.value)) for channel in order]
-        shares = share_room(wants, self.limit - peak - held - HEADROOM_MARGIN, [channel.tier for channel in order])
+        shares = share_room(wants, self.limit - peak - held - self.margin, [channel.tier for channel in order])
         return order, shares
 
     async def async_before_start(self, vehicle: Vehicle, now: datetime) -> None:
@@ -916,14 +1029,14 @@ class SupplyControl:
         if self._easee_device(entity) is None and self.hass.states.get(entity) is None:
             return
         channels = self.channels(now)
-        peak = self.house_peak_within(now, self.headroom_window, channels)
+        peak = self.note_house(now, channels)  # by the house now, as a car of the household
         if peak is None:
             return
         held = self._held_amps if self._held_until is not None else 0.0
         others = sum(channel.draw for channel in channels if channel.charger is not charger)
         low, high = self.bounds(entity)
         high = max(low, min(high, float(round(amps_for(charger.power, self.phases)))))
-        target = max(low, min(high, float(int(self.limit - peak - held - HEADROOM_MARGIN - others))))
+        target = max(low, min(high, float(int(self.limit - peak - held - self.margin - others))))
         value = self.setting(entity, now)
         if value is None or abs(value - target) >= 0.5:
             await self._async_set(entity, target, now, "start", charger.name, WHO_GUEST)
@@ -1148,7 +1261,7 @@ class SupplyControl:
             peak = self.house_peak_within(now, window, channels)
             if peak is None:
                 return
-            room = self.limit - peak - held - HEADROOM_MARGIN
+            room = self.limit - peak - held - self.margin
             wants = [
                 (
                     channel.low,
@@ -1355,6 +1468,7 @@ class SupplyControl:
             return
         self._blind = False
         self.note_house(now, channels)
+        self._wake_waiting(now)
         if not channels:
             self._over_since = None
             return
@@ -1375,7 +1489,7 @@ class SupplyControl:
         self._over_since = None
         house = self.house_now(channels)
         assert house is not None
-        room = self.limit - house - HEADROOM_MARGIN
+        room = self.limit - house - self.margin
         self.household.events.add(
             now,
             "guard",

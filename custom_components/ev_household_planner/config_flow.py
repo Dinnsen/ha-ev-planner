@@ -81,6 +81,7 @@ from .const import (
     CONF_SOURCE,
     CONF_SUPPLY_GUARD,
     CONF_SUPPLY_LIMIT,
+    CONF_SUPPLY_MARGIN,
     CONF_SUPPLY_METER,
     CONF_SUPPLY_PHASES,
     CONF_SUPPLY_RESERVE,
@@ -107,9 +108,11 @@ from .const import (
     DEFAULT_CURRENCY,
     DEFAULT_NAME,
     DEFAULT_PLATE_PROVIDER,
+    DEFAULT_SUPPLY_MARGIN,
     DEFAULT_SUPPLY_RESERVE,
     DOMAIN,
     ESC_DOMAIN,
+    MAX_SUPPLY_MARGIN,
     NO_CHARGER,
     OPPORTUNISTIC_FOLLOW,
     OPPORTUNISTIC_LOWER,
@@ -207,6 +210,11 @@ PERCENT_SELECTOR = selector.NumberSelector(
 )
 AMPS_SELECTOR = selector.NumberSelector(
     selector.NumberSelectorConfig(min=0, max=200, step=1, unit_of_measurement="A", mode=selector.NumberSelectorMode.BOX)
+)
+MARGIN_SELECTOR = selector.NumberSelector(
+    selector.NumberSelectorConfig(
+        min=0, max=3, step=0.5, unit_of_measurement="A", mode=selector.NumberSelectorMode.SLIDER
+    )
 )
 PHASES_SELECTOR = selector.SelectSelector(
     selector.SelectSelectorConfig(options=["1", "3"], mode=selector.SelectSelectorMode.LIST, translation_key="phases")
@@ -865,6 +873,7 @@ SUPPLY_FIELDS = (
     CONF_SUPPLY_PHASES,
     CONF_SUPPLY_METER,
     CONF_SUPPLY_RESERVE,
+    CONF_SUPPLY_MARGIN,
     CONF_SUPPLY_GUARD,
     CONF_SUPPLY_WAIT,
     CONF_SUPPLY_SHARE,
@@ -903,6 +912,9 @@ class SiteSubentryFlow(ConfigSubentryFlow):
                         CONF_SUPPLY_RESERVE, default=values.get(CONF_SUPPLY_RESERVE, DEFAULT_SUPPLY_RESERVE)
                     ): AMPS_SELECTOR,
                     vol.Optional(
+                        CONF_SUPPLY_MARGIN, default=values.get(CONF_SUPPLY_MARGIN, DEFAULT_SUPPLY_MARGIN)
+                    ): MARGIN_SELECTOR,
+                    vol.Optional(
                         CONF_WEATHER_ENTITY,
                         description={"suggested_value": values.get(CONF_WEATHER_ENTITY, only_weather)},
                     ): WEATHER_SELECTOR,
@@ -929,6 +941,9 @@ class SiteSubentryFlow(ConfigSubentryFlow):
         result = {key: flat[key] for key in SITE_KEYS if flat.get(key) not in (None, "", [], 0, False)}
         if CONF_SUPPLY_RESERVE in flat and flat[CONF_SUPPLY_RESERVE] is not None:
             result[CONF_SUPPLY_RESERVE] = flat[CONF_SUPPLY_RESERVE]
+        # 0 is a choice (no margin), not "not set".
+        if flat.get(CONF_SUPPLY_MARGIN) is not None:
+            result[CONF_SUPPLY_MARGIN] = max(0.0, min(MAX_SUPPLY_MARGIN, float(flat[CONF_SUPPLY_MARGIN])))
         if home:
             result = {CONF_HOME: True, **{key: value for key, value in result.items() if key != CONF_ZONE}}
         return result

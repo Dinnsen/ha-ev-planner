@@ -335,13 +335,15 @@
                 "supply_phases": "Faser",
                 "supply_meter": "Måler: strøm pr. fase",
                 "supply_reserve": "Huset uden måler",
+                "supply_margin": "Sikkerhedsmargin (A)",
                 "weather_entity": "Vejret"
               },
               "data_description": {
-                "supply_limit": "Hovedsikringens størrelse pr. fase, fx 25 A (eller det kredsløb laderne deler). Med måler og vagt holder EV Planner selv 2 A fri, når den skruer en bil op; uden måler sættes den lidt lavere. 0 slår det fra.",
+                "supply_limit": "Hovedsikringens størrelse pr. fase, fx 25 A (eller det kredsløb laderne deler). Med måler og vagt holder EV Planner sikkerhedsmarginen fri; uden måler sættes den lidt lavere. 0 slår det fra.",
                 "supply_phases": "Hvor mange faser forsyningen og bilerne lader på.",
                 "supply_meter": "Strømsensorer (A) for faserne, fx fra en HAN/P1-læser, en Shelly EM eller en Equalizer. EV Planner lærer, hvad huset trækker time for time.",
                 "supply_reserve": "Uden måler: hvad huset forventes at trække pr. fase.",
+                "supply_margin": "Hvad der holdes fri under hovedsikringen på den travleste fase, med måler og vagt. Bilerne får hovedsikring − huset − margin. Standard 1 A. ⚠️ 0 A: forsyningen køres helt op til sikringen uden luft til en måling, der kommer sent, eller til noget i huset, der tænder. Sikringen kan springe. Brug kun 0 A, hvis du ved, at din sikring og din måler kan klare det.",
                 "weather_entity": "En vejr-enhed med timeprognose. EV Planner lærer, hvor meget mere huset bruger, når det er koldt, og regner med nattens temperatur."
               }
             },
@@ -384,13 +386,15 @@
                 "supply_phases": "Faser",
                 "supply_meter": "Måler: strøm pr. fase",
                 "supply_reserve": "Huset uden måler",
+                "supply_margin": "Sikkerhedsmargin (A)",
                 "weather_entity": "Vejret"
               },
               "data_description": {
-                "supply_limit": "Hovedsikringens størrelse pr. fase, fx 25 A (eller det kredsløb laderne deler). Med måler og vagt holder EV Planner selv 2 A fri, når den skruer en bil op; uden måler sættes den lidt lavere. 0 slår det fra.",
+                "supply_limit": "Hovedsikringens størrelse pr. fase, fx 25 A (eller det kredsløb laderne deler). Med måler og vagt holder EV Planner sikkerhedsmarginen fri; uden måler sættes den lidt lavere. 0 slår det fra.",
                 "supply_phases": "Hvor mange faser forsyningen og bilerne lader på.",
                 "supply_meter": "Strømsensorer (A) for faserne, fx fra en HAN/P1-læser, en Shelly EM eller en Equalizer. EV Planner lærer, hvad huset trækker time for time.",
                 "supply_reserve": "Uden måler: hvad huset forventes at trække pr. fase.",
+                "supply_margin": "Hvad der holdes fri under hovedsikringen på den travleste fase, med måler og vagt. Bilerne får hovedsikring − huset − margin. Standard 1 A. ⚠️ 0 A: forsyningen køres helt op til sikringen uden luft til en måling, der kommer sent, eller til noget i huset, der tænder. Sikringen kan springe. Brug kun 0 A, hvis du ved, at din sikring og din måler kan klare det.",
                 "weather_entity": "En vejr-enhed med timeprognose. EV Planner lærer, hvor meget mere huset bruger, når det er koldt, og regner med nattens temperatur."
               }
             },
@@ -706,6 +710,7 @@
           "no_soc": "Batteriniveau mangler",
           "charging_solar": "Lader på solen",
           "waiting_for_sun": "Venter på solen",
+          "waiting_for_room": "Venter på plads på forsyningen",
           "no_price_data": "Ingen prisdata",
           "not_enough_prices": "Venter på priser",
           "no_window": "Intet ladevindue",

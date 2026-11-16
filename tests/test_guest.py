@@ -672,7 +672,13 @@ async def test_the_guard_pauses_the_guest_when_the_house_needs_the_current(
     entry = entry_with(
         charger_sub(carport_data(switch_entity=CHARGER_SWITCH)),
         vehicle_sub(TESLA, "Tesla", tesla_data()),
-        options={"supply_limit": 23, "supply_phases": "3", "supply_meter": [meter], "supply_guard": True},
+        options={
+            "supply_limit": 23,
+            "supply_phases": "3",
+            "supply_meter": [meter],
+            "supply_guard": True,
+            "supply_margin": 2,
+        },
     )
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
@@ -725,7 +731,13 @@ async def test_the_guard_turns_the_guests_charger_down_and_gives_it_back(
     entry = entry_with(
         charger_sub(carport_data(switch_entity=CHARGER_SWITCH, current_entity=amps)),
         vehicle_sub(TESLA, "Tesla", tesla_data()),
-        options={"supply_limit": 23, "supply_phases": "3", "supply_meter": [meter], "supply_guard": True},
+        options={
+            "supply_limit": 23,
+            "supply_phases": "3",
+            "supply_meter": [meter],
+            "supply_guard": True,
+            "supply_margin": 2,
+        },
     )
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
@@ -782,7 +794,13 @@ async def test_the_guard_turns_down_a_charger_that_charges_a_car_it_does_not_see
     entry = entry_with(
         charger_sub(carport_data(switch_entity=CHARGER_SWITCH, current_entity=amps, power_entity=power)),
         vehicle_sub(TESLA, "Tesla", tesla_data()),
-        options={"supply_limit": 23, "supply_phases": "3", "supply_meter": [meter], "supply_guard": True},
+        options={
+            "supply_limit": 23,
+            "supply_phases": "3",
+            "supply_meter": [meter],
+            "supply_guard": True,
+            "supply_margin": 2,
+        },
     )
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
@@ -798,3 +816,52 @@ async def test_the_guard_turns_down_a_charger_that_charges_a_car_it_does_not_see
         event["kind"] == "guard" and any(item["who"] == "stray" for item in event.get("chargers") or [])
         for event in entry.runtime_data.events.items
     )
+
+
+async def test_the_guest_waits_for_room_after_the_guard_like_a_car_of_the_household(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    """The guard stopped the guest. When its while is over and the oven is still on, it is not started into an
+    overload again: it waits, and starts at the meter's first reading that has the room."""
+    from custom_components.ev_household_planner.supply_control import GUARD_PAUSE
+
+    meter = "sensor.house_current"
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass, cable=False)
+    hass.states.async_set(CHARGER_SWITCH, "on")
+    hass.states.async_set(meter, "10", {"unit_of_measurement": "A"})
+    entry = entry_with(
+        charger_sub(carport_data(switch_entity=CHARGER_SWITCH)),
+        vehicle_sub(TESLA, "Tesla", tesla_data()),
+        options={
+            "supply_limit": 23,
+            "supply_phases": "3",
+            "supply_meter": [meter],
+            "supply_guard": True,
+            "supply_margin": 2,
+        },
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    await settle(hass, freezer)
+    household = entry.runtime_data
+    guest = household.guest
+    await hass.services.async_call("ev_household_planner", "guest_charge_now", {}, blocking=True)
+    await settle(hass, freezer)
+    hass.states.async_set(meter, "40", {"unit_of_measurement": "A"})
+    await hass.async_block_till_done()
+    assert guest.house_hold is not None
+    # Its while is over, and the oven is still on: 23 - 18 - 2 leaves 3 A. It waits.
+    switches.calls.clear()
+    hass.states.async_set(meter, "18", {"unit_of_measurement": "A"})
+    await move(hass, freezer, dt_util.now() + GUARD_PAUSE + timedelta(minutes=1))
+    assert ("turn_on", CHARGER_SWITCH) not in switches.calls
+    assert any(
+        item["kind"] == "start_waits" and item["vehicle"] == "guest" and item["waits"]
+        for item in household.events.items
+    )
+    # The oven goes off: at the meter's next reading the guest charges on.
+    hass.states.async_set(meter, "8", {"unit_of_measurement": "A"})
+    await move(hass, freezer, dt_util.now() + timedelta(seconds=15))
+    assert ("turn_on", CHARGER_SWITCH) in switches.calls

@@ -1027,7 +1027,8 @@ function boot(host, root) {
   };
 
   /* ---------- Driving: the real map. Home, the places the car goes to with how often, and the chosen trip's road. */
-  let asked = false;
+  // When the positions were last asked for: asked again after a minute while there are none (an answer that failed).
+  let asked = 0;
   function kort(c, places, pick, home) {
     const el = $("#map"), W = Math.max(260, el.clientWidth || 320), Hh = Math.round(clamp(W * 0.62, 230, 420)), shown = places.filter((p) => p.pos);
     const sel = pick.place && pick.place.shown ? pick.place.shown : places.find((p) => p.list.includes(pick)) || null;
@@ -1071,7 +1072,8 @@ function boot(host, root) {
       ${IN.tiles ? '<a class="rattr" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a>' : ""}<div class="rhint">${tr("Brug to fingre for at flytte kortet", "Use two fingers to move the map")}</div></div>`;
     // A mouse drags it; on a phone one finger scrolls the page and two move and zoom the map. + and − zoom; a tap on a place chooses it.
     const box = $(".rmap", el), move = $(".rmove", el), fingers = new Map(), hintEl = $(".rhint", el);
-    for (const img of $$(".rtiles img", el)) img.addEventListener("error", () => img.remove());
+    // A tile Home Assistant turns away (the map's token ran out while the page stood open): a new token is asked for.
+    for (const img of $$(".rtiles img", el)) img.addEventListener("error", () => { img.remove(); say("tiles"); });
     let from = null, two = null, hit = null, hintAt = 0;
     const spread = () => { const [a, b] = [...fingers.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
     const midOf = () => { const [a, b] = [...fingers.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
@@ -1136,7 +1138,7 @@ function boot(host, root) {
     else {
       $("#trip").hidden = false;
       const places = c.places || [], located = places.filter((p) => p.pos), homeAt = IN.home && Number.isFinite(IN.home.lat) && Number.isFinite(IN.home.lon) ? IN.home : null;
-      if (!IN.tracks && !asked) { asked = true; say("tracks"); }
+      if (!IN.tracks && Date.now() - asked > 60000) { asked = Date.now(); say("tracks"); }
       if (homeAt && located.length) kort(c, places, pick, homeAt);
       else {
         const edges = {}; for (const t of mine) { const key = [t.from, t.to].sort().join("|"); edges[key] = (edges[key] || 0) + 1; }

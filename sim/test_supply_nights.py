@@ -54,6 +54,7 @@ async def test_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory,
         broken.extend(f"not back up: {item}" for item in run.not_back)
         broken.extend(f"undid a change in the app: {item}" for item in run.fought)
         broken.extend(f"left under its full current with nothing charging: {item}" for item in run.left_low)
+        broken.extend(f"waited too long to start: {item}" for item in run.late_starts)
     if ("frank" in night.tags and night.until) or "tight" in night.tags:
         pass  # charged at once (no ready-by time), or a night shown for comparison
     elif "shortage" in night.tags:

@@ -335,13 +335,15 @@
                 "supply_phases": "Phases",
                 "supply_meter": "Meter: current per phase",
                 "supply_reserve": "The house without a meter",
+                "supply_margin": "Safety margin (A)",
                 "weather_entity": "Weather"
               },
               "data_description": {
-                "supply_limit": "The size of the main fuse per phase, e.g. 25 A (or of the circuit the chargers share). With a meter and the guard, EV Planner itself keeps 2 A free when it turns a car up; without a meter, set it a little lower. 0 turns it off.",
+                "supply_limit": "The main fuse per phase, e.g. 25 A (or the circuit the chargers share). With a meter and the guard EV Planner keeps the safety margin free; without a meter it is set a little lower. 0 turns it off.",
                 "supply_phases": "How many phases the supply and the cars charge on.",
                 "supply_meter": "Current sensors (A) for the phases, e.g. from a HAN/P1 reader, a Shelly EM or an Equalizer. EV Planner learns what the house draws hour by hour.",
                 "supply_reserve": "Without a meter: what the house is expected to draw per phase.",
+                "supply_margin": "What is kept free under the main fuse on the busiest phase, with a meter and the guard. The cars get main fuse − house − margin. Default 1 A. ⚠️ 0 A: the supply runs right up to the fuse with no room for a reading that comes late or for something in the house switching on. The fuse may blow. Only use 0 A if you know your fuse and your meter can take it.",
                 "weather_entity": "A weather entity with an hourly forecast. EV Planner learns how much more the house draws when it is cold, and counts on the night's temperature."
               }
             },
@@ -384,13 +386,15 @@
                 "supply_phases": "Phases",
                 "supply_meter": "Meter: current per phase",
                 "supply_reserve": "The house without a meter",
+                "supply_margin": "Safety margin (A)",
                 "weather_entity": "Weather"
               },
               "data_description": {
-                "supply_limit": "The size of the main fuse per phase, e.g. 25 A (or of the circuit the chargers share). With a meter and the guard, EV Planner itself keeps 2 A free when it turns a car up; without a meter, set it a little lower. 0 turns it off.",
+                "supply_limit": "The main fuse per phase, e.g. 25 A (or the circuit the chargers share). With a meter and the guard EV Planner keeps the safety margin free; without a meter it is set a little lower. 0 turns it off.",
                 "supply_phases": "How many phases the supply and the cars charge on.",
                 "supply_meter": "Current sensors (A) for the phases, e.g. from a HAN/P1 reader, a Shelly EM or an Equalizer. EV Planner learns what the house draws hour by hour.",
                 "supply_reserve": "Without a meter: what the house is expected to draw per phase.",
+                "supply_margin": "What is kept free under the main fuse on the busiest phase, with a meter and the guard. The cars get main fuse − house − margin. Default 1 A. ⚠️ 0 A: the supply runs right up to the fuse with no room for a reading that comes late or for something in the house switching on. The fuse may blow. Only use 0 A if you know your fuse and your meter can take it.",
                 "weather_entity": "A weather entity with an hourly forecast. EV Planner learns how much more the house draws when it is cold, and counts on the night's temperature."
               }
             },
@@ -706,6 +710,7 @@
           "no_soc": "Charge level unknown",
           "charging_solar": "Charging on the sun",
           "waiting_for_sun": "Waiting for the sun",
+          "waiting_for_room": "Waiting for room on the supply",
           "no_price_data": "No price data",
           "not_enough_prices": "Waiting for prices",
           "no_window": "No charging window",

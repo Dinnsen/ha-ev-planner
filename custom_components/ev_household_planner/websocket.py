@@ -40,6 +40,7 @@ from .const import (
     OPPORTUNISTIC_OPTIONS,
     PAINT_OPTIONS,
     PRIORITY_OPTIONS,
+    REASON_NO_ROOM,
     SCHEDULE_DEFAULT,
     SCHEDULE_NONE,
     SET_AFTERNOON,
@@ -394,6 +395,13 @@ def session_state(vehicle: Vehicle, now: datetime) -> dict[str, Any] | None:
     }
 
 
+def _room_free(household: Household, vehicle: Vehicle, now: datetime) -> float | None:
+    if vehicle.decision.reason != REASON_NO_ROOM:
+        return None
+    free = household.supply_of(vehicle).free_now(now)
+    return None if free is None else round(max(0.0, free), 1)
+
+
 def vehicle_state(household: Household, vehicle: Vehicle) -> dict[str, Any]:
     now = dt_util.now()
     charger = household.chargers.get(vehicle.charger_id or "")
@@ -406,6 +414,8 @@ def vehicle_state(household: Household, vehicle: Vehicle) -> dict[str, Any]:
         "status": vehicle.status(),
         "reason": vehicle.decision.reason,
         "supply_amps": household.supply_of(vehicle).vehicle_amps(vehicle.vehicle_id, now),
+        # Waiting for room on the supply: what the meter shows free now (A), against the 6 A a charger needs.
+        "room_free": _room_free(household, vehicle, now),
         "has_current": household.supply.current_entity(vehicle) is not None,
         "control": vehicle.decision.control,
         "control_source": vehicle.control,
@@ -629,6 +639,7 @@ def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
                     to_float(household.supplies[site.site_id].config.get(CONF_SUPPLY_WAIT)) or DEFAULT_SUPPLY_WAIT
                 ),
                 "share": household.supplies[site.site_id].share,
+                "margin": household.supplies[site.site_id].margin,
                 "has_meter": bool(household.supplies[site.site_id].meters),
                 # Cars that are not the household's charge at once (a summer house let out).
                 "open": household.open_place(site.site_id),

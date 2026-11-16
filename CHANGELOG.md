@@ -2,6 +2,21 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b29] - 2026-11-16
+
+### Changed
+
+- **A start goes by the house now.** A car (or a guest) is started when the meter shows 6 A free now: the limit, less what the house draws now, less the margin. It no longer waits for the house to have been quiet for the place's wait; that is for the raises only. If the house then needs more, the guard turns the charger down (at once over 20 % above the limit, after 30 seconds below).
+- **A car that waits for room starts as soon as the meter shows it**: each reading is looked at, not only the next time EV Planner works the plan out again. The same for a car the guard stopped, once its five minutes are over.
+- **The guest waits for room too.** After the guard has held it back, or when it is to start with the oven on, the guest is started when the meter shows 6 A free, not into an overload.
+- **The margin under the fuse is a setting of the place**, from 0 to 3 A (Devices & services → EV Planner → the place → Shared supply). 1 A unless set (it was 2 A). At 0 A the supply runs right up to the fuse; the setting and the panel warn of it.
+
+### Fixed
+
+- Frank: charge now did not start after a pause. The charger's own meter fell at once, the supply's showed the car's current for half a minute more, and the house was taken to draw 17 A, a peak kept for ten minutes. A charger that has just gone down is no longer kept among the house's peaks until the supply's meter has reported since.
+- A car waiting for room on the supply said "Waiting for prices". It says "Waiting for room · 3.7 A free".
+- The map of the trips could stay empty on a page left open: the map's token is asked for again when a tile is turned away, and the cars' positions again a minute after a failed fetch (Home Assistant restarting).
+
 ## [2.5.0b28] - 2026-11-16
 
 ### Changed

@@ -134,7 +134,13 @@ async def test_the_home_is_changed_as_a_place(hass: HomeAssistant, init_integrat
         result["flow_id"],
         {
             "name": "Hjemme",
-            "supply": {"supply_limit": 25, "supply_phases": "3", "supply_meter": [], "supply_reserve": 0},
+            "supply": {
+                "supply_limit": 25,
+                "supply_phases": "3",
+                "supply_meter": [],
+                "supply_reserve": 0,
+                "supply_margin": 0,
+            },
             "grid": {"grid_power": "sensor.grid", "export_price": 0.3},
         },
     )
@@ -147,12 +153,14 @@ async def test_the_home_is_changed_as_a_place(hass: HomeAssistant, init_integrat
         "supply_limit": 25,
         "supply_phases": "3",
         "supply_reserve": 0,
+        # 0 is a choice (run up to the fuse), kept as such.
+        "supply_margin": 0.0,
         "grid_power": "sensor.grid",
         "export_price": 0.3,
     }
     household = init_integration.runtime_data
     assert household.sites[SITE_HOME].name == "Hjemme"
-    assert household.supply.limit == 25 and household.supply.reserve == 0
+    assert household.supply.limit == 25 and household.supply.reserve == 0 and household.supply.margin == 0
     assert household.solar.active
 
 
