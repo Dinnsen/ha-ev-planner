@@ -2,6 +2,27 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b28] - 2026-11-16
+
+### Changed
+
+- **The current on a shared supply is steered by the meter and the charger only, one way for every charger.** Whatever started the car (the plan, charge now, its app, a guest, a car EV Planner does not know), the charger gets the room there is: the limit, less what the house draws without the chargers (the meter less what each charger's own meter measures, or what it is set to), less 2 A. The plan only starts and stops the cars. One memory per charger replaces the five there were, and one formula the four ways of setting the current.
+- **Down at once, up seldom, straight to its share.** Over the limit, a charger goes down at once (a small overload after 30 seconds) to its share, worked out from what is measured, not from what the charger was thought to be at. Up again only when the house has left the room all the place's wait after a peak (10 minutes, or as set), and not more often than the charger allows (a Zaptec every 15 minutes, Zaptec's own guidance); a car that would not be ready in time otherwise waits only the charger's own time. Up straight to its share, not 3 A at a time, and never to a "before" value.
+- **The room is shared evenly** between the chargers that charge; a car set to come first gets it before the others. A charger there is not 6 A for is stopped (the heat pump is held back first, when allowed).
+- **The current is set before a start.** A car is started at its share of the room, and the chargers that charge already go down to theirs first. With no room for 6 A, the car waits ("waiting for room on the supply").
+- **A charger nothing charges at goes to its full current** (once), when a car is done, or unplugged: a car plugged in while Home Assistant is away charges at all the charger gives. One the guard has stopped for a while is left until it starts again.
+- **Zaptec: the installation's "Available current" is turned**, as Zaptec asks, when the charger is the only one of its installation; the charger's own "Charger max current" is set back to full once.
+- **A charger's cloud that shows its old current for a while** (a Zaptec's for up to a minute) is not believed: what EV Planner set counts until the charger says the same. A current set in the charger's app is taken as it is, and goes up again only after the charger's wait.
+- **The plan works out when the car is done at the current it gets**, while the guard holds it below its full current.
+
+### Added
+
+- **A message when a car is plugged in**: which charger, when it is to be ready and how it charges, e.g. "Elroq · Garagelader – Week plan tomorrow 07:00 · 80 %. Charges tonight 01:00-03:30, about 12,40 kr." Once a plug-in, when the car and the charger have found each other and the plan is made. On by default, per car under its messages.
+
+### Fixed
+
+- Frank: after the oven, the charger stayed at 14 A until the charge was stopped (it went back to a stale "before" value); it was cut to 7 A where 11 A would do (worked out from 11 A while the charger was at 16 A); and it was left at 6 A after the stop (the car's own current, in the seconds before it said it charges, was taken for the house's).
+
 ## [2.5.0b27] - 2026-11-16
 
 ### Fixed
