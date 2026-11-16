@@ -787,12 +787,16 @@ async def test_a_paused_car_is_judged_by_its_chargers_meter_not_by_what_its_clou
     await household.async_set_vehicle(TESLA, {"mode": "pause"})
     hass.states.async_set(METER, "3", {"unit_of_measurement": "A"})
     await settle(hass, freezer)
-    assert household.is_charging(household.vehicles[TESLA])  # as its cloud says
-    assert [c.data["value"] for c in calls] == [16]  # back to its full current
-    assert any(e["kind"] == "current" and e["why"] == "rest" for e in household.events.items)
+    tesla = household.vehicles[TESLA]
+    assert household.is_charging(tesla)  # as its cloud says
+    # Not charging, as far as the supply goes: no longer one of the chargers that charge (so a charger's own
+    # setting goes back to full, as in the test above).
+    assert not supply._charges(tesla)
+    assert all(channel.vehicle is not tesla for channel in supply.channels(dt_util.now()))
     # Charge now again: started at what there is room for (all of it), not at the 7 A of before.
-    switches.calls.clear()
+    calls.clear()
     await household.async_set_vehicle(TESLA, {"mode": "charge_now"})
     await settle(hass, freezer)
-    assert hass.states.get(AMPS).state == "16"  # type: ignore[union-attr]
-    assert household.vehicles[TESLA].last_sent == "charge"
+    assert [c.data["value"] for c in calls] == [16]
+    assert any(e["kind"] == "current" and e["why"] == "start" for e in household.events.items)
+    assert tesla.last_sent == "charge"
