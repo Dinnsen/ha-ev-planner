@@ -949,7 +949,8 @@ class SupplyControl:
         if not self.guard or self.household.pairing.site_of(charger) is not self.site:
             return False
         free = self.free_now(now, without=charger)
-        waits = free is not None and free < MIN_AMPS
+        # A charger that has just gone down, not shown by the meter yet: the start waits for its next reading.
+        waits = (free is not None and free < MIN_AMPS) or self._fading_now(self.channels(now), now)
         if waits != self._guest_waiting:
             self._guest_waiting = waits
             self.household.events.add(now, "start_waits", vehicle="guest", waits=waits)
@@ -970,6 +971,8 @@ class SupplyControl:
         gives (6 A) free now, with the others at their share: it is not started yet."""
         if not self.guard or self.household.is_charging(vehicle) or self._started(vehicle):
             return False
+        if self._fading_now(self.channels(now), now):
+            return True  # a charger has just gone down and the meter does not show it yet: its next reading does
         found = self._start_shares(vehicle, now)
         return found is not None and found[1][-1] <= 0
 

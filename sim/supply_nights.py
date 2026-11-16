@@ -103,7 +103,8 @@ class SupplyNight:
     margin: float | None = None  # amps kept free under the limit (0-3; 1 if not set)
     meter_every: int = 0  # seconds between two reports of the supply's meter (0: each look at the house)
     mode_sets: list[tuple[str, str, str]] = field(default_factory=list)  # (local time, car, mode) chosen in the app
-    expect_start: list[tuple[str, str, str]] = field(default_factory=list)  # (from, by local time, car) it starts
+    # (from, by local time, car, amps): the car starts in that time, at that current at least (0: any).
+    expect_start: list[tuple[str, str, str, float]] = field(default_factory=list)
 
     def meter_lost(self, local: datetime) -> bool:
         now = local.strftime("%H:%M")
@@ -292,6 +293,7 @@ async def run_supply_night(
     shown: dict[str, tuple[float, float, datetime]] = {}  # car: (old, new, new shown from)
     drawing_since: dict[str, datetime | None] = {car.key: None for car in night.cars}
     starts: dict[str, list[datetime]] = {car.key: [] for car in night.cars}
+    start_amps: dict[str, list[tuple[datetime, float]]] = {car.key: [] for car in night.cars}
     over_seconds = longest_seconds = 0
     log: list[str] = []
     user_at: dict[str, datetime] = {}
@@ -565,6 +567,7 @@ async def run_supply_night(
                 if amps > 0 and got[car.key] <= 0:
                     drawing_since[car.key] = moment
                     starts[car.key].append(moment)
+                    start_amps[car.key].append((moment, amps))
                 elif amps <= 0:
                     drawing_since[car.key] = None
                 got[car.key] = amps
@@ -613,11 +616,15 @@ async def run_supply_night(
         if last is None or last < amps:
             not_back.append(f"car {key} at {last} A by {by}, not {amps:g} A")
 
-    late_starts = [
-        f"car {key} not started between {frm} and {by}"
-        for frm, by, key in night.expect_start
-        if not any(night.at(night.day, frm) <= t <= night.at(night.day, by) for t in starts[key])
-    ]
+    late_starts: list[str] = []
+    for frm, by, key, amps in night.expect_start:
+        begun = [(t, a) for t, a in start_amps[key] if night.at(night.day, frm) <= t <= night.at(night.day, by)]
+        if not begun:
+            late_starts.append(f"car {key} not started between {frm} and {by}")
+        elif begun[0][1] < amps - 0.5:
+            late_starts.append(
+                f"car {key} started at {begun[0][1]:g} A at {begun[0][0].astimezone(ZONE):%H:%M:%S}, not {amps:g} A"
+            )
     # Nothing charges at the end: each charger is left at its full current (a car plugged in while Home
     # Assistant is away charges at all the charger gives).
     left_low = [
@@ -1056,7 +1063,7 @@ def supply_nights() -> list[SupplyNight]:
             charging_lag=90,
             meter_every=30,
             mode_sets=[("12:42:00", "a", "pause"), ("12:42:15", "a", "charge_now")],
-            expect_start=[("12:42:15", "12:43:15", "a")],
+            expect_start=[("12:42:15", "12:43:15", "a", 16)],
             tags=["guard", "frank", "no-overload"],
         ),
         # Frank, 13.17: the same with the oven on when charge now is chosen again (12.7 A in the house):
@@ -1079,7 +1086,7 @@ def supply_nights() -> list[SupplyNight]:
             charging_lag=90,
             meter_every=30,
             mode_sets=[("13:17:30", "a", "pause"), ("13:21:45", "a", "charge_now")],
-            expect_start=[("13:21:45", "13:22:45", "a")],
+            expect_start=[("13:21:45", "13:22:45", "a", 11)],
             expect_back=[("14:10", "a", 16)],
             tags=["guard", "frank", "no-overload"],
         ),
