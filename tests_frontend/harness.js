@@ -60,6 +60,8 @@ const harness = {
       return this.answer(message);
     };
     this.hass = {
+      // As Home Assistant's: a whole URL on its address (braces in it are written %7B…%7D).
+      hassUrl: (path = "") => new URL(path, location.origin).toString(),
       language: lang,
       locale: { language: lang, number_format: "language", time_format: "24" },
       themes: { darkMode: dark },

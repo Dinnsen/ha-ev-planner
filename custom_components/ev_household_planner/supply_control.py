@@ -118,7 +118,7 @@ WAKE_EVERY = timedelta(seconds=10)
 # The house's peaks are kept this long: a charger goes up only into what has been free all the time
 # since it last changed (at least the place's window), so a dishwasher or a dryer that heats in bursts
 # every ten minutes is not given to a car in the gap between two of them.
-HEADROOM_WINDOW = timedelta(minutes=10)
+HEADROOM_WINDOW = timedelta(minutes=15)
 PEAKS_KEPT = timedelta(minutes=30)
 # The weather forecast is fetched again after this long.
 WEATHER_EVERY = timedelta(minutes=55)

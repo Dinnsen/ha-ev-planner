@@ -9931,8 +9931,10 @@ class EvPlannerPanel extends HTMLElement {
     this._hass
       .callWS({ type: "map_tiles/access_token" })
       .then((answer) => {
-        const path = `/api/map_tiles/raster/{z}/{x}/{y}.png?token=${encodeURIComponent(answer?.token || "")}`;
-        this._insTiles = answer?.token ? (this._hass.hassUrl ? this._hass.hassUrl(path) : path) : null;
+        // Home Assistant's address first, the tile's own part after: a URL made of the whole would have the
+        // braces of {z}/{x}/{y} written as %7B…%7D, and nothing would be put in their place (403 for every tile).
+        const base = this._hass.hassUrl ? this._hass.hassUrl("/api/map_tiles/raster/") : "/api/map_tiles/raster/";
+        this._insTiles = answer?.token ? `${base}{z}/{x}/{y}.png?token=${encodeURIComponent(answer.token)}` : null;
       })
       .catch(() => { this._insTiles = null; })
       .finally(() => { this._insTilesAt = Date.now(); this._insTilesBusy = false; if (this._tab === "history") this._render(); });
@@ -10268,7 +10270,7 @@ class EvPlannerPanel extends HTMLElement {
   /* Settings → Places: each place's prices, guard, how the cars share it, and its house. */
   _placesTile(settings) {
     const supply = this._state.supply;
-    const sites = this._state.sites?.length ? this._state.sites : [{ id: "home", home: true, name: "", supply, guard: Boolean(supply?.guard), has_meter: Boolean(supply?.meter), wait: 10, share: "queue" }];
+    const sites = this._state.sites?.length ? this._state.sites : [{ id: "home", home: true, name: "", supply, guard: Boolean(supply?.guard), has_meter: Boolean(supply?.meter), wait: 15, share: "queue" }];
     const many = sites.length > 1;
     const body = sites
       .map((site) => {
@@ -10279,7 +10281,7 @@ class EvPlannerPanel extends HTMLElement {
             <span class="house-pic">${ClayScene.housePreview(code)}</span><span>${this._t(`house_${code}`)}</span></button>`,
         ).join("");
         const sup = site.supply;
-        const wait = Number(site.wait) || 10;
+        const wait = Number(site.wait) || 15;
         const share = site.share === "need" ? "need" : "queue";
         const supplyRows = sup
           ? `${this._ruleRow({

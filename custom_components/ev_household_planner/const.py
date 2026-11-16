@@ -162,7 +162,7 @@ CONF_SUPPLY_GUARD: Final = "supply_guard"
 CONF_SITE_PRICE_ENTITY: Final = "site_price_entity"
 # How long the guard looks back for the house's peaks before it turns the cars up (minutes).
 CONF_SUPPLY_WAIT: Final = "supply_wait"
-DEFAULT_SUPPLY_WAIT: Final = 10
+DEFAULT_SUPPLY_WAIT: Final = 15
 # Shared supply: how cars share a slot there is not room for all of them in. In line (the first
 # takes what it needs), or by need (each a share by the kWh it lacks).
 CONF_SUPPLY_SHARE: Final = "supply_share"

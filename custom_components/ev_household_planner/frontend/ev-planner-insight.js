@@ -1050,7 +1050,7 @@ function boot(host, root) {
     }
     const z = S.map.z, n = 2 ** z, [cx, cy] = merc(S.map, z), x0 = cx - W / 2, y0 = cy - Hh / 2, P = (p) => { const [x, y] = merc(p, z); return [x - x0, y - y0]; };
     let tiles = "";
-    for (let tx = Math.floor(x0 / 256); tx * 256 < x0 + W; tx += 1) for (let ty = Math.floor(y0 / 256); ty * 256 < y0 + Hh; ty += 1) { if (ty < 0 || ty >= n) continue; if (IN.tiles) tiles += `<img alt="" draggable="false" src="${esc(IN.tiles.replace("{z}", z).replace("{x}", mod(tx, n)).replace("{y}", ty))}" style="left:${Math.round(tx * 256 - x0)}px;top:${Math.round(ty * 256 - y0)}px">`; }
+    for (let tx = Math.floor(x0 / 256); tx * 256 < x0 + W; tx += 1) for (let ty = Math.floor(y0 / 256); ty * 256 < y0 + Hh; ty += 1) { if (ty < 0 || ty >= n) continue; if (IN.tiles) tiles += `<img alt="" draggable="false" src="${esc(IN.tiles.replace(/\{z\}|%7Bz%7D/i, z).replace(/\{x\}|%7Bx%7D/i, mod(tx, n)).replace(/\{y\}|%7By%7D/i, ty))}" style="left:${Math.round(tx * 256 - x0)}px;top:${Math.round(ty * 256 - y0)}px">`; }
     const line = (pts) => pts.map((p, i) => { const [x, y] = P(p); return `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`; }).join("");
     const roads = shown.map((p) => `<path class="hit" data-mp="${places.indexOf(p)}" d="${line(p.route || [home, p.pos])}" fill="none" stroke="${c.col}" stroke-width="${Math.min(8, 2 + Math.sqrt(p.count) * 0.8).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round" opacity=".42"/>`).join("");
     const [hx, hy] = P(home);
