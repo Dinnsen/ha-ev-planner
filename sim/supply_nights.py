@@ -99,6 +99,7 @@ class SupplyNight:
     charging_lag: int = 0  # seconds before a car's cloud says it charges (and what it draws)
     user_sets: list[tuple[str, str, float]] = field(default_factory=list)  # (local time, car, amps) set in the app
     expect_back: list[tuple[str, str, float]] = field(default_factory=list)  # (by local time, car, amps) set again
+    wait: int | None = None  # minutes the place waits after a peak before the cars get more (5-30; 10 if not set)
 
     def meter_lost(self, local: datetime) -> bool:
         now = local.strftime("%H:%M")
@@ -165,6 +166,8 @@ def _entry(night: SupplyNight) -> MockConfigEntry:
         options["supply_meter"] = [METER]
     if night.share != "queue":
         options["supply_share"] = night.share
+    if night.wait is not None:
+        options["supply_wait"] = night.wait
     if night.weather:
         options["weather_entity"] = WEATHER
     if night.heat_pump_meter:
@@ -736,7 +739,9 @@ def supply_nights() -> list[SupplyNight]:
             ready_by="06:00",
             tags=["shortage"],
         ),
-        # No Equalizer: the guard is all that turns the cars down when the house needs more.
+        # No Equalizer: the guard is all that turns the cars down when the house needs more. Both cars need
+        # most of the night at full current, and five peaks take some of it: the place waits 5 minutes after a
+        # peak before the cars get more (the shortest it can be set to).
         SupplyNight(
             "guard-spikes",
             monday,
@@ -747,7 +752,21 @@ def supply_nights() -> list[SupplyNight]:
             plug_in="22:00",
             equalizer=False,
             guard=True,
+            wait=5,
             tags=["guard"],
+        ),
+        # The same night with the place's usual 10 minutes after a peak: shown, not held to the ready-by time.
+        SupplyNight(
+            "guard-spikes-wait-10",
+            monday,
+            [SupplyCar("a", 20, 80, adjustable=True), SupplyCar("b", 25, 80, adjustable=True, priority="first")],
+            fuse=25,
+            limit=23,
+            house=_spiky(4),
+            plug_in="22:00",
+            equalizer=False,
+            guard=True,
+            tags=["guard", "tight"],
         ),
         SupplyNight(
             "guard-spikes-easee-delay",
@@ -763,6 +782,7 @@ def supply_nights() -> list[SupplyNight]:
             equalizer=False,
             guard=True,
             latency=1,
+            wait=5,
             tags=["guard", "easee"],
         ),
         SupplyNight(

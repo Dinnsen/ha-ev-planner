@@ -54,8 +54,8 @@ async def test_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory,
         broken.extend(f"not back up: {item}" for item in run.not_back)
         broken.extend(f"undid a change in the app: {item}" for item in run.fought)
         broken.extend(f"left under its full current with nothing charging: {item}" for item in run.left_low)
-    if "frank" in night.tags and night.until:
-        pass  # charged at once, for a morning or an evening: no ready-by time to meet
+    if ("frank" in night.tags and night.until) or "tight" in night.tags:
+        pass  # charged at once (no ready-by time), or a night shown for comparison
     elif "shortage" in night.tags:
         first = next(car for car in night.cars if car.priority == "first")
         if not run.ready[first.key]:
@@ -76,8 +76,8 @@ async def test_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory,
         f" {run.blind} min while the meter was out;"
         f" current changes {run.current_changes}, busiest hour {run.most_per_hour}"
     )
-    if "frank" in night.tags:
-        run.result.changes_log.extend(run.log[:30])
+    if night.guard:
+        run.result.changes_log.extend(run.log[:40])
     out = os.environ.get("SIM_OUT")
     if out:
         with Path(out).open("a", encoding="utf-8") as file:

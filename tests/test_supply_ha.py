@@ -330,8 +330,8 @@ async def test_a_watched_car_goes_up_only_into_free_room(
     supply = household.supply
     await household.async_set_vehicle(TESLA, {"mode": "charge_now"})
     await settle(hass, freezer)
-    moment = dt_util.now() + timedelta(minutes=1)
     hass.states.async_set(AMPS, "6", {"min": 6, "max": 16})
+    moment = dt_util.now() + timedelta(minutes=6)  # the charger has been at 6 A for longer than it must wait
     supply._sent[AMPS] = (6.0, moment - timedelta(hours=1))
     supply._house_peaks.clear()
     calls.clear()
