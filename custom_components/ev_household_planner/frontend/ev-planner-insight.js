@@ -562,16 +562,19 @@ function boot(host, root) {
     const reach = (id, n) => { let left = st[id].kwh; if (left < floor(id, n + 1) - 1e-6) return 0; let k = 1; for (; k < 4; k += 1) { left -= qd(id, n + k, style.rest); if (left < floor(id, n + k + 1)) break; } return k; };
     // Each day's price: the cheapest three hours from noon to noon the next day, at the hours a car is usually home
     // (charging is not only at night: a car home by day charges there too), and how it stands among the week's days.
-    const homeAt = (hod, wd) => !ids.length || ids.some((id) => ((L[id].awayP[wd] || [])[hod] ?? 0) < 0.5);
-    const dayPrice = (n) => {
+    // Each car has its own hours at home; the row of prices is for the hours any of them is.
+    const homeAt = (hod, wd, only) => { const who = only ? [only] : ids; return !who.length || who.some((id) => ((L[id].awayP[wd] || [])[hod] ?? 0) < 0.5); };
+    const dayPrice = (n, only) => {
       const from = n === 0 ? hNow : n * 24 + 12, to = n * 24 + 36, list = [];
-      for (let h = from; h < to; h += 1) { const p = priceH.get(h); if (p == null) continue; if (n > 0 && !homeAt(mod(h, 24), new Date(t0 + Math.floor(h / 24) * DAY + DAY / 2).getDay())) continue; list.push({ h, p, fc: fcH.has(h) }); }
+      for (let h = from; h < to; h += 1) { const p = priceH.get(h); if (p == null) continue; if (n > 0 && !homeAt(mod(h, 24), new Date(t0 + Math.floor(h / 24) * DAY + DAY / 2).getDay(), only)) continue; list.push({ h, p, fc: fcH.has(h) }); }
       if (list.length < 3) return { price: n === 0 ? tn.price ?? nightOf(0) : nightOf(n), at: null, fc: fcH.has(n * 24 + (IN.window || [21])[0] + 3) };
       const best = [...list].sort((x, y) => x.p - y.p).slice(0, 3).sort((x, y) => x.h - y.h);
       return { price: mean(best.map((x) => x.p)), at: best[0].h, fc: best.some((x) => x.fc) };
     };
     const days = Array.from({ length: 7 }, (_, n) => dayPrice(n)), shown = days.map((x) => x.price).filter((v) => v != null);
-    const tierAt = (v) => (v == null || shown.length < 3 ? "" : v <= q(shown, 0.33) ? "lo" : v >= q(shown, 0.67) ? "hi" : "mid");
+    const tierAt = (v, all = shown) => (v == null || all.length < 3 ? "" : v <= q(all, 0.33) ? "lo" : v >= q(all, 0.67) ? "hi" : "mid");
+    // A cheap day for a car is cheap at the hours that car is home.
+    const own = Object.fromEntries(ids.map((id) => { const d = Array.from({ length: 7 }, (_, n) => dayPrice(n, id).price); return [id, d.map((v) => tierAt(v, d.filter((x) => x != null)))]; }));
     const nights = [];
     for (let n = 0; n < 7; n += 1) {
       const picks = new Set(), tier = tierAt(days[n].price);
@@ -592,7 +595,7 @@ function boot(host, root) {
           // Enough for the day and the way: a hard day tomorrow with the reserve, and a typical day after it.
           // On a cheap day (or with every night chosen) all the way to the target.
           const enough = x.knows ? floor(id, n + 1) + qd(id, n + 2, 0.5) : x.target;
-          const goal = tier === "lo" || style.every ? x.target : Math.min(x.target, Math.max(enough, x.kwh));
+          const goal = (own[id][n] || tier) === "lo" || style.every ? x.target : Math.min(x.target, Math.max(enough, x.kwh));
           add = Math.max(0, goal - x.kwh);
         }
         cells[id].push({ level: shownLvl, charge: picks.has(id), add: x.kwh == null ? 0 : (add / CARS[id].cap) * 100, full: picks.has(id) && x.kwh != null && x.kwh + add >= x.target - 0.5 });
@@ -856,10 +859,10 @@ function boot(host, root) {
     const p = pick ? info(pick) : null;
     const nights = (n) => (n === 1 ? tr("1 nat", "1 night") : `${n} ${tr("nætter", "nights")}`);
     let head;
-    const why = { needed: tr("Den har ikke nok til en svær dag i morgen.", "It does not have enough for a hard day tomorrow."), soonest: tr("Den rammer bunden først.", "It reaches its floor first."), apart: tr("Så skal bilerne ikke lade samme nat senere.", "Then the cars will not need the same night later."), cheaper: tr(`En billigere nat er ${Math.round((g.chance || 0) * 100)} % sandsynlig.`, `A cheaper night is ${Math.round((g.chance || 0) * 100)} % likely.`), enough: tr("Der er nok på batterierne til en svær dag i morgen.", "There is enough in the batteries for a hard day tomorrow."), full: tr("Batterierne er fyldt til det, I har bedt om.", "The batteries are filled to what you asked for."), learning: tr("Der skal mindst 28 dages kørsel til, før der anbefales noget.", "It takes at least 28 days of driving before anything is recommended.") }[g.reason] || "";
+    const why = { needed: tr("Den har ikke nok til en svær dag i morgen.", "It does not have enough for a hard day tomorrow."), soonest: tr("Den rammer bunden først.", "It reaches its floor first."), apart: tr("Så skal bilerne ikke lade samme nat senere.", "Then the cars will not need the same night later."), cheaper: tr(`Et billigere tidspunkt er ${Math.round((g.chance || 0) * 100)} % sandsynligt.`, `A cheaper time is ${Math.round((g.chance || 0) * 100)} % likely.`), enough: tr("Der er nok på batterierne til en svær dag i morgen.", "There is enough in the batteries for a hard day tomorrow."), full: tr("Batterierne er fyldt til det, I har bedt om.", "The batteries are filled to what you asked for."), learning: tr("Der skal mindst 28 dages kørsel til, før der anbefales noget.", "It takes at least 28 days of driving before anything is recommended.") }[g.reason] || "";
     if (p && p.plugged) head = tr(`<em>${esc(p.c.name)}</em> sidder i og får laderen i nat.`, `<em>${esc(p.c.name)}</em> is plugged in and has the charger tonight.`);
     else if (p) head = tr(`Sæt <em>${esc(p.c.name)}</em> i laderen i aften.`, `Plug in <em>${esc(p.c.name)}</em> this evening.`);
-    else if (g.wait) head = tr("Ingen bil behøver laderen i nat. <em>Vent på en billigere nat.</em>", "No car needs the charger tonight. <em>Wait for a cheaper night.</em>");
+    else if (g.wait) head = tr("Ingen bil behøver laderen i nat. <em>Vent på et billigere tidspunkt.</em>", "No car needs the charger tonight. <em>Wait for a cheaper time.</em>");
     else if (!groups.length) head = tr("Aftenens valg <em>regnes ud</em> inden for en time.", "Tonight's choice is <em>worked out</em> within the hour.");
     else if (g.reason === "learning") head = tr("Indsigt <em>lærer stadig</em> jeres rytme.", "Insight is <em>still learning</em> your rhythm.");
     else head = tr("Ingen bil behøver laderen i nat.", "No car needs the charger tonight.");
@@ -896,7 +899,7 @@ function boot(host, root) {
     if (g.both) cue = `<p class="hcue warn">${tr("Begge biler skal lade i nat", "Both cars need tonight")}<small>${tr(`lad den anden om dagen, eller byt før kl. ${pad(w0)}`, `charge the other by day, or swap before ${pad(w0)}:00`)}</small></p>`;
     else if (p && p.plugged) cue = `<p class="hcue">${span ? tr(`${esc(p.c.name)} lader kl. ${span}`, `${esc(p.c.name)} charges ${span}`) : tr(`${esc(p.c.name)} sidder i`, `${esc(p.c.name)} is plugged in`)}${lp && lp.energy ? ` · ${nf(lp.energy)} kWh · ${esc(money(lp.cost, 0))}` : ""}</p>`;
     else if (p) cue = `<p class="hcue">${kIn >= 0 ? tr(`Flyt kablet til ${esc(p.c.name)} før kl. ${pad(w0)}`, `Move the cable to ${esc(p.c.name)} before ${pad(w0)}:00`) : tr(`Sæt kablet i ${esc(p.c.name)} før kl. ${pad(w0)}`, `Plug in ${esc(p.c.name)} before ${pad(w0)}:00`)}</p>`;
-    else if (g.wait) cue = `<p class="hcue">${tr("Lad kablet hænge", "Leave the cable")}<small>${tr(`en billigere nat er ${Math.round((g.chance || 0) * 100)} % sandsynlig`, `a cheaper night is ${Math.round((g.chance || 0) * 100)} % likely`)}</small></p>`;
+    else if (g.wait) cue = `<p class="hcue">${tr("Lad kablet hænge", "Leave the cable")}<small>${tr(`et billigere tidspunkt er ${Math.round((g.chance || 0) * 100)} % sandsynligt`, `a cheaper time is ${Math.round((g.chance || 0) * 100)} % likely`)}</small></p>`;
     // The head: this evening, and the night's price against the last nights.
     const ref = night.filter((v) => v != null), tp = tn.price ?? nightOf(0), tier = tp == null || ref.length < 10 ? "" : tp <= q(ref, 0.33) ? "good" : tp >= q(ref, 0.67) ? "bad" : "mid";
     const tierT = { good: tr("en billig nat", "a cheap night"), mid: tr("en almindelig nat", "an ordinary night"), bad: tr("en dyr nat", "a dear night") }[tier] || tr("nattens pris", "the night's price");
@@ -1314,7 +1317,7 @@ function boot(host, root) {
       <div><span class="small" style="display:block">${tr("Batteri om morgenen, i snit", "Battery in the morning, on average")}</span><b class="big2">${Math.round(r.morning)} %</b></div></div>
       <div class="detail"><span class="tag">${tr("De 90 nætter, uge for uge", "The 90 nights, week by week")}</span><div class="strip">${weeks.join("")}</div><div class="legend">${list.map((id) => `<span><i class="dot" style="background:${CARS[id].col}"></i>${esc(CARS[id].name)} ${tr("lader", "charges")}</span>`).join("")}<span><i class="dot" style="background:var(--card);box-shadow:inset 0 0 0 2px var(--bad)"></i>${tr("under 5 % dagen efter", "under 5 % the day after")}</span></div></div>
       <h3>${tr("Sådan vælger den", "How it chooses")}</h3><p class="small" style="display:block">${tr("En bil lader den nat, den ellers ikke har nok til en svær dag i morgen med reserven oveni, eller når begge biler ellers ville skulle lade samme nat. Dagene derefter regnes som typiske dage. »Hver nat« er den gamle måde: den laveste bil lader hver nat, den ikke er fuld.", "A car charges the night it would otherwise not have enough for a hard day tomorrow with the reserve on top, or when both cars would otherwise need the same night. The days after are counted as typical days. »Every night« is the old way: the lowest car charges every night it is not full.")}</p>
-      <p class="small" style="display:block">${tr(`Regnet på jeres egne ${r.days} dage med det forbrug, bilerne har haft, og deres mål. En dag længere, end et fuldt batteri rækker til, tæller ikke med. Laderen styres kun efter dette, når »Lad planen vente på en billigere nat« er slået til.`, `Worked out on your own ${r.days} days with the use the cars had, and their targets. A day longer than a full battery reaches does not count. The charger follows this only when »Let the plan wait for a cheaper night« is on.`)}</p>`;
+      <p class="small" style="display:block">${tr(`Regnet på jeres egne ${r.days} dage med det forbrug, bilerne har haft, og deres mål. En dag længere, end et fuldt batteri rækker til, tæller ikke med. Laderen styres kun efter dette, når »Lad planen vente på et billigere tidspunkt« er slået til.`, `Worked out on your own ${r.days} days with the use the cars had, and their targets. A day longer than a full battery reaches does not count. The charger follows this only when »Let the plan wait for a cheaper time« is on.`)}</p>`;
   };
   SHEETS.style = [() => `${tr("Hav nok til", "Have enough for")} · ${NAMES9()[clamp(S.c9 ?? Math.round(Number(IN.style ?? 3)), 0, 5)]}`, c9sheet];
 
@@ -1393,7 +1396,7 @@ function boot(host, root) {
       $("#verdict").textContent = tr("Regnes ud inden for en time", "Worked out within the hour"); $("#verdict").style.color = "var(--soft)"; $("#why").textContent = "";
     } else {
     $("#dialv").style.strokeDashoffset = String(100 - p); $("#dialv").style.stroke = wait ? "var(--accent)" : "var(--fc)"; $("#dialm").style.transform = "rotate(252deg)"; $("#dialt").textContent = `${p} %`;
-    $("#verdict").textContent = wait ? tr("Venter på en billigere nat", "Waits for a cheaper night") : g.pick && CARS[g.pick] ? tr(`${CARS[g.pick].name} lader i nat`, `${CARS[g.pick].name} charges tonight`) : tr("Ingen ladning nødvendig i nat", "No charging needed tonight");
+    $("#verdict").textContent = wait ? tr("Venter på et billigere tidspunkt", "Waits for a cheaper time") : g.pick && CARS[g.pick] ? tr(`${CARS[g.pick].name} lader i nat`, `${CARS[g.pick].name} charges tonight`) : tr("Ingen ladning nødvendig i nat", "No charging needed tonight");
     $("#verdict").style.color = wait ? "var(--accent-ink)" : "var(--fc)";
     $("#why").textContent = `${tr(`Det er ${p} % sandsynligt, at en af de næste nætter bliver billigere end i nat`, `It is ${p} % likely that one of the coming nights is cheaper than tonight`)}${tn.price != null ? ` (${money(tn.price)})` : ""}. ${tr("Grænsen for at vente er 70 %, og kun når bilerne kan klare en svær dag imens.", "The limit for waiting is 70 %, and only when the cars can manage a hard day meanwhile.")}${IN.use ? "" : ` ${tr("Planen følger ikke dette endnu; det er slået fra under Indstillinger.", "The plan does not follow this yet; it is off in Settings.")}`}`;
     }

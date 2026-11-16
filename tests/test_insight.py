@@ -653,3 +653,67 @@ async def test_tonight_is_kept_over_a_restart_in_the_window_and_follows_a_new_ch
     with patch.object(insight, "_async_decide", wraps=insight._async_decide) as decide:
         await planner.async_update_settings({"insight_style": 5})
     assert decide.call_args.kwargs.get("again") is True
+
+
+def sunny_noons(hass: HomeAssistant, now: datetime) -> None:
+    """Dear all night, cheap at noon from tomorrow on."""
+    midnight = dt_util.start_of_local_day(now)
+    days = [rows(midnight + timedelta(days=ahead), 24, 2.0) for ahead in range(6)]
+    for ahead, day in enumerate(days):
+        for row in day[11:15]:
+            row["price"] = 0.5 if ahead else 2.0
+    hass.states.async_set(
+        PRICE_ENTITY,
+        "1",
+        {"raw_today": days[0], "raw_tomorrow": days[1], "forecast": [row for day in days[2:] for row in day]},
+    )
+
+
+def trips_out(insight: Insight, now: datetime, vehicle_id: str, leave: int, back: int) -> None:
+    """Four weeks of the car leaving home at ``leave`` and coming back at ``back`` every day."""
+    today = dt_util.start_of_local_day(now)
+    for ago in range(28, 0, -1):
+        day = today - timedelta(days=ago)
+        for start, end, origin, place in (
+            (day + timedelta(hours=leave), day + timedelta(hours=leave, minutes=30), "home", None),
+            (day + timedelta(hours=back), day + timedelta(hours=back, minutes=30), None, "home"),
+        ):
+            insight.data["trips"].append(
+                {"vehicle": vehicle_id, "start": start.isoformat(), "end": end.isoformat(), "from": origin, "to": place}
+            )
+
+
+async def test_the_days_prices_count_at_the_hours_the_car_is_home(
+    hass: HomeAssistant, init_integration: MockConfigEntry, now: datetime
+) -> None:
+    planner = init_integration.runtime_data
+    insight = insight_of(init_integration)
+    await planner.async_update_settings({"insight": True, "insight_use": True})
+    seed(insight, now)
+    set_tesla(hass, soc=50, cable=True)
+    await planner.async_set_vehicle(MERCEDES, {"manual_soc": 100})
+    sunny_noons(hass, now)
+    await hass.async_block_till_done()
+    # Not known yet when the car is home: the nights alike, so no waiting.
+    await insight._async_decide(now)
+    assert insight.tonight["cars"][TESLA]["later"] is None
+    assert insight.tonight["groups"][0]["wait"] is False
+    # At work from 8 to 16 every day: the cheap noons are no use to it.
+    trips_out(insight, now, TESLA, 8, 16)
+    share = insight.home_hours(TESLA, now)
+    assert share is not None and share[0][12] == 0.0
+    await insight._async_decide(now)
+    car = insight.tonight["cars"][TESLA]
+    assert car["now_price"] == 2.0 and car["later"] == [2.0, 2.0, 2.0]
+    assert insight.tonight["groups"][0]["wait"] is False
+    # Home at noon, out in the evening: it waits for tomorrow's noon instead of the dear night.
+    insight.data["trips"] = []
+    trips_out(insight, now, TESLA, 17, 18)
+    await insight._async_decide(now)
+    car = insight.tonight["cars"][TESLA]
+    assert car["now_price"] == 2.0 and car["later"] == [0.5, 0.5, 0.5]
+    group = insight.tonight["groups"][0]
+    assert (group["wait"], group["reason"]) == (True, "cheaper")
+    assert planner.vehicles[TESLA].insight_hold == car["floor_pct"]
+    # The other car has no trips: it goes by the nights.
+    assert insight.tonight["cars"][MERCEDES]["later"] is None

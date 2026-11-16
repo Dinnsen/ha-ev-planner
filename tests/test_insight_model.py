@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from custom_components.ev_household_planner.insight_model import (
     DEFAULT_ERROR,
@@ -14,6 +14,8 @@ from custom_components.ev_household_planner.insight_model import (
     cost_per_km,
     efficiency,
     forecast_errors,
+    home_price,
+    home_share,
     needs,
     night_price,
     quantile,
@@ -34,8 +36,8 @@ def car(name: str, soc: float, *, target: float = 48.0, days: int = 91, **extra:
     return CarOutlook(name, soc, 60.0, target, history(days), TODAY, **extra)
 
 
-def light(name: str, soc: float) -> CarOutlook:
-    return CarOutlook(name, soc, 60.0, 48.0, history(91, LIGHT), TODAY)
+def light(name: str, soc: float, **extra: object) -> CarOutlook:
+    return CarOutlook(name, soc, 60.0, 48.0, history(91, LIGHT), TODAY, **extra)  # type: ignore[arg-type]
 
 
 def test_efficiency_learns_the_mild_day_and_the_cold() -> None:
@@ -190,3 +192,55 @@ def test_the_last_days_against_what_was_expected() -> None:
     assert len(rows) == 14 and rows[0]["p10"] <= rows[0]["p90"]
     assert [level["said"] for level in held] == [0.5, 0.6, 0.7, 0.8, 0.9]
     assert held[0]["hit"] <= held[-1]["hit"] <= 1.0
+
+
+def test_the_hours_a_car_is_home_and_its_prices_by_day_too() -> None:
+    """At work on weekdays from 8 to 16, home at the weekend: the sunny noon counts only on Saturday and Sunday."""
+    first = TODAY - timedelta(days=28)
+    trips = []
+    for ago in range(28):
+        day = first + timedelta(days=ago)
+        if day.weekday() < 5:
+            trips.append(
+                (
+                    datetime(day.year, day.month, day.day, 8),
+                    datetime(day.year, day.month, day.day, 8, 30),
+                    "home",
+                    "work",
+                )
+            )
+            trips.append(
+                (
+                    datetime(day.year, day.month, day.day, 16),
+                    datetime(day.year, day.month, day.day, 16, 30),
+                    "work",
+                    "home",
+                )
+            )
+        elif ago % 7 == 5:
+            # A short trip on Saturdays that does not leave home is not away.
+            trips.append(
+                (datetime(day.year, day.month, day.day, 10), datetime(day.year, day.month, day.day, 11), None, None)
+            )
+    share = home_share(trips, first, TODAY - timedelta(days=1))
+    assert share[0][12] == 0.0 and share[0][8] == 0.0 and share[0][16] == 1.0 and share[0][3] == 1.0
+    assert share[5][12] == 1.0 and share[6][12] == 1.0
+    # Cheap at noon, dear at night.
+    day = [2.0] * 24
+    day[11:15] = [0.5] * 4
+    prices = {(TODAY + timedelta(days=ahead)).isoformat(): list(day) for ahead in range(4)}
+    monday, saturday = datetime(2026, 11, 16, 7), datetime(2026, 11, 21, 7)
+    assert home_price(prices, monday, monday + timedelta(days=1), share) == 2.0
+    assert home_price(prices, saturday - timedelta(days=5), saturday - timedelta(days=4), None) == 0.5
+    sunday = datetime(2026, 11, 15, 7)
+    assert home_price(prices, sunday, sunday + timedelta(days=1), share) == 0.5
+    assert home_price(prices, monday, monday + timedelta(hours=2), share) is None
+    # The nights are alike, but the car is home on a cheap noon to come: it waits for it.
+    same = choose([light("a", 46.0)], 1.0, [1.0, 1.0, 1.0], [])
+    assert same["wait"] is False
+    sunny = choose([light("a", 46.0, now_price=2.0, later=[0.5, 0.5, 0.5])], 1.0, [1.0, 1.0, 1.0], [])
+    assert (sunny["wait"], sunny["reason"]) == (True, "cheaper")
+    # Two cars wait only when each has a cheaper time of its own to come.
+    mixed = [light("a", 46.0, now_price=2.0, later=[0.5, 0.5, 0.5]), light("b", 47.0, now_price=1.0, later=[2.0] * 3)]
+    assert choose(mixed, 1.0, [1.0, 1.0, 1.0], [])["wait"] is False
+    assert light("a", 46.0, now_price=2.0, later=[0.5]).as_dict()["later"] == [0.5]

@@ -44,6 +44,8 @@ from .insight_model import (
     choose,
     efficiency,
     forecast_errors,
+    home_price,
+    home_share,
     needs,
     night_price,
     score,
@@ -96,6 +98,10 @@ SAVE_DELAY = 300.0
 # A trip shorter than this, in a car with an odometer, is the position wandering, not a trip.
 TRIP_MIN_KM = 0.5
 TRIP_MIN_TIME = timedelta(minutes=5)
+# The hours a car is usually home: learned from the last eight weeks of trips, once there are enough.
+HOME_DAYS = 56
+HOME_MIN_DAYS = 14
+HOME_MIN_TRIPS = 8
 # One reading further than this from the last is a sensor that came back with something else.
 ODOMETER_JUMP = 1500.0
 ENERGY_JUMP = 200.0
@@ -587,6 +593,48 @@ class Insight:
             rest=style["rest"],
         )
 
+    def home_hours(self, vehicle_id: str, now: datetime) -> list[list[float]] | None:
+        """How often the car is home at each hour of each weekday, from its trips; None while too few."""
+        today = dt_util.as_local(now).date()
+        since = today - timedelta(days=HOME_DAYS)
+        trips = []
+        for trip in self.data["trips"]:
+            if trip.get("vehicle") != vehicle_id:
+                continue
+            try:
+                start = dt_util.as_local(datetime.fromisoformat(str(trip["start"])))
+                end = dt_util.as_local(datetime.fromisoformat(str(trip["end"])))
+            except (KeyError, ValueError):
+                continue
+            if end.date() >= since:
+                trips.append((start, end, trip.get("from"), trip.get("to")))
+        trips.sort(key=lambda trip: trip[0])
+        if sum(origin == "home" for _, _, origin, _ in trips) < HOME_MIN_TRIPS:
+            return None
+        first = max(since, trips[0][0].date())
+        if (today - first).days < HOME_MIN_DAYS:
+            return None
+        return home_share(trips, first, today - timedelta(days=1))
+
+    def _home_prices(self, car: CarOutlook, prices: dict[str, list[float | None]], now: datetime) -> None:
+        """The car's prices by day as well as by night, at the hours it is usually home.
+
+        From now to the morning, then each day from morning to morning; a car whose hours at home are
+        not known yet goes by the night's prices.
+        """
+        share = self.home_hours(car.vehicle_id, now)
+        if share is None:
+            return
+        local = dt_util.as_local(now)
+        morning = local.replace(hour=self.window[1], minute=0, second=0, microsecond=0)
+        if morning <= local:
+            morning += timedelta(days=1)
+        car.now_price = home_price(prices, local, morning, share)
+        car.later = [
+            home_price(prices, morning + timedelta(days=ahead), morning + timedelta(days=ahead + 1), share)
+            for ahead in range(3)
+        ]
+
     @property
     def style(self) -> dict[str, Any]:
         """How careful the household wants it (0 bold … 5 every night)."""
@@ -630,6 +678,8 @@ class Insight:
             entry: dict[str, Any] = {"at": now.isoformat(), "price": tonight, "cars": {}, "groups": []}
             for group in self.groups():
                 cars = [car for vehicle in group if (car := self.outlook(vehicle, now)) is not None]
+                for car in cars:
+                    self._home_prices(car, prices, now)
                 entry["cars"].update({car.vehicle_id: car.as_dict() for car in cars})
                 entry["groups"].append(
                     {

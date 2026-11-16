@@ -2,6 +2,14 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b25] - 2026-11-16
+
+### Changed
+
+- **Insight looks at the whole day's prices, at the hours each car is usually home.** It learns from each car's trips (the last eight weeks) at which hours of each weekday the car is usually at home. Tonight's price, and each coming day's (morning to morning), is then the cheapest three hours at those hours, by day as well as by night: a car that is home at a cheap noon can wait for it, a car that is at work then cannot. Waiting needs a cheaper time to come for every car that is not full. A car whose hours at home are not known yet (fewer than eight trips from home or two weeks) goes by the night's prices as before.
+- **The cars' week** charges a car to its target on the days that are cheap at the hours that car is home.
+- "A cheaper night" is now "a cheaper time".
+
 ## [2.5.0b24] - 2026-11-15
 
 ### Fixed

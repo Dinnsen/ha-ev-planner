@@ -13,7 +13,7 @@ driving, charging only what tomorrow looked like left a car short some thirty mo
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from math import erf, sqrt
@@ -122,6 +122,10 @@ class CarOutlook:
     known_need: float = 0.0  # a trip in the calendar tomorrow (kWh), which the pattern cannot know
     reserve: float = RESERVE  # kept on top of a hard day, of the battery
     rest: float = 0.9  # how the days after tomorrow are counted (0.5: a typical day)
+    # The price from now till the morning, and in each of the coming days (morning to morning), at the
+    # hours this car is usually home: by day as well as by night. None: the household's night prices count.
+    now_price: float | None = None
+    later: Sequence[float | None] | None = None
 
     @property
     def ripe(self) -> bool:
@@ -161,6 +165,8 @@ class CarOutlook:
             "floor_pct": round(self.floor(1) / self.capacity * 100) if self.capacity else None,
             "reach": self.reach,
             "ripe": self.ripe,
+            "now_price": self.now_price,
+            "later": list(self.later) if self.later is not None else None,
         }
 
 
@@ -196,7 +202,17 @@ def choose(
     reach = {car.vehicle_id: car.reach for car in cars}
     must = [car for car in cars if reach[car.vehicle_id] == 0]
     shortest, longest = min(reach.values()), max(reach.values())
-    chance = chance_cheaper(tonight, later[: max(1, shortest - 1)], errors)
+
+    # Each car against its own coming days, at the hours it is usually home (by day too): waiting needs a
+    # cheaper chance for every car that is not full.
+    def own(car: CarOutlook) -> float:
+        if car.later is None:
+            return chance_cheaper(tonight, later[: max(1, shortest - 1)], errors)
+        mine = car.now_price if car.now_price is not None else tonight
+        return chance_cheaper(mine, list(car.later)[: max(1, reach[car.vehicle_id] - 1)], errors)
+
+    waiting = [car for car in cars if car.soc_kwh < car.target_kwh - 0.5] or cars
+    chance = min(own(car) for car in waiting)
     result: dict[str, Any] = {"both": len(must) >= 2, "chance": chance, "wait": False}
     if must:
         pick = max(must, key=lambda car: (car.floor(1) - car.soc_kwh) / car.capacity)
@@ -214,6 +230,60 @@ def choose(
         return {**result, "pick": None, "reason": "enough"}
     pick = min(below, key=lambda car: (reach[car.vehicle_id], car.soc_kwh / car.capacity))
     return {**result, "pick": pick.vehicle_id, "reason": "soonest"}
+
+
+def home_share(
+    trips: Iterable[tuple[datetime, datetime, str | None, str | None]], first: date, last: date, home: str = "home"
+) -> list[list[float]]:
+    """How often the car is home at each hour of each weekday (Monday first, 0 to 1), from its trips.
+
+    Away from a trip that leaves home until one that comes back; ``trips`` in local time, oldest first.
+    """
+    away = [[0] * 24 for _ in range(7)]
+    seen = [0] * 7
+    out_at: datetime | None = None
+    spans: list[tuple[datetime, datetime]] = []
+    for start, end, origin, place in trips:
+        if origin == home and out_at is None:
+            out_at = start
+        if place == home and out_at is not None:
+            spans.append((out_at, end))
+            out_at = None
+    day = first
+    while day <= last:
+        seen[day.weekday()] += 1
+        day += timedelta(days=1)
+    for begin, end in spans:
+        moment = begin.replace(minute=30, second=0, microsecond=0)
+        if moment < begin:
+            moment += timedelta(hours=1)
+        while moment < end:
+            if first <= moment.date() <= last:
+                away[moment.weekday()][moment.hour] += 1
+            moment += timedelta(hours=1)
+    return [[1.0 - away[wd][hour] / seen[wd] if seen[wd] else 1.0 for hour in range(24)] for wd in range(7)]
+
+
+def home_price(
+    prices: Mapping[str, Sequence[float | None]],
+    begin: datetime,
+    end: datetime,
+    share: Sequence[Sequence[float]] | None,
+    hours: int = 3,
+) -> float | None:
+    """The mean of the cheapest hours from ``begin`` to ``end`` (local) at which the car is usually home."""
+    known: list[float] = []
+    moment = begin.replace(minute=0, second=0, microsecond=0)
+    while moment < end:
+        price = (prices.get(moment.date().isoformat()) or [None] * 24)[moment.hour]
+        home = share is None or share[moment.weekday()][moment.hour] >= 0.5
+        if price is not None and home:
+            known.append(price)
+        moment += timedelta(hours=1)
+    if len(known) < hours:
+        return None
+    known.sort()
+    return round(sum(known[:hours]) / hours, 4)
 
 
 def night_price(
