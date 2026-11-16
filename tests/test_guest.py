@@ -857,7 +857,7 @@ async def test_the_guest_waits_for_room_after_the_guard_like_a_car_of_the_househ
     held = dt_util.now()
     await move(hass, freezer, held + GUARD_PAUSE - timedelta(seconds=20))
     hass.states.async_set(meter, "18", {"unit_of_measurement": "A"})  # the meter reports as it does
-    await move(hass, freezer, held + GUARD_PAUSE + timedelta(seconds=10))
+    await move(hass, freezer, held + GUARD_PAUSE + timedelta(minutes=1))
     assert ("turn_on", CHARGER_SWITCH) not in switches.calls
     assert any(
         item["kind"] == "start_waits" and item["vehicle"] == "guest" and item["waits"]
