@@ -336,8 +336,10 @@ async def test_a_watched_car_goes_up_only_into_free_room(
     supply._house_peaks.clear()
     calls.clear()
     # 23 A limit, 19 A on the meter with the car's 6: the house draws 13, so 8 A are free for the car
-    # after the 2 A margin.
+    # after the 2 A margin. The guard sees it at the meter's next reading.
     freezer.move_to(moment)
+    hass.states.async_set(METER, "19", {"unit_of_measurement": "A"}, force_update=True)
+    await hass.async_block_till_done()
     await supply.async_apply(moment)
     assert [c.data["value"] for c in calls] == [8]
     # No room at all: it stays.
