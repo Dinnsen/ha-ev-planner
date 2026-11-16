@@ -966,10 +966,12 @@ class SupplyControl:
             return entity
         devices = dr.async_get(self.hass)
         device = devices.async_get(entry.device_id)
-        installation = device.via_device_id if device is not None else None
+        installation = getattr(device, "via_device_id", None)
         if installation is None:
             return entity
-        if sum(1 for other in devices.devices.values() if other.via_device_id == installation) != 1:
+        items: Any = devices.devices
+        entries = list(items.values()) if hasattr(items, "values") else list(items)
+        if sum(1 for other in entries if getattr(other, "via_device_id", None) == installation) != 1:
             return entity  # its installation has more chargers: it is turned on its own
         for item in er.async_entries_for_device(registry, installation):
             if (
@@ -1183,9 +1185,9 @@ class SupplyControl:
             if entry is None or entry.platform != "zaptec":
                 continue
             seen.add(str(raw))
-            charger = self.household.chargers.get(vehicle.charger_id or "")
-            rated = vehicle.configured_power if charger is None else min(vehicle.configured_power, charger.power)
-            out.append((str(raw), rated, charger, vehicle))
+            at = self.household.chargers.get(vehicle.charger_id or "")
+            rated = vehicle.configured_power if at is None else min(vehicle.configured_power, at.power)
+            out.append((str(raw), rated, at, vehicle))
         return out
 
     async def _async_rest(self, channels: list[Channel], now: datetime) -> None:
@@ -1216,7 +1218,8 @@ class SupplyControl:
             last = self._sent.get(entity)
             if last is not None and abs(last[0] - full) < 0.5:
                 continue  # sent already: the charger has not caught up
-            await self._async_set(entity, full, now, "rest", charger.name, None)
+            name = charger.name if charger is not None else vehicle.name if vehicle is not None else None
+            await self._async_set(entity, full, now, "rest", name, None)
 
     def _behind(self, channel: Channel) -> bool:
         """The car would not be ready in time at what it gets now: it is short in the plan."""
