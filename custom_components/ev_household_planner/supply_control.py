@@ -111,6 +111,8 @@ FADE_SETTLE = timedelta(seconds=60)
 FADE_GRACE = timedelta(seconds=3)
 # A fall of less than this (A) is a charger's ordinary wobble, not a change.
 FADE_MIN = 1.0
+# What the joint plan leaves free under the limit with the guard, at the least (the margin, if more).
+PLAN_MARGIN = 2.0
 # A car waiting for room makes the household decide again at most this often, when the meter shows the room.
 WAKE_EVERY = timedelta(seconds=10)
 # The house's peaks are kept this long: a charger goes up only into what has been free all the time
@@ -766,8 +768,9 @@ class SupplyControl:
             if slot.start < horizon
         ]
         cheap = cheap_hours(slots)
-        # With the guard, the cars never get its margin: the plan leaves it out, so it is long enough.
-        limit = self.limit - (self.margin if self.guard else 0.0)
+        # With the guard, the cars never get its margin: the plan leaves it out, so it is long enough. The plan
+        # leaves at least 2 A whatever the margin: the house is a forecast, and a plan with no slack ends short.
+        limit = self.limit - (max(self.margin, PLAN_MARGIN) if self.guard else 0.0)
         fallback = self.house_fallback(now)
         self.plan = plan_supply(
             slots, cars, now, limit=limit, house=lambda slot: self.house_at(slot, cheap, fallback), share=self.share
