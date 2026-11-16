@@ -254,7 +254,7 @@ async def test_the_guard_turns_the_car_down_at_once_and_up_again_later(
     # Up only when the house has left the room all the time since the last change, and the charger may
     # be changed again: then straight to its full current, not a step at a time.
     freezer.move_to(later + CURRENT_EVERY + timedelta(seconds=5))
-    hass.states.async_set(METER, "12.1", {"unit_of_measurement": "A"})
+    hass.states.async_set(METER, "11.9", {"unit_of_measurement": "A"})
     await hass.async_block_till_done()
     assert len(calls) == 2
     freezer.move_to(later + HEADROOM_WINDOW + timedelta(minutes=1))
@@ -504,7 +504,9 @@ async def test_a_car_is_started_at_what_there_is_room_for(
     # The oven is off, and has been for the place's window: the current goes to the 12 A there is room
     # for (10 A in the house), then the car is started.
     hass.states.async_set(METER, "10", {"unit_of_measurement": "A"})
-    await move(hass, freezer, dt_util.now() + HEADROOM_WINDOW + timedelta(minutes=1))
+    freezer.move_to(dt_util.now() + HEADROOM_WINDOW + timedelta(minutes=1))
+    hass.states.async_set(METER, "9.9", {"unit_of_measurement": "A"})  # the meter reports as it does
+    await move(hass, freezer, dt_util.now() + timedelta(seconds=5))
     assert ("turn_on", CHARGE_SWITCH) in switches.calls
     assert calls and calls[0].data == {"entity_id": AMPS, "value": 12.0}
 
@@ -614,7 +616,7 @@ async def test_a_zaptec_charger_is_turned_on_its_installation(
     devices = dr.async_get(hass)
     installation = devices.async_get_or_create(config_entry_id=zaptec.entry_id, identifiers={("zaptec", "I1")})
     charger = devices.async_get_or_create(
-        config_entry_id=zaptec.entry_id, identifiers={("zaptec", "C1")}, via_device=("zaptec", "I1")
+        config_entry_id=zaptec.entry_id, identifiers={("zaptec", "C1")}, via_device_id=installation.id
     )
     registry = er.async_get(hass)
     own = registry.async_get_or_create(
@@ -673,7 +675,7 @@ async def test_a_zaptec_charger_is_turned_on_its_installation(
     assert sent.count((own, 16.0)) == 1
     # A second charger on the installation: each is turned on its own setting again.
     devices.async_get_or_create(
-        config_entry_id=zaptec.entry_id, identifiers={("zaptec", "C2")}, via_device=("zaptec", "I1")
+        config_entry_id=zaptec.entry_id, identifiers={("zaptec", "C2")}, via_device_id=installation.id
     )
     supply._knobs.clear()
     assert supply.knob(own) == own

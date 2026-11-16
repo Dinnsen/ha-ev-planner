@@ -1068,9 +1068,15 @@ class SupplyControl:
 
     async def _async_adjust(self, channels: list[Channel], now: datetime) -> None:
         """With the meter and no overload: the plan's lower shares at once, and the chargers up into the room
-        there has been all the time since each last changed (at most as often as each allows)."""
-        raise_at: dict[str, bool] = {}
-        window = self.headroom_window
+        there has been all the time since each last changed.
+
+        Up at most as often as the charger allows (a Zaptec every 15 minutes), and only when the house has left
+        the room all the place's wait after a peak. A car that would not be ready in time otherwise waits only
+        the charger's own time. Straight to what it is to have, not a step at a time; the one to keep its current
+        longest first.
+        """
+        held = self._held_amps if self._held_until is not None else 0.0
+        eligible: list[tuple[Channel, timedelta]] = []
         for channel in channels:
             if channel.entity is None or channel.want is None:
                 continue
@@ -1080,34 +1086,29 @@ class SupplyControl:
                 channel.value = channel.want
                 continue
             every = self._raise_every(channel.entity)
-            window = max(window, every)
             if channel.want > channel.value + 0.5:
-                raise_at[channel.entity] = last is None or elapsed(now, last[1]) >= every
+                if last is None or elapsed(now, last[1]) >= every:
+                    eligible.append((channel, every if self._behind(channel) else max(every, self.headroom_window)))
             elif self._easee_device(channel.entity) is not None and (
                 last is None or elapsed(now, last[1]) >= EASEE_RENEW
             ):
                 await self._async_set(channel.entity, channel.value, now, "renew", channel.name, channel.who)
-        if not any(raise_at.values()):
-            return
-        peak = self.house_peak_within(now, window, channels)
-        if peak is None:
-            return
-        held = self._held_amps if self._held_until is not None else 0.0
-        order = list(reversed(channels))
-        wants = [
-            (
-                channel.low,
-                max(
-                    channel.low,
-                    channel.want if channel.entity and raise_at.get(channel.entity) and channel.want else channel.value,
-                ),
-            )
-            for channel in order
-        ]
-        shares = share_room(wants, self.limit - peak - held - HEADROOM_MARGIN)
-        for channel, share in zip(order, shares, strict=True):
-            if channel.entity and raise_at.get(channel.entity) and share >= channel.value + 1:
+        for channel, window in sorted(eligible, key=lambda item: channels.index(item[0]), reverse=True):
+            assert channel.entity is not None and channel.want is not None
+            peak = self.house_peak_within(now, window, channels)
+            if peak is None:
+                return
+            others = sum(other.value if other.entity else other.draw for other in channels if other is not channel)
+            room = self.limit - peak - held - HEADROOM_MARGIN - others
+            share = float(int(min(channel.want, room) + 1e-6))
+            if share >= max(channel.low, channel.value + 1):
                 await self._async_set(channel.entity, share, now, "raise", channel.name, channel.who)
+                channel.value = share
+
+    def _behind(self, channel: Channel) -> bool:
+        """The car would not be ready in time at what it gets now: it is short in the plan."""
+        vehicle = channel.vehicle
+        return vehicle is not None and vehicle.plan is not None and bool(vehicle.plan.short)
 
     async def _async_blind(self, channels: list[Channel], now: datetime) -> None:
         """No meter reading: every charger at the least it gives, until the meter is back."""

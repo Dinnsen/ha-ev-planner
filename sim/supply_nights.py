@@ -484,13 +484,18 @@ async def run_supply_night(
                 settings["must_soc"] = car.must
             if car.priority != "normal":
                 settings["priority"] = car.priority
-            if car.mode:
-                settings["mode"] = car.mode
             await household.async_set_vehicle(f"car_{car.key}", settings)
         moment = start
         runs_over = 0.0  # seconds over the fuse in the stretch now
+        modes_set = False
         while moment < end:
             clock["now"] = moment
+            if not modes_set and moment >= night.at(night.day, night.plug_in) + step:
+                # Charge now is chosen when the car is plugged in (unplugged, it goes back to the plan).
+                modes_set = True
+                for car in night.cars:
+                    if car.known and car.mode:
+                        await household.async_set_vehicle(f"car_{car.key}", {"mode": car.mode})
             for item in [p for p in pending if p[0] <= moment]:
                 amps_set[item[1]] = item[2]
                 pending.remove(item)

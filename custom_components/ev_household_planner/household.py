@@ -2545,7 +2545,7 @@ class Household(DataUpdateCoordinator[None]):
         charger = self.chargers.get(vehicle.charger_id or "")
         if (
             vehicle.connected is not True
-            or vehicle.at_home is not True
+            or vehicle.at_home is False
             or vehicle.elsewhere
             or vehicle.odd_since is not None
             or charger is None
