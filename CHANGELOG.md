@@ -2,6 +2,22 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b30] - 2026-11-16
+
+### Changed
+
+- **History is a tab in Learning.** With Insight on, Overview, Driving, Power, Learned and History are one row; from History the others lead back to Insight.
+- **On a phone, the sub-menus sit just above the tab bar**, where a thumb reaches them: a car's Now/Rules/History, and Learning's tabs.
+- **Charging elsewhere is kept, apart.** A charge away from the household's chargers (out, at a fast charger, or at a charger at home EV Planner does not have, such as a Clever box) is kept for what is learned, shown as a grey line "Charged elsewhere · 60 % → 80 %", without kWh or price, and not counted in the month, its price or the car's habits at home. Charges kept while away before are moved out of the month's figures once.
+- **The evening's advice says why**: "Plug in the Tesla tonight: it has 69 %, and a busy day can take 38 kWh."
+- The plug-in message has a dash between the departure and its time: "Morning – tomorrow 06:00 · 80 %".
+- A charge over midnight shows both days ("8–9 Nov").
+
+### Fixed
+
+- Frank: after a pause the charger stayed at the current the guard had left it at, and charge now started at it. A car's cloud says it charges for a minute or two after the charger has stopped; whether a car charges is now judged by its charger's own meter when there is one. The charger goes back to its full current, and the next start sets what there is room for.
+- Switches in Settings did not show what they were set to until something else was drawn, so a second tap turned them off again (Frank could not turn on "Log and learning"). They are drawn at once; only typing in a field holds the page.
+
 ## [2.5.0b29] - 2026-11-16
 
 ### Changed

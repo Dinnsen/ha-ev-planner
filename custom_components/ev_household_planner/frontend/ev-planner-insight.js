@@ -36,6 +36,8 @@ nav.tabs { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, 
 nav.tabs div { display: flex; gap: 6px; width: max-content; }
 nav.tabs button { font: 600 14px "Space Grotesk", Inter, sans-serif; border: 0; background: transparent; color: var(--soft); padding: 9px 15px; border-radius: 999px; cursor: pointer; white-space: nowrap; display: flex; gap: 7px; align-items: center; }
 nav.tabs button.on { background: var(--ink); color: var(--card); }
+/* On a phone the tabs sit just above the panel's tab bar, where a thumb is (--evp-tabbar comes from the panel). */
+@media (max-width: 860px) { nav.tabs { position: fixed; top: auto; left: 10px; right: 10px; bottom: calc(var(--evp-tabbar, 62px) + 8px); margin: 0; padding: 4px; background: var(--card); border: 1px solid var(--line); box-shadow: 0 6px 22px rgba(0, 0, 0, .14); backdrop-filter: none; -webkit-backdrop-filter: none; border-radius: 16px; } nav.tabs #tabs { display: flex; justify-content: space-between; gap: 2px; } nav.tabs button { flex: 1 1 auto; justify-content: center; padding: 8px 6px; font-size: 13px; } nav.tabs button i { display: none; } }
 nav.tabs button i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; }
 nav.tabs button.dim i { background: var(--faint); }
 .panel { display: grid; gap: 18px; animation: rise .45s cubic-bezier(.2,.8,.2,1); }
@@ -1443,7 +1445,8 @@ function boot(host, root) {
   }
 
   /* ---------- the whole page */
-  const TABS = () => [["plan", tr("Overblik", "Overview")], ["bil", tr("Kørsel", "Driving")], ["lad", tr("Strøm", "Power")], ["laer", tr("Lært", "Learned")]];
+  // History is a tab of its own as well: the panel draws it (the charges, by car and by charger).
+  const TABS = () => [["plan", tr("Overblik", "Overview")], ["bil", tr("Kørsel", "Driving")], ["lad", tr("Strøm", "Power")], ["laer", tr("Lært", "Learned")], ["hist", tr("Historik", "History")]];
   const GROUP = { plan: ["plan"], bil: ["bil"], lad: ["pris", "lad"], laer: ["laer", "forud"] };
   const PANELS = ["plan", "bil", "pris", "lad", "laer", "forud"];
   function render(calm = false) {
@@ -1471,6 +1474,7 @@ function boot(host, root) {
     else if ("c9q" in t.dataset) { const [h, body] = SHEETS.style; $("#tl-sheet-h").textContent = h(); $("#tl-sheet-b").innerHTML = body(); $("#tl-sheet").hidden = false; return; }
     else if (t.dataset.tlsheet) { const [h, body] = SHEETS[t.dataset.tlsheet]; $("#tl-sheet-h").textContent = h(); $("#tl-sheet-b").innerHTML = body(); $("#tl-sheet").hidden = false; return; }
     else if (t.id === "tl-close" || t.id === "tl-sheet") { if (t.id === "tl-sheet" && ev.target !== t) return; $("#tl-sheet").hidden = true; return; }
+    else if (t.dataset.tab === "hist") { say("open", "history"); return; }
     else if (t.dataset.tab) { S.tab = t.dataset.tab; for (const id of Object.keys(charts)) charts[id].first = true; render(false); if (host.getBoundingClientRect().top < 0) host.scrollIntoView({ block: "start" }); return; }
     else if (t.dataset.car) { S.car = t.dataset.car; S.pickTrip = null; S.naming = false; render(false); return; }
     else if (t.dataset.v) { S.view = t.dataset.v; }
@@ -1504,6 +1508,8 @@ function boot(host, root) {
       if (!built || again) { build(); render(false); } else render(!fresh);
     },
     stop() { if (raf) cancelAnimationFrame(raf); raf = 0; cancelAnimationFrame(heroRaf); heroRaf = 0; },
+    // A tab chosen from outside (the panel's history row, back to one of Insight's).
+    show(tab) { if (!GROUP[tab]) return; S.tab = tab; if (built && IN) render(false); },
     start() { if (built && IN) render(true); },
   };
 }
@@ -1525,6 +1531,8 @@ class EvPlannerInsight extends HTMLElement {
     this._key = key;
     this._app.update(value, fresh);
   }
+
+  set tab(value) { this._app.show(value); }
 
   connectedCallback() { this._app.start(); }
   disconnectedCallback() { this._app.stop(); }

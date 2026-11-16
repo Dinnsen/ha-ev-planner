@@ -496,7 +496,12 @@ async def test_the_evening_which_car_and_the_hold(
     await insight._async_decide(now, tell=True)
     group = insight.tonight["groups"][0]
     assert (group["pick"], group["wait"]) == (TESLA, False) and tesla.insight_hold is None
-    assert notify.messages()[-1] == planner.text("insight_plug", car="Tesla", other="Mercedes")
+    # It says why: the car's level, and what a busy day of its takes.
+    need = insight.tonight["cars"][TESLA]["p90"]
+    assert need > 0 and tesla.current_soc is not None
+    assert notify.messages()[-1] == planner.text(
+        "insight_plug_why", car="Tesla", other="Mercedes", soc=round(tesla.current_soc), need=round(need)
+    )
     # Plugged in already: nothing to say.
     set_tesla(hass, soc=50, cable=True)
     await hass.async_block_till_done()

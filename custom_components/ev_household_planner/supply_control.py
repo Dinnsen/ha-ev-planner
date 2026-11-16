@@ -111,6 +111,8 @@ FADE_SETTLE = timedelta(seconds=60)
 FADE_GRACE = timedelta(seconds=3)
 # A fall of less than this (A) is a charger's ordinary wobble, not a change.
 FADE_MIN = 1.0
+# A charger whose own meter shows this much (kW) or more charges; less is a car asleep at it, or none.
+CHARGES_KW = 0.5
 # What the joint plan leaves free under the limit with the guard, at the least (the margin, if more).
 PLAN_MARGIN = 2.0
 # A car waiting for room makes the household decide again at most this often, when the meter shows the room.
@@ -324,6 +326,17 @@ class SupplyControl:
             return None
         return self.household.charger_power(charger)
 
+    def _charges(self, vehicle: Vehicle) -> bool:
+        """The car charges now: by its charger's own meter when the charger has one, else by what the car says.
+
+        A car's cloud says it charges for a minute or two after the charger has stopped (and the other way round):
+        the charger's meter is what the supply sees.
+        """
+        measured = self._charger_kw(vehicle)
+        if measured is not None:
+            return measured >= CHARGES_KW
+        return self.household.is_charging(vehicle)
+
     def full_amps(self, vehicle: Vehicle, entity: str | None = None) -> float:
         """The most the car takes at its charger (A per phase): its setup and the charger's, within the setting's range.
 
@@ -378,8 +391,7 @@ class SupplyControl:
             (
                 vehicle
                 for vehicle in self.cars()
-                if (self.household.is_charging(vehicle) or self._started(vehicle))
-                and vehicle.vehicle_id not in self._paused
+                if (self._charges(vehicle) or self._started(vehicle)) and vehicle.vehicle_id not in self._paused
             ),
             key=lambda vehicle: (
                 not self._started(vehicle),
@@ -969,7 +981,7 @@ class SupplyControl:
     def no_room_to_start(self, vehicle: Vehicle, now: datetime) -> bool:
         """A car whose current is set, about to start, for which the meter does not show the least a charger
         gives (6 A) free now, with the others at their share: it is not started yet."""
-        if not self.guard or self.household.is_charging(vehicle) or self._started(vehicle):
+        if not self.guard or self._charges(vehicle) or self._started(vehicle):
             return False
         if self._fading_now(self.channels(now), now):
             return True  # a charger has just gone down and the meter does not show it yet: its next reading does
@@ -1006,7 +1018,7 @@ class SupplyControl:
         that charge already go down to theirs first, so the room is shared evenly."""
         if not self.active or not self.guard or self.current_entity(vehicle) is None:
             return
-        if self.household.is_charging(vehicle):
+        if self._charges(vehicle):
             return  # it charges already: the guard and the raises have it
         await self._async_unclamp(now, force=True)
         found = self._start_shares(vehicle, now)

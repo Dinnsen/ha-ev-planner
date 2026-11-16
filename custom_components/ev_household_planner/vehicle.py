@@ -211,6 +211,9 @@ class Session:
     sources: dict[str, float] = field(default_factory=dict)
     # kWh of it that came from the sun.
     solar: float = 0.0
+    # Charged away from the household's chargers (out, at a fast charger, at a charger at home EV Planner does
+    # not have): kept for what is learned, not counted in the month or its price.
+    elsewhere: bool = False
 
     @property
     def charging(self) -> bool:
@@ -264,6 +267,7 @@ class Session:
             "sources": dict(self.sources),
             "solar": self.solar,
             "charger": self.charger,
+            "elsewhere": self.elsewhere,
         }
 
     @classmethod
@@ -294,6 +298,7 @@ class Session:
             else {},
             solar=float(data.get("solar") or 0.0),
             charger=str(data["charger"]) if data.get("charger") else None,
+            elsewhere=data.get("elsewhere") is True,
         )
 
 
@@ -932,6 +937,8 @@ class Vehicle:
         if session is None:
             return None
         session.close_period(now)
+        if session.elsewhere:
+            return self._end_elsewhere(session, now)
         if session.energy < min_energy:
             return None
         month = self.months.setdefault(month_key(session.start), {"energy": 0.0, "cost": 0.0, "sessions": 0.0})
@@ -955,6 +962,50 @@ class Vehicle:
         }
         self.history = [entry, *self.history][:HISTORY_LIMIT]
         return entry
+
+    def _end_elsewhere(self, session: Session, now: datetime) -> dict[str, Any] | None:
+        """A charge away from the household's chargers: in the history as charged elsewhere, with what the
+        level rose (and about the energy that is), without a price; not in the month's figures."""
+        end_soc = self.current_soc
+        if session.start_soc is None or end_soc is None or end_soc - session.start_soc < 1:
+            return None
+        entry = {
+            "id": uuid4().hex,
+            "start": session.start.isoformat(),
+            "end": now.isoformat(),
+            "energy": round((end_soc - session.start_soc) / 100 * self.capacity, 2),
+            "cost": None,
+            "start_soc": session.start_soc,
+            "end_soc": end_soc,
+            "reason": session.reason,
+            "periods": [period.to_dict() for period in session.periods],
+            "charging_minutes": round(session.charging_minutes(now)),
+            "plugged": self.plug_sessions,
+            "source": "soc",
+            "solar": 0.0,
+            "charger": None,
+            "elsewhere": True,
+        }
+        self.history = [entry, *self.history][:HISTORY_LIMIT]
+        return entry
+
+    def _mark_away_charges(self) -> None:
+        """Charges kept before 2.5.0b30 while the car was away: charged elsewhere now, and taken out of the
+        month's figures they were counted in."""
+        for entry in self.history:
+            if entry.get("reason") != "away" or entry.get("elsewhere"):
+                continue
+            try:
+                month = self.months.get(month_key(datetime.fromisoformat(str(entry["start"]))))
+            except (KeyError, ValueError):
+                month = None
+            if month is not None:
+                month["energy"] = round(max(0.0, month.get("energy", 0.0) - float(entry.get("energy") or 0.0)), 4)
+                month["cost"] = round(max(0.0, month.get("cost", 0.0) - float(entry.get("cost") or 0.0)), 4)
+                month["sessions"] = max(0.0, month.get("sessions", 0.0) - 1)
+            entry["elsewhere"] = True
+            entry["cost"] = None
+            entry["charger"] = None
 
     def session_is_blip(self) -> bool:
         """A session too small to stand on its own in the history (no rise in the charge level)."""
@@ -1038,6 +1089,7 @@ class Vehicle:
         history = data.get("history")
         if isinstance(history, list):
             self.history = [item for item in history if isinstance(item, dict)][:HISTORY_LIMIT]
+            self._mark_away_charges()
         session = data.get("session")
         self.session = Session.from_dict(session) if isinstance(session, Mapping) else None
         last_sent = data.get("last_sent")

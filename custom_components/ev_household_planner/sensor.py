@@ -62,7 +62,8 @@ def _last(key: str, digits: int) -> Callable[[Household, Vehicle], StateType]:
     """A figure of the car's last finished charge (the newest in its history)."""
 
     def value(_household: Household, vehicle: Vehicle) -> StateType:
-        last = vehicle.history[0] if vehicle.history else None
+        # The last charge at the household's chargers: one charged elsewhere has no price here.
+        last = next((entry for entry in vehicle.history if not entry.get("elsewhere")), None)
         if last is None:
             return None
         energy, cost = to_float(last.get("energy")), to_float(last.get("cost"))
@@ -340,8 +341,8 @@ class VehicleSensor(VehicleEntity, SensorEntity):
             return {"segments": serialize_segments(vehicle.plan.segments)}
         if key == "month_energy":
             return {"sessions": int(vehicle.month(dt_util.now()).get("sessions", 0))}
-        if key == "last_charge_energy" and vehicle.history:
-            last = vehicle.history[0]
+        last = next((entry for entry in vehicle.history if not entry.get("elsewhere")), None)
+        if key == "last_charge_energy" and last is not None:
             return {name: last.get(name) for name in ("start", "end", "start_soc", "end_soc", "charger", "reason")}
         return None
 

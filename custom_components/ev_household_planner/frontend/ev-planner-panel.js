@@ -214,6 +214,7 @@ const TEXT = {
     receipt_line: "Sidste morgen: {soc} kl. {time} (planlagt {planned})",
     receipt_late: "lidt for sent",
     periods_n: "{n} perioder",
+    charged_elsewhere: "Ladet andetsteds",
     periods_one: "1 periode",
     charged_for: "ladet {time}",
     legend_charged: "Ladet",
@@ -817,6 +818,7 @@ const TEXT = {
     receipt_line: "Last morning: {soc} at {time} (planned {planned})",
     receipt_late: "a little late",
     periods_n: "{n} periods",
+    charged_elsewhere: "Charged elsewhere",
     periods_one: "1 period",
     charged_for: "charged {time}",
     legend_charged: "Charged",
@@ -1852,6 +1854,7 @@ Object.assign(TEXT.da, {
   insight_v_prices: "Elpriser",
   insight_v_charge: "Ladning",
   insight_v_learn: "Lært",
+  insight_v_history: "Historik",
   insight_v_ahead: "Forudsigelse",
   widgets_refresh_hint: "Beder iOS-appen opdatere sine widgets, når en bils status ændres (højst hvert 15. minut).",
   climate_entity: "Klima",
@@ -2000,6 +2003,7 @@ Object.assign(TEXT.en, {
   insight_v_prices: "Prices",
   insight_v_charge: "Charging",
   insight_v_learn: "Learned",
+  insight_v_history: "History",
   insight_v_ahead: "Ahead",
   widgets_refresh_hint: "Asks the iOS app to refresh its widgets when a car's status changes (at most every 15 minutes).",
   climate_entity: "Climate",
@@ -5045,12 +5049,25 @@ class EvPlannerPanel extends HTMLElement {
     else this._renderTabs();
   }
 
+  /* The tab bar's height, for the sub-menus that sit just above it on a phone (--evp-tabbar). */
+  _watchTabBar() {
+    const bar = this.shadowRoot.querySelector("nav.tabs");
+    if (!bar || this._tabBar === bar || typeof ResizeObserver === "undefined") return;
+    this._tabBarSeen?.disconnect();
+    this._tabBar = bar;
+    this._tabBarSeen = new ResizeObserver(() => this.style.setProperty("--evp-tabbar", `${Math.round(bar.getBoundingClientRect().height)}px`));
+    this._tabBarSeen.observe(bar);
+  }
+
   /* How a new state reaches the page: in place where people type and drag, else a fresh render. */
   _updateMode() {
     const root = this.shadowRoot;
     if (this._tab === "cars" && this._carId && root.querySelector(`.car-page[data-id="${cssId(this._carId)}"]`)) return "update";
     if (this._tab === "guest" && root.querySelector(".guest-page")) return "update";
-    if (this._tab === "settings" && root.activeElement?.closest?.(".content")) return "skip";
+    // Settings wait while something is typed or chosen in a field; a switch or a button just tapped is drawn
+    // again at once (its focus is kept by data-f), so it shows what it was set to.
+    const typing = root.activeElement?.matches?.("input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea, select");
+    if (this._tab === "settings" && typing && root.activeElement.closest(".content")) return "skip";
     return "render";
   }
 
@@ -5709,6 +5726,7 @@ class EvPlannerPanel extends HTMLElement {
 
   _render() {
     if (!this._state) return;
+    this._watchTabBar();
     const content = this.shadowRoot.querySelector(".content");
     const view = this._viewKey();
     if (view !== this._lastView) {
@@ -9047,7 +9065,7 @@ class EvPlannerPanel extends HTMLElement {
     const costs = data.rows.map((r) => r.cost).filter(isNum);
     const cost = costs.length ? costs.reduce((a, b) => a + Number(b), 0) : null;
     const [start, end] = this._histRange("day", 0);
-    const cars = this._sessionsIn(start, end).reduce((sum, e) => sum + (Number(e.energy) || 0), 0);
+    const cars = this._sessionsIn(start, end).filter((e) => !e.elsewhere).reduce((sum, e) => sum + (Number(e.energy) || 0), 0);
     const share = kwh > 0 ? Math.min(100, (cars / kwh) * 100) : 0;
     const peak = Math.max(0.01, ...data.rows.map((r) => Number(r.kwh) || 0));
     const hours = Array.from({ length: 24 }, (_, h) => {
@@ -9196,10 +9214,15 @@ class EvPlannerPanel extends HTMLElement {
     const parts = { sum: "sum", cars: "cars", history: "power", learned: "learn" };
     const own = (k) => k === "history" || k === "learned";
     const view = insightOn ? this._histClassic : this._histView in parts ? this._histView : "history";
-    const switcher = `<nav class="chips hist-views learn-views" role="tablist">${insightOn ? `<button data-act="hist-view" data-value="back" data-f="hv-back">‹ ${esc(this._t("tab_history"))}</button>` : ""}${Object.keys(parts)
-      .filter((k) => !insightOn || own(k))
-      .map((k) => `<button role="tab" data-act="hist-view" data-value="${k}" data-f="hv-${k}" aria-selected="${k === view}" class="${k === view ? "on" : ""}${insightOn || own(k) ? "" : " dim"}">${this._t(insightOn && k === "history" ? "insight_v_charge" : `insight_v_${parts[k]}`)}</button>`)
-      .join("")}</nav>`;
+    // With Insight on, the history is the last of Insight's tabs: the same row, the others lead back to Insight.
+    const insightTabs = [["plan", "insight_v_sum"], ["bil", "insight_v_cars"], ["lad", "insight_v_power"], ["laer", "insight_v_learn"], ["hist", "insight_v_history"]];
+    const switcher = insightOn
+      ? `<nav class="chips hist-views learn-views" role="tablist">${insightTabs
+          .map(([k, label]) => { const on = k === "hist" && view === "history"; return `<button role="tab" data-act="hist-view" data-value="${k === "hist" ? "history" : `ins:${k}`}" data-f="hv-${k}" aria-selected="${on}" class="${on ? "on" : ""}">${esc(this._t(label))}</button>`; })
+          .join("")}</nav>`
+      : `<nav class="chips hist-views learn-views" role="tablist">${Object.keys(parts)
+          .map((k) => `<button role="tab" data-act="hist-view" data-value="${k}" data-f="hv-${k}" aria-selected="${k === view}" class="${k === view ? "on" : ""}${own(k) ? "" : " dim"}">${this._t(`insight_v_${parts[k]}`)}</button>`)
+          .join("")}</nav>`;
     if (!own(view)) return `<div class="page stack hist-page">${switcher}<p class="hint">${esc(this._t("insight_off_hint"))}</p></div>`;
     if (view === "learned") return `<div class="page stack hist-page">${switcher}${this._learnedHtml()}</div>`;
     const more = "";
@@ -9252,6 +9275,7 @@ class EvPlannerPanel extends HTMLElement {
         continue;
       }
       for (const e of s.sessions) {
+        if (e.elsewhere) continue; // charged away: not the home's energy or price
         const i = indexOf(ZD(e.start).getTime());
         if (i < 0) continue;
         grid[i][s.key] = (grid[i][s.key] || 0) + (Number(e.energy) || 0);
@@ -9508,7 +9532,8 @@ class EvPlannerPanel extends HTMLElement {
 
   _learnedCarHtml(v, { title = false } = {}) {
     const cards = [];
-    const history = v.history || [];
+    // What the car does at home: its charges elsewhere (out, at a fast charger) are not its habits here.
+    const history = (v.history || []).filter((e) => !e.elsewhere);
     // Charging speed: a gauge.
     if (isNum(v.charge_speed)) {
       const learned = v.charge_speed_source === "learned";
@@ -9668,6 +9693,8 @@ class EvPlannerPanel extends HTMLElement {
   _carSessionHtml(v, e, { name = false } = {}) {
     const parts = [];
     if (name) parts.push(v.name);
+    // Charged away from the household's chargers: kept for what is learned, without kWh or price.
+    if (e.elsewhere) parts.push(this._t("charged_elsewhere"));
     if (e.charger) parts.push(e.charger);
     if (isNum(e.start_soc) || isNum(e.end_soc)) parts.push(`${this._pct(e.start_soc)} → ${this._pct(e.end_soc)}`);
     const periods = (e.periods || []).length;
@@ -9675,15 +9702,19 @@ class EvPlannerPanel extends HTMLElement {
     if (isNum(e.charging_minutes) && e.charging_minutes > 0) parts.push(this._t("charged_for", { time: this._duration(e.charging_minutes) }));
     if (isNum(e.solar) && e.solar > 0.05 && e.energy > 0) parts.push(this._t("history_solar", { pct: this._pct(Math.min(100, (e.solar / e.energy) * 100)) }));
     const soc = parts.join(" · ");
-    return `<li>
-      <div class="when"><b>${ZD(e.start).getDate()}</b><span>${new Intl.DateTimeFormat(this._locale, { month: "short" }).format(ZD(e.start))}</span></div>
+    // A charge over midnight (plugged in in the evening, taken out the next day) shows both days.
+    const first = ZD(e.start);
+    const last = e.end ? ZD(e.end) : first;
+    const days = last.getDate() !== first.getDate() || last.getMonth() !== first.getMonth() ? `${first.getDate()}–${last.getDate()}` : `${first.getDate()}`;
+    return `<li class="${e.elsewhere ? "elsewhere" : ""}">
+      <div class="when${days.includes("–") ? " two" : ""}"><b>${days}</b><span>${new Intl.DateTimeFormat(this._locale, { month: "short" }).format(first)}</span></div>
       <div class="what">
         <strong>${this._time(e.start)}–${this._time(e.end)}</strong>
         <span>${esc(soc)}</span>
       </div>
-      <div class="nums"><b>${this._money(e.cost)}</b><span>${this._kwh(e.energy)}</span>${
+      <div class="nums">${e.elsewhere ? "" : `<b>${this._money(e.cost)}</b><span>${this._kwh(e.energy)}</span>${
         isNum(e.cost) && Number(e.energy) > 0.05 ? `<span class="per-kwh">${this._money(e.cost / e.energy)}/kWh</span>` : ""
-      }</div>
+      }`}</div>
       <div class="row-actions">
         <button class="icon" data-act="del" data-vid="${esc(v.id)}" data-id="${esc(e.id)}" aria-label="${this._t("delete")}">${ICONS.trash}</button>
       </div>
@@ -9962,7 +9993,7 @@ class EvPlannerPanel extends HTMLElement {
         body: ClayScene.BODIES.includes(v.settings?.body) ? v.settings.body : "sedan", paint: v.settings?.paint === "black" ? "black" : "white", spot: v.settings?.spot || null,
         charge_speed: v.charge_speed, charge_speed_source: v.charge_speed_source, charge_speed_learned_from: v.charge_speed_learned_from, curve: v.curve, margin: v.margin,
         plan: v.plan ? { segments: (v.plan.segments || []).map((s) => ({ start: wall(s.start), end: wall(s.end) })), energy: v.plan.energy, cost: v.plan.cost } : null,
-        history: (v.history || []).slice(-60).map((e) => ({ start: wall(e.start), end: e.end ? wall(e.end) : null, energy: e.energy, cost: e.cost })),
+        history: (v.history || []).filter((e) => !e.elsewhere).slice(-60).map((e) => ({ start: wall(e.start), end: e.end ? wall(e.end) : null, energy: e.energy, cost: e.cost })),
       })),
       homeKw: Math.max(0, ...this._chargers.map((c) => Number(c.power) || 0)) || 11,
       window: this._insight?.window || [21, 7],
@@ -10004,6 +10035,7 @@ class EvPlannerPanel extends HTMLElement {
     }
     if (this._insEl.parentNode !== place) place.replaceChildren(this._insEl);
     this._insEl.input = this._insightInput();
+    if (this._insTab) { this._insEl.tab = this._insTab; this._insTab = null; }
   }
 
   _insightHome() {
@@ -10462,6 +10494,13 @@ class EvPlannerPanel extends HTMLElement {
         this._render();
         break;
       case "hist-view":
+        if (button.dataset.value?.startsWith("ins:")) {
+          // Back to one of Insight's tabs from the history.
+          this._histClassic = null;
+          this._insTab = button.dataset.value.slice(4);
+          this._render();
+          break;
+        }
         this._histView = ["sum", "cars", "learned"].includes(button.dataset.value) ? button.dataset.value : "history";
         this._histClassic = button.dataset.value === "back" || !this._state.settings?.insight ? null : this._histView === "learned" ? "learned" : "history";
         this._render();
@@ -11731,6 +11770,9 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 .sessions li { display: grid; grid-template-columns: 52px 1fr auto auto; align-items: center; gap: 14px; background: var(--evp-card); border: 1px solid var(--evp-line); border-radius: 14px; padding: 12px 10px 12px 14px; }
 .when { display: grid; justify-items: center; line-height: 1.1; }
 .when b { font-size: 22px; }
+.when.two b { font-size: 16px; white-space: nowrap; }
+.sessions li.elsewhere { background: transparent; color: var(--evp-soft); }
+.sessions li.elsewhere strong { color: var(--evp-soft); }
 .when span { color: var(--evp-soft); font-size: 12px; }
 .what { display: grid; gap: 4px; min-width: 0; }
 .what strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
@@ -11993,6 +12035,12 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
   .col { gap: 14px; }
   .cars-grid, .side-grid { gap: 14px; }
   .tabs { position: fixed; left: 0; right: 0; bottom: 0; justify-self: stretch; justify-content: space-around; background: var(--evp-solid); border-top: 1px solid var(--evp-line); padding: 6px 8px calc(6px + var(--evp-safe-bottom)); z-index: 5; isolation: isolate; }
+  /* The sub-menus (a car's Now/Rules/History, Learning's tabs) sit just above the tab bar, where a thumb is. */
+  .car-views, .hist-views { position: fixed; left: 10px; right: 10px; bottom: calc(var(--evp-tabbar, calc(62px + var(--evp-safe-bottom))) + 8px); z-index: 5; width: auto; margin: 0; background: var(--evp-solid); border: 1px solid var(--evp-line); border-radius: 14px; box-shadow: 0 6px 22px rgba(0, 0, 0, .14); }
+  .car-views { display: grid; justify-self: stretch; max-width: none; }
+  .hist-views { padding: 4px; display: flex; justify-content: space-between; gap: 2px; overflow-x: auto; }
+  .hist-views button { flex: 1 1 auto; padding: 8px 6px; font-size: 13px; border: 0; }
+  .content:has(.car-views, .hist-views, .insight-host) { padding-bottom: calc(var(--evp-tabbar, 62px) + 78px); }
   /* A sheet that opens in the page lies over the tab bar, not under it. */
   .content:has(.sheet.in-page) { position: relative; z-index: 13; }
   /* The tabs sit in the header: above everything on the page, below the sheets. */

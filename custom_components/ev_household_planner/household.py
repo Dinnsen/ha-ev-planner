@@ -1195,6 +1195,19 @@ class Household(DataUpdateCoordinator[None]):
         self.events.add(now, "elsewhere" if elsewhere else "elsewhere_ended", vehicle=vehicle.name)
         return True
 
+    def charges_elsewhere(self, vehicle: Vehicle) -> bool:
+        """The car charges away from the household's chargers: out, or at a charger at home EV Planner does not
+        have (a Clever box) while its own has no car or another. Its charging is kept apart from the home's."""
+        if vehicle.elsewhere or vehicle.at_home is False or vehicle.home is False:
+            return True
+        charger = self.chargers.get(vehicle.charger_id or "")
+        if charger is None:
+            return False  # no charger of EV Planner's: the car's charging at home is the household's
+        if charger.connected is False:
+            return True
+        occupant = self.pairing.occupant(charger)
+        return occupant is not None and occupant != vehicle.vehicle_id
+
     def _charger_holds(self, vehicle: Vehicle) -> bool:
         """The car's charger says a car is plugged in, and no other car or a guest can be it."""
         cid = vehicle.charger_id
@@ -1305,7 +1318,7 @@ class Household(DataUpdateCoordinator[None]):
         """A rising charge level while plugged in at home is charging; count its energy."""
         previous = vehicle.last_soc_seen if vehicle.last_soc_seen is not None else old
         vehicle.last_soc_seen = new
-        if vehicle.connected is False or vehicle.home is False or vehicle.elsewhere:
+        if vehicle.connected is False or self.charges_elsewhere(vehicle):
             return
         vehicle.meter.reading(new)
         power = self.vehicle_power(vehicle)
@@ -1922,7 +1935,8 @@ class Household(DataUpdateCoordinator[None]):
         charge level sensor, the charging time at the charging power does,
         and moves the manual charge level on at the charging speed.
         """
-        charging = self._is_charging(vehicle) and vehicle.at_home is not False
+        # Away from the household's chargers the charge is kept as charged elsewhere, not counted here.
+        charging = self._is_charging(vehicle) and not self.charges_elsewhere(vehicle)
         reading = power_value(self.hass.states.get(vehicle.power_entity)) if vehicle.power_entity else None
         vehicle.power_from_car = reading
         if not charging:
@@ -2484,6 +2498,15 @@ class Household(DataUpdateCoordinator[None]):
             charging = rising and vehicle.connected is not False
         if charging:
             resumed = vehicle.start_session(now, vehicle.decision.reason)
+            session = vehicle.session
+            if (
+                session is not None
+                and not session.elsewhere
+                and session.energy < 0.1
+                and self.charges_elsewhere(vehicle)
+            ):
+                session.elsewhere = True  # a charge that began away: kept apart from the home's
+                self.events.add(now, "charging_elsewhere", vehicle=vehicle.name)
             if resumed and vehicle.decision.reason == "planned" and vehicle.learned.resumes is not True:
                 # Charging again after a pause in the plan: the car does that.
                 vehicle.learned.resumed()
@@ -2509,7 +2532,7 @@ class Household(DataUpdateCoordinator[None]):
             # A charge that rose enough teaches the car's speed; a smaller one is measured on.
             vehicle.finish_measurement()
             self.async_save()
-            if vehicle.session.last_period_energy >= 0.1:
+            if vehicle.session.last_period_energy >= 0.1 and not vehicle.session.elsewhere:
                 await self._async_notify_stopped(vehicle, now)
         if self._session_over(vehicle, now):
             blip = vehicle.session_is_blip() and not vehicle.plug_sessions
@@ -2578,7 +2601,7 @@ class Household(DataUpdateCoordinator[None]):
         )
 
     def _plugged_text(self, vehicle: Vehicle, now: datetime, charge_now: bool) -> str:
-        """``Ugeplan i morgen kl. 07.00 · 80 %. Lader i nat 01.00-03.30, ca. 12,40 kr.``"""
+        """``Ugeplan, i morgen kl. 07.00 · 80 %. Lader i nat 01.00-03.30, ca. 12,40 kr.``"""
         deadline = vehicle.deadline
         target = f"{self._num(vehicle.target, 0)} %"
         if deadline is not None and not charge_now:
@@ -3359,6 +3382,7 @@ class Household(DataUpdateCoordinator[None]):
 TEXT_EN: dict[str, str] = {
     "insight_title": "Tonight's charging",
     "insight_plug": "Plug in {car} tonight. {other} has enough for now.",
+    "insight_plug_why": "Plug in {car} tonight: it has {soc} %, and a busy day can take {need} kWh. {other} has enough for now.",
     "insight_plug_both": "Both cars need the charger. Plug in {car} tonight, and charge {other} during the day.",
     "insight_no_car": "No car needs the charger tonight: a cheaper time is likely.",
     "insight_ripe": "Insight has been right {rate} % of {days} days. Waiting for cheaper times could have saved about {saved} {currency}. You can let the plan follow it in the settings.",
@@ -3386,7 +3410,7 @@ TEXT_EN: dict[str, str] = {
     "reminder_plan": "{name} is at {soc} % and not plugged in. The cheapest charge is {window}: about {energy} kWh for {cost}.",
     "action_charge_now": "Charge now",
     "action_follow": "Follow the plan",
-    "plug_when": "{source} {day}{time}",
+    "plug_when": "{source} \u2013 {day}{time}",
     "plug_now": "Charging now.",
     "plug_full": "Charged already.",
     "plug_plan": "Charges {window}, about {cost}.",
@@ -3403,6 +3427,7 @@ TEXT_EN: dict[str, str] = {
 TEXT_DA: dict[str, str] = {
     "insight_title": "Aftenens ladning",
     "insight_plug": "Sæt {car} i laderen i aften. {other} har nok for nu.",
+    "insight_plug_why": "Sæt {car} i laderen i aften: den har {soc} %, og en travl dag kan bruge {need} kWh. {other} har nok for nu.",
     "insight_plug_both": "Begge biler trænger til laderen. Sæt {car} i i aften, og lad {other} i dagtimerne.",
     "insight_no_car": "Ingen bil behøver laderen i aften: et billigere tidspunkt er sandsynligt.",
     "insight_ripe": "Indsigt har ramt rigtigt {rate} % af {days} dage. At vente på billigere tidspunkter kunne have sparet ca. {saved} {currency}. Du kan lade planen følge den under indstillinger.",
@@ -3430,7 +3455,7 @@ TEXT_DA: dict[str, str] = {
     "reminder_plan": "{name} er på {soc} % og ikke tilsluttet. Billigste ladning er {window}: ca. {energy} kWh for {cost}.",
     "action_charge_now": "Lad nu",
     "action_follow": "Følg planen",
-    "plug_when": "{source} {day}kl. {time}",
+    "plug_when": "{source} \u2013 {day}kl. {time}",
     "plug_now": "Lader nu.",
     "plug_full": "Allerede ladet.",
     "plug_plan": "Lader {window}, ca. {cost}.",

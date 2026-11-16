@@ -439,7 +439,7 @@ async def test_a_message_says_where_the_car_is_plugged_in_and_when_it_charges(
     sent = [c for c in notify.calls if c.get("data", {}).get("tag") == tag]
     assert len(sent) == 1
     assert sent[0]["title"] == "Tesla · Carport"
-    assert sent[0]["message"].startswith("Week plan") and "80 %" in sent[0]["message"]
+    assert sent[0]["message"].startswith("Week plan \u2013 ") and "80 %" in sent[0]["message"]
     assert "Charges" in sent[0]["message"] or "prices come" in sent[0]["message"]
     # Once a plug-in.
     await move(hass, freezer, dt_util.now() + timedelta(minutes=5))

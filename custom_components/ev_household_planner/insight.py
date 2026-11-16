@@ -723,9 +723,18 @@ class Insight:
             pick = group.get("pick")
             if pick in names and household.vehicles[pick].connected is not True:
                 other = next((name for vid, name in names.items() if vid != pick), "")
-                text = household.text(
-                    "insight_plug_both" if group["both"] else "insight_plug", car=names[pick], other=other
-                )
+                # Why this car: its level, and what a busy day of its takes (the day it is kept for).
+                car = (self.tonight.get("cars") or {}).get(pick) or {}
+                soc = household.vehicles[pick].current_soc
+                need = number(car.get("p90"))
+                if group["both"]:
+                    text = household.text("insight_plug_both", car=names[pick], other=other)
+                elif soc is not None and need is not None and need > 0:
+                    text = household.text(
+                        "insight_plug_why", car=names[pick], other=other, soc=round(soc), need=round(need)
+                    )
+                else:
+                    text = household.text("insight_plug", car=names[pick], other=other)
             elif group["wait"] and not any(household.vehicles[vid].connected for vid in names):
                 text = household.text("insight_no_car")
             else:

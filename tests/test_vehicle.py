@@ -573,3 +573,52 @@ def test_a_car_that_cannot_be_paused_low_charges_there_at_once() -> None:
     vehicle.settings["target_soc"] = 40.0
     vehicle.settings["low_soc_charging"] = False
     assert vehicle.rules().low_soc_level == 40.0
+
+
+def test_a_charge_elsewhere_is_kept_but_not_counted_in_the_month() -> None:
+    """Frank: the Epiq charged at the Clever box, away from the household's chargers. It is kept, for what is
+    learned, with the rise in level and about the energy that is; without a price, and not in the month."""
+    vehicle = make()
+    vehicle.settings["manual_soc"] = 60
+    vehicle.start_session(NOW, "away")
+    assert vehicle.session is not None
+    vehicle.session.elsewhere = True
+    vehicle.settings["manual_soc"] = 80
+    entry = vehicle.end_session(NOW + timedelta(hours=1))
+    assert entry is not None and entry["elsewhere"] is True and entry["cost"] is None
+    assert entry["energy"] == pytest.approx(12)  # 20 % of 60 kWh
+    assert vehicle.month(NOW) == {"energy": 0.0, "cost": 0.0, "sessions": 0.0}
+    # No rise in level: nothing to keep.
+    vehicle.start_session(NOW, "away")
+    assert vehicle.session is not None
+    vehicle.session.elsewhere = True
+    assert vehicle.end_session(NOW + timedelta(hours=2)) is None
+    # It survives a restart as charged elsewhere.
+    vehicle.start_session(NOW, "away")
+    assert vehicle.session is not None
+    vehicle.session.elsewhere = True
+    stored = vehicle.to_store()
+    again = make()
+    again.load(stored)
+    assert again.session is not None and again.session.elsewhere
+
+
+def test_charges_kept_away_before_are_taken_out_of_the_month() -> None:
+    """A charge kept while the car was away (before 2.5.0b30) counted in the month: it no longer does."""
+    vehicle = make()
+    month = NOW.strftime("%Y-%m")
+    vehicle.load(
+        {
+            "months": {month: {"energy": 30.16, "cost": 60.26, "sessions": 3.0}},
+            "history": [
+                {"id": "a", "start": NOW.isoformat(), "energy": 0.16, "cost": 0.26, "reason": "away", "charger": "x"},
+                {"id": "b", "start": NOW.isoformat(), "energy": 30.0, "cost": 60.0, "reason": "planned"},
+            ],
+        }
+    )
+    assert vehicle.history[0]["elsewhere"] is True and vehicle.history[0]["cost"] is None
+    assert "elsewhere" not in vehicle.history[1]
+    assert vehicle.months[month] == {"energy": 30.0, "cost": 60.0, "sessions": 2.0}
+    # Loaded again: taken out once only.
+    vehicle.load(vehicle.to_store())
+    assert vehicle.months[month] == {"energy": 30.0, "cost": 60.0, "sessions": 2.0}

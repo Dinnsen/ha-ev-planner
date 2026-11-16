@@ -698,7 +698,7 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     await page.waitForFunction(() => window.harness.calls.some((c) => c.type === "recorder/statistics_during_period"));
     await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector("ev-planner-insight").shadowRoot.querySelectorAll("#tl circle").length > 0);
     assert.equal((await calls("insight")).length, 1);
-    assert.equal(await inside((root) => root.querySelectorAll("nav.tabs button").length), 4);
+    assert.equal(await inside((root) => root.querySelectorAll("nav.tabs button").length), 5);
     assert.match(await inside((root) => root.querySelector("#hero .hero").textContent), /Tesla/);
     assert.equal(await inside((root) => root.querySelectorAll("#hero svg clipPath").length), 2, "both cars are drawn by their sides");
     assert.ok(await inside((root) => root.querySelector("#hero #h-cab").getAttribute("d")), "the cable is drawn");
@@ -815,10 +815,15 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     await tap('ev-planner-insight #tl-sheet [data-open="history"]');
     assert.equal(await read('.learn-views button[aria-selected="true"]', "data-value"), "history");
     assert.ok(await page.evaluate(() => !window.harness.panel.shadowRoot.querySelector("ev-planner-insight")));
-    await tap('[data-act="hist-view"][data-value="learned"]');
-    assert.equal(await read('.learn-views button[aria-selected="true"]', "data-value"), "learned");
-    await tap('[data-act="hist-view"][data-value="back"]');
+    // The history is the last of Insight's tabs: the same row, and the others lead back to Insight.
+    assert.deepEqual(await page.evaluate(() => [...window.harness.panel.shadowRoot.querySelectorAll(".learn-views button")].map((b) => b.textContent.trim())), ["Overview", "Driving", "Power", "Learned", "History"]);
+    await tap('[data-act="hist-view"][data-value="ins:plan"]');
     assert.ok(await inside((root) => root.querySelector("#tl svg")));
+    await tap('ev-planner-insight [data-tab="hist"]');
+    assert.equal(await read('.learn-views button[aria-selected="true"]', "data-value"), "history");
+    await tap('[data-act="hist-view"][data-value="ins:laer"]');
+    assert.equal(await inside((root) => root.querySelector('#tabs button.on').dataset.tab), "laer");
+    await tap('ev-planner-insight [data-tab="plan"]');
     // Fetched once a minute, not for every look (and once more after the choice of how careful). No sideways scroll on a phone.
     assert.equal((await calls("insight")).length, 2);
     assert.equal(await page.evaluate(() => window.harness.calls.filter((c) => c.type === "recorder/statistics_during_period").length), 1);
@@ -838,5 +843,28 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     await tap('[data-act="hist-view"][data-value="cars"]');
     assert.match(await read(".hist-page .hint"), /Insight/);
     assert.equal((await calls("insight")).length, 0);
+  });
+});
+
+test("A charge elsewhere is a grey line without kWh or price, and a charge over midnight shows both days", async () => {
+  const state = fixture("two-cars");
+  const zoe = state.vehicles[0];
+  zoe.history = [
+    { id: "away", start: "2026-11-10T00:05:00+01:00", end: "2026-11-10T01:10:00+01:00", energy: 10.4, cost: null, start_soc: 60, end_soc: 80, reason: "away", periods: [], charging_minutes: 65, elsewhere: true },
+    { id: "night", start: "2026-11-08T21:43:00+01:00", end: "2026-11-09T15:29:00+01:00", energy: 15.2, cost: 34.32, start_soc: 75, end_soc: 91, reason: "planned", periods: [], charging_minutes: 111, charger: "Garage" },
+    ...zoe.history,
+  ];
+  await withPanel(state, { size: PHONE }, async ({ page, tap, read }) => {
+    await tap(`[data-act="open-car"][data-id="${zoe.id}"]`);
+    await tap('[data-act="car-view"][data-view="history"]');
+    const rows = await page.evaluate(() => [...window.harness.panel.shadowRoot.querySelectorAll(".car-history .sessions li")].map((li) => ({ cls: li.className, when: li.querySelector(".when b").textContent, nums: li.querySelector(".nums").textContent.trim(), what: li.querySelector(".what span").textContent })));
+    assert.equal(rows[0].cls, "elsewhere");
+    assert.equal(rows[0].nums, "");
+    assert.match(rows[0].what, /Charged elsewhere · 60 % → 80 %/);
+    assert.equal(rows[1].when, "8–9");
+    assert.match(rows[1].nums, /34/);
+    // The car's sub-menu sits just above the tab bar on a phone.
+    const [views, bar] = await page.evaluate(() => [".car-views", "nav.tabs"].map((s) => window.harness.panel.shadowRoot.querySelector(s).getBoundingClientRect().toJSON()));
+    assert.ok(views.bottom <= bar.top && bar.top - views.bottom < 20, JSON.stringify([views, bar]));
   });
 });
