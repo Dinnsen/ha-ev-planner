@@ -228,7 +228,7 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } th, td { text
 .hcab { fill: none; stroke: var(--ink); stroke-width: 3.2; stroke-linecap: round; }
 .hflow { fill: none; stroke: var(--card); stroke-width: 1.6; stroke-dasharray: 2 9; stroke-linecap: round; animation: hdash 1s linear infinite; }
 .hpulse { transform-box: fill-box; transform-origin: center; animation: hpulse 1.8s ease-out infinite; } @keyframes hpulse { 0% { transform: scale(.6); opacity: .9; } 100% { transform: scale(2.4); opacity: 0; } }
-.chart-hold { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.chart-hold { position: relative; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .chart-hold .hl { stroke: var(--ink); stroke-width: 2.2; }
 .rhint { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: var(--ink); color: var(--card); font-size: 13px; padding: 8px 13px; border-radius: 999px; pointer-events: none; opacity: 0; transition: opacity .25s; white-space: nowrap; }
 .rhint.on { opacity: .92; }
@@ -249,6 +249,11 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } th, td { text
 .keep-log { display: grid; gap: 4px; justify-items: start; } .keep-log svg { max-width: 260px; } .keep-log small { font-size: 12px; color: var(--soft); } .keep-log small.bad { color: var(--bad); }
 .keep-arrow { font: 600 22px "Space Grotesk", Inter, sans-serif; color: var(--faint); }
 .keep-kept { display: grid; gap: 8px; }
+.keep-log rect[data-log] { cursor: pointer; } .keep-log rect.sel { stroke: var(--ink); stroke-width: 2; }
+.logday { display: grid; gap: 8px; padding: 12px 14px; border-radius: 14px; background: var(--well); }
+.logday .row { align-items: center; } .logday h3 { margin: 0; font-size: 15px; } .logday .lx { margin-left: auto; width: 28px; height: 28px; border-radius: 50%; border: 0; background: var(--card); color: var(--ink); cursor: pointer; font: inherit; } .logday i.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
+.logday ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: 13px; } .logday li { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.logday li b { font-variant-numeric: tabular-nums; min-width: 40px; } .logday small { color: var(--soft); }
 .kept { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 10px; align-items: center; background: var(--well); border-radius: 12px; padding: 8px 10px; }
 .kept i { font-style: normal; font: 600 15px "Space Grotesk", Inter, sans-serif; color: var(--accent-ink); text-align: center; } .kept i svg { width: 70px; height: 22px; }
 .kept b { display: block; font-size: 13px; } .kept small { font-size: 12px; color: var(--soft); }
@@ -463,6 +468,8 @@ function boot(host, root) {
           const far = home ? pts.reduce((m, p) => (distKm(p, home) > distKm(m, home) ? p : m)) : t.b;
           // Out and home again within the stretch: it went to the farthest point.
           t.dest = home && distKm(t.b, home) < 0.25 ? (distKm(far, home) > 0.3 ? far : null) : t.b;
+          // Never away from home: the odometer caught up, or the car was moved at home.
+          t.still = Boolean(home) && !t.dest;
         }
       }
       // Where the stretches went is not known, so they are told apart by how far: out, on, and back home.
@@ -479,7 +486,9 @@ function boot(host, root) {
         if (ds.length) g.pos = { lat: q(ds.map((p) => p.lat), 0.5), lon: q(ds.map((p) => p.lon), 0.5) };
         const fits = (km) => Math.abs(km - g.km) <= Math.max(1.5, g.km * 0.12), own = given.find((x) => fits(Number(x.km))), inZone = g.pos ? zones.find((z) => distKm(g.pos, z) * 1000 <= Math.max(Number(z.radius) || 0, 150)) : null, zone = Object.values(logged).flat().find((t) => t.from === HOME && t.to !== HOME && fits(t.km));
         if (!g.pos && own && Number.isFinite(Number(own.lat)) && Number.isFinite(Number(own.lon))) g.pos = { lat: Number(own.lat), lon: Number(own.lon) };
-        g.custom = Boolean(own); g.name = own ? String(own.name) : inZone ? String(inZone.name) : zone ? zone.to : g.pos || top.includes(g) ? `≈ ${nf(g.km, g.km < 10 ? 1 : 0)} km` : OTHER;
+        // Seen with positions, and never away from home: not a place to go to.
+        const still = !ds.length && g.list.some((t) => t.still);
+        g.custom = Boolean(own); g.name = own ? String(own.name) : inZone ? String(inZone.name) : zone ? zone.to : still ? OTHER : g.pos || top.includes(g) ? `≈ ${nf(g.km, g.km < 10 ? 1 : 0)} km` : OTHER;
         for (const t of g.list) { t.to = g.name; t.place = g; }
       }
       for (const t of est) { if (t.leg === "out") t.from = HOME; else if (t.leg === "back") { t.from = t.from0.to; t.to = HOME; t.place = t.from0.place; } else t.from = t.from0.to; delete t.from0; }
@@ -1163,7 +1172,7 @@ function boot(host, root) {
       const mi = S.mi || (S.mi = { open: true, tab: "trip" }), mapped = Boolean(homeAt && located.length), when0 = `${WDL[dateOf(pick.d).getDay()]} ${dm(pick.d)}`;
       const selP = pick.place && pick.place.shown ? pick.place.shown : places.find((p) => p.list.includes(pick)) || null, ten = [...places].sort((a, b) => b.count - a.count).slice(0, 10), most = Math.max(1, ...ten.map((p) => p.count));
       const miHead = `<div class="mi-head"><h3>${esc(pick.from)} → ${esc(pick.to)}</h3>${mapped ? `<div class="mi-tabs" role="tablist"><button role="tab" data-mi="trip" aria-selected="${mi.tab === "trip"}" class="${mi.tab === "trip" ? "on" : ""}">${tr("Turen", "The trip")}</button><button role="tab" data-mi="top" aria-selected="${mi.tab === "top"}" class="${mi.tab === "top" ? "on" : ""}">Top 10</button></div>` : ""}<button class="mi-tog" data-mi="tog" aria-expanded="${mi.open}" aria-label="${tr("Vis eller skjul", "Show or hide")}">▾</button></div>`;
-      const topTen = `<div class="top10">${ten.map((p, k) => `<button data-place="${places.indexOf(p)}" class="${p === selP ? "on" : ""}"><small>${k + 1}</small><span><span>${esc(p.name)}</span><span class="bar" style="width:${((p.count / most) * 100).toFixed(0)}%;--c:${c.col}"></span></span><em>${p.count}×</em></button>`).join("")}</div>`;
+      const topTen = `<div class="top10">${ten.map((p, k) => `<button data-place="${places.indexOf(p)}" class="${p === selP ? "on" : ""}"><small>${k + 1}</small><span><span>${esc(p.name)}${p.pos ? "" : ` <small>· ${tr("ikke på kortet", "not on the map")}</small>`}</span><span class="bar" style="width:${((p.count / most) * 100).toFixed(0)}%;--c:${c.col}"></span></span><em>${p.count}×</em></button>`).join("")}</div>`;
       if (!typing) $("#trip").innerHTML = !mi.open ? miHead : mapped && mi.tab === "top" ? `${miHead}${topTen}` : `${miHead}<span class="demo">${when0}</span>${naming}${route}<div class="facts"><span><b>${pick.est ? `${tr("ca.", "about")} ${pad(Math.floor(pick.dep / 60))}` : `${hm(pick.dep)}–${hm(pick.arr)}`}</b>${pick.est ? tr("afgang, på timen", "departure, to the hour") : tr("afgang–ankomst", "departure–arrival")}</span><span><b>${nf(pick.km)} km</b>${pick.est ? tr("fra kilometertælleren", "from the odometer") : `${Math.round(pick.arr - pick.dep)} min`}</span><span><b>${nf(pick.kwh, 1)} kWh</b>${nf(pick.eff, 1)} ${tr("pr. 100 km", "per 100 km")}</span><span><b>${pick.soc0 == null || pick.soc1 == null ? "–" : `${nf(pick.soc0)} → ${nf(pick.soc1)} %`}</b>${tr("batteri", "battery")}</span><span><b>${pick.temp == null ? "–" : `${Math.round(pick.temp) + 0}°`}</b>${tr("ude", "outside")}</span><span><b>${np ? esc(money(pick.kwh * np, 0)) : "–"}</b>${tr("strøm, ca.", "power, about")}</span></div>`;
       S.pickNow = pick.id;
     }
@@ -1345,11 +1354,26 @@ function boot(host, root) {
         ${c.base ? `<path class="draw" pathLength="1" style="animation-delay:.6s" d="M${XT(T0)} ${YE(eff(T0))}L${XT(15)} ${YE(eff(15))}L${XT(T1)} ${YE(eff(T1))}" stroke="var(--ink)" stroke-width="2.4" fill="none"/>` : ""}</svg>`;
       $("#cold-t").textContent = c.base ? tr(`Lært: ${nf(c.base, 1)} kWh pr. 100 km ved 15° og varmere, og hver grad koldere koster ${nf(c.cold * 100, 1)} % mere. Ved 0° bruger ${c.name} ${nf(c.cold * 1500)} % mere end ved 15°.`, `Learned: ${nf(c.base, 1)} kWh per 100 km at 15° and warmer, and each degree colder costs ${nf(c.cold * 100, 1)} % more. At 0° ${c.name} uses ${nf(c.cold * 1500)} % more than at 15°.`) : "";
     }
+    // A day of the log, as it was kept: each car's trips and charges, the temperature and the night's price.
+    const logDay = () => {
+      const d = S.logDay;
+      if (d == null || d < 0 || d >= N) return "";
+      const iso = isoOf(d), night = (PD[iso] || {}).night, rows = ids.map((id) => {
+        const day = CARS[id].days[iso] || {}, ts = trips.filter((t) => t.car === id && t.d === d).sort((a, b) => a.dep - b.dep), cs = charges.filter((x) => x.car === id && x.d === d).sort((a, b) => a.hour - b.hour);
+        const lines = [
+          ...ts.map((t) => `<li><b>${hm(t.dep)}</b><span>${esc(t.from)} → ${esc(t.to)}</span><small>${nf(t.km, 1)} km · ${nf(t.kwh, 1)} kWh</small></li>`),
+          ...cs.map((x) => `<li><b>${hm(x.hour * 60)}</b><span>⚡ ${nf(x.kwh, 1)} kWh${x.where === "fast" ? ` ${tr("hurtigladet", "fast charged")}` : ""}</span>${x.price != null ? `<small>${esc(money(x.price))}/kWh</small>` : ""}</li>`),
+        ];
+        if (!lines.length && !(day.km > 0)) return "";
+        return `<div><span class="tag"><i class="dot" style="background:${CARS[id].col}"></i> ${esc(CARS[id].name)} · ${nf(day.km || 0)} km${day.temp != null ? ` · ${nf(day.temp, 1)}°` : ""}</span><ul>${lines.join("") || `<li><small>${tr("Kørte, men turene er ikke kendt", "Drove, but the trips are not known")}</small></li>`}</ul></div>`;
+      }).join("");
+      return `<div class="logday"><div class="row"><h3>${WDL[dateOf(d).getDay()]} ${dm(d)}</h3>${night != null ? `<small>${tr("nattens pris", "the night's price")} ${esc(money(night))}</small>` : ""}<button class="lx" data-log="x" aria-label="${tr("Luk", "Close")}">✕</button></div>${rows || `<small>${tr("Ingen ture eller ladninger den dag.", "No trips or charges that day.")}</small>`}</div>`;
+    };
     // The log as it is: a square for each of the 90 days (the darker, the farther driven), the oldest goes tonight;
     // beside it what is learned from them, which stays.
     const kmOf = (d) => sum(ids, (id) => Number((CARS[id].days[isoOf(d)] || {}).km) || 0), kms = Array.from({ length: N }, (_, d) => kmOf(d)), kmTop = Math.max(1, ...kms);
     const tripN = trips.filter((t) => t.d < N).length, chargeN = charges.filter((x) => x.d < N).length, priceDays = Object.keys(PD).length, cell = 15;
-    const grid = kms.map((km, d) => { const col = Math.floor(d / 7), row = d % 7, k = km / kmTop; return `<rect class="hit pop" style="animation-delay:${d * 6}ms" data-k="${d}" x="${col * cell}" y="${row * cell}" width="${cell - 3}" height="${cell - 3}" rx="3" fill="${km > 0 ? "var(--accent)" : "var(--well)"}" opacity="${km > 0 ? (0.25 + 0.75 * Math.sqrt(k)).toFixed(2) : 1}"${d === 0 ? ' stroke="var(--bad)" stroke-width="2" stroke-dasharray="3 2"' : ""}/>`; }).join("");
+    const grid = kms.map((km, d) => { const col = Math.floor(d / 7), row = d % 7, k = km / kmTop; return `<rect class="hit pop${S.logDay === d ? " sel" : ""}" style="animation-delay:${d * 6}ms" data-k="${d}" data-log="${d}" x="${col * cell}" y="${row * cell}" width="${cell - 3}" height="${cell - 3}" rx="3" fill="${km > 0 ? "var(--accent)" : "var(--well)"}" opacity="${km > 0 ? (0.25 + 0.75 * Math.sqrt(k)).toFixed(2) : 1}"${d === 0 ? ' stroke="var(--bad)" stroke-width="2" stroke-dasharray="3 2"' : ""}/>`; }).join("");
     const bars = (id) => { const mu = L[id].mu, top = Math.max(0.1, ...mu); return `<svg viewBox="0 0 70 22" class="kept-bars" aria-hidden="true">${[1, 2, 3, 4, 5, 6, 0].map((wd, k) => { const h = Math.max(1.5, (mu[wd] / top) * 18); return `<rect x="${k * 10}" y="${20 - h}" width="7" height="${h}" rx="2" fill="${CARS[id].col}"/>`; }).join("")}</svg>`; };
     const keptRows = [
       ...ids.map((id) => [bars(id), `${tr("Ugens rytme", "The week's rhythm")} · ${esc(CARS[id].name)}`, tr(`hverdag ${nf(mean([1, 2, 3, 4, 5].map((w) => L[id].mu[w])), 1)} kWh · weekend ${nf(mean([6, 0].map((w) => L[id].mu[w])), 1)} kWh`, `weekday ${nf(mean([1, 2, 3, 4, 5].map((w) => L[id].mu[w])), 1)} kWh · weekend ${nf(mean([6, 0].map((w) => L[id].mu[w])), 1)} kWh`)]),
@@ -1360,7 +1384,7 @@ function boot(host, root) {
     $("#conveyor").innerHTML = `<div class="keep"><div class="keep-log"><svg viewBox="0 0 ${13 * cell} ${7 * cell}" role="img" aria-label="${tr("De 90 dage i loggen", "The 90 days in the log")}">${grid}</svg>
         <small>${tr(`${N} dage · ${tripN} ture · ${chargeN} ladninger`, `${N} days · ${tripN} trips · ${chargeN} charges`)}</small><small class="bad">${tr(`Den ældste dag (${dm(0)}) slettes i nat`, `The oldest day (${dm(0)}) goes tonight`)}</small></div>
       <div class="keep-arrow" aria-hidden="true">→</div>
-      <div class="keep-kept">${keptRows.map(([icon, a, b]) => `<div class="kept"><i>${icon}</i><span><b>${a}</b><small>${b}</small></span></div>`).join("")}</div></div>`;
+      <div class="keep-kept">${keptRows.map(([icon, a, b]) => `<div class="kept"><i>${icon}</i><span><b>${a}</b><small>${b}</small></span></div>`).join("")}</div></div>${logDay()}`;
     tipOn($("#conveyor"), "[data-k]", (el) => { const d = +el.dataset.k, n = trips.filter((t) => t.d === d).length; return `${WD[dateOf(d).getDay()]} ${dm(d)}<br><b>${nf(kms[d])} km</b>${n ? ` · ${n} ${tr("ture", "trips")}` : ""}`; });
     // what EV Planner already learned about the charging
     const vs = IN.cars || [], has = (v) => v != null && Number.isFinite(Number(v));
@@ -1404,7 +1428,7 @@ function boot(host, root) {
     const sc = DATA.score || {}, led = Object.entries(DATA.ledger || {}).sort((a, b) => (a[0] < b[0] ? -1 : 1)), [w0, w1] = IN.window || [21, 7];
     const pts = [];
     for (const [iso, entry] of led) { const d = dIdx(iso); if (d + 1 > N - 1 || d < 0) continue; const got = sum(Object.keys(entry.cars || {}), (id) => ((CARS[id] || { days: {} }).days[isoOf(d + 1)] || {}).charged || 0), p0 = entry.price ?? (PD[iso] || {}).night; if (p0 == null) continue; const later = [1, 2, 3].map((k) => (PD[isoOf(d + k)] || {}).night).filter((v) => v != null); pts.push({ d, a: got * p0, b: got * (entry.wait && later.length ? Math.min(p0, ...later) : p0) }); }
-    if (pts.length < 2) empty("#ledger", tr(`Regnskabet er lige begyndt: ${led.length} ${led.length === 1 ? "aften" : "aftener"} er gemt. Hver aften gemmes, hvad der forventes, og dagen efter, hvad der skete.`, `The ledger has just begun: ${led.length} ${led.length === 1 ? "evening is" : "evenings are"} kept. Each evening what is expected is kept, and the day after what happened.`));
+    if (pts.length < 2) empty("#ledger", tr(`Regnskabet er lige begyndt: ${led.length} ${led.length === 1 ? "aften" : "aftener"} er gemt. En aften kommer med, når dagen efter er gået, og kurven tegnes fra to aftener.`, `The ledger has just begun: ${led.length} ${led.length === 1 ? "evening is" : "evenings are"} kept. An evening counts once the day after has gone, and the curve is drawn from two evenings.`));
     else {
       const a = [0], b = [0]; for (const x of pts) { a.push(a[a.length - 1] + x.a); b.push(b[b.length - 1] + x.b); }
       const n = pts.length, topL = Math.max(1, a[n]) * 1.05, XL = (k) => 40 + (k / n) * 840, YL = (v) => 10 + (1 - v / topL) * 150, path = (arr) => arr.map((v, k) => `${k ? "L" : "M"}${XL(k).toFixed(1)} ${YL(v).toFixed(1)}`).join("");
@@ -1431,8 +1455,9 @@ function boot(host, root) {
   }
   root.addEventListener("click", (ev) => {
     if (!built) return;
-    const t = ev.target.closest("[data-wkp],[data-tlz],[data-tlnow],[data-day],[data-tlsheet],#tl-close,#tl-sheet,[data-open],[data-tab],[data-car],[data-v],[data-trip],[data-name],[data-place],[data-mi],[data-c9q]");
+    const t = ev.target.closest("[data-wkp],[data-tlz],[data-tlnow],[data-day],[data-tlsheet],#tl-close,#tl-sheet,[data-open],[data-tab],[data-car],[data-v],[data-trip],[data-name],[data-place],[data-mi],[data-c9q],[data-log]");
     if (!t) return;
+    if (t.dataset.log) { const d = t.dataset.log === "x" ? null : +t.dataset.log; S.logDay = d === S.logDay ? null : d; render(true); return; }
     if (t.dataset.open) { $("#tl-sheet").hidden = true; say("open", t.dataset.open); return; }
     if (t.dataset.mi) { const mi = S.mi || (S.mi = { open: true, tab: "trip" }); if (t.dataset.mi === "tog") mi.open = !mi.open; else { mi.tab = t.dataset.mi; mi.open = true; } render(true); return; }
     if (t.dataset.place) { const p = ((CARS[S.car] || {}).places || [])[+t.dataset.place]; if (p && p.last) { S.pickTrip = p.last.id; S.naming = false; S.fit = true; S.mi = { ...(S.mi || {}), tab: "trip" }; render(true); } return; }

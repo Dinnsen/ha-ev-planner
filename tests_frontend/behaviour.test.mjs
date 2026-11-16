@@ -675,7 +675,8 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
   // An hour of driving and a night of charging in Home Assistant's own statistics, for the days before the log.
   const hour = (day, h) => `2026-11-${String(day).padStart(2, "0")}T${String(h).padStart(2, "0")}:00:00+01:00`;
   const statistics = {
-    "sensor.odo": [{ start: hour(8, 7), change: 24 }, { start: hour(8, 16), change: 24 }, { start: hour(9, 7), change: 24.4 }, { start: hour(9, 16), change: 24.1 }],
+    // The last: the odometer caught up while the car stood at home.
+    "sensor.odo": [{ start: hour(8, 7), change: 24 }, { start: hour(8, 16), change: 24 }, { start: hour(9, 7), change: 24.4 }, { start: hour(9, 16), change: 24.1 }, { start: hour(10, 19), change: 1.7 }],
     "sensor.soc": [{ start: hour(8, 6), mean: 70 }, { start: hour(8, 8), mean: 62 }, { start: hour(8, 15), mean: 62 }, { start: hour(8, 17), mean: 55 }, { start: hour(9, 3), mean: 80 }],
     "sensor.energy": [{ start: hour(9, 1), change: 9.5 }, { start: hour(9, 2), change: 6.2 }],
   };
@@ -683,7 +684,7 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
   // Where the car was on those days, as Home Assistant's history has it: out to a place and home again.
   insight.cars[a].sources.tracker = "device_tracker.car";
   const at = (day, h, minute, lat, lon) => ({ s: "not_home", a: { latitude: lat, longitude: lon }, lu: new Date(hour(day, h)).getTime() / 1000 + minute * 60 });
-  const history = { "device_tracker.car": [8, 9].flatMap((day) => [at(day, 6, 0, 55, 10), at(day, 7, 10, 55.05, 10.07), at(day, 7, 40, 55.15, 10.2), at(day, 16, 5, 55.1, 10.12), at(day, 16, 40, 55, 10)]) };
+  const history = { "device_tracker.car": [...[8, 9].flatMap((day) => [at(day, 6, 0, 55, 10), at(day, 7, 10, 55.05, 10.07), at(day, 7, 40, 55.15, 10.2), at(day, 16, 5, 55.1, 10.12), at(day, 16, 40, 55, 10)]), at(10, 19, 5, 55, 10.0004), at(10, 19, 40, 55.0002, 10)] };
   insight.cars[b].sources.soc = "sensor.soc_b";
   statistics["sensor.soc_b"] = [{ start: hour(7, 1), mean: 40 }, { start: hour(7, 2), mean: 52 }, { start: hour(7, 3), mean: 66 }, { start: hour(7, 4), mean: 70 }];
   await withPanel({ ...state, settings: { ...state.settings, insight: true } }, { size: PHONE }, async ({ page, tap, read, calls, push }) => {
@@ -754,6 +755,7 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     // The ten places driven to most, and the box folds away.
     await tap('ev-planner-insight [data-mi="top"]');
     assert.ok(await inside((root) => root.querySelectorAll("#trip .top10 button").length >= 1));
+    assert.doesNotMatch(await inside((root) => root.querySelector("#trip .top10").textContent + root.querySelector("#places").textContent), /1[.,]7 km/, "kilometres at home are not a place");
     await tap('ev-planner-insight [data-mi="tog"]');
     assert.equal(await inside((root) => root.querySelector("#trip .top10")), null);
     await tap('ev-planner-insight [data-mi="trip"]');
@@ -789,6 +791,13 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     // The log as it is: a square for each of the 90 days, and what is learned from them.
     assert.equal(await inside((root) => root.querySelectorAll("#conveyor rect[data-k]").length), 90);
     assert.match(await inside((root) => root.querySelector("#conveyor .keep-kept").textContent), /The week's rhythm/);
+    // A day of the log opens below it with what was kept that day; the hover tip stays inside the card.
+    assert.equal(await inside((root) => getComputedStyle(root.querySelector("#conveyor")).position), "relative");
+    const driven = await inside((root) => [...root.querySelectorAll("#conveyor rect[data-log]")].find((r) => r.getAttribute("fill") === "var(--accent)").dataset.log);
+    await tap(`ev-planner-insight #conveyor rect[data-log="${driven}"]`);
+    assert.match(await inside((root) => root.querySelector("#conveyor .logday").textContent), /km/);
+    await tap("ev-planner-insight #conveyor .lx");
+    assert.equal(await inside((root) => root.querySelector("#conveyor .logday")), null);
     // How careful: one slider, and what each choice would have done on the household's own days.
     assert.equal(await inside((root) => root.querySelectorAll("#c9-week i").length), 7);
     assert.equal(await inside((root) => root.querySelector("#c9-name").textContent), "Recommended");

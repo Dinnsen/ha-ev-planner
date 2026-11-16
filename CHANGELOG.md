@@ -2,6 +2,14 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b27] - 2026-11-16
+
+### Fixed
+
+- **Learning, the log:** a day's square can be tapped: the day opens under the card with each car's trips and charges, the temperature and the night's price. The tip that shows on a held square no longer appears at the top of the page under the tabs.
+- **Driving, the map:** kilometres counted while the car stood at home (an odometer that catches up when the car wakes, or the car moved in the drive) were taken for a trip to a place a short way off, such as "≈ 1.7 km", which then had no spot on the map. Where Home Assistant's positions show the car never left home, it is no longer a place. A place in the Top 10 that has no spot on the map says so.
+- **The shadow ledger** says when its first evening counts: once the day after has gone.
+
 ## [2.5.0b26] - 2026-11-16
 
 ### Fixed
