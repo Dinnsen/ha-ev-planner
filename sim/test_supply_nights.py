@@ -36,7 +36,26 @@ async def test_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory,
             f"over the fuse for {run.longest_over} minutes in a row ({run.over_fuse} in all, {run.peak_over} A at worst):"
             f" {'; '.join(run.over_at[:1] + run.over_at[4:6] + run.over_at[-2:])}"
         )
-    if "shortage" in night.tags:
+    if "frank" in night.tags:
+        # The guard acts on each reading: never a minute over the fuse (a small overload is waited out 30 s).
+        if run.longest_over > 1:
+            broken.append(f"over the fuse for {run.longest_over} minutes in a row: {'; '.join(run.over_at[:3])}")
+        if "no-overload" in night.tags and run.over_fuse:
+            broken.append(f"over the fuse for {run.over_fuse} minutes, though the current is set before the start")
+        raises = _raises_per_hour(run.log)
+        for key, count in raises.items():
+            if count > 4:
+                broken.append(f"car {key}: raised {count} times in one hour (Zaptec: every 15 minutes at most)")
+        for key, changes in run.most_per_hour.items():
+            if changes > 6:
+                broken.append(f"car {key}: the current changed {changes} times in one hour")
+        if run.idle_changes:
+            broken.append(f"{run.idle_changes} current changes while nothing charged at the charger")
+        broken.extend(f"not back up: {item}" for item in run.not_back)
+        broken.extend(f"undid a change in the app: {item}" for item in run.fought)
+    if "frank" in night.tags and night.until:
+        pass  # charged at once, for a morning or an evening: no ready-by time to meet
+    elif "shortage" in night.tags:
         first = next(car for car in night.cars if car.priority == "first")
         if not run.ready[first.key]:
             broken.append(f"the first car reached {run.soc_at_deadline.get(first.key)} %, not {first.target} %")
@@ -56,9 +75,24 @@ async def test_supply_night(hass: HomeAssistant, freezer: FrozenDateTimeFactory,
         f" {run.blind} min while the meter was out;"
         f" current changes {run.current_changes}, busiest hour {run.most_per_hour}"
     )
+    if "frank" in night.tags:
+        run.result.changes_log.extend(run.log[:30])
     out = os.environ.get("SIM_OUT")
     if out:
         with Path(out).open("a", encoding="utf-8") as file:
             file.write(json.dumps(run.result.to_dict(), ensure_ascii=False) + "\n")
     if not os.environ.get("SIM_REPORT_ONLY"):
         assert not broken, "; ".join(broken)
+
+
+def _raises_per_hour(log: list[str]) -> dict[str, int]:
+    """The most times each car's current went up within an hour, from the log of changes."""
+    ups: dict[str, list[int]] = {}
+    for line in log:
+        if "-> " not in line:
+            continue
+        clock, _car, key, before, _arrow, after, _unit = line.split(" ")
+        if float(after) > float(before):
+            h, m, sec = (int(part) for part in clock.split(":"))
+            ups.setdefault(key.rstrip(":"), []).append(h * 3600 + m * 60 + sec)
+    return {key: max(sum(1 for other in times if t <= other < t + 3600) for t in times) for key, times in ups.items()}

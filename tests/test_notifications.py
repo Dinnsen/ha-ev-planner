@@ -420,3 +420,34 @@ async def test_no_messages_about_a_car_that_is_away_when_that_is_turned_off(
     # Turned on again (as it is from the start): away is not muted.
     await household.async_set_vehicle(TESLA, {"notify_away": True})
     assert household.notify_muted(tesla) is False
+
+
+async def test_a_message_says_where_the_car_is_plugged_in_and_when_it_charges(
+    hass: HomeAssistant, notify: NotifyCalls, household: MockConfigEntry, freezer: FrozenDateTimeFactory
+) -> None:
+    """Frank: plugged in, the phone says which charger, when it is to be ready and when it charges."""
+    planner = household.runtime_data
+    hass.states.async_set(CABLE, "off")
+    await settle(hass, freezer)
+    notify.calls.clear()
+    hass.states.async_set(CABLE, "on")
+    await settle(hass, freezer)
+    tag = f"evp_plug_{TESLA}"
+    # Not at once: the car and the charger find each other, and the plan is made, first.
+    assert not [c for c in notify.calls if c.get("data", {}).get("tag") == tag]
+    await move(hass, freezer, dt_util.now() + timedelta(minutes=2))
+    sent = [c for c in notify.calls if c.get("data", {}).get("tag") == tag]
+    assert len(sent) == 1
+    assert sent[0]["title"] == "Tesla · Carport"
+    assert sent[0]["message"].startswith("Week plan") and "80 %" in sent[0]["message"]
+    assert "Charges" in sent[0]["message"] or "prices come" in sent[0]["message"]
+    # Once a plug-in.
+    await move(hass, freezer, dt_util.now() + timedelta(minutes=5))
+    assert len([c for c in notify.calls if c.get("data", {}).get("tag") == tag]) == 1
+    # Turned off for the car: no message the next time.
+    await planner.async_set_vehicle(TESLA, {"notify_plug": False})
+    hass.states.async_set(CABLE, "off")
+    await settle(hass, freezer)
+    hass.states.async_set(CABLE, "on")
+    await move(hass, freezer, dt_util.now() + timedelta(minutes=2))
+    assert len([c for c in notify.calls if c.get("data", {}).get("tag") == tag]) == 1

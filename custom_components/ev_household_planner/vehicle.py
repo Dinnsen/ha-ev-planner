@@ -341,6 +341,8 @@ class Vehicle:
     place: str | None = None
     # When the car was seen to be plugged in (None when it was plugged in already when it was first read).
     connected_since: datetime | None = None
+    # The plug-in this car's "plugged in" message was sent (or given up) for.
+    plug_noted: datetime | None = None
     # The charger the car is at now: its own when it has one, else the one it was found at.
     at_charger: str | None = None
     # When the car was last asked to report, to find the charger it is at.

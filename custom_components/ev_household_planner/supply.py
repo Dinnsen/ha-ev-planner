@@ -34,6 +34,27 @@ BUFFER = timedelta(hours=1)
 EPSILON = 1e-6
 
 
+def share_room(wants: Sequence[tuple[float, float]], room: float) -> list[float]:
+    """The room on a supply shared between chargers, in whole amps (rounded down).
+
+    ``wants`` is (the least, the most) of each, the one to keep its current longest first. Each gets its
+    least first, as long as there is room for it (0 for one there is none for: it has to stop), then
+    what is left goes to them in turn, up to the most each takes.
+    """
+    out = [0.0] * len(wants)
+    left = room
+    for index, (low, high) in enumerate(wants):
+        if high >= low and left >= low - EPSILON:
+            out[index] = low
+            left -= low
+    for index, (low, high) in enumerate(wants):
+        if out[index] > 0:
+            extra = max(0.0, min(high - low, left))
+            out[index] += extra
+            left -= extra
+    return [float(int(value + EPSILON)) for value in out]
+
+
 def kw(amps: float, phases: int) -> float:
     """Power in kW at ``amps`` per phase."""
     return amps * VOLTS * phases / 1000

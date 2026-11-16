@@ -389,9 +389,9 @@ async def test_a_current_that_is_there_already_is_not_sent_again(
     hass.states.async_set(AMPS, "10", {"min": 6, "max": 16})
     calls.clear()
     assert await supply.async_keep_current(vehicle, AMPS, 10.0, moment)
-    assert not calls and supply._sent[TESLA] == (10.0, moment)
+    assert not calls and supply._sent[AMPS] == (10.0, moment)
     assert await supply.async_keep_current(vehicle, AMPS, 10.0, moment + timedelta(minutes=1))
-    assert not calls and supply._sent[TESLA] == (10.0, moment)
+    assert not calls and supply._sent[AMPS] == (10.0, moment)
     assert await supply.async_keep_current(vehicle, AMPS, 8.0, moment + timedelta(minutes=2))
     assert [call.data["value"] for call in calls] == [8.0]
 

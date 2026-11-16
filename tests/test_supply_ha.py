@@ -14,11 +14,11 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry, async_
 
 from custom_components.ev_household_planner.supply import kw
 from custom_components.ev_household_planner.supply_control import (
+    CURRENT_EVERY,
     EASEE_TTL_MINUTES,
+    ECHO,
     GUARD_CONFIRM,
-    GUARD_HOLD,
     GUARD_PAUSE,
-    GUARD_RESTORE,
     GUARD_SETTLE,
     HEADROOM_WINDOW,
 )
@@ -215,42 +215,52 @@ async def test_the_guard_turns_the_car_down_at_once_and_up_again_later(
     hass.states.async_set(METER, "10", {"unit_of_measurement": "A"})
     entry = _entry(supply_meter=[METER], supply_guard=True)
     calls = await _setup(hass, freezer, entry)
-    supply = entry.runtime_data.supply
+    household = entry.runtime_data
+    supply = household.supply
+    await household.async_set_vehicle(TESLA, {"mode": "charge_now"})
+    await settle(hass, freezer)
     state = supply.state(now)
     assert supply.guard and state is not None and state["guard"] is True
     supply._sent.clear()
     hass.states.async_set(AMPS, "16", {"min": 6, "max": 16})
     calls.clear()
-    # A kettle: 30 A on the meter, 7 A over. The Tesla goes from 16 to 9 A at once.
+    # A kettle: 30 A on the meter with the car's 16, so the house draws 14. The car gets what is left
+    # under the 23 A limit, less a margin of 1 A: 8 A, at once.
     hass.states.async_set(METER, "30", {"unit_of_measurement": "A"})
     await hass.async_block_till_done()
-    assert [c.data["value"] for c in calls] == [9]
+    assert [c.data["value"] for c in calls] == [8]
     # The meter has not caught up yet: the cut counts as done, no second cut.
     hass.states.async_set(METER, "29.8", {"unit_of_measurement": "A"})
     await hass.async_block_till_done()
     assert len(calls) == 1
     # Still over a minute later, by a little: the guard waits to see that it lasts, then goes down
-    # again, to the least a charger gives.
+    # again, to what is left: 24 A with the car's 8 is a house of 16, and 23 - 16 - 1 leaves 6.
     first = dt_util.now() + GUARD_SETTLE + timedelta(seconds=1)
     freezer.move_to(first)
-    hass.states.async_set(METER, "26", {"unit_of_measurement": "A"})
+    hass.states.async_set(METER, "23.9", {"unit_of_measurement": "A"})
     await hass.async_block_till_done()
     assert len(calls) == 1
     later = first + GUARD_CONFIRM
     freezer.move_to(later)
-    hass.states.async_set(METER, "25.9", {"unit_of_measurement": "A"})
+    hass.states.async_set(METER, "24", {"unit_of_measurement": "A"})
     await hass.async_block_till_done()
     assert calls[-1].data["value"] == 6
     assert supply.guard_events == 2
-    # Under the limit: nothing to do.
+    # Under the limit: not up again yet, though the kettle is off.
+    freezer.move_to(later + timedelta(minutes=1))
     hass.states.async_set(METER, "12", {"unit_of_measurement": "A"})
     await hass.async_block_till_done()
     assert len(calls) == 2
-    # The plan does not raise it for a while; after that it may.
-    held = supply._held[TESLA]
-    assert held == later + GUARD_HOLD
-    await supply.async_apply(later + timedelta(seconds=30))
+    # Up only when the house has left the room all the time since the last change, and the charger may
+    # be changed again: then straight to its full current, not a step at a time.
+    freezer.move_to(later + CURRENT_EVERY + timedelta(seconds=5))
+    hass.states.async_set(METER, "12.1", {"unit_of_measurement": "A"})
+    await hass.async_block_till_done()
     assert len(calls) == 2
+    freezer.move_to(later + HEADROOM_WINDOW + timedelta(minutes=1))
+    hass.states.async_set(METER, "12", {"unit_of_measurement": "A"})
+    await hass.async_block_till_done()
+    assert calls[-1].data["value"] == 16 and len(calls) == 3
 
 
 async def test_the_guard_looks_again_when_the_meter_stays_too_high(
@@ -269,7 +279,7 @@ async def test_the_guard_looks_again_when_the_meter_stays_too_high(
     calls.clear()
     hass.states.async_set(METER, "30", {"unit_of_measurement": "A"})
     await hass.async_block_till_done()
-    assert [c.data["value"] for c in calls] == [9]
+    assert [c.data["value"] for c in calls] == [8]
     # The cut did not help, and the meter says 30 as before.
     for _ in range(3):
         freezer.tick(timedelta(seconds=61))
@@ -331,19 +341,19 @@ async def test_the_plan_raises_a_watched_car_only_into_free_room(
     assert plan is not None
     start, _end, amps = max(plan.amps[TESLA], key=lambda item: item[2])
     moment = max(start, dt_util.now()) + timedelta(minutes=1)
-    supply._sent[TESLA] = (6.0, moment - timedelta(hours=1))
-    supply._held.clear()
+    hass.states.async_set(AMPS, "6", {"min": 6, "max": 16})
+    supply._sent[AMPS] = (6.0, moment - timedelta(hours=1))
     supply._house_peaks.clear()
-    supply.cars_amps = lambda: 6.0  # type: ignore[method-assign]  # the Tesla at its 6 A
     calls.clear()
-    # 23 A limit, 19 A on the meter with the car's 6: 4 A free after the 2 A margin, so 6 becomes 8,
-    # not the plan's share.
+    # 23 A limit, 19 A on the meter with the car's 6: the house draws 13, so 9 A are free for the car
+    # after the 1 A margin, not the plan's share.
     await supply.async_apply(moment)
-    if round(amps) > 8:
-        assert [c.data["value"] for c in calls] == [8]
+    if round(amps) > 9:
+        assert [c.data["value"] for c in calls] == [9]
     # No room at all: it stays.
     hass.states.async_set(METER, "23", {"unit_of_measurement": "A"})
-    supply._sent[TESLA] = (6.0, moment - timedelta(hours=1))
+    hass.states.async_set(AMPS, "6", {"min": 6, "max": 16})
+    supply._sent[AMPS] = (6.0, moment - timedelta(hours=1))
     calls.clear()
     await supply.async_apply(moment)
     assert not calls
@@ -369,7 +379,6 @@ async def test_the_guard_without_a_meter_reading_turns_the_cars_to_the_least(
     plan = supply.plan
     assert plan is not None and plan.amps[TESLA]
     start = plan.amps[TESLA][0][0]
-    supply._held.clear()
     await supply.async_apply(max(start, dt_util.now()) + timedelta(minutes=10))
     assert all(c.data["value"] == 6 for c in calls)
 
@@ -416,51 +425,20 @@ async def test_a_short_peak_is_waited_out_and_a_lasting_one_cut(
     async_fire_time_changed(hass, dt_util.now())
     await hass.async_block_till_done()
     assert not calls
-    # The same, and it stays: cut when the time is up, by what is over then (16 - 3 = 13).
+    # The same, and it stays: cut when the time is up, to what is left (a house of 26 - 16 = 10 leaves 12).
     hass.states.async_set(METER, "26", {"unit_of_measurement": "A"})
     await hass.async_block_till_done()
     assert not calls
     freezer.tick(GUARD_CONFIRM + timedelta(seconds=2))
     async_fire_time_changed(hass, dt_util.now())
     await hass.async_block_till_done()
-    assert [c.data["value"] for c in calls] == [13]
+    assert [c.data["value"] for c in calls] == [12]
 
 
-async def test_a_car_gets_back_what_the_guard_took_when_the_peak_is_over(
+async def test_an_idle_charger_is_left_as_it_is(
     hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
 ) -> None:
-    set_prices(hass, now, NIGHT)
-    set_tesla(hass, soc=20, switch=True, charging=True)
-    _skoda(hass, soc=20)
-    hass.states.async_set(METER, "19", {"unit_of_measurement": "A"})
-    entry = _entry(supply_meter=[METER], supply_guard=True)
-    calls = await _setup(hass, freezer, entry)
-    supply = entry.runtime_data.supply
-    plan = supply.plan
-    assert plan is not None
-    start, _end, amps = max(plan.amps[TESLA], key=lambda item: item[2])
-    moment = max(start, dt_util.now()) + timedelta(minutes=1)
-    # The guard took it from 16 to 9 a little while ago; the house is quiet again.
-    supply._sent[TESLA] = (9.0, moment - timedelta(minutes=4))
-    supply._before_cut[TESLA] = 16.0
-    supply._held.clear()
-    supply._house_peaks.clear()
-    supply._house_peaks[(moment - HEADROOM_WINDOW + timedelta(minutes=2)).replace(second=0, microsecond=0)] = 15.0
-    hass.states.async_set(METER, "11", {"unit_of_measurement": "A"})
-    supply.cars_amps = lambda: 9.0  # type: ignore[method-assign]
-    hass.states.async_set(AMPS, "9", {"min": 6, "max": 16})
-    calls.clear()
-    # The peak of eight minutes ago does not count for the way back (only the last GUARD_RESTORE).
-    assert timedelta(minutes=8) > GUARD_RESTORE
-    await supply.async_apply(moment)
-    if round(amps) >= 12:
-        assert calls and calls[-1].data["value"] > 9
-
-
-async def test_an_idle_charger_is_set_to_what_the_place_has_room_for(
-    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
-) -> None:
-    """No car charging: the charger's current goes back to full, or to the room there is (the oven is on)."""
+    """No car charging: nothing is sent to the charger. The next start sets what there is room for then."""
     set_prices(hass, now, NIGHT)
     set_tesla(hass, soc=20)
     _skoda(hass, soc=20)
@@ -496,18 +474,74 @@ async def test_an_idle_charger_is_set_to_what_the_place_has_room_for(
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     supply = entry.runtime_data.supply
-    supply._idle_sent.clear()
-    hass.states.async_set(garage_amps, "7", {"min": 0, "max": 16})
-    calls.clear()
-    await supply.async_idle(dt_util.now())
-    assert [c.data for c in calls] == [{"entity_id": garage_amps, "value": 16.0}]
-    # Not again at once; later, with the oven on (18 A in the house), to what is left.
-    calls.clear()
-    hass.states.async_set(METER, "18", {"unit_of_measurement": "A"})
-    await supply.async_idle(dt_util.now() + timedelta(minutes=1))
+    for minutes in (1, 16, 31):
+        hass.states.async_set(METER, "18" if minutes == 16 else "3", {"unit_of_measurement": "A"})
+        await supply.async_idle(dt_util.now() + timedelta(minutes=minutes))
     assert not calls
-    await supply.async_idle(dt_util.now() + timedelta(minutes=16))
-    assert calls and calls[-1].data["value"] == 6.0
+
+
+async def test_a_car_is_started_at_what_there_is_room_for(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    """Frank: the current is set before the start, and with the oven on there is no start at all."""
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass, soc=20)
+    _skoda(hass, soc=20)
+    # The oven: 18 A in the house leaves 23 - 18 - 1 = 4 A, under the least a charger gives.
+    hass.states.async_set(METER, "18", {"unit_of_measurement": "A"})
+    entry = _entry(supply_meter=[METER], supply_guard=True)
+    calls = await _setup(hass, freezer, entry)
+    household = entry.runtime_data
+    tesla = household.vehicles[TESLA]
+    hass.states.async_set(AMPS, "16", {"min": 6, "max": 16})
+    calls.clear()
+    switches.calls.clear()
+    await household.async_set_vehicle(TESLA, {"mode": "charge_now"})
+    await settle(hass, freezer)
+    assert ("turn_on", CHARGE_SWITCH) not in switches.calls
+    assert tesla.decision.control == "pause" and tesla.decision.reason == "waiting"
+    assert any(event["kind"] == "start_waits" and event["waits"] for event in household.events.items)
+    # The oven is off, and has been for the place's window: the current goes to the 12 A there is room
+    # for (10 A in the house), then the car is started.
+    hass.states.async_set(METER, "10", {"unit_of_measurement": "A"})
+    await move(hass, freezer, dt_util.now() + HEADROOM_WINDOW + timedelta(minutes=1))
+    assert ("turn_on", CHARGE_SWITCH) in switches.calls
+    assert calls and calls[0].data == {"entity_id": AMPS, "value": 12.0}
+
+
+async def test_a_charger_that_shows_its_old_current_for_a_while_is_not_believed_at_once(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    """Zaptec's cloud shows the current it had for up to a minute after a change; set by hand, it is taken."""
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass, soc=20, switch=True, charging=True)
+    _skoda(hass, soc=20)
+    hass.states.async_set(METER, "10", {"unit_of_measurement": "A"})
+    entry = _entry(supply_meter=[METER], supply_guard=True)
+    calls = await _setup(hass, freezer, entry)
+    household = entry.runtime_data
+    supply = household.supply
+    await household.async_set_vehicle(TESLA, {"mode": "charge_now"})
+    await settle(hass, freezer)
+    supply._sent.clear()
+    hass.states.async_set(AMPS, "16", {"min": 6, "max": 16})
+    calls.clear()
+    hass.states.async_set(METER, "30", {"unit_of_measurement": "A"})
+    await hass.async_block_till_done()
+    assert [c.data["value"] for c in calls] == [8]
+    # The cloud shows 16 again for a moment: it is 8 all the same, and a cut a minute later is from 8.
+    hass.states.async_set(AMPS, "16", {"min": 6, "max": 16})
+    assert supply.setting(AMPS, dt_util.now()) == 8
+    freezer.move_to(dt_util.now() + GUARD_SETTLE + timedelta(seconds=1))
+    hass.states.async_set(METER, "28", {"unit_of_measurement": "A"})  # a house of 20: 2 A left, so stop
+    await hass.async_block_till_done()
+    assert calls[-1].data["value"] == 6
+    # Someone sets it to 10 in the charger's app, and it stays: that is what it is from then on.
+    hass.states.async_set(METER, "14", {"unit_of_measurement": "A"})
+    hass.states.async_set(AMPS, "10", {"min": 6, "max": 16})
+    freezer.move_to(dt_util.now() + ECHO + timedelta(seconds=1))
+    assert supply.setting(AMPS, dt_util.now()) == 10
+    assert any(event["kind"] == "current_outside" for event in household.events.items)
 
 
 async def test_the_joint_plan_follows_a_cars_price_ceiling_as_far_as_its_target_allows(
@@ -539,7 +573,7 @@ async def test_the_joint_plan_follows_a_cars_price_ceiling_as_far_as_its_target_
 async def test_the_guard_gives_a_car_charging_outside_its_plan_its_current_back(
     hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
 ) -> None:
-    """Frank: a car on charge now has no plan to be raised by; the guard gives the charger back what it took."""
+    """Frank: a car on charge now goes back to its full current, not to what it had before a cut."""
     set_prices(hass, now, NIGHT)
     set_tesla(hass, soc=20, switch=True, charging=True)
     _skoda(hass, soc=20)
@@ -550,15 +584,96 @@ async def test_the_guard_gives_a_car_charging_outside_its_plan_its_current_back(
     supply = household.supply
     await household.async_set_vehicle(TESLA, {"mode": "charge_now"})
     await settle(hass, freezer)
-    supply._sent.clear()
-    hass.states.async_set(AMPS, "16", {"min": 6, "max": 16})
+    # Left at 14 A from before (the plan of the night, say): EV Planner's memory says so too.
+    hass.states.async_set(AMPS, "14", {"min": 6, "max": 16})
+    supply._sent[AMPS] = (14.0, dt_util.now() - timedelta(hours=1))
     calls.clear()
-    hass.states.async_set(METER, "30", {"unit_of_measurement": "A"})
+    start = dt_util.now()
+    hass.states.async_set(METER, "28", {"unit_of_measurement": "A"})  # a house of 14
     await hass.async_block_till_done()
-    assert [c.data["value"] for c in calls] == [9]
-    # The kettle is off. When the guard has waited, the charger has its 16 A again.
-    freezer.move_to(dt_util.now() + GUARD_RESTORE + timedelta(seconds=5))
+    assert [c.data["value"] for c in calls] == [8]
+    # The kettle is off. A few minutes later: not yet. When the house has been quiet for the window: 16 A.
+    for minutes in (3, 6, 9):
+        freezer.move_to(start + timedelta(minutes=minutes))
+        hass.states.async_set(METER, f"11.{minutes}", {"unit_of_measurement": "A"})
+        await hass.async_block_till_done()
+    assert len(calls) == 1
+    freezer.move_to(start + HEADROOM_WINDOW + timedelta(minutes=1))
     hass.states.async_set(METER, "11", {"unit_of_measurement": "A"})
     await hass.async_block_till_done()
     assert calls[-1].data["value"] == 16
-    assert not supply._guest_cut
+
+
+async def test_a_zaptec_charger_is_turned_on_its_installation(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    """Zaptec asks that the current is turned on the installation ("Available current"), not the charger's
+    own setting; that is set back to full once, as EV Planner no longer turns it."""
+    zaptec = MockConfigEntry(domain="zaptec")
+    zaptec.add_to_hass(hass)
+    devices = dr.async_get(hass)
+    installation = devices.async_get_or_create(config_entry_id=zaptec.entry_id, identifiers={("zaptec", "I1")})
+    charger = devices.async_get_or_create(
+        config_entry_id=zaptec.entry_id, identifiers={("zaptec", "C1")}, via_device=("zaptec", "I1")
+    )
+    registry = er.async_get(hass)
+    own = registry.async_get_or_create(
+        "number",
+        "zaptec",
+        "C1_charger_max_current",
+        device_id=charger.id,
+        config_entry=zaptec,
+        suggested_object_id="lader1_charger_max_current",
+    ).entity_id
+    available = registry.async_get_or_create(
+        "number",
+        "zaptec",
+        "I1_available_current",
+        device_id=installation.id,
+        config_entry=zaptec,
+        suggested_object_id="hjem_available_current",
+    ).entity_id
+    hass.states.async_set(own, "6", {"min": 0, "max": 16})
+    hass.states.async_set(available, "16", {"min": 0, "max": 25})
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass, soc=20, switch=True, charging=True)
+    _skoda(hass, soc=20)
+    hass.states.async_set(METER, "10", {"unit_of_measurement": "A"})
+    entry = _entry(current=own, supply_meter=[METER], supply_guard=True)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    await settle(hass, freezer)
+    sent: list[tuple[str, float]] = []
+
+    async def record(call: ServiceCall) -> None:
+        sent.append((call.data["entity_id"], call.data["value"]))
+        top = 25 if call.data["entity_id"] == available else 16
+        hass.states.async_set(call.data["entity_id"], str(call.data["value"]), {"min": 0, "max": top})
+
+    hass.services.async_register("number", "set_value", record)
+    household = entry.runtime_data
+    supply = household.supply
+    await household.async_set_vehicle(TESLA, {"mode": "charge_now"})
+    await settle(hass, freezer)
+    assert supply.knob(own) == available
+    assert supply._raise_every(available).total_seconds() == 15 * 60
+    sent.clear()
+    supply._sent.clear()
+    supply._unclamped.clear()
+    hass.states.async_set(available, "16", {"min": 0, "max": 25})
+    hass.states.async_set(own, "6", {"min": 0, "max": 16})
+    # The kettle: the installation goes down, not the charger.
+    hass.states.async_set(METER, "30", {"unit_of_measurement": "A"})
+    await hass.async_block_till_done()
+    assert sent == [(available, 8.0)]
+    # The charger's own setting was left at 6 A: it goes back to its full 16 A, once.
+    await supply.async_idle(dt_util.now())
+    await supply.async_idle(dt_util.now() + timedelta(minutes=1))
+    assert sent.count((own, 16.0)) == 1
+    # A second charger on the installation: each is turned on its own setting again.
+    devices.async_get_or_create(
+        config_entry_id=zaptec.entry_id, identifiers={("zaptec", "C2")}, via_device=("zaptec", "I1")
+    )
+    supply._knobs.clear()
+    assert supply.knob(own) == own

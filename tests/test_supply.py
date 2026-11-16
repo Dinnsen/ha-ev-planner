@@ -17,6 +17,7 @@ from custom_components.ev_household_planner.supply import (
     cheap_hours,
     kw,
     plan_supply,
+    share_room,
 )
 
 TZ = ZoneInfo("Europe/Copenhagen")
@@ -167,3 +168,17 @@ def test_a_departure_at_the_cheapest_prices_never_goes_over_them() -> None:
     plan = plan_supply(NIGHT, [cheap], NOW, limit=25, house=lambda slot: 5)
     assert {start.hour for start, _end, _amps in plan.amps["a"]} == {1, 2}
     assert plan.short_kwh["a"] > 5
+
+
+def test_the_room_is_shared_the_one_kept_longest_first() -> None:
+    # Room for all: each gets what it may have, in whole amps.
+    assert share_room([(6, 16), (6, 16)], 40) == [16.0, 16.0]
+    # Not for all: the first keeps the most, the other its least.
+    assert share_room([(6, 16), (6, 16)], 20.5) == [14.0, 6.0]
+    # Not even the least for the last one: it has to stop.
+    assert share_room([(6, 16), (6, 16)], 11) == [11.0, 0.0]
+    assert share_room([(6, 16)], 5.9) == [0.0]
+    # Never more than each takes, and a car that can only be switched has all or nothing.
+    assert share_room([(6, 8), (16, 16)], 30) == [8.0, 16.0]
+    # No room for the one that takes all or nothing: it stops, and the other has what is left.
+    assert share_room([(6, 16), (16, 16)], 20) == [16.0, 0.0]

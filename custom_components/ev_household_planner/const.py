@@ -237,6 +237,7 @@ SET_NOTIFY_TARGETS: Final = "notify_targets"
 REMINDER_MAX_REPEATS: Final = 3
 SET_LIVE: Final = "live_notification"
 SET_NOTIFY_DONE: Final = "notify_done"
+SET_NOTIFY_PLUG: Final = "notify_plug"
 # A message at the ready-by time with how it went, and a warning when the car cannot be ready.
 SET_NOTIFY_RECEIPT: Final = "notify_receipt"
 # Messages about the car also when it is away from the household's places (charging on the road).
@@ -365,6 +366,7 @@ DEFAULT_VEHICLE_SETTINGS: Final[dict[str, object]] = {
     SET_NOTIFY_TARGETS: [],
     SET_LIVE: False,
     SET_NOTIFY_DONE: False,
+    SET_NOTIFY_PLUG: True,
     SET_NOTIFY_RECEIPT: True,
     SET_NOTIFY_AWAY: True,
     SET_EARLY_ENABLED: False,

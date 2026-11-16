@@ -128,6 +128,7 @@ from .const import (
     SET_MORNING,
     SET_NOTIFY_AWAY,
     SET_NOTIFY_DONE,
+    SET_NOTIFY_PLUG,
     SET_NOTIFY_RECEIPT,
     SET_REMINDER,
     SET_REMINDER_DAYS,
@@ -198,6 +199,10 @@ type EVPlannerConfigEntry = ConfigEntry[Household]
 
 TICK = timedelta(minutes=1)
 ENFORCE_AFTER_PLUG_IN = timedelta(minutes=3)
+# The "plugged in" message waits this long for the car and the charger to find each other and the plan,
+# and is given up after the second.
+PLUG_NOTE_AFTER = timedelta(seconds=60)
+PLUG_NOTE_WITHIN = timedelta(minutes=30)
 # A car that says it is plugged in while its charger says nothing is, for this long, is at another charger.
 ELSEWHERE_AFTER = timedelta(minutes=5)
 # A car's limit that still reads what it was this soon after EV Planner set it is a late report, not a change.
@@ -2114,6 +2119,8 @@ class Household(DataUpdateCoordinator[None]):
                     # Acted on with what the car says: from now on the plan is an ordinary one.
                     vehicle.plan_restored = False
         if apply and self._started:
+            for vehicle in self.vehicles.values():
+                await self._async_notify_plugged(vehicle, now)
             for supply in self.supplies.values():
                 await supply.async_apply(now)
             for solar in self.solars.values():
@@ -2261,6 +2268,9 @@ class Household(DataUpdateCoordinator[None]):
             # A stop always goes out: it is never the one too many.
             vehicle.control_error = "rate_limited"
             return False
+        if want_on:
+            # The current first, then the start: a car never starts at more than there is room for.
+            await self.supply_of(vehicle).async_before_start(vehicle, now)
         error = await self._async_send(vehicle, want_on, force=force)
         vehicle.control_error = error
         if error is not None:
@@ -2315,6 +2325,8 @@ class Household(DataUpdateCoordinator[None]):
             return
         if desired == charger.guest_last_sent:
             return
+        if desired == CONTROL_CHARGE:
+            await self.supplies[self.pairing.site_of(charger).site_id].async_before_guest_start(charger, now)
         if await self._async_switch(charger.switch_entity, desired == CONTROL_CHARGE) is None:
             charger.guest_last_sent = desired
             self.async_save()
@@ -2517,6 +2529,86 @@ class Household(DataUpdateCoordinator[None]):
             return True
         last = session.periods[-1].end if session.periods else session.start
         return last is None or elapsed(now, last) >= BLIP_HOLD
+
+    async def _async_notify_plugged(self, vehicle: Vehicle, now: datetime) -> None:
+        """Once a plug-in: which charger the car is at, when it is to be ready and how it charges.
+
+        Sent when the car and the charger have found each other for sure and the plan is made, so a quick
+        look at the phone says it is all connected; given up when that does not happen within a while.
+        """
+        since = vehicle.connected_since
+        if since is None or vehicle.plug_noted == since or elapsed(now, since) < PLUG_NOTE_AFTER:
+            return
+        if elapsed(now, since) > PLUG_NOTE_WITHIN:
+            vehicle.plug_noted = since
+            return
+        charger = self.chargers.get(vehicle.charger_id or "")
+        if (
+            vehicle.connected is not True
+            or vehicle.at_home is not True
+            or vehicle.elsewhere
+            or vehicle.odd_since is not None
+            or charger is None
+            or self.pairing.occupant(charger) != vehicle.vehicle_id
+        ):
+            return
+        charge_now = vehicle.decision.control == CONTROL_CHARGE and vehicle.mode == MODE_CHARGE_NOW
+        if not charge_now and vehicle.plan is None and vehicle.plan_error is None:
+            return  # the plan is not made yet
+        if vehicle.planned_at is not None and vehicle.planned_at < since and not charge_now:
+            return
+        vehicle.plug_noted = since
+        if not vehicle.settings.get(SET_NOTIFY_PLUG, True) or not self.notifier.enabled or self.notify_muted(vehicle):
+            return
+        message = self._plugged_text(vehicle, now, charge_now)
+        self.events.add(now, "plugged_note", vehicle=vehicle.name, charger=charger.name, message=message)
+        await self.notifier.send(
+            title=f"{vehicle.name} · {charger.name}",
+            message=message,
+            tag=tag_for("plug", vehicle.vehicle_id),
+            to=vehicle.notify_to,
+            icon="mdi:ev-plug-type2",
+            color=COLOR_CHARGE,
+        )
+
+    def _plugged_text(self, vehicle: Vehicle, now: datetime, charge_now: bool) -> str:
+        """``Ugeplan i morgen kl. 07.00 · 80 %. Lader i nat 01.00-03.30, ca. 12,40 kr.``"""
+        deadline = vehicle.deadline
+        target = f"{self._num(vehicle.target, 0)} %"
+        if deadline is not None and not charge_now:
+            trip = vehicle.trip
+            if vehicle.calendar_event is not None and deadline == vehicle.calendar_event:
+                source = self._text("src_calendar")
+            elif trip is not None and deadline == trip["at"]:
+                source = self._departure_name(str(trip.get("kind") or ""))
+            else:
+                source = self._text("src_week")
+            head = self._text("plug_when", source=source, day=self._day(deadline, now), time=self._time(deadline))
+            head = f"{head} · {target}"
+        else:
+            head = target
+        plan = vehicle.plan
+        soc = vehicle.current_soc
+        if charge_now:
+            tail = self._text("plug_now")
+        elif soc is not None and soc >= vehicle.target - 0.5:
+            tail = self._text("plug_full")
+        elif plan is not None and plan.segments:
+            tail = self._text("plug_plan", window=self._plan_windows(plan), cost=self._money(round(plan.cost, 2)))
+        elif vehicle.plan_error in ("no_price_data", "not_enough_prices"):
+            tail = self._text("plug_prices")
+        else:
+            tail = ""
+        return f"{head}. {tail}".strip()
+
+    def _departure_name(self, kind: str) -> str:
+        """A departure's name, as the household calls it."""
+        found = find_departure(self.settings.get("departures"), kind)
+        if found is not None and found.get("name"):
+            return str(found["name"])
+        key = f"dep_{kind}"
+        table = TEXT_DA if self._danish else TEXT_EN
+        return table.get(key, kind)
 
     async def _async_notify_stopped(self, vehicle: Vehicle, now: datetime) -> None:
         """Charging stopped: done, or paused until the plan goes on."""
@@ -3288,6 +3380,19 @@ TEXT_EN: dict[str, str] = {
     "reminder_plan": "{name} is at {soc} % and not plugged in. The cheapest charge is {window}: about {energy} kWh for {cost}.",
     "action_charge_now": "Charge now",
     "action_follow": "Follow the plan",
+    "plug_when": "{source} {day}{time}",
+    "plug_now": "Charging now.",
+    "plug_full": "Charged already.",
+    "plug_plan": "Charges {window}, about {cost}.",
+    "plug_prices": "The plan is made when the prices come.",
+    "src_calendar": "Calendar",
+    "src_week": "Week plan",
+    "dep_morning": "Morning",
+    "dep_midday": "Midday",
+    "dep_evening": "Evening",
+    "dep_tomorrow_afternoon": "Tomorrow afternoon",
+    "dep_weekend": "Weekend",
+    "dep_holiday": "Holiday",
 }
 TEXT_DA: dict[str, str] = {
     "insight_title": "Aftenens ladning",
@@ -3319,4 +3424,17 @@ TEXT_DA: dict[str, str] = {
     "reminder_plan": "{name} er på {soc} % og ikke tilsluttet. Billigste ladning er {window}: ca. {energy} kWh for {cost}.",
     "action_charge_now": "Lad nu",
     "action_follow": "Følg planen",
+    "plug_when": "{source} {day}kl. {time}",
+    "plug_now": "Lader nu.",
+    "plug_full": "Allerede ladet.",
+    "plug_plan": "Lader {window}, ca. {cost}.",
+    "plug_prices": "Planen lægges, når priserne kommer.",
+    "src_calendar": "Kalender",
+    "src_week": "Ugeplan",
+    "dep_morning": "Morgen",
+    "dep_midday": "Middag",
+    "dep_evening": "Aften",
+    "dep_tomorrow_afternoon": "I morgen eftermiddag",
+    "dep_weekend": "Weekend",
+    "dep_holiday": "Ferie",
 }

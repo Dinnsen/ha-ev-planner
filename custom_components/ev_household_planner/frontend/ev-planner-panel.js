@@ -393,6 +393,8 @@ const TEXT = {
     reminder_price_hint: "Billigste pris det næste døgn skal være under grænsen.",
     live: "Live-notifikation mens den lader",
     notify_done: "Besked når den er ladet",
+    notify_plug: "Besked når den sættes i",
+    notify_plug_hint: "Laderen, klar-tiden og hvornår den lader – så du ved, at alt er koblet sammen.",
     notify_away: "Beskeder når bilen er ude",
     notify_away_hint: "Slå fra, og der kommer ingen beskeder om bilen, mens den ikke er ved et af jeres steder (fx når den lader på farten). Kræver, at bilen har en placering.",
     notify_missing: "Vælg mobiler under integrationens indstillinger.",
@@ -989,6 +991,8 @@ const TEXT = {
     reminder_price_hint: "The cheapest price in the coming day must be below the limit.",
     live: "Live notification while charging",
     notify_done: "Message when charged",
+    notify_plug: "Message when plugged in",
+    notify_plug_hint: "The charger, the ready-by time and when it charges – so you know it is all connected.",
     notify_away: "Messages while the car is away",
     notify_away_hint: "Turn it off, and no messages about the car come while it is at none of your places (charging on the road, say). Needs a location for the car.",
     notify_missing: "Choose phones in the integration's options.",
@@ -1758,6 +1762,7 @@ Object.assign(TEXT.da, {
   phones_none: "Home Assistant har ingen telefoner at sende til. Installer Home Assistant-appen på telefonen.",
   phones_hint: "Beskederne går til de valgte telefoner. Hver bil kan sende til færre.",
   sum_done: "når ladet",
+  sum_plug: "ved tilslutning",
   no_cars: "Ingen biler endnu.",
   places_title: "Steder",
   places_hint: "Sikring, målere og pris-sensor for et sted ændres under integrationen.",
@@ -1902,6 +1907,7 @@ Object.assign(TEXT.en, {
   phones_none: "Home Assistant has no phones to send to. Install the Home Assistant app on the phone.",
   phones_hint: "Messages go to the phones chosen. Each car can send to fewer.",
   sum_done: "when charged",
+  sum_plug: "when plugged in",
   no_cars: "No cars yet.",
   places_title: "Places",
   places_hint: "A place's fuse, meters and price sensor are changed under the integration.",
@@ -8154,7 +8160,7 @@ class EvPlannerPanel extends HTMLElement {
     const body = !open || open.key === "notify" ? "" : open.rows.join("");
     this._patch(
       root.querySelector(".car-page .sheet-slot"),
-      JSON.stringify([this._sheet, this._ruleValues(s), v.target_steps, s.reminder, s.reminder_time, s.reminder_soc, s.reminder_price_enabled, s.reminder_price, s.reminder_days, s.reminder_repeat, s.reminder_horizon, s.notify_targets, s.live_notification, s.notify_done, s.notify_receipt, s.notify_away, this._state.config?.notify, this._currency, lang]),
+      JSON.stringify([this._sheet, this._ruleValues(s), v.target_steps, s.reminder, s.reminder_time, s.reminder_soc, s.reminder_price_enabled, s.reminder_price, s.reminder_days, s.reminder_repeat, s.reminder_horizon, s.notify_targets, s.live_notification, s.notify_done, s.notify_plug, s.notify_receipt, s.notify_away, this._state.config?.notify, this._currency, lang]),
       open
         ? `<div class="scrim in-page" data-act="sheet-close"></div>
           <div class="sheet in-page" role="dialog" aria-modal="true" aria-label="${esc(open.title)}">
@@ -8233,6 +8239,7 @@ class EvPlannerPanel extends HTMLElement {
       })}
       ${this._ruleRow({ icon: "receipt", title: this._t("notify_receipt"), hint: this._t("notify_receipt_hint"), off: s.notify_receipt === false, control: this._switchHtml("notify_receipt", s.notify_receipt !== false, this._t("notify_receipt")) })}
       ${this._ruleRow({ icon: "charge", title: this._t("live"), off: !s.live_notification, control: this._switchHtml("live_notification", s.live_notification, this._t("live")) })}
+      ${this._ruleRow({ icon: "charge", title: this._t("notify_plug"), hint: this._t("notify_plug_hint"), off: s.notify_plug === false, control: this._switchHtml("notify_plug", s.notify_plug !== false, this._t("notify_plug")) })}
       ${this._ruleRow({ icon: "depart", title: this._t("notify_done"), off: !s.notify_done, control: this._switchHtml("notify_done", s.notify_done, this._t("notify_done")) })}
       ${this._ruleRow({ icon: "home", title: this._t("notify_away"), hint: this._t("notify_away_hint"), off: s.notify_away === false, control: this._switchHtml("notify_away", s.notify_away !== false, this._t("notify_away")) })}
       ${targets}
@@ -10197,6 +10204,7 @@ class EvPlannerPanel extends HTMLElement {
           s.reminder && this._t("sum_reminder", { time: this._hhmm(s.reminder_time || "16:00") }),
           s.notify_receipt !== false && this._t("sum_receipt"),
           s.live_notification && this._t("sum_live"),
+          s.notify_plug !== false && this._t("sum_plug"),
           s.notify_done && this._t("sum_done"),
         ]) || this._t("tile_off");
         return `<div class="ncar${on ? " open" : ""}">

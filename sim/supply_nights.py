@@ -24,7 +24,7 @@ from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, Supp
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
-from .model import MINUTE, Result
+from .model import Result
 from .nights import ZONE, day_prices, wall_time
 from .runner import DOMAIN, PRICE, version
 
@@ -47,6 +47,8 @@ class SupplyCar:
     adjustable: bool = False
     priority: str = "normal"
     easee: bool = False  # the current goes through Easee's own action, not a number
+    mode: str | None = None  # "charge_now": charged at once, outside any plan
+    known: bool = True  # False: a car EV Planner does not know charges at the charger (it only sees the charger)
 
     @property
     def entities(self) -> dict[str, str]:
@@ -60,6 +62,7 @@ class SupplyCar:
             "switch": f"switch.car_{k}_charge",
             "amps": f"input_number.car_{k}_amps",
             "easee": f"sensor.easee_{k}_dynamic_charger_limit",
+            "meter": f"sensor.charger_{k}_power",
         }
 
 
@@ -88,6 +91,14 @@ class SupplyNight:
     heat_pump_meter: bool = False  # EV Planner is given the heat pump's power
     block: bool = False  # EV Planner may hold the heat pump back
     share: str = "queue"  # how the cars share an hour there is not room for all of them in: "queue" or "need"
+    step: int = 60  # seconds between two looks at the house (the guard acts on each reading)
+    until: str | None = None  # the night ends at this local time on its first day (not after the ready-by time)
+    zaptec: bool = False  # the chargers are Zaptecs: their current may go up only every 15 minutes
+    echo: int = 0  # seconds a charger's cloud shows the current it had before a change
+    charger_meter: bool = False  # each charger has a meter of its own (a Shelly), read every few seconds
+    charging_lag: int = 0  # seconds before a car's cloud says it charges (and what it draws)
+    user_sets: list[tuple[str, str, float]] = field(default_factory=list)  # (local time, car, amps) set in the app
+    expect_back: list[tuple[str, str, float]] = field(default_factory=list)  # (by local time, car, amps) set again
 
     def meter_lost(self, local: datetime) -> bool:
         now = local.strftime("%H:%M")
@@ -106,15 +117,23 @@ def _entry(night: SupplyNight) -> MockConfigEntry:
     for car in night.cars:
         e = car.entities
         charger = f"charger_{car.key}"
+        charger_data: dict[str, Any] = {"power": 11.0}
+        if night.charger_meter:
+            charger_data["power_entity"] = e["meter"]
+        if not car.known:
+            # Only the charger is known: its current can be set, and its meter says it charges.
+            charger_data["current_entity"] = e["amps"]
         subentries.append(
             ConfigSubentryDataWithId(
-                data={"power": 11.0},
+                data=charger_data,
                 subentry_id=charger,
                 subentry_type="charger",
                 title=f"Charger {car.key}",
                 unique_id=None,
             )
         )
+        if not car.known:
+            continue
         data: dict[str, Any] = {
             "battery_capacity": car.capacity,
             "charge_power": car.max_amps * KW_PER_A,
@@ -204,6 +223,10 @@ class SupplyResult:
     over_at: list[str] = field(
         default_factory=list
     )  # the first minutes over the fuse: the house, the cars and what they were set to
+    idle_changes: int = 0  # current changes to a charger while no car charged at it
+    not_back: list[str] = field(default_factory=list)  # expect_back that did not come
+    fought: list[str] = field(default_factory=list)  # a change in the app that EV Planner undid at once
+    log: list[str] = field(default_factory=list)  # every current change, for the report
 
 
 def _forecast(night: SupplyNight, moment: datetime) -> list[dict[str, Any]]:
@@ -241,16 +264,27 @@ async def run_supply_night(
     await hass.config.async_set_time_zone("Europe/Copenhagen")
     start = night.at(night.day, night.plug_in) - timedelta(minutes=30)
     deadline = night.at(night.day + timedelta(days=1), night.ready_by)
-    end = deadline + timedelta(minutes=30)
+    end = night.at(night.day, night.until) if night.until else deadline + timedelta(minutes=30)
+    step = timedelta(seconds=night.step)
+    share_of_minute = night.step / 60
     prices = day_prices(night.day, 2, price=night.price)
     socs = {car.key: car.soc for car in night.cars}
-    switch_on = {car.key: False for car in night.cars}
+    # A car EV Planner does not know is not switched by it: it charges as soon as it is plugged in.
+    switch_on = {car.key: not car.known for car in night.cars}
     amps_set = {car.key: car.max_amps for car in night.cars}
     commands: list[tuple[datetime, str]] = []
     current_changes = {car.key: 0 for car in night.cars}
     change_times: dict[str, list[datetime]] = {car.key: [] for car in night.cars}
     pending: list[tuple[datetime, str, float]] = []  # (reaches the car at, car, amps)
     clock = {"now": start}
+    # What each charger's cloud shows: the current it had, for ``echo`` seconds after a change.
+    shown: dict[str, tuple[float, float, datetime]] = {}  # car: (old, new, new shown from)
+    drawing_since: dict[str, datetime | None] = {car.key: None for car in night.cars}
+    starts: dict[str, list[datetime]] = {car.key: [] for car in night.cars}
+    over_seconds = longest_seconds = 0
+    log: list[str] = []
+    user_at: dict[str, datetime] = {}
+    fought: list[str] = []
 
     def publish_prices(moment: datetime) -> None:
         local = moment.astimezone(ZONE)
@@ -299,13 +333,26 @@ async def run_supply_night(
         hass.services.async_register("weather", "get_forecasts", get_forecasts, supports_response=SupportsResponse.ONLY)
 
     def new_current(car: SupplyCar, amps: float, entity: str, attributes: dict[str, Any]) -> None:
+        now = clock["now"]
+        before = amps_set[car.key]
         current_changes[car.key] += 1
-        change_times[car.key].append(clock["now"])
+        change_times[car.key].append(now)
+        if got[car.key] <= 0:
+            idle.append((now, car.key))  # nothing draws there now: idle, unless a start follows
+        if (when := user_at.get(car.key)) is not None and now - when < timedelta(minutes=2):
+            fought.append(
+                f"{now.astimezone(ZONE):%H:%M:%S} car {car.key}: {before:g} -> {amps:g} A, {(now - when).seconds} s after the app"
+            )
+        log.append(f"{now.astimezone(ZONE):%H:%M:%S} car {car.key}: {before:g} -> {amps:g} A")
         if night.latency:
-            pending.append((clock["now"] + timedelta(minutes=night.latency), car.key, amps))
+            pending.append((now + timedelta(minutes=night.latency), car.key, amps))
         else:
             amps_set[car.key] = amps
+        if night.echo:
+            shown[car.key] = (before, amps, now + timedelta(seconds=night.echo))
         hass.states.async_set(entity, str(amps), attributes)
+
+    idle: list[tuple[datetime, str]] = []
 
     async def set_amps(call: ServiceCall) -> None:
         for car in night.cars:
@@ -338,21 +385,52 @@ async def run_supply_night(
                     suggested_object_id=f"easee_{car.key}_dynamic_charger_limit",
                 )
                 devices[device.id] = car
+    if night.zaptec:
+        zaptec_entry = MockConfigEntry(domain="zaptec")
+        zaptec_entry.add_to_hass(hass)
+        for car in night.cars:
+            er.async_get(hass).async_get_or_create(
+                "input_number",
+                "zaptec",
+                f"Z{car.key}",
+                config_entry=zaptec_entry,
+                suggested_object_id=f"car_{car.key}_amps",
+            )
     got = {car.key: 0.0 for car in night.cars}
 
     def publish(moment: datetime) -> None:
         plugged = night.at(night.day, night.plug_in) <= moment
         for car in night.cars:
             e = car.entities
-            hass.states.async_set(
-                e["soc"], str(int(socs[car.key])), {"unit_of_measurement": "%", "device_class": "battery"}
-            )
-            hass.states.async_set(e["limit"], str(int(car.target)))
-            hass.states.async_set(e["cable"], "on" if plugged else "off")
-            hass.states.async_set(e["charging"], "on" if got[car.key] > 0 else "off")
-            hass.states.async_set(e["power"], str(round(got[car.key] * KW_PER_A, 2)), {"unit_of_measurement": "kW"})
+            since = drawing_since[car.key]
+            # The car's cloud says it charges (and what it draws) a while after it has begun.
+            told = got[car.key] > 0 and since is not None and (moment - since).total_seconds() >= night.charging_lag
+            if car.known:
+                hass.states.async_set(
+                    e["soc"], str(int(socs[car.key])), {"unit_of_measurement": "%", "device_class": "battery"}
+                )
+                hass.states.async_set(e["limit"], str(int(car.target)))
+                hass.states.async_set(e["cable"], "on" if plugged else "off")
+                hass.states.async_set(e["charging"], "on" if told else "off")
+                hass.states.async_set(
+                    e["power"], str(round(got[car.key] * KW_PER_A, 2) if told else 0.0), {"unit_of_measurement": "kW"}
+                )
+            if night.charger_meter:
+                hass.states.async_set(
+                    e["meter"],
+                    str(round(got[car.key] * KW_PER_A, 3)),
+                    {"unit_of_measurement": "kW", "device_class": "power"},
+                )
             if car.adjustable and hass.states.get(e["amps"]) is None:
                 hass.states.async_set(e["amps"], str(car.max_amps), {"min": 6, "max": car.max_amps})
+            if car.adjustable and (echo := shown.get(car.key)) is not None:
+                old, new, until = echo
+                value = old if moment < until else new
+                state = hass.states.get(e["amps"])
+                if state is None or state.state != str(value):
+                    hass.states.async_set(e["amps"], str(value), {"min": 6, "max": car.max_amps})
+                if moment >= until:
+                    shown.pop(car.key, None)
         local = moment.astimezone(ZONE)
         house = night.house(local) + heat_pump(local)
         if night.temperature is not None:
@@ -389,27 +467,40 @@ async def run_supply_night(
     misses: list[float] = []
     over = 0
     over_at: list[str] = []
-    over_fuse = longest = run_over = blind = 0
+    blind = 0
     peak = 0.0
     at_deadline: dict[str, float] = {}
     cost = energy = 0.0
+    user_sets = sorted((night.at(night.day, at), key, amps) for at, key, amps in night.user_sets)
     with patch(f"custom_components.{DOMAIN}.household.Household._async_switch", switch):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
         household = entry.runtime_data
         for car in night.cars:
+            if not car.known:
+                continue
             settings: dict[str, Any] = {"ready_by": night.ready_by, "use_ready_by": True}
             if car.must:
                 settings["must_soc"] = car.must
             if car.priority != "normal":
                 settings["priority"] = car.priority
+            if car.mode:
+                settings["mode"] = car.mode
             await household.async_set_vehicle(f"car_{car.key}", settings)
         moment = start
+        runs_over = 0.0  # seconds over the fuse in the stretch now
         while moment < end:
             clock["now"] = moment
             for item in [p for p in pending if p[0] <= moment]:
                 amps_set[item[1]] = item[2]
                 pending.remove(item)
+            while user_sets and user_sets[0][0] <= moment:
+                _at, key, amps = user_sets.pop(0)
+                car = next(c for c in night.cars if c.key == key)
+                amps_set[key] = amps
+                user_at[key] = moment
+                log.append(f"{moment.astimezone(ZONE):%H:%M:%S} car {key}: set to {amps:g} A in the app")
+                hass.states.async_set(car.entities["amps"], str(amps), {"min": 6, "max": car.max_amps})
             house = night.house(moment.astimezone(ZONE)) + heat_pump(moment.astimezone(ZONE))
             plan_now = getattr(getattr(household, "supply", None), "plan", None)
             if plan_now is not None and night.at(night.day, night.plug_in) <= moment < deadline:
@@ -426,33 +517,38 @@ async def run_supply_night(
             above = house + sum(given) - night.fuse
             if above > 0.5 and night.meter_lost(moment.astimezone(ZONE)):
                 blind += 1  # nobody can see it: the cars are at the least they can take
-                run_over = 0
+                runs_over = 0.0
             elif above > 0.5:
-                over_fuse += 1
+                runs_over += night.step
+                over_seconds += night.step
+                longest_seconds = max(longest_seconds, int(runs_over))
                 if len(over_at) < 40:
                     over_at.append(
-                        f"{moment.astimezone(ZONE):%H:%M} house {house:g} cars {[round(g, 1) for g in given]} set {[amps_set[c.key] for c in night.cars]}"
+                        f"{moment.astimezone(ZONE):%H:%M:%S} house {house:g} cars {[round(g, 1) for g in given]} set {[amps_set[c.key] for c in night.cars]}"
                         f" guard {_guard_state(household)}"
                     )
-                run_over += 1
-                longest = max(longest, run_over)
                 peak = max(peak, above)
             else:
-                run_over = 0
+                runs_over = 0.0
             for car, amps in zip(night.cars, given, strict=True):
+                if amps > 0 and got[car.key] <= 0:
+                    drawing_since[car.key] = moment
+                    starts[car.key].append(moment)
+                elif amps <= 0:
+                    drawing_since[car.key] = None
                 got[car.key] = amps
-                wall = amps * KW_PER_A / 60
+                wall = amps * KW_PER_A / 60 * share_of_minute
                 socs[car.key] = min(car.target, socs[car.key] + wall * car.efficiency / car.capacity * 100)
                 price = next((p for s, p in prices if s <= moment < s + timedelta(hours=1)), 0.0)
                 cost += wall * price
                 energy += wall
-            moment += MINUTE
+            moment += step
             if moment == deadline:
                 at_deadline = dict(socs)
             publish_prices(moment)
             publish(moment)
             await tick(moment)
-            await tick(moment + timedelta(seconds=3))
+            await tick(moment + timedelta(seconds=min(3, night.step // 2)))
             plan = getattr(getattr(household, "supply", None), "plan", None)
             if plan is not None:
                 for s, _e, limit, expected in plan.capacity:
@@ -464,6 +560,27 @@ async def run_supply_night(
         await hass.async_block_till_done()
     if (since := blocked["since"]) is not None:
         blocks.append(round((end - since).total_seconds() / 60))
+    # Minutes over the fuse, and the longest stretch, counted in whole minutes begun.
+    over_fuse = -(-over_seconds // 60)
+    longest = -(-longest_seconds // 60)
+    # A change while nothing charged at that charger, and no start came right after it.
+    idle_changes = sum(
+        1 for when, key in idle if not any(when <= t <= when + timedelta(minutes=2) for t in starts[key])
+    )
+    not_back: list[str] = []
+    for by, key, amps in night.expect_back:
+        moment = night.at(night.day, by)
+        state = [line for line in log if line.split(" ")[2] == f"{key}:"]
+        last = next(
+            (
+                float(line.rsplit("-> ", 1)[1].split(" ")[0])
+                for line in reversed(state)
+                if "-> " in line and line[:8] <= f"{moment.astimezone(ZONE):%H:%M:%S}"
+            ),
+            None,
+        )
+        if last is None or last < amps:
+            not_back.append(f"car {key} at {last} A by {by}, not {amps:g} A")
 
     ready = {car.key: at_deadline.get(car.key, socs[car.key]) >= car.target - 0.5 for car in night.cars}
     result = Result(name=night.name, version=version(), tags=["supply", *night.tags], private=False)
@@ -492,6 +609,10 @@ async def run_supply_night(
         misses,
         blocks,
         over_at,
+        idle_changes,
+        not_back,
+        fought,
+        log,
     )
 
 
@@ -526,6 +647,43 @@ def _spiky(base: float) -> Callable[[datetime], float]:
     def house(local: datetime) -> float:
         minute = local.hour * 60 + local.minute
         extra = sum(amps for (h, m), length, amps in spikes if h * 60 + m <= minute < h * 60 + m + length)
+        return base + extra
+
+    return house
+
+
+def _cycling(base: float, high: float, start: str, end: str, *, on: int, off: int) -> Callable[[datetime], float]:
+    """An oven that holds its heat: the element on for ``on`` minutes, off for ``off``, between two local times."""
+
+    def house(local: datetime) -> float:
+        now = local.strftime("%H:%M")
+        if not start <= now < end:
+            return base
+        first = int(start[:2]) * 60 + int(start[3:])
+        minute = local.hour * 60 + local.minute - first
+        return high if minute % (on + off) < on else base
+
+    return house
+
+
+def _spiky_evening(base: float) -> Callable[[datetime], float]:
+    """An evening and a night: the oven, a kettle, the washing machine, the dishwasher in bursts."""
+    spikes = [
+        ((17, 30), 40, 13.0),  # the oven
+        ((18, 20), 3, 9.0),  # the kettle
+        ((19, 0), 25, 10.0),  # the washing machine heats
+        ((21, 0), 60, 0.0),
+        ((22, 30), 3, 9.0),  # the kettle
+    ]
+    bursts = [((23, 0), 90)]  # the dishwasher: 9 A for two minutes every ten
+
+    def house(local: datetime) -> float:
+        minute = local.hour * 60 + local.minute
+        extra = sum(amps for (h, m), length, amps in spikes if h * 60 + m <= minute < h * 60 + m + length)
+        for (h, m), length in bursts:
+            begin = h * 60 + m
+            if begin <= minute < begin + length and (minute - begin) % 10 < 2:
+                extra += 9.0
         return base + extra
 
     return house
@@ -657,6 +815,164 @@ def supply_nights() -> list[SupplyNight]:
             equalizer=False,
             guard=True,
             tags=["guard"],
+        ),
+        # Frank's mornings and evenings: a Zaptec on a 25 A supply, its own meter (a Shelly) on the charger, a
+        # cloud that shows the old current for a while after a change, and a car whose cloud says it charges a
+        # minute and a half after it has begun. The house is watched every 15 seconds.
+        SupplyNight(
+            "frank-oven-on-charge-now",
+            monday,
+            [SupplyCar("a", 60, 90, adjustable=True, mode="charge_now")],
+            fuse=25,
+            limit=25,
+            house=_step(1.8, 14.8, "07:40", "08:00"),
+            plug_in="07:35",
+            until="09:00",
+            equalizer=False,
+            guard=True,
+            step=15,
+            zaptec=True,
+            echo=45,
+            charger_meter=True,
+            charging_lag=90,
+            expect_back=[("08:17", "a", 16)],
+            tags=["guard", "frank"],
+        ),
+        SupplyNight(
+            "frank-oven-cycling",
+            monday,
+            [SupplyCar("a", 40, 90, adjustable=True, mode="charge_now")],
+            fuse=25,
+            limit=25,
+            house=_cycling(1.8, 13.0, "17:00", "18:00", on=4, off=3),
+            plug_in="16:50",
+            until="19:00",
+            equalizer=False,
+            guard=True,
+            step=15,
+            zaptec=True,
+            echo=45,
+            charger_meter=True,
+            charging_lag=90,
+            expect_back=[("18:17", "a", 16)],
+            tags=["guard", "frank"],
+        ),
+        SupplyNight(
+            "frank-started-with-the-oven-on",
+            monday,
+            [SupplyCar("a", 50, 90, adjustable=True, mode="charge_now")],
+            fuse=25,
+            limit=25,
+            house=_step(1.8, 14.8, "06:45", "07:30"),
+            plug_in="07:00",
+            until="08:30",
+            equalizer=False,
+            guard=True,
+            step=15,
+            zaptec=True,
+            echo=45,
+            charger_meter=True,
+            charging_lag=90,
+            expect_back=[("07:47", "a", 16)],
+            tags=["guard", "frank", "no-overload"],
+        ),
+        SupplyNight(
+            "frank-no-room-to-start",
+            monday,
+            [SupplyCar("a", 50, 90, adjustable=True, mode="charge_now")],
+            fuse=25,
+            limit=25,
+            house=_step(1.8, 20.0, "06:45", "07:30"),
+            plug_in="07:00",
+            until="08:30",
+            equalizer=False,
+            guard=True,
+            step=15,
+            zaptec=True,
+            echo=45,
+            charger_meter=True,
+            charging_lag=90,
+            tags=["guard", "frank", "no-overload"],
+        ),
+        # Frank: the supply is what counts. A car EV Planner does not know charges at the charger.
+        SupplyNight(
+            "frank-a-car-it-does-not-know",
+            monday,
+            [SupplyCar("a", 40, 90, adjustable=True, known=False)],
+            fuse=25,
+            limit=25,
+            house=_step(1.8, 14.8, "17:30", "18:00"),
+            plug_in="17:00",
+            until="19:00",
+            equalizer=False,
+            guard=True,
+            step=15,
+            zaptec=True,
+            echo=45,
+            charger_meter=True,
+            expect_back=[("18:17", "a", 16)],
+            tags=["guard", "frank"],
+        ),
+        # Two Zaptecs: one on charge now, one on its plan, with the oven, a kettle and the washing machine.
+        SupplyNight(
+            "frank-two-chargers",
+            monday,
+            [
+                SupplyCar("a", 30, 90, adjustable=True, mode="charge_now"),
+                SupplyCar("b", 30, 80, adjustable=True),
+            ],
+            fuse=25,
+            limit=25,
+            house=_spiky_evening(1.8),
+            plug_in="17:00",
+            equalizer=False,
+            guard=True,
+            step=15,
+            zaptec=True,
+            echo=45,
+            charger_meter=True,
+            charging_lag=90,
+            tags=["guard", "frank"],
+        ),
+        # Someone sets the current in the charger's app: EV Planner does not undo it at once.
+        SupplyNight(
+            "frank-set-in-the-app",
+            monday,
+            [SupplyCar("a", 40, 90, adjustable=True, mode="charge_now")],
+            fuse=25,
+            limit=25,
+            house=_flat(1.8),
+            plug_in="07:30",
+            until="09:00",
+            equalizer=False,
+            guard=True,
+            step=15,
+            zaptec=True,
+            echo=45,
+            charger_meter=True,
+            charging_lag=90,
+            user_sets=[("08:10", "a", 10)],
+            tags=["guard", "frank", "app"],
+        ),
+        # The meter drops out for twenty minutes while the oven is on.
+        SupplyNight(
+            "frank-meter-out-with-the-oven",
+            monday,
+            [SupplyCar("a", 40, 90, adjustable=True, mode="charge_now")],
+            fuse=25,
+            limit=25,
+            house=_step(1.8, 14.8, "17:30", "18:10"),
+            plug_in="17:00",
+            until="19:30",
+            equalizer=False,
+            guard=True,
+            step=15,
+            zaptec=True,
+            echo=45,
+            charger_meter=True,
+            charging_lag=90,
+            meter_gaps=[("17:40", "18:00")],
+            tags=["guard", "frank", "meter-gap"],
         ),
         # The same spiky night without the guard, for comparison: here the fuse is on its own.
         SupplyNight(

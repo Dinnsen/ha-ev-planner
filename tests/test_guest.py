@@ -705,7 +705,7 @@ async def test_the_guard_turns_the_guests_charger_down_and_gives_it_back(
 ) -> None:
     from homeassistant.core import ServiceCall
 
-    from custom_components.ev_household_planner.supply_control import GUARD_RESTORE
+    from custom_components.ev_household_planner.supply_control import HEADROOM_WINDOW
 
     meter = "sensor.house_current"
     amps = "input_number.carport_amps"
@@ -739,20 +739,20 @@ async def test_the_guard_turns_the_guests_charger_down_and_gives_it_back(
     sent.clear()
     switches.calls.clear()
 
-    # 30 A on a supply of 23 A: seven too many, and the guest's 16 A goes down to 9 A. Nothing is stopped.
+    # 30 A on a supply of 23 A with the guest's 16: a house of 14, and the guest's charger goes down to the
+    # 8 A left under the limit (less the margin). Nothing is stopped.
     hass.states.async_set(meter, "30", {"unit_of_measurement": "A"})
     await hass.async_block_till_done()
-    assert sent == [9]
+    assert sent == [8]
     assert ("turn_off", CHARGER_SWITCH) not in switches.calls
-    assert supply._guest_cut[amps][0] == 16
+    assert supply._sent[amps][0] == 8
     assert household.guest.house_hold is None
 
-    # The peak is over: when the guard has waited, the charger gets its 16 A back.
-    freezer.move_to(dt_util.now() + GUARD_RESTORE + timedelta(seconds=5))
-    hass.states.async_set(amps, "9", {"min": 6, "max": 16})
+    # The peak is over: when the house has been quiet for the window, the charger gets its 16 A back.
+    freezer.move_to(dt_util.now() + HEADROOM_WINDOW + timedelta(minutes=1))
     hass.states.async_set(meter, "12", {"unit_of_measurement": "A"})
     await hass.async_block_till_done()
-    assert 16 in sent and not supply._guest_cut
+    assert sent[-1] == 16
 
 
 async def test_the_guard_turns_down_a_charger_that_charges_a_car_it_does_not_see(
@@ -790,7 +790,11 @@ async def test_the_guard_turns_down_a_charger_that_charges_a_car_it_does_not_see
     await settle(hass, freezer)
     hass.states.async_set(amps, "16", {"min": 6, "max": 16})
     sent.clear()
+    # The charger measures 11 kW (15.9 A): a house of 14.1, and 7 A are left for it.
     hass.states.async_set(meter, "30", {"unit_of_measurement": "A"})
     await hass.async_block_till_done()
-    assert sent == [9]
-    assert any(event["kind"] == "guard" and event.get("stray") for event in entry.runtime_data.events.items)
+    assert sent == [7]
+    assert any(
+        event["kind"] == "guard" and any(item["who"] == "stray" for item in event.get("chargers") or [])
+        for event in entry.runtime_data.events.items
+    )
