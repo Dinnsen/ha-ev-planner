@@ -480,7 +480,11 @@ def night_prices(hass: HomeAssistant, now: datetime, tonight: float, later: floa
         {
             "raw_today": rows(midnight, 24, tonight),
             "raw_tomorrow": rows(midnight + timedelta(days=1), 24, tonight),
-            "forecast": rows(midnight + timedelta(days=2), 96, later),
+            # A forecast moves from hour to hour (one that does not, far under the prices, is only the tariffs).
+            "forecast": [
+                {**row, "price": later + (i % 24) / 200}
+                for i, row in enumerate(rows(midnight + timedelta(days=2), 96, later))
+            ],
         },
     )
 
