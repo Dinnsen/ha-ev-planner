@@ -475,7 +475,7 @@ function boot(host, root) {
   const charts = {};
   let IN = null, DATA = {}, da = true, built = false, wrap = null, raf = 0;
   let WD, WDL, TODAY, NOWH, ids, CARS, temp, night, avg, PD, trips, charges, daily, L, PLACES, HOME, OTHER;
-  let H, START, K, KW, price, sigma, TL, priceH, fcH, PLAN;
+  let H, START, K, KW, price, sigma, TL, priceH, fcH, PLAN, WEEK_FOR = null;
   const tr = (a, b) => (da ? a : b);
   // How careful, step by step: fitted by the integration to the cars' own days, else the fixed steps.
   const steps = () => (Array.isArray(DATA.styles) && DATA.styles.length === STYLES.length ? DATA.styles : STYLES);
@@ -685,58 +685,65 @@ function boot(host, root) {
        Tonight is Insight's own choice; the nights after follow the same rule on a typical day's driving. */
     const tn = DATA.tonight || {}, share = (tn.groups || []).map((g) => (g.cars || []).filter((id) => CARS[id])).filter((g) => g.length);
     for (const id of ids) if (!share.some((g) => g.includes(id))) share.push([id]);
-    const st = {}, cells = {};
-    for (const id of ids) { const lvl = cars[id].level; st[id] = { kwh: lvl == null ? null : (lvl / 100) * CARS[id].cap, target: ((Number(CARS[id].live.target) || 80) / 100) * CARS[id].cap, knows: CARS[id].week.length === 7 }; cells[id] = []; }
     // As careful as the household chose: what a hard day is, the reserve, how the days after count.
     const style = steps()[clamp(Math.round(Number(IN.style ?? DEFAULT_STEP)), 0, LAST_STEP)] || steps()[DEFAULT_STEP];
     const wdOfN = (d) => new Date(t0 + d * DAY + DAY / 2).getDay();
     const qd = (id, d, p) => { const list = L[id].byWd[wdOfN(d)] || []; return list.length ? q(list, p) : 0; };
-    const floor = (id, d) => Math.min(st[id].target, qd(id, d, style.level) + style.reserve * CARS[id].cap);
-    const reach = (id, n) => { let left = st[id].kwh; if (left < floor(id, n + 1) - 1e-6) return 0; let k = 1; for (; k < 4; k += 1) { left -= qd(id, n + k, style.rest); if (left < floor(id, n + k + 1)) break; } return k; };
-    // Each day's price: the cheapest three hours from noon to noon the next day, at the hours a car is usually home
-    // (charging is not only at night: a car home by day charges there too), and how it stands among the week's days.
-    // Each car has its own hours at home; the row of prices is for the hours any of them is.
-    const homeAt = (hod, wd, only) => { const who = only ? [only] : ids; return !who.length || who.some((id) => ((L[id].awayP[wd] || [])[hod] ?? 0) < 0.5); };
-    const dayPrice = (n, only) => {
-      const from = n === 0 ? hNow : n * 24 + 12, to = n * 24 + 36, list = [];
-      for (let h = from; h < to; h += 1) { const p = priceH.get(h); if (p == null) continue; if (n > 0 && !homeAt(mod(h, 24), new Date(t0 + Math.floor(h / 24) * DAY + DAY / 2).getDay(), only)) continue; list.push({ h, p, fc: fcH.has(h) }); }
-      if (list.length < 3) return { price: n === 0 ? tn.price ?? nightOf(0) : nightOf(n), at: null, fc: fcH.has(n * 24 + (IN.window || [21])[0] + 3) };
-      const best = [...list].sort((x, y) => x.p - y.p).slice(0, 3).sort((x, y) => x.h - y.h);
-      return { price: mean(best.map((x) => x.p)), at: best[0].h, fc: best.some((x) => x.fc) };
-    };
-    const days = Array.from({ length: 7 }, (_, n) => dayPrice(n)), shown = days.map((x) => x.price).filter((v) => v != null);
-    const tierAt = (v, all = shown) => (v == null || all.length < 3 ? "" : v <= q(all, 0.33) ? "lo" : v >= q(all, 0.67) ? "hi" : "mid");
-    // A cheap day for a car is cheap at the hours that car is home.
-    const own = Object.fromEntries(ids.map((id) => { const d = Array.from({ length: 7 }, (_, n) => dayPrice(n, id).price); return [id, d.map((v) => tierAt(v, d.filter((x) => x != null)))]; }));
-    const nights = [];
-    for (let n = 0; n < 7; n += 1) {
-      const picks = new Set(), tier = tierAt(days[n].price);
-      for (const g of share) {
-        const able = g.filter((id) => st[id].kwh != null && st[id].knows);
-        if (n === 0 && (tn.groups || []).length) { const real = (tn.groups || []).find((x) => (x.cars || []).some((id) => g.includes(id))); if (real && real.pick && g.includes(real.pick)) picks.add(real.pick); continue; }
-        // A car charges the night it must; when the cars would meet at the charger, one goes now; every night only if so chosen.
-        const r = Object.fromEntries(able.map((id) => [id, reach(id, n)])), below = able.filter((id) => st[id].kwh < st[id].target - 0.5);
-        const must = able.filter((id) => r[id] === 0), lo = Math.min(...Object.values(r)), hi = Math.max(...Object.values(r));
-        const lack = (id) => (floor(id, n + 1) - st[id].kwh) / CARS[id].cap, emptier = (a, b) => st[a].kwh / CARS[a].cap - st[b].kwh / CARS[b].cap;
-        const pick = must.length ? must.sort((a, b) => lack(b) - lack(a))[0] : able.length > 1 && lo <= 1 && lo === hi && below.length ? below.sort(emptier)[0] : style.every && below.length ? below.sort((a, b) => r[a] - r[b] || emptier(a, b))[0] : null;
-        if (pick) picks.add(pick);
-      }
-      for (const id of ids) {
-        const x = st[id], shownLvl = x.kwh == null || (n > 0 && !x.knows) ? null : (x.kwh / CARS[id].cap) * 100;
-        let add = 0;
-        if (picks.has(id) && x.kwh != null) {
-          // Enough for the day and the way: a hard day tomorrow with the reserve, and a typical day after it.
-          // On a cheap day (or with every night chosen) all the way to the target.
-          const enough = x.knows ? floor(id, n + 1) + qd(id, n + 2, 0.5) : x.target;
-          const goal = (own[id][n] || tier) === "lo" || style.every ? x.target : Math.min(x.target, Math.max(enough, x.kwh));
-          add = Math.max(0, goal - x.kwh);
+    // The coming seven nights at a step of how careful: the same rule as Insight, on a typical day's driving.
+    // «Have enough for» draws it for the step its slider is at; this card for the household's own step.
+    WEEK_FOR = (style) => {
+      const st = {}, cells = {};
+      for (const id of ids) { const lvl = cars[id].level; st[id] = { kwh: lvl == null ? null : (lvl / 100) * CARS[id].cap, target: ((Number(CARS[id].live.target) || 80) / 100) * CARS[id].cap, knows: CARS[id].week.length === 7 }; cells[id] = []; }
+      const floor = (id, d) => Math.min(st[id].target, qd(id, d, style.level) + style.reserve * CARS[id].cap);
+      const reach = (id, n) => { let left = st[id].kwh; if (left < floor(id, n + 1) - 1e-6) return 0; let k = 1; for (; k < 4; k += 1) { left -= qd(id, n + k, style.rest); if (left < floor(id, n + k + 1)) break; } return k; };
+      // Each day's price: the cheapest three hours from noon to noon the next day, at the hours a car is usually home
+      // (charging is not only at night: a car home by day charges there too), and how it stands among the week's days.
+      // Each car has its own hours at home; the row of prices is for the hours any of them is.
+      const homeAt = (hod, wd, only) => { const who = only ? [only] : ids; return !who.length || who.some((id) => ((L[id].awayP[wd] || [])[hod] ?? 0) < 0.5); };
+      const dayPrice = (n, only) => {
+        const from = n === 0 ? hNow : n * 24 + 12, to = n * 24 + 36, list = [];
+        for (let h = from; h < to; h += 1) { const p = priceH.get(h); if (p == null) continue; if (n > 0 && !homeAt(mod(h, 24), new Date(t0 + Math.floor(h / 24) * DAY + DAY / 2).getDay(), only)) continue; list.push({ h, p, fc: fcH.has(h) }); }
+        if (list.length < 3) return { price: n === 0 ? tn.price ?? nightOf(0) : nightOf(n), at: null, fc: fcH.has(n * 24 + (IN.window || [21])[0] + 3) };
+        const best = [...list].sort((x, y) => x.p - y.p).slice(0, 3).sort((x, y) => x.h - y.h);
+        return { price: mean(best.map((x) => x.p)), at: best[0].h, fc: best.some((x) => x.fc) };
+      };
+      const days = Array.from({ length: 7 }, (_, n) => dayPrice(n)), shown = days.map((x) => x.price).filter((v) => v != null);
+      const tierAt = (v, all = shown) => (v == null || all.length < 3 ? "" : v <= q(all, 0.33) ? "lo" : v >= q(all, 0.67) ? "hi" : "mid");
+      // A cheap day for a car is cheap at the hours that car is home.
+      const own = Object.fromEntries(ids.map((id) => { const d = Array.from({ length: 7 }, (_, n) => dayPrice(n, id).price); return [id, d.map((v) => tierAt(v, d.filter((x) => x != null)))]; }));
+      const nights = [];
+      for (let n = 0; n < 7; n += 1) {
+        const picks = new Set(), tier = tierAt(days[n].price);
+        for (const g of share) {
+          const able = g.filter((id) => st[id].kwh != null && st[id].knows);
+          // Tonight is what is real: Insight's choice, and every car EV Planner's own plan charges tonight.
+          if (n === 0 && ((tn.groups || []).length || g.some((id) => cars[id].plan.length))) { const real = (tn.groups || []).find((x) => (x.cars || []).some((id) => g.includes(id))); if (real && real.pick && g.includes(real.pick)) picks.add(real.pick); for (const id of g) if (cars[id].plan.some((sg) => sg.h < 36)) picks.add(id); continue; }
+          // A car charges the night it must; when the cars would meet at the charger, one goes now; every night only if so chosen.
+          const r = Object.fromEntries(able.map((id) => [id, reach(id, n)])), below = able.filter((id) => st[id].kwh < st[id].target - 0.5);
+          const must = able.filter((id) => r[id] === 0), lo = Math.min(...Object.values(r)), hi = Math.max(...Object.values(r));
+          const lack = (id) => (floor(id, n + 1) - st[id].kwh) / CARS[id].cap, emptier = (a, b) => st[a].kwh / CARS[a].cap - st[b].kwh / CARS[b].cap;
+          const pick = must.length ? must.sort((a, b) => lack(b) - lack(a))[0] : able.length > 1 && lo <= 1 && lo === hi && below.length ? below.sort(emptier)[0] : style.every && below.length ? below.sort((a, b) => r[a] - r[b] || emptier(a, b))[0] : null;
+          if (pick) picks.add(pick);
         }
-        cells[id].push({ level: shownLvl, charge: picks.has(id), add: x.kwh == null ? 0 : (add / CARS[id].cap) * 100, full: picks.has(id) && x.kwh != null && x.kwh + add >= x.target - 0.5 });
-        if (x.kwh == null) continue;
-        x.kwh = Math.max(0, x.kwh + add - qd(id, n + 1, 0.5));
+        for (const id of ids) {
+          const x = st[id], shownLvl = x.kwh == null || (n > 0 && !x.knows) ? null : (x.kwh / CARS[id].cap) * 100;
+          let add = 0;
+          if (picks.has(id) && x.kwh != null) {
+            // Enough for the day and the way: a hard day tomorrow with the reserve, and a typical day after it.
+            // On a cheap day (or with every night chosen) all the way to the target.
+            const enough = x.knows ? floor(id, n + 1) + qd(id, n + 2, 0.5) : x.target;
+            const goal = (own[id][n] || tier) === "lo" || style.every ? x.target : Math.min(x.target, Math.max(enough, x.kwh));
+            add = Math.max(0, goal - x.kwh);
+          }
+          cells[id].push({ level: shownLvl, charge: picks.has(id), add: x.kwh == null ? 0 : (add / CARS[id].cap) * 100, full: picks.has(id) && x.kwh != null && x.kwh + add >= x.target - 0.5 });
+          if (x.kwh == null) continue;
+          x.kwh = Math.max(0, x.kwh + add - qd(id, n + 1, 0.5));
+        }
+        nights.push({ n, wd: new Date(t0 + n * DAY + DAY / 2).getDay(), price: days[n].price, at: days[n].at, fc: days[n].fc, tier });
       }
-      nights.push({ n, wd: new Date(t0 + n * DAY + DAY / 2).getDay(), price: days[n].price, at: days[n].at, fc: days[n].fc, tier });
-    }
+      return { nights, cells, st };
+    };
+    const { nights, cells, st } = WEEK_FOR(style);
     // The timeline's expected battery: what each weekday typically takes, and the charging that is planned
     // (EV Planner's own plan tonight) or expected (the week above).
     for (const id of ids) {
@@ -1432,16 +1439,15 @@ function boot(host, root) {
     const i = clamp(S.c9 ?? Math.round(Number(IN.style ?? DEFAULT_STEP)), 0, LAST_STEP), r = RUNS[i], input = $("#c9lv");
     if (root.activeElement !== input) input.value = String(i);
     const name = $("#c9-name"); name.textContent = NAMES9()[i]; name.className = `c9name${i <= 2 ? " hot" : i === LAST_STEP ? " calm" : ""}`;
-    // A typical week: the nights a car charges, spread over the week, each car its share.
-    const n = clamp(Math.round(r.perWeek), 0, 7), shares = list.map((id) => [id, r.per[id]]).sort((a, b) => b[1] - a[1]);
-    const counts = Object.fromEntries(list.map((id) => [id, 0])); let left = n;
-    for (const [id, v] of shares) { const k = Math.min(left, Math.round((v / (r.perWeek || 1)) * n)); counts[id] = k; left -= k; } if (left > 0 && shares.length) counts[shares[0][0]] += left;
-    const order = [0, 3, 5, 1, 4, 6, 2], week = Array(7).fill(null), queue = []; const most = Math.max(0, ...Object.values(counts));
-    for (let k = 0; k < most; k += 1) for (const [id] of shares) if (counts[id] > k) queue.push(id);
-    order.slice(0, n).forEach((d, k) => (week[d] = queue[k]));
+    // The coming seven nights at this step, from tonight: the same nights as «The cars' week» at the household's
+    // own step (one rule for both), so moving the slider shows what this week would be.
+    const wk = WEEK_FOR ? WEEK_FOR(steps()[i]) : null;
     const initial = (id) => { const word = String(CARS[id].name || "?").trim(), first = word[0] || "?"; return list.filter((x) => x !== id && String(CARS[x].name || "").trim()[0] === first).length ? word.slice(0, 2) : first.toUpperCase(); };
-    const days = da ? ["Ma", "Ti", "On", "To", "Fr", "Lø", "Sø"] : ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
-    $("#c9-week").innerHTML = days.map((d, k) => `<span><i class="${week[k] ? "on" : ""}" style="${week[k] ? `background:${CARS[week[k]].col}` : ""}">${week[k] ? esc(initial(week[k])) : ""}</i>${d}</span>`).join("");
+    const nightCar = (n) => (wk ? list.find((id) => wk.cells[id] && wk.cells[id][n] && wk.cells[id][n].charge) || null : null);
+    $("#c9-week").innerHTML = Array.from({ length: 7 }, (_, n) => {
+      const id = nightCar(n), label = n === 0 ? tr("nu", "now") : WD[wk ? wk.nights[n].wd : 0];
+      return `<span><i class="${id ? "on" : ""}" style="${id ? `background:${CARS[id].col}` : ""}">${id ? esc(initial(id)) : ""}</i>${label}</span>`;
+    }).join("");
     $("#c9-key").innerHTML = list.map((id) => `<span><s style="background:${CARS[id].col}"></s>${esc(initial(id))} · ${esc(CARS[id].name)} ${tr("lader", "charges")}</span>`).join("");
     $("#c9-n").textContent = nf(r.perWeek, 1);
     const sh = $("#c9-short"); sh.textContent = String(r.short); sh.className = r.short ? "warn" : "";

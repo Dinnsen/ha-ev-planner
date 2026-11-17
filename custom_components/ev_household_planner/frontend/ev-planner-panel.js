@@ -3010,13 +3010,15 @@ const ClayScene = (() => {
       DECO_N += 1;
       return s;
     }
-    const colours = { xmas: ["#FFE3A3"], newyear: ["#FFE3A3", "#FFD24A", "#FFFFFF"], halloween: ["#FF8A1F", "#A66BFF"] }[SEASON];
-    const n = Math.max(3, Math.round(len / 0.42));
+    // At Christmas a coloured string, as the garland in Learning: big enough to see by day too.
+    const colours = { xmas: ["#E5383B", "#FFC53D", "#2FB36B", "#FFE3A3", "#4F8BFF"], newyear: ["#FFE3A3", "#FFD24A", "#FFFFFF"], halloween: ["#FF8A1F", "#A66BFF"] }[SEASON];
+    const xmas = SEASON === "xmas";
+    const n = Math.max(3, Math.round(len / (xmas ? 0.3 : 0.42)));
     for (let i = 0; i <= n; i += 1) {
       const [x, y] = P(...at(i / n));
       const c = colours[(i + DECO_N) % colours.length];
-      s += `<circle class="cs-tw" style="--d:${((i * 0.37) % 2.4).toFixed(2)}s" cx="${f1(x)}" cy="${f1(y + 1.4)}" r="1.55" fill="${c}" stroke="#00000022" stroke-width=".5"/>`;
-      s += glow(x, y + 1.4, 3.6, c).replace("<circle ", `<circle class="cs-tw" style="--d:${((i * 0.37) % 2.4).toFixed(2)}s" `);
+      s += `<circle class="cs-tw" style="--d:${((i * 0.37) % 2.4).toFixed(2)}s" cx="${f1(x)}" cy="${f1(y + 1.4)}" r="${xmas ? 2.3 : 1.55}" fill="${c}" stroke="#00000033" stroke-width=".5"/>`;
+      s += glow(x, y + 1.4, xmas ? 5 : 3.6, c).replace("<circle ", `<circle class="cs-tw" style="--d:${((i * 0.37) % 2.4).toFixed(2)}s" `);
     }
     DECO_N += 1;
     return s;
@@ -5605,7 +5607,8 @@ class EvPlannerPanel extends HTMLElement {
     this._tabBarSeen?.disconnect();
     this._tabBar = bar;
     this._tabBarSeen = new ResizeObserver(() => this.style.setProperty("--evp-tabbar", `${Math.round(bar.getBoundingClientRect().height)}px`));
-    this._tabBarSeen.observe(bar);
+    // The border box: the bar's padding for the phone's home indicator can arrive after it is drawn.
+    this._tabBarSeen.observe(bar, { box: "border-box" });
   }
 
   /* How a new state reaches the page: in place where people type and drag, else a fresh render. */
