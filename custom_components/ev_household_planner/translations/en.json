@@ -155,6 +155,15 @@
                 "phase_entity": "Optional: a switch that sets the charger to three phases (on) or one (off). On the sun, one phase lets the car charge from about 1.4 kW instead of 4.1 kW.",
                 "control_backup": "When the first does not answer, the other steps in: the car's own switch when the charger starts and stops charging, the charger's when the car does. What paused the car is also what starts it again."
               }
+            },
+            "privacy": {
+              "name": "Privacy",
+              "data": {
+                "hide_map": "Hide the map"
+              },
+              "data_description": {
+                "hide_map": "The map, the places and the trips are not shown for this car, to anyone. Insight still logs them and learns from them."
+              }
             }
           }
         },
@@ -216,6 +225,15 @@
                 "current_entity": "A number that sets the charging current (A), e.g. the car's charging amps or the charger's current limit, or any sensor of an Easee charger (EV Planner then uses Easee's own action). With it, cars on a shared supply share the current; without it they take turns.",
                 "phase_entity": "Optional: a switch that sets the charger to three phases (on) or one (off). On the sun, one phase lets the car charge from about 1.4 kW instead of 4.1 kW.",
                 "control_backup": "When the first does not answer, the other steps in: the car's own switch when the charger starts and stops charging, the charger's when the car does. What paused the car is also what starts it again."
+              }
+            },
+            "privacy": {
+              "name": "Privacy",
+              "data": {
+                "hide_map": "Hide the map"
+              },
+              "data_description": {
+                "hide_map": "The map, the places and the trips are not shown for this car, to anyone. Insight still logs them and learns from them."
               }
             }
           }

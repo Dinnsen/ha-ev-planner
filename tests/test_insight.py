@@ -237,6 +237,43 @@ async def test_a_trip_and_the_day_are_written_down(
         assert "2020-01-01" not in insight.data["forecasts"] and "2020-01-01" not in insight.data["ledger"]
 
 
+async def test_a_car_that_only_reports_where_it_stopped_gets_a_trip_for_each_stop(
+    hass: HomeAssistant, init_integration: MockConfigEntry, now: datetime
+) -> None:
+    """Its position and odometer come only when it is parked: each new stop ends a trip, timed back from the stop."""
+    planner = init_integration.runtime_data
+    insight = insight_of(init_integration)
+    car_device(hass, init_integration)
+    await planner.async_update_settings({"insight": True})
+    with patch.object(insight, "_wants_backfill", return_value=False):
+        hass.states.async_set(ODOMETER, "1000")
+        hass.states.async_set(TRACKER, "home", {"latitude": 55.49, "longitude": 9.47})
+        set_tesla(hass, soc=80, cable=False)
+        await hass.async_block_till_done()
+        await insight.async_tick(now)
+        # Parked at a customer's 20 km away: the odometer and the position come together.
+        hass.states.async_set(ODOMETER, "1020")
+        hass.states.async_set(TRACKER, "not_home", {"latitude": 55.60, "longitude": 9.60})
+        await insight.async_tick(now + timedelta(hours=1))
+        # On to the next, 8 km further.
+        hass.states.async_set(ODOMETER, "1028")
+        hass.states.async_set(TRACKER, "not_home", {"latitude": 55.65, "longitude": 9.70})
+        await insight.async_tick(now + timedelta(hours=3))
+        # Home again.
+        hass.states.async_set(ODOMETER, "1050")
+        hass.states.async_set(TRACKER, "home", {"latitude": 55.49, "longitude": 9.47})
+        await insight.async_tick(now + timedelta(hours=5))
+        trips = insight.data["trips"]
+        assert [(t["from"], t["to"], t["km"]) for t in trips] == [
+            ("home", "not_home", 20.0),
+            ("not_home", "not_home", 8.0),
+            ("not_home", "home", 22.0),
+        ]
+        # Each trip ends at its stop and began about as long before as 40 km/h takes.
+        first = trips[0]
+        assert dt_util.parse_datetime(first["end"]) - dt_util.parse_datetime(first["start"]) == timedelta(minutes=30)
+
+
 async def test_trips_without_a_tracker_or_an_odometer(
     hass: HomeAssistant, init_integration: MockConfigEntry, now: datetime
 ) -> None:

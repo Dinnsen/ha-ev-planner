@@ -60,6 +60,7 @@ from .const import (
     CONF_GRID_POWER,
     CONF_HEAT_PUMP_BLOCK,
     CONF_HEAT_PUMP_POWER,
+    CONF_HIDE_MAP,
     CONF_HOME,
     CONF_HOME_ENTITY,
     CONF_IMPORTED_FROM,
@@ -152,6 +153,7 @@ CONF_IMPORTED_SETTINGS = "imported_settings"
 SECTION_SENSORS = "sensors"
 SECTION_CHARGING = "charging"
 SECTION_TRIPS = "trips"
+SECTION_PRIVACY = "privacy"
 SECTION_SUPPLY = "supply"
 SECTION_SOLAR = "solar"
 
@@ -522,7 +524,7 @@ def _flat(user_input: Mapping[str, Any]) -> dict[str, Any]:
     """Flatten the form's sections."""
     flat: dict[str, Any] = {}
     for key, value in user_input.items():
-        if key in (SECTION_SENSORS, SECTION_CHARGING, SECTION_TRIPS) and isinstance(value, Mapping):
+        if key in (SECTION_SENSORS, SECTION_CHARGING, SECTION_TRIPS, SECTION_PRIVACY) and isinstance(value, Mapping):
             flat.update(value)
         else:
             flat[key] = value
@@ -604,6 +606,11 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
                         }
                     ),
                     {"collapsed": False},
+                ),
+                # Kept here, not in the panel, so it is not turned on and off by a tap.
+                vol.Required(SECTION_PRIVACY): section(
+                    vol.Schema({vol.Optional(CONF_HIDE_MAP, default=bool(values.get(CONF_HIDE_MAP, False))): bool}),
+                    {"collapsed": True},
                 ),
             }
         )

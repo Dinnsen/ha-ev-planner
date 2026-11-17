@@ -33,7 +33,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
-from homeassistant.util import dt as dt_util
+from homeassistant.util import dt as dt_util, location as loc_util
 
 from .const import DOMAIN
 from .insight_model import (
@@ -98,6 +98,12 @@ SAVE_DELAY = 300.0
 # A trip shorter than this, in a car with an odometer, is the position wandering, not a trip.
 TRIP_MIN_KM = 0.5
 TRIP_MIN_TIME = timedelta(minutes=5)
+# A car that says where it is only when it stands still: a new stop this far from the last, with the odometer
+# moved, ends a trip there (a place without a name) and starts the next. Its start is put this fast before the stop.
+PARK_MOVED_M = 300
+PARK_SPEED_KMH = 40
+# Further than a car drives in a minute: the odometer moved this much between two readings while away.
+PARK_JUMP_KM = 3.0
 # The hours a car is usually home: learned from the last eight weeks of trips, once there are enough.
 HOME_DAYS = 56
 HOME_MIN_DAYS = 14
@@ -340,6 +346,27 @@ class Insight:
         state = self.hass.states.get(entity) if entity else None
         return None if state is None else number(state.state)
 
+    def _spot(self, tracker: str | None) -> list[float] | None:
+        """Where the tracker says the car is (latitude, longitude), when it says so."""
+        state = self.hass.states.get(tracker) if tracker else None
+        if state is None or state.state in MISSING:
+            return None
+        lat, lon = state.attributes.get("latitude"), state.attributes.get("longitude")
+        if not isinstance(lat, (int, float)) or not isinstance(lon, (int, float)):
+            return None
+        return [float(lat), float(lon)]
+
+    @staticmethod
+    def _stopped_elsewhere(
+        trip: dict[str, Any], last: list[float] | None, spot: list[float] | None, odometer: float | None
+    ) -> bool:
+        """A car that tells where it is only when it stops: a new stop away from the last, and the odometer moved."""
+        if not trip.get("parked") or last is None or spot is None or odometer is None or trip.get("odo") is None:
+            return False
+        if odometer - trip["odo"] < TRIP_MIN_KM:
+            return False
+        return (loc_util.distance(last[0], last[1], spot[0], spot[1]) or 0) >= PARK_MOVED_M
+
     def _place(self, vehicle: Vehicle, tracker: str | None, last: str | None) -> str | None:
         """Where the car stands (a zone's name), or None on the road. An unknown position is the last one."""
         if tracker is not None:
@@ -423,12 +450,31 @@ class Insight:
             live["temp_sum"] += temperature
             live["temp_n"] += 1
 
+        spot = self._spot(sources["tracker"])
         if "place" not in live:
             live["place"] = self._place(vehicle, sources["tracker"], "home")
+            live["spot"] = spot
             return
         was = live["place"]
         place = self._place(vehicle, sources["tracker"], was)
+        last_spot, live["spot"] = live.get("spot"), spot or live.get("spot")
         if place == was:
+            if (
+                place is None
+                and (trip := live.get("trip")) is not None
+                and self._stopped_elsewhere(trip, last_spot, spot, odometer)
+            ):
+                # Stood somewhere without a name, and now somewhere else: one trip ends there, the next starts.
+                self._end_trip(vehicle, trip, "not_home", now, odometer, soc)
+                live["trip"] = {
+                    "start": now.isoformat(),
+                    "from": "not_home",
+                    "odo": odometer,
+                    "soc": soc,
+                    "temp": temperature,
+                    "parked": True,
+                }
+                self._changed()
             return
         live["place"] = place
         if was is not None and live.get("trip") is None:
@@ -442,6 +488,20 @@ class Insight:
             if live.get("out") is None:
                 local = dt_util.as_local(now)
                 live["out"] = round(local.hour + local.minute / 60, 2)
+            jumped = odometer is not None and before is not None and odometer - before >= PARK_JUMP_KM
+            if place is None and spot is not None and jumped:
+                # Gone, and already far on in one minute: the car only told where it is once it stopped there.
+                trip = live["trip"]
+                trip["parked"] = True
+                self._end_trip(vehicle, trip, "not_home", now, odometer, soc)
+                live["trip"] = {
+                    "start": now.isoformat(),
+                    "from": "not_home",
+                    "odo": odometer,
+                    "soc": soc,
+                    "temp": temperature,
+                    "parked": True,
+                }
         if place is not None and (trip := live.get("trip")) is not None:
             live["trip"] = None
             self._end_trip(vehicle, trip, place, now, odometer, soc)
@@ -458,6 +518,11 @@ class Insight:
     ) -> None:
         start = dt_util.parse_datetime(str(trip.get("start"))) or now
         km = odometer - trip["odo"] if odometer is not None and trip.get("odo") is not None else None
+        if trip.get("parked") and km is not None:
+            # A car that only tells where it stopped: it left about as long before this stop as the drive took,
+            # and not before it got to the stop it left from.
+            guess = now - timedelta(hours=km / PARK_SPEED_KMH)
+            start = max(start, guess) if trip.get("from") == "not_home" else guess
         soc_start = trip.get("soc")
         drop = soc_start - soc if soc is not None and soc_start is not None else None
         if km is not None and km < TRIP_MIN_KM:
@@ -950,8 +1015,15 @@ class Insight:
                     sums[weekday][hour][1] += 1
         rhythm = [[round(total / count, 3) if count else None for total, count in row] for row in sums]
         now = dt_util.now()
+        # A car whose map is hidden: no tracker to read positions from, and none of its trips.
+        hidden = {vid for vid, vehicle in self.household.vehicles.items() if vehicle.hide_map}
+        summary = self.summary()
+        for vid in hidden:
+            car = summary["cars"].get(vid)
+            if car is not None:
+                summary["cars"][vid] = {**car, "sources": {**car["sources"], "tracker": None}, "hide_map": True}
         return {
-            **self.summary(),
+            **summary,
             "detail": cars,
             # The night's price and the day's mean, for each of the days the panel draws (or simulates on).
             "price_days": price_days,
@@ -966,6 +1038,6 @@ class Insight:
                 for slot in self.household.price_slots(now)
                 if slot.end > now
             ],
-            "trips": self.data["trips"][-200:],
+            "trips": [trip for trip in self.data["trips"] if trip.get("vehicle") not in hidden][-200:],
             "ledger": {day: self.data["ledger"][day] for day in sorted(self.data["ledger"])[-30:]},
         }

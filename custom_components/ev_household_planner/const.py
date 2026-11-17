@@ -84,6 +84,8 @@ CONF_CHARGER: Final = "charger"
 CONF_CONTROL: Final = "control"
 # The other of the car and the charger steps in when the first does not answer.
 CONF_CONTROL_BACKUP: Final = "control_backup"
+# Insight's map, places and trips are not shown for the car; the log goes on.
+CONF_HIDE_MAP: Final = "hide_map"
 # A button, script or entity that makes the car's integration ask the car now, when a charger gets a car.
 CONF_REFRESH_ENTITY: Final = "refresh_entity"
 CONF_CONTROL_ENTITY: Final = "control_entity"

@@ -247,6 +247,67 @@ async def async_history(
     return out
 
 
+MAP_DAYS = 10
+
+
+async def async_map_counts(hass: HomeAssistant, household: Household, now: datetime) -> dict[str, Any]:
+    """What the map in Insight has to draw from, per car: counts only, never a place or a position."""
+    start = now - timedelta(days=MAP_DAYS)
+    summary = household.insight.summary().get("cars") or {}
+    trackers = {vid: (car.get("sources") or {}).get("tracker") for vid, car in summary.items()}
+    ids = sorted({entity for entity in trackers.values() if entity})
+    rows: dict[str, list[Any]] = {}
+    if ids:
+        try:
+            from homeassistant.components.recorder import get_instance, history
+
+            rows = await get_instance(hass).async_add_executor_job(
+                lambda: history.get_significant_states(
+                    hass,
+                    start,
+                    now,
+                    ids,
+                    include_start_time_state=True,
+                    significant_changes_only=False,
+                    minimal_response=False,
+                    no_attributes=False,
+                )
+            )
+        except Exception as err:
+            _LOGGER.debug("No positions for the support export: %s", err)
+            return {"error": f"no history: {err}"}
+    since = start.isoformat()
+    out: dict[str, Any] = {}
+    for vid, vehicle in household.vehicles.items():
+        trips = [
+            trip
+            for trip in household.insight.data.get("trips") or []
+            if trip.get("vehicle") == vid and str(trip.get("end") or "") >= since
+        ]
+        places = {trip.get(key) for trip in trips for key in ("from", "to")} - {None, "home", "not_home"}
+        tracker = trackers.get(vid)
+        reports, with_position, stops = 0, 0, set()
+        for item in rows.get(tracker, []) if tracker else []:
+            attributes = item.attributes if isinstance(item, State) else (item.get("attributes") or item.get("a") or {})
+            reports += 1
+            lat, lon = attributes.get("latitude"), attributes.get("longitude")
+            if isinstance(lat, int | float) and isinstance(lon, int | float):
+                with_position += 1
+                stops.add((round(lat, 3), round(lon, 3)))
+        out[vehicle.name] = {
+            "days": MAP_DAYS,
+            "tracker": bool(tracker),
+            "trips": len(trips),
+            "trips_between_stops": sum(1 for trip in trips if "not_home" in (trip.get("from"), trip.get("to"))),
+            "places": len(places),
+            "reports": reports,
+            "reports_with_position": with_position,
+            "different_positions": len(stops),
+            "map_hidden": vehicle.hide_map,
+        }
+    return out
+
+
 def _system_log(hass: HomeAssistant) -> list[dict[str, Any]]:
     """The warnings and errors Home Assistant keeps (Settings → System → Logs) that are EV Planner's."""
     handler = hass.data.get("system_log")
@@ -318,6 +379,8 @@ async def async_bundle(hass: HomeAssistant, household: Household, hours: int = H
         ),
         # How much Insight has logged and what it reads from: no places and no trips.
         "insight": household.insight.summary(),
+        # What the map has to draw from, per car, the last ten days: counts, never a place or a position.
+        "map": await async_map_counts(hass, household, now),
         "events": _events(household.events.since(start)),
         "log": list(LOG_CAPTURE.lines),
         "system_log": _system_log(hass),

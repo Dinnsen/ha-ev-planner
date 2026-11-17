@@ -435,7 +435,7 @@ function boot(host, root) {
         const a = new Date(IN.wall(t.start)), b = new Date(IN.wall(t.end || t.start)), d = N + Math.floor((a - TODAY) / DAY);
         if (d < 0 || d > N) continue;
         const km = Number(t.km) || 0, kwh = t.kwh != null ? Number(t.kwh) : (km * (c.base || 18)) / 100, dep = a.getHours() * 60 + a.getMinutes();
-        (logged[d] ||= []).push({ car: id, d, dep, arr: dep + Math.max(1, (b - a) / 60000), from: place(t.from), to: place(t.to), km, kwh, eff: km > 0.5 ? (kwh / km) * 100 : c.base || 18, soc0: t.soc_start ?? null, soc1: t.soc_end ?? null, temp: t.temp ?? temp[d], zone: true });
+        (logged[d] ||= []).push({ car: id, d, dep, arr: dep + Math.max(1, (b - a) / 60000), from: place(t.from), to: place(t.to), km, kwh, eff: km > 0.5 ? (kwh / km) * 100 : c.base || 18, soc0: t.soc_start ?? null, soc1: t.soc_end ?? null, temp: t.temp ?? temp[d], zone: true, h0: (a - t0) / 3600000, h1: (b - t0) / 3600000 - 1 });
       }
       const runs = []; let run = null;
       for (let h = -N * 24; h <= hNow; h += 1) { const km = odo.get(h) || 0; if (km >= 0.3) { if (run) { run.h1 = h; run.km += km; } else run = { h0: h, h1: h, km }; } else if (run) { runs.push(run); run = null; } }
@@ -460,7 +460,8 @@ function boot(host, root) {
       const track = ((IN.tracks || {})[c.src.tracker] || []).map(([ms, lat, lon]) => ({ h: (IN.wall(ms) - t0) / 3600000, lat, lon })).filter((p) => Number.isFinite(p.h) && Number.isFinite(p.lat) && Number.isFinite(p.lon)).sort((a, b) => a.h - b.h);
       if (track.length > 1) {
         let i0 = 0;
-        for (const t of [...est].sort((a, b) => a.h0 - b.h0)) {
+        // The logged trips get their road too: a car that only says where it is when it stands still is drawn from stop to stop.
+        for (const t of [...est, ...Object.values(logged).flat()].sort((a, b) => a.h0 - b.h0)) {
           if (t.h1 + 1 < track[0].h) continue;
           while (i0 < track.length && track[i0].h < t.h0) i0 += 1;
           const pts = []; if (i0 > 0) pts.push(track[i0 - 1]);
@@ -658,11 +659,11 @@ function boot(host, root) {
       <div class="row"><h2>${tr("90 dage med bilen", "90 days with the car")}</h2><div class="chips" id="carsel" role="group" aria-label="${tr("Bil", "Car")}"></div></div>
       <div class="sumg" id="sum-bil"></div>
     </section>
-    <section class="card"><div class="row"><h2>${tr("Kortet over turene", "The map of the trips")}</h2><span class="demo">${tr("tykkere streg = oftere", "thicker line = more often")}</span></div><div id="map"></div><div class="chips" id="places"></div><div class="detail" id="trip"></div><p class="small">${tr("Tryk på et sted på kortet for at vælge det og give det et navn; tallet er, hvor mange gange der er kørt dertil på 90 dage. Stederne findes ud fra bilens position de dage, Home Assistant stadig har den (ca. 10), og ældre ture af samme længde regnes til samme sted. Ture, der ikke kan placeres, står under kortet. Kortet er OpenStreetMap, hentet gennem Home Assistant ligesom dets eget kort.", "Tap a place on the map to choose it and give it a name; the figure is how many times it was driven to in 90 days. The places are found from the car's position on the days Home Assistant still has it (about 10), and older trips of the same length are counted to the same place. Trips that cannot be placed are listed under the map. The map is OpenStreetMap, fetched through Home Assistant as its own map is.")}</p></section>
+    <section class="card" id="map-card"><div class="row"><h2>${tr("Kortet over turene", "The map of the trips")}</h2><span class="demo">${tr("tykkere streg = oftere", "thicker line = more often")}</span></div><div id="map"></div><div class="chips" id="places"></div><div class="detail" id="trip"></div><p class="small">${tr("Tryk på et sted på kortet for at vælge det og give det et navn; tallet er, hvor mange gange der er kørt dertil på 90 dage. Stederne findes ud fra bilens position de dage, Home Assistant stadig har den (ca. 10), og ældre ture af samme længde regnes til samme sted. Ture, der ikke kan placeres, står under kortet. Kortet er OpenStreetMap, hentet gennem Home Assistant ligesom dets eget kort.", "Tap a place on the map to choose it and give it a name; the figure is how many times it was driven to in 90 days. The places are found from the car's position on the days Home Assistant still has it (about 10), and older trips of the same length are counted to the same place. Trips that cannot be placed are listed under the map. The map is OpenStreetMap, fetched through Home Assistant as its own map is.")}</p></section>
     <section class="card"><div class="row"><h2>${tr("Forbrug pr. dag", "Use per day")}</h2><span class="demo" id="daily-t"></span></div><div class="scroll"><div id="daily" style="position:relative;min-width:640px"></div></div></section>
     <div class="two">
       <section class="card"><div class="row"><h2>${tr("Ugeuret", "The week's clock")}</h2><span class="demo">${tr("hvornår bilen er væk", "when the car is away")}</span></div><div id="clock" style="max-width:420px;margin:0 auto;width:100%;position:relative"></div><p class="small">${tr("Inderst mandag, yderst søndag. Jo mørkere felt, jo oftere er bilen ude i den time. Peg på et felt.", "Monday innermost, Sunday outermost. The darker a field, the more often the car is out that hour. Point at a field.")}</p></section>
-      <section class="card"><div class="row"><h2>${tr("Hver tur i 90 dage", "Every trip in 90 days")}</h2><span class="demo">${tr("størrelse: kWh · farve: temperatur ude", "size: kWh · colour: temperature outside")}</span></div><div class="scroll"><div id="trips" style="position:relative;min-width:640px"></div></div><p class="small">${tr("Vandret er datoen, lodret afgangen. Tryk på en tur for at se den på kortet. De lodrette striber er hverdagenes faste rytme; de enlige store prikker er de lange ture.", "Across is the date, up the departure. Tap a trip to see it on the map. The stripes are the weekdays' rhythm; the single large dots are the long trips.")}</p></section>
+      <section class="card" id="trips-card"><div class="row"><h2>${tr("Hver tur i 90 dage", "Every trip in 90 days")}</h2><span class="demo">${tr("størrelse: kWh · farve: temperatur ude", "size: kWh · colour: temperature outside")}</span></div><div class="scroll"><div id="trips" style="position:relative;min-width:640px"></div></div><p class="small">${tr("Vandret er datoen, lodret afgangen. Tryk på en tur for at se den på kortet. De lodrette striber er hverdagenes faste rytme; de enlige store prikker er de lange ture.", "Across is the date, up the departure. Tap a trip to see it on the map. The stripes are the weekdays' rhythm; the single large dots are the long trips.")}</p></section>
     </div>
   </div>
   <div class="panel" id="p-pris" hidden>
@@ -1136,7 +1137,10 @@ function boot(host, root) {
     tipOn($("#sum-wk"), "[data-wk]", (el) => { const k = +el.dataset.wk; return `${tr("ugen fra", "the week from")} ${dm(k * 7)}<br><b>${nf(weeks[k])} km</b>`; });
     // the map
     const pick = trips[S.pickTrip] && trips[S.pickTrip].car === car ? trips[S.pickTrip] : [...long].sort((a, b) => b.d - a.d || b.dep - a.dep)[0] || mine[mine.length - 1];
-    if (!pick) { $("#map").innerHTML = none(tr("Kortet tegnes, når den første tur er set.", "The map is drawn when the first trip is seen.")); $("#trip").innerHTML = ""; $("#trip").hidden = true; }
+    // A car whose map is hidden in its setup: no map, places or trips, for anyone.
+    const hidMap = Boolean((DATA.cars[car] || {}).hide_map);
+    $("#map-card").hidden = hidMap; $("#trips-card").hidden = hidMap;
+    if (hidMap || !pick) { $("#map").innerHTML = hidMap ? "" : none(tr("Kortet tegnes, når den første tur er set.", "The map is drawn when the first trip is seen.")); $("#trip").innerHTML = ""; $("#trip").hidden = true; if (hidMap) $("#places").innerHTML = ""; }
     else {
       $("#trip").hidden = false;
       const places = c.places || [], located = places.filter((p) => p.pos), homeAt = IN.home && Number.isFinite(IN.home.lat) && Number.isFinite(IN.home.lon) ? IN.home : null;

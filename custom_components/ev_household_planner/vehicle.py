@@ -28,6 +28,7 @@ from .const import (
     CONF_CONTROL,
     CONF_CONTROL_BACKUP,
     CONF_CONTROL_ENTITY,
+    CONF_HIDE_MAP,
     CONF_HOME_ENTITY,
     CONF_IMPORTED_SPEED,
     CONF_POWER_ENTITY,
@@ -599,6 +600,11 @@ class Vehicle:
     @property
     def control_backup(self) -> bool:
         return bool(self.config.get(CONF_CONTROL_BACKUP))
+
+    @property
+    def hide_map(self) -> bool:
+        """Insight's map, places and trips are not shown for the car (set in its setup)."""
+        return bool(self.config.get(CONF_HIDE_MAP))
 
     @property
     def refresh_entity(self) -> str | None:
