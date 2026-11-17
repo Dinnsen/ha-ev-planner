@@ -987,7 +987,8 @@ class Insight:
         known = self._known_need(vehicle, now)
         if known and len(hard) > 1:
             hard[1] = max(hard[1], known)
-        targets = settings.get(SET_DAY_TARGETS) if isinstance(settings.get(SET_DAY_TARGETS), Mapping) else {}
+        raw = settings.get(SET_DAY_TARGETS)
+        targets: Mapping[str, Any] = raw if isinstance(raw, Mapping) else {}
         plain = number(settings.get(SET_TARGET_SOC)) or 80.0
         if vehicle.target_entity and vehicle.target_from_car is not None and vehicle.own_step is None:
             # The car's own limit is the target.

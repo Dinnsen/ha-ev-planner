@@ -299,12 +299,13 @@ def plan_week(
 
     # 2. Under the low-price limit: up to that level, at the published prices only.
     for car in cars:
-        if car.low_price is None or car.low_level is None:
+        limit_price = car.low_price
+        if limit_price is None or car.low_level is None:
             continue
         cheap = [
             h
             for h in every
-            if hours[h].kind == "known" and hours[h].price is not None and hours[h].price <= car.low_price + EPSILON
+            if hours[h].kind == "known" and (price := hours[h].price) is not None and price <= limit_price + EPSILON
         ]
         for hour in sorted(cheap, key=lambda h: (hours[h].cost, h)):
             room = plan.room(car, hour, car.low_level, plan.context(car))
@@ -357,8 +358,8 @@ def plan_week(
         )
         # A run of cheap hours is one charge: only worth it when it adds enough together.
         ctx = plan.context(car)
-        room = {h: plan.room(car, h, car.preferred[h], ctx) for h in cheap}
-        if sum(room.values()) < least:
+        gain = {h: plan.room(car, h, car.preferred[h], ctx) for h in cheap}
+        if sum(gain.values()) < least:
             continue
         for hour in cheap:
             give = plan.room(car, hour, car.preferred[hour], plan.context(car))
@@ -433,7 +434,7 @@ def stay_end(home: Sequence[bool], hour: int = 0) -> int | None:
 
 def summary(week: CarWeek, car: WeekCar, hours: Sequence[Hour]) -> dict[str, Any]:
     """What the screens show of a car's week, in plain values."""
-    charges = []
+    charges: list[dict[str, Any]] = []
     for start, end in runs(week):
         kwh = sum(week.charge[start:end])
         cost = sum(week.charge[h] * (hours[h].price or 0.0) for h in range(start, end))
