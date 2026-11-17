@@ -38,6 +38,8 @@ from homeassistant.util import dt as dt_util, location as loc_util
 from .const import (
     AMOUNT_FILL,
     DOMAIN,
+    SCHEDULE_DEFAULT,
+    SCHEDULE_NONE,
     SET_AMOUNT,
     SET_DAY_TARGETS,
     SET_FULL_DAYS,
@@ -47,7 +49,10 @@ from .const import (
     SET_LOW_PRICE_LEVEL,
     SET_LOW_PRICE_SOC,
     SET_MIN_SOC,
+    SET_READY_BY,
+    SET_SCHEDULE,
     SET_TARGET_SOC,
+    SET_USE_READY_BY,
     WEEKDAYS,
 )
 from .insight_model import (
@@ -70,8 +75,9 @@ from .insight_model import (
     score,
 )
 from .planner import PriceSlot
+from .rules import parse_hhmm
 from .support import async_history
-from .weekplan import HOURS, PATTERN_ERROR, Hour, WeekCar, plan_week, replay, stay_end, summary
+from .weekplan import HOURS, PATTERN_ERROR, Hour, WeekCar, plan_week, replay, stay_end, stretches, summary
 
 if TYPE_CHECKING:
     from .household import Household
@@ -89,8 +95,6 @@ SET_INSIGHT_FROM = "insight_from"
 SET_INSIGHT_TO = "insight_to"
 # The plan waits for a cheaper night when Insight expects one and the cars can do without.
 SET_INSIGHT_USE = "insight_use"
-# How hard a day the cars must always have enough for: 80, 90 or 95 (% of days). Before the styles.
-SET_INSIGHT_LEVEL = "insight_level"
 # How careful: 0 (bold) to 10 (every night), see insight_model.STYLES.
 SET_INSIGHT_STYLE = "insight_style"
 SET_INSIGHT_NAMES = "insight_names"
@@ -103,7 +107,6 @@ INSIGHT_SETTINGS: dict[str, Any] = {
     SET_INSIGHT_TO: "07:00",
     # The week plan steers the charging (on by default since 2.5.0b35).
     SET_INSIGHT_USE: True,
-    SET_INSIGHT_LEVEL: 90,
     SET_INSIGHT_STYLE: DEFAULT_STYLE,
     # The names the household gave the trips it makes often: {car: [{"km": how far, "name": its name}]}.
     SET_INSIGHT_NAMES: {},
@@ -963,9 +966,56 @@ class Insight:
             return share[moment.weekday()][moment.hour] >= sure - 1e-9
 
         out = [usual(hour.start) for hour in hours]
+        # The household's own ready-by times are departures it knows of: the car is gone in that hour.
+        for index in self._ready_hours(vehicle, hours):
+            out[index] = False
         if out:
             out[0] = bool(vehicle.home if vehicle.home_entity is not None else True)
         return out
+
+    @staticmethod
+    def _ready_hours(vehicle: Vehicle, hours: Sequence[Hour]) -> list[int]:
+        """The hours of the week the car is to be ready by (its ready-by time and the week's own times)."""
+        settings = vehicle.settings
+        if not settings.get(SET_USE_READY_BY, True):
+            return []
+        default = parse_hhmm(settings.get(SET_READY_BY))
+        raw = settings.get(SET_SCHEDULE)
+        schedule: Mapping[str, Any] = raw if isinstance(raw, Mapping) else {}
+        out = []
+        for index, hour in enumerate(hours):
+            if index == 0 or hour.start.hour == hours[index - 1].start.hour:
+                continue
+            entry = schedule.get(WEEKDAYS[hour.start.weekday()], SCHEDULE_DEFAULT)
+            if entry == SCHEDULE_NONE:
+                continue
+            moment = default if entry == SCHEDULE_DEFAULT else parse_hhmm(entry)
+            if moment is not None and moment.hour == hour.start.hour:
+                out.append(index)
+        return out
+
+    @staticmethod
+    def _blocked(vehicle: Vehicle, hours: Sequence[Hour]) -> list[bool] | None:
+        """The hours before the car's earliest start (from it to its ready-by time it may charge)."""
+        first = vehicle.earliest_start
+        if first is None:
+            return None
+        last = vehicle.ready_by.hour if vehicle.ready_by is not None else 7
+        start = first.hour
+
+        def allowed(hour: int) -> bool:
+            return start <= hour < last if start < last else hour >= start or hour < last
+
+        return [not allowed(hour.start.hour) for hour in hours]
+
+    @staticmethod
+    def _ceiling(vehicle: Vehicle, hours: Sequence[Hour]) -> float | None:
+        """The car's price ceiling: its own, or the coming day's mean price and the share above it."""
+        rules = vehicle.rules()
+        if rules.ceiling_above is not None:
+            known = [hour.price for hour in hours[:24] if hour.price is not None]
+            return sum(known) / len(known) * (1 + rules.ceiling_above / 100) if known else None
+        return rules.ceiling
 
     def _week_car(
         self, vehicle: Vehicle, now: datetime, style: Mapping[str, Any], hours: Sequence[Hour], day_of: Sequence[int]
@@ -1031,6 +1081,8 @@ class Insight:
             full_due=full_due,
             # Until a car's days are known, every stay is filled as before.
             fill=settings.get(SET_AMOUNT) == AMOUNT_FILL or not ripe,
+            ceiling=self._ceiling(vehicle, hours),
+            blocked=self._blocked(vehicle, hours),
         )
 
     def style_index(self) -> int:
@@ -1063,7 +1115,24 @@ class Insight:
                 cars = [car for vehicle in group if (car := self._week_car(vehicle, now, style, hours, day_of))]
                 if not cars:
                     continue
-                weeks = plan_week(cars, hours, day_of, always=bool(style.get("every")))
+                # At a shared charger the cable is not moved in the window (the night, by default); the car
+                # plugged in now keeps the stretch it is in.
+                plugged = next(
+                    (
+                        v.vehicle_id
+                        for v in group
+                        if v.connected is True and any(c.vehicle_id == v.vehicle_id for c in cars)
+                    ),
+                    None,
+                )
+                weeks = plan_week(
+                    cars,
+                    hours,
+                    day_of,
+                    always=bool(style.get("every")),
+                    window=stretches(hours, self.window),
+                    holder=plugged,
+                )
                 for car in cars:
                     week = weeks[car.vehicle_id]
                     days = []
@@ -1363,6 +1432,7 @@ class Insight:
             "today": today,
             "first": datetime.combine(today - timedelta(days=STEP_DAYS - 1), datetime.min.time()) + timedelta(hours=12),
             "days": STEP_DAYS - 2,
+            "window": self.window,
         }
 
     async def _async_runs(self, now: datetime) -> None:
@@ -1482,7 +1552,7 @@ def replay_steps(inputs: Mapping[str, Any]) -> list[dict[str, Any]]:
             }
             for car in inputs["cars"]
         ]
-        out.append(replay(cars, inputs["prices"], inputs["first"], inputs["days"], style))
+        out.append(replay(cars, inputs["prices"], inputs["first"], inputs["days"], style, window=inputs.get("window")))
     return out
 
 

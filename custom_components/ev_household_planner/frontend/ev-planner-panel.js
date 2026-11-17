@@ -1957,10 +1957,6 @@ Object.assign(TEXT.da, {
   insight_window_hint: "I det tidsrum har den bil, der sidder i, laderen.",
   insight_use: "Lad ugeplanen styre",
   insight_use_hint: "Laderen følger ugeplanen: de billigste timer, bilen er hjemme, nat eller dag. En tur i kalenderen holdes aldrig tilbage.",
-  insight_level: "Hav altid nok til",
-  insight_level_80: "8 af 10 dage",
-  insight_level_90: "9 af 10 dage",
-  insight_level_95: "19 af 20 dage",
   insight_style: "Hvor forsigtig",
   insight_style_hint: "Reserven ved hver afgang, og hvor sikker planen skal være på, at bilen er hjemme. Se, hvad hvert valg ville have gjort, under Læring → Lært.",
   insight_style_0: "Modig",
@@ -2113,10 +2109,6 @@ Object.assign(TEXT.en, {
   insight_window_hint: "In those hours the car that is plugged in has the charger.",
   insight_use: "Let the week plan steer",
   insight_use_hint: "The charger follows the week plan: the cheapest hours the car is home, night or day. A trip in the calendar is never held back.",
-  insight_level: "Always have enough for",
-  insight_level_80: "8 of 10 days",
-  insight_level_90: "9 of 10 days",
-  insight_level_95: "19 of 20 days",
   insight_style: "How careful",
   insight_style_hint: "The reserve at each departure, and how sure the plan must be that the car is home. See what each choice would have done under Learning → Learned.",
   insight_style_0: "Bold",
@@ -8523,6 +8515,8 @@ class EvPlannerPanel extends HTMLElement {
 
   /* The car's rules in groups: each group is a tile with a short summary, and opens as a sheet. */
   _ruleGroups(v, s) {
+    // While the week plan steers the car, it does what topping up cheaply and lowering the ceiling did: they are not shown.
+    const steered = Boolean(v && this._state?.settings?.insight_use && this._state?.week?.cars?.[v.id]?.steer);
     const price = `${this._unit}/kWh`;
     const groups = { time: [], price: [], battery: [], climate: [], supply: [], sun: [], look: [] };
     groups.battery.push(
@@ -8633,7 +8627,7 @@ class EvPlannerPanel extends HTMLElement {
         control: `${s.prefer_early ? this._valueHtml("early_within", s.early_within, { unit: price, step: 0.01, min: 0, max: 2, label: this._t("rule_early") }) : ""}${this._switchHtml("prefer_early", s.prefer_early, this._t("rule_early"))}`,
       }),
     );
-    groups.battery.push(
+    if (!steered) groups.battery.push(
       this._ruleRow({
         icon: "depart",
         title: this._t("rule_topup"),
@@ -8704,7 +8698,7 @@ class EvPlannerPanel extends HTMLElement {
         control: `${s.join_period && !s.continuous ? this._valueHtml("join_within", s.join_within, { unit: price, step: 0.01, min: 0, max: 2, label: this._t("rule_join") }) : ""}${this._switchHtml("join_period", s.join_period, this._t("rule_join"))}`,
       }),
     );
-    groups.price.push(this._opportunisticHtml(s));
+    if (!steered) groups.price.push(this._opportunisticHtml(s));
     groups.time.push(
       this._ruleRow({
         icon: "charger",
@@ -8788,7 +8782,7 @@ class EvPlannerPanel extends HTMLElement {
       battery: on([
         isNum(s.min_soc) && Number(s.min_soc) > 0 && this._t("sum_min", { pct: pct(s.min_soc) }),
         s.low_soc_charging && this._t("sum_low_soc", { pct: pct(s.low_soc_level) }),
-        s.topup && this._t("sum_topup", { pct: pct(s.topup_level ?? 80) }),
+        s.topup && !steered && this._t("sum_topup", { pct: pct(s.topup_level ?? 80) }),
       ]),
       supply: on([Number(s.must_soc) > 0 && this._t("sum_must", { pct: pct(s.must_soc) }), s.priority === "first" && this._t("sum_first")]),
       sun: ["surplus", "only"].includes(s.solar) ? this._t(`solar_${s.solar}`) : "",

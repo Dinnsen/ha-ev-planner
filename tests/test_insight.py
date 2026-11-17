@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, patch
@@ -28,6 +28,7 @@ from custom_components.ev_household_planner.insight import (
 )
 from custom_components.ev_household_planner.insight_model import STYLES
 from custom_components.ev_household_planner.planner import PriceSlot
+from custom_components.ev_household_planner.weekplan import Hour
 
 from .conftest import MERCEDES, PRICE_ENTITY, SOC, TESLA, NotifyCalls, set_tesla
 
@@ -657,11 +658,11 @@ async def test_what_the_panel_and_the_export_get_and_what_is_kept(
         {
             "id": 3,
             "type": "ev_household_planner/settings",
-            "settings": {"insight_level": 95, "insight_to": "06:30", "insight_style": 1},
+            "settings": {"insight_to": "06:30", "insight_style": 1},
         }
     )
     assert (await client.receive_json())["success"]
-    assert planner.settings["insight_level"] == 95
+    assert "insight_level" not in planner.settings
     assert planner.settings["insight_style"] == 1
     # A trip made often can be given a name; the prices from now on are sent with the rest.
     names = {TESLA: [{"km": 24.3, "name": "Work", "lat": 56.2, "lon": 10.1}]}
@@ -835,6 +836,16 @@ async def test_the_week_plan_hour_by_hour_and_what_it_hands_on(
         TESLA, {"low_price_charging": True, "low_price_level": 0.6, "low_price_soc": 100, "charge_amount": "fill"}
     )
     assert insight.week["cars"][TESLA]["learning"] is False
+    # While it steers, topping up cheaply and lowering the ceiling rest, and a reminder follows the plan.
+    tesla.settings.update(topup=True, opportunistic="lower_ceiling")
+    assert tesla.rules().topup_level is None and tesla.rules().opportunistic == "off"
+    set_tesla(hass, soc=40, cable=False)
+    await hass.async_block_till_done()
+    tesla.settings.update(
+        reminder=True, reminder_time="00:00", reminder_days=["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+    )
+    tesla.reminded_on = None
+    assert planner._reminder_due(tesla, now) == (tesla.week_deadline is not None)
     # Not steering: the cars go by their own targets again.
     await planner.async_update_settings({"insight_use": False})
     assert tesla.week_target is None and tesla.week_deadline is None
@@ -899,3 +910,23 @@ def test_home_hours_from_a_trackers_history() -> None:
     assert share_from_states(rows, start, start + timedelta(days=3)) is None
     assert share_from_states([], start, start + timedelta(days=7)) is None
     assert share_from_states([(start, "unavailable")], start, start + timedelta(days=7)) is None
+
+
+def test_a_cars_own_limits_for_the_week_plan() -> None:
+    monday = datetime(2026, 11, 16, tzinfo=dt_util.DEFAULT_TIME_ZONE)
+    hours = [Hour(monday + timedelta(hours=h), 1.0 + (h % 24) / 10) for h in range(72)]
+    # Its ready-by times are departures it knows of: 07 on Monday, none on Tuesday, 08:30 on Wednesday.
+    car = SimpleNamespace(settings={"ready_by": "07:00", "schedule": {"tue": "none", "wed": "08:30"}})
+    assert Insight._ready_hours(car, hours) == [7, 56]
+    assert Insight._ready_hours(SimpleNamespace(settings={"use_ready_by": False}), hours) == []
+    # Not before its earliest start: from it to its ready-by time.
+    late = SimpleNamespace(earliest_start=time(22), ready_by=time(6))
+    blocked = Insight._blocked(late, hours)
+    assert blocked is not None and blocked[12] and not blocked[23] and not blocked[3]
+    assert Insight._blocked(SimpleNamespace(earliest_start=None, ready_by=None), hours) is None
+    assert Insight._blocked(SimpleNamespace(earliest_start=time(1), ready_by=None), hours)[8]
+    # The ceiling: its own, or the coming day's mean and the share above it.
+    rules = lambda ceiling, above: SimpleNamespace(rules=lambda: SimpleNamespace(ceiling=ceiling, ceiling_above=above))  # noqa: E731
+    assert Insight._ceiling(rules(2.0, None), hours) == 2.0
+    assert Insight._ceiling(rules(None, 10.0), hours) == pytest.approx(sum(h.price for h in hours[:24]) / 24 * 1.1)
+    assert Insight._ceiling(rules(None, 10.0), [Hour(monday, None)]) is None

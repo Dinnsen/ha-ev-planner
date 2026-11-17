@@ -755,13 +755,15 @@ class Vehicle:
 
     def rules(self) -> Rules:
         s = self.settings
+        # While the week plan steers, it does what topping up cheaply and lowering the ceiling did: they rest.
+        steered = self.week_target is not None
         return Rules(
             min_soc=to_float(s.get(SET_MIN_SOC)) or 0.0,
             ceiling=to_float(s.get(SET_CEILING)) if s.get(SET_CEILING_ENABLED) else None,
             ceiling_above=(to_float(s.get(SET_CEILING_ABOVE)) or 0.0)
             if s.get(SET_CEILING_ENABLED) and s.get(SET_CEILING_RELATIVE)
             else None,
-            opportunistic=str(s.get(SET_OPPORTUNISTIC) or OPPORTUNISTIC_OFF),
+            opportunistic=OPPORTUNISTIC_OFF if steered else str(s.get(SET_OPPORTUNISTIC) or OPPORTUNISTIC_OFF),
             opportunistic_level=to_float(s.get(SET_OPPORTUNISTIC_LEVEL)) or 50.0,
             follow_level=to_float(s.get(SET_FOLLOW_LEVEL)) or 90.0,
             low_price_level=to_float(s.get(SET_LOW_PRICE_LEVEL)) if s.get(SET_LOW_PRICE_ENABLED) else None,
@@ -769,7 +771,7 @@ class Vehicle:
             keep_on=bool(s.get(SET_KEEP_ON)) and self.stops_itself,
             join_within=max(0.0, to_float(s.get(SET_JOIN_WITHIN)) or 0.0) if s.get(SET_JOIN_ENABLED) else None,
             early_within=max(0.0, to_float(s.get(SET_EARLY_WITHIN)) or 0.0) if s.get(SET_EARLY_ENABLED) else None,
-            topup_level=to_float(s.get(SET_TOPUP_LEVEL)) if s.get(SET_TOPUP_ENABLED) else None,
+            topup_level=to_float(s.get(SET_TOPUP_LEVEL)) if s.get(SET_TOPUP_ENABLED) and not steered else None,
         )
 
     def _low_soc_level(self) -> float | None:

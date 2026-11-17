@@ -840,6 +840,8 @@ class Household(DataUpdateCoordinator[None]):
         self.settings["afternoon_added"] = True
         if kept and not kept.get("weekplan_on"):
             self.settings["insight_use"] = True
+        # How hard a day (80/90/95) gave way to the steps of how careful long ago, and is gone (2.5.0b35).
+        self.settings.pop("insight_level", None)
         self.settings["weekplan_on"] = True
         self._adopt_car_calendars()
         self._adopt_25()
@@ -2802,9 +2804,14 @@ class Household(DataUpdateCoordinator[None]):
                 return False
             if elapsed(now, vehicle.reminded_at) < timedelta(minutes=repeat):
                 return False
+        if vehicle.connected is not False or vehicle.at_home is False:
+            return False
+        if vehicle.week_target is not None:
+            # The week plan decides: only when it charges the car before it next leaves.
+            return vehicle.week_deadline is not None
         soc = vehicle.current_soc
         threshold = to_float(s.get(SET_REMINDER_SOC)) or 0.0
-        return not (vehicle.connected is not False or vehicle.at_home is False or soc is None or soc >= threshold)
+        return not (soc is None or soc >= threshold)
 
     async def _async_remind(self, vehicle: Vehicle, now: datetime) -> None:
         s = vehicle.settings
@@ -2813,7 +2820,7 @@ class Household(DataUpdateCoordinator[None]):
             vehicle.reminded_on, vehicle.reminders_sent = today, 0
         hours = to_float(s.get(SET_REMINDER_HORIZON)) or 24.0
         cheapest = self._cheapest_slot(now, timedelta(hours=hours))
-        if s.get(SET_REMINDER_PRICE_ENABLED) and vehicle.reminders_sent == 0:
+        if s.get(SET_REMINDER_PRICE_ENABLED) and vehicle.reminders_sent == 0 and vehicle.week_target is None:
             limit = to_float(s.get(SET_REMINDER_PRICE))
             if cheapest is None or (limit is not None and cheapest.price > limit):
                 # Not cheap enough: no reminder today.
