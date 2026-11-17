@@ -17,6 +17,7 @@ from custom_components.ev_household_planner.weekplan import (
     replay,
     stay_end,
     stays,
+    stretches,
     summary,
 )
 
@@ -269,3 +270,57 @@ def test_replayed_over_days_gone_by() -> None:
     assert replay(away, prices, first, 7, {"level": 0.9, "reserve": 0.1, "rest": 0.5})["short"] > 0
     # No prices at all: still planned, by the hours alone.
     assert replay(cars[:1], {}, first, 3, {"level": 0.9, "reserve": 0.1, "rest": 0.5})["days"] == 3
+
+
+def test_the_cable_is_not_moved_at_night() -> None:
+    hours, day_of = week()
+    window = stretches(hours, (21, 7))
+    # Both low, both home only at night: each night is one car's.
+    nights = lambda m: m.hour >= 21 or m.hour < 7  # noqa: E731
+    a = car("a", hours, nights, soc=0.3, hard=[15.0] * 8, typical=[10.0] * 8)
+    b = car("b", hours, nights, soc=0.3, hard=[15.0] * 8, typical=[10.0] * 8)
+    plan = plan_week([a, b], hours, day_of, window=window)
+    for key in {k for k in window if k is not None}:
+        span = [h for h, k in enumerate(window) if k == key]
+        who = {vid for vid in ("a", "b") for h in span if plan[vid].charge[h] > 0}
+        assert len(who) <= 1, f"two cars in one night: {who}"
+    # Without the rule a night may well be shared.
+    free = plan_week([a, b], hours, day_of)
+    assert any(
+        {vid for vid in ("a", "b") for h in [h for h, k in enumerate(window) if k == key] if free[vid].charge[h] > 0}
+        == {"a", "b"}
+        for key in {k for k in window if k is not None}
+    )
+    # The car plugged in now keeps tonight; the other waits for its own night.
+    held = plan_week([a, b], hours, day_of, window=window, holder="b")
+    tonight = [h for h, k in enumerate(window) if k == window[0]]
+    assert sum(held["a"].charge[h] for h in tonight) == 0
+    # A window within the day, and none at all.
+    day = stretches(hours, (1, 5))
+    assert day[hours.index(next(h for h in hours if h.start.hour == 3))] is not None
+    assert day[0] is None and stretches(hours, None) is None
+
+
+def test_the_price_ceiling_except_for_the_least() -> None:
+    hours, day_of = week(known=168, prices=lambda m: 3.0 if m.hour < 12 else 1.0)
+    # Home only in the dear mornings: under the ceiling it charges nothing, over it only up to its minimum.
+    car_ = car(
+        "c", hours, lambda m: m.hour < 7, soc=0.1, minimum=12.0, hard=[20.0] * 8, typical=[10.0] * 8, ceiling=2.0
+    )
+    plan = plan_week([car_], hours, day_of)["c"]
+    first = plan.leaves[0][0]
+    assert abs(plan.soc_typical[first - 1] - 12.0) < 0.05
+    assert plan.short
+    # Home at the cheap noons too: the ceiling is kept.
+    both = car("d", hours, lambda m: True, soc=0.1, minimum=6.0, hard=[20.0] * 8, typical=[10.0] * 8, ceiling=2.0)
+    plan = plan_week([both], hours, day_of)["d"]
+    assert all(hours[h].price <= 2.0 for h, kwh in enumerate(plan.charge) if kwh > 0)
+
+
+def test_not_before_the_earliest_start() -> None:
+    hours, day_of = week()
+    blocked = [not (h.start.hour >= 22 or h.start.hour < 6) for h in hours]
+    tesla = car("t", hours, at_work, soc=0.2, blocked=blocked)
+    plan = plan_week([tesla], hours, day_of)["t"]
+    assert any(kwh > 0 for kwh in plan.charge)
+    assert all(not blocked[h] for h, kwh in enumerate(plan.charge) if kwh > 0)

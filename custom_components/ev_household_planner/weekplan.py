@@ -79,6 +79,8 @@ class WeekCar:
     full_level: float | None = None
     full_due: int | None = None  # the hour from which a full charge is due; None: none due this week
     fill: bool = False  # fill up every stay instead of "always cheapest"
+    ceiling: float | None = None  # never dearer than this, except for what it must have at the least
+    blocked: Sequence[bool] | None = None  # hours it may not charge in (before its earliest start)
 
 
 @dataclass
@@ -124,8 +126,25 @@ def leaving(car: WeekCar, hours: Sequence[Hour], day_of: Sequence[int]) -> list[
 class _Plan:
     """The plan as it is built: the charge in each hour, and who has the charger then."""
 
-    def __init__(self, cars: Sequence[WeekCar], hours: Sequence[Hour], day_of: Sequence[int]) -> None:
+    def __init__(
+        self,
+        cars: Sequence[WeekCar],
+        hours: Sequence[Hour],
+        day_of: Sequence[int],
+        window: Sequence[int | None] | None = None,
+        holder: str | None = None,
+    ) -> None:
         self.cars = list(cars)
+        # The hours the cable is not moved (a night, by default): each such stretch is one car's at a shared charger.
+        self.window = list(window) if window is not None and len(cars) > 1 else [None] * len(hours)
+        self.stretch: dict[int, list[int]] = {}
+        for hour, key in enumerate(self.window):
+            if key is not None:
+                self.stretch.setdefault(key, []).append(hour)
+        # The car plugged in now keeps the stretch it is in.
+        self.owner: dict[int, str] = {}
+        if holder is not None and self.window and self.window[0] is not None:
+            self.owner[self.window[0]] = holder
         self.hours = list(hours)
         self.day_of = list(day_of)
         self.count = len(hours)
@@ -172,8 +191,33 @@ class _Plan:
             stay_top[hour] = run
         return levels, stay_top, all_top
 
+    def taken(self, car: WeekCar, hour: int) -> bool:
+        """Whether the stretch the cable is not moved in, that ``hour`` is in, is another car's."""
+        key = self.window[hour]
+        if key is None:
+            return False
+        owner = self.owner.get(key)
+        if owner is None:
+            owner = next(
+                (
+                    other.vehicle_id
+                    for other in self.cars
+                    for h in self.stretch[key]
+                    if self.charge[other.vehicle_id][h] > EPSILON
+                ),
+                None,
+            )
+        return owner is not None and owner != car.vehicle_id
+
     def room(
-        self, car: WeekCar, hour: int, cap: float, ctx: tuple[list[float], ...], *, displace: bool = False
+        self,
+        car: WeekCar,
+        hour: int,
+        cap: float,
+        ctx: tuple[list[float], ...],
+        *,
+        displace: bool = False,
+        dear: bool = False,
     ) -> float:
         """How much more ``hour`` can give the car: its power, and the caps from then on.
 
@@ -183,8 +227,12 @@ class _Plan:
         here = self.hours[hour]
         if not car.home[hour] or (here.price is None and here.kind != "none"):
             return 0.0
+        if car.blocked is not None and car.blocked[hour]:
+            return 0.0
+        if not dear and car.ceiling is not None and here.price is not None and here.price > car.ceiling + EPSILON:
+            return 0.0
         holder = self.holder[hour]
-        if holder is not None and holder != car.vehicle_id:
+        if (holder is not None and holder != car.vehicle_id) or self.taken(car, hour):
             return 0.0
         left = car.power * here.share - self.charge[car.vehicle_id][hour]
         if left <= EPSILON:
@@ -236,8 +284,12 @@ class _Plan:
         until: int,
         *,
         displace: bool = False,
+        dear: bool = False,
     ) -> float:
-        """Raise the battery just before ``until`` by ``wanted`` kWh with the cheapest of ``hours``."""
+        """Raise the battery just before ``until`` by ``wanted`` kWh with the cheapest of ``hours``.
+
+        ``dear``: hours over the car's price ceiling count too (for what it must have at the least).
+        """
         got = 0.0
         order = sorted((h for h in hours if h < until), key=lambda h: (self.hours[h].cost, -h))
         done: set[int] = set()
@@ -246,7 +298,7 @@ class _Plan:
             for hour in order:
                 if hour in done:
                     continue
-                give = self.room(car, hour, cap, ctx, displace=displace)
+                give = self.room(car, hour, cap, ctx, displace=displace, dear=dear)
                 if give <= EPSILON:
                     done.add(hour)
                     continue
@@ -270,13 +322,21 @@ class _Plan:
 
 
 def plan_week(
-    cars: Sequence[WeekCar], hours: Sequence[Hour], day_of: Sequence[int], *, always: bool = False
+    cars: Sequence[WeekCar],
+    hours: Sequence[Hour],
+    day_of: Sequence[int],
+    *,
+    always: bool = False,
+    window: Sequence[int | None] | None = None,
+    holder: str | None = None,
 ) -> dict[str, CarWeek]:
     """The cheapest week for cars that share one charger (or one car alone).
 
     ``always``: every stay is filled to the preferred level (the old "every night"), for every car.
+    ``window``: for each hour, the stretch it belongs to of hours the cable is not moved in (None: it may be);
+    at a shared charger each stretch is one car's, the ``holder`` (plugged in now) keeping the one it is in.
     """
-    plan = _Plan(cars, hours, day_of)
+    plan = _Plan(cars, hours, day_of, window, holder)
     count = len(hours)
     every = range(count)
     short: dict[str, list[int]] = {car.vehicle_id: [] for car in cars}
@@ -294,6 +354,10 @@ def plan_week(
             continue
         cap = max(car.preferred[min(hour, count - 1)], wanted)
         got = plan.fill(car, every, missing, cap, WHY_NEED, hour)
+        # Under the price ceiling if it can be; what it must have at the least, whatever the price.
+        least = car.minimum - plan.before(car, hour)
+        if missing - got > EPSILON and least > EPSILON:
+            got += plan.fill(car, every, min(least, missing - got), cap, WHY_NEED, hour, dear=True)
         if missing - got > 0.05:
             short[car.vehicle_id].append(hour)
 
@@ -398,6 +462,29 @@ def plan_week(
     return out
 
 
+def stretches(hours: Sequence[Hour], window: tuple[int, int] | None) -> list[int | None] | None:
+    """For each hour, the night (or other stretch) of hours the cable is not moved in that it belongs to.
+
+    ``window``: from and to (hours of the day); a stretch over midnight belongs to the evening it starts.
+    """
+    if window is None:
+        return None
+    start, end = window
+    out: list[int | None] = []
+    for hour in hours:
+        hod = hour.start.hour
+        day = hour.start.date().toordinal()
+        if start < end:
+            out.append(day if start <= hod < end else None)
+        elif hod >= start:
+            out.append(day)
+        elif hod < end:
+            out.append(day - 1)
+        else:
+            out.append(None)
+    return out
+
+
 def stays(home: Sequence[bool]) -> list[list[int]]:
     """The runs of hours at home."""
     out: list[list[int]] = []
@@ -476,6 +563,7 @@ def replay(
     style: dict[str, Any],
     *,
     horizon: int = 48,
+    window: tuple[int, int] | None = None,
 ) -> dict[str, Any]:
     """The week plan played over days gone by: each noon a plan for the next two days, the first day of it done.
 
@@ -516,7 +604,7 @@ def replay(
                     fill=bool(style.get("every")),
                 )
             )
-        plan = plan_week(week_cars, hours, day_of, always=bool(style.get("every")))
+        plan = plan_week(week_cars, hours, day_of, always=bool(style.get("every")), window=stretches(hours, window))
         for car, week_car in zip(cars, week_cars, strict=True):
             week = plan[car["id"]]
             level = soc[car["id"]]
