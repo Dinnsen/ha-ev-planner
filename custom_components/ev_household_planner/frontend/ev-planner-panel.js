@@ -2426,7 +2426,9 @@ const ClayScene = (() => {
   const OX = 400;
   const OY = 104;
   const CAM = [1, 1, 1.25];
-  const P = (x, y, z = 0) => [(x - y) * C * S + OX, (x + y) * 0.5 * S - z * S + OY];
+  // How steeply the scene is seen from above: 0.5 on the Home tab; lower is more from the side.
+  let ELEV = 0.5;
+  const P = (x, y, z = 0) => [(x - y) * C * S + OX, (x + y) * ELEV * S - z * S + OY];
   const f1 = (n) => (Math.round(n * 10) / 10).toString();
   const pts = (list) => list.map((p) => P(...p).map(f1).join(",")).join(" ");
   const poly = (list, attrs = "") => `<polygon points="${pts(list)}" ${attrs}/>`;
@@ -2492,15 +2494,15 @@ const ClayScene = (() => {
     const M = (u, w, h) => [x0 + w, y0 + L - u, h];
     const tone = (lit) => (dark ? mix("#08090B", paint, Math.min(1.35, lit)) : mix("#737C89", paint, Math.min(1, lit)));
     // The pictures bring their own shadow.
-    let s = CAR_PICTURES[kind] && !image ? "" : shadow([M(-0.15, 0, 0), M(L + 0.15, 0, 0), M(L + 0.15, Wd + 0.1, 0), M(-0.15, Wd + 0.1, 0)], 0.42);
-    if (!CAR_PICTURES[kind] || image) s += shadow([M(0.3, 0.25, 0), M(L - 0.3, 0.25, 0), M(L - 0.3, Wd - 0.25, 0), M(0.3, Wd - 0.25, 0)], 0.5, "cs-blur-s");
+    let s = (ELEV === 0.5 && CAR_PICTURES[kind]) && !image ? "" : shadow([M(-0.15, 0, 0), M(L + 0.15, 0, 0), M(L + 0.15, Wd + 0.1, 0), M(-0.15, Wd + 0.1, 0)], 0.42);
+    if (!(ELEV === 0.5 && CAR_PICTURES[kind]) || image) s += shadow([M(0.3, 0.25, 0), M(L - 0.3, 0.25, 0), M(L - 0.3, Wd - 0.25, 0), M(0.3, Wd - 0.25, 0)], 0.5, "cs-blur-s");
     if (charging) s += `<ellipse class="cs-carglow" transform="${onTop(x0 + Wd / 2, y0 + L / 2, 0)}" rx="${f1(Wd * 0.9)}" ry="${f1(L * 0.62)}" fill="url(#cs-glowg)"/>`;
     if (image) {
       const [cx, cy] = P(x0 + Wd / 2, y0 + L / 2, 0);
       const w = (L + Wd) * C * S * 1.05;
       return s + `<image href="${image}" x="${f1(cx - w / 2)}" y="${f1(cy - w * 0.62)}" width="${f1(w)}" height="${f1(w * 0.7)}" preserveAspectRatio="xMidYMax meet"/>`;
     }
-    const picture = CAR_PICTURES[kind];
+    const picture = (ELEV === 0.5 && CAR_PICTURES[kind]);
     if (picture) {
       const [ox, oy] = P(x0, y0, 0);
       return s + `<image href="${carPicture(kind)}" x="${f1(ox + picture.x)}" y="${f1(oy + picture.y)}" width="${f1(picture.w)}" height="${f1(picture.h)}"/>`;
@@ -2596,7 +2598,7 @@ const ClayScene = (() => {
   const PORTS = { mini: [462, 205], sedan: [470, 215], suv: [478, 195], estate: [470, 200], van: [478, 175] };
   // The port on the screen, for the cable.
   const portAt = (x0, y0, kind, image) => {
-    const picture = CAR_PICTURES[kind];
+    const picture = (ELEV === 0.5 && CAR_PICTURES[kind]);
     if (image || !picture) {
       const body = BODIES[kind] || BODIES.sedan;
       const c = body.pts[body.ce];
@@ -2654,7 +2656,8 @@ const ClayScene = (() => {
       else if (r === "flowGlow") {
         node.setAttribute("stroke", m.flow);
         node.setAttribute("opacity", (0.15 + 0.6 * m.lights).toFixed(2));
-      } else if (r === "panel") {
+      } else if (r === "glowOn") node.setAttribute("opacity", (m.lights * k).toFixed(3));
+      else if (r === "panel") {
         node.setAttribute("fill", m.panel);
         node.setAttribute("stroke", m.panelLine);
       } else if (m[r]) node.setAttribute("fill", m[r]);
@@ -2709,16 +2712,19 @@ const ClayScene = (() => {
       const z1 = (depth * (i + 1)) / n;
       s += `<polygon points="${pts([[a[0], a[1], a[2] - z0], [b[0], b[1], b[2] - z0], [b[0], b[1], b[2] - z1], [a[0], a[1], a[2] - z1]])}" ${R("eave", `data-k="${((1 - i / n) ** 1.6).toFixed(3)}"`)}/>`;
     }
-    return s;
+    return s + decorEave(a, b);
   }
 
   // The lit windows at night: drawn over the scene.
   let LIGHTS = [];
+  const unlit = (t) => t.replace(/<polygon class="cs-wl"[^>]*\/>/g, "");
+  // The roofs of the wings without panels, drawn again over the wires: a wire behind a wing is hidden by its roof.
+  let COVER = [];
   function windowY(x0, x1, y, z0, z1, cols = 1) {
     let s = rpoly([[x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1]], "frame");
     const g = [[x0 + 0.07, y, z0 + 0.07], [x1 - 0.07, y, z0 + 0.07], [x1 - 0.07, y, z1 - 0.07], [x0 + 0.07, y, z1 - 0.07]];
     s += rpoly(g, "win");
-    LIGHTS.push(`<polygon points="${pts(g)}" fill="#FFD48A" filter="url(#cs-glowf)" opacity=".8"/>`);
+    s += `<polygon class="cs-wl" points="${pts(g)}" fill="#FFD48A" filter="url(#cs-glowf)" ${R("glowOn", 'data-k=".8"')}/>`;
     for (let c = 1; c < cols; c += 1) {
       const x = x0 + ((x1 - x0) / cols) * c;
       s += `<path d="${path3([[x, y + 0.01, z0 + 0.07], [x, y + 0.01, z1 - 0.07]])}" ${R("line", 'stroke-width="2.2"')}/>`;
@@ -2730,7 +2736,7 @@ const ClayScene = (() => {
     let s = rpoly([[x, y1, z0], [x, y0, z0], [x, y0, z1], [x, y1, z1]], "frame");
     const g = [[x, y1 - 0.07, z0 + 0.07], [x, y0 + 0.07, z0 + 0.07], [x, y0 + 0.07, z1 - 0.07], [x, y1 - 0.07, z1 - 0.07]];
     s += rpoly(g, "win");
-    LIGHTS.push(`<polygon points="${pts(g)}" fill="#FFD48A" filter="url(#cs-glowf)" opacity=".8"/>`);
+    s += `<polygon class="cs-wl" points="${pts(g)}" fill="#FFD48A" filter="url(#cs-glowf)" ${R("glowOn", 'data-k=".8"')}/>`;
     for (let c = 1; c < cols; c += 1) {
       const y = y1 - ((y1 - y0) / cols) * c;
       s += `<path d="${path3([[x + 0.01, y, z0 + 0.07], [x + 0.01, y, z1 - 0.07]])}" ${R("line", 'stroke-width="2.2"')}/>`;
@@ -2744,6 +2750,10 @@ const ClayScene = (() => {
 
   // A round clay tree.
   function tree(x, y, k = 1) {
+    TREES.push([x, y, k]);
+    return treeBase(x, y, k) + decorTree(x, y, k);
+  }
+  function treeBase(x, y, k = 1) {
     const [bx, by] = P(x, y, 0);
     const cy = by - 2.6 * S * k;
     const r = 1.25 * S * k;
@@ -2751,6 +2761,301 @@ const ClayScene = (() => {
       <path d="M${f1(bx - 2)} ${f1(by)} L${f1(bx - 1)} ${f1(by - 50 * k)} L${f1(bx + 1)} ${f1(by - 50 * k)} L${f1(bx + 2)} ${f1(by)} Z" ${R("treeShade")}/>
       <circle cx="${f1(bx)}" cy="${f1(cy)}" r="${f1(r)}" ${R("treeShade")}/>
       <circle cx="${f1(bx - r * 0.12)}" cy="${f1(cy - r * 0.12)}" r="${f1(r * 0.86)}" ${R("tree")}/>`;
+  }
+
+  /* ------------------------------------------------------------ the holidays */
+
+  // Which holiday a day belongs to: Christmas 1-27 December, New Year 30 December - 1 January,
+  // Halloween a week before 31 October and the day after, Easter from Maundy Thursday to Easter Monday,
+  // Constitution Day on 5 June. Null on every other day.
+  function easterSunday(year) {
+    const a = year % 19, b = Math.floor(year / 100), c = year % 100, d = Math.floor(b / 4), e = b % 4;
+    const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const month = Math.floor((h + l - 7 * m + 114) / 31), day = ((h + l - 7 * m + 114) % 31) + 1;
+    return new Date(year, month - 1, day);
+  }
+  function seasonOf(when = new Date()) {
+    const mo = when.getMonth() + 1, d = when.getDate();
+    if (mo === 12 && d <= 27) return "xmas";
+    if ((mo === 12 && d >= 30) || (mo === 1 && d === 1)) return "newyear";
+    if ((mo === 10 && d >= 24) || (mo === 11 && d === 1)) return "halloween";
+    if (mo === 6 && d === 5) return "flagday";
+    const e = easterSunday(when.getFullYear());
+    const day = new Date(when.getFullYear(), mo - 1, d);
+    const off = Math.round((day - e) / 86400000);
+    if (off >= -3 && off <= 1) return "easter";
+    return null;
+  }
+
+  let SEASON = null;
+  // Hverdagsro's names for the days, to the decorations here.
+  const SEASON_OF = { jul: "xmas", nytaar: "newyear", paaske: "easter", grundlov: "flagday" };
+  const FLAGGED = new Set(["flagday", "fodselsdag", "bryllup"]);
+  const heartPath = (x, y, s) => `M${f1(x)} ${f1(y + s * 0.35)} C${f1(x - s * 1.1)} ${f1(y - s * 0.35)} ${f1(x - s * 0.45)} ${f1(y - s * 1.05)} ${f1(x)} ${f1(y - s * 0.45)} C${f1(x + s * 0.45)} ${f1(y - s * 1.05)} ${f1(x + s * 1.1)} ${f1(y - s * 0.35)} ${f1(x)} ${f1(y + s * 0.35)} Z`;
+  const FLAGPOLES = { classic: [15.6, 12.2], angle: [4.5, 23.2], long: [2.6, 11.2], tee: [2, 10.4], aitch: [6.6, 18.6], funkis: [0, 11.8], cabin: [3.6, 9.6], hipped: [3, 11.4], storey: [2.6, 10.8], terrace: [-2.6, 11.8] };
+  let DECO_N = 0; // counts the trees and the doors, so not all of them look the same
+  let TREES = [];
+  const glow = (x, y, r, c, o = 0.9) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="${r}" fill="${c}" ${R("glowOn", `data-k="${o}" filter="url(#cs-bulbf)"`)}/>`;
+
+  // A little Dannebrog: 37 x 28, the cross 4 wide, its upright 12 from the hoist; in the plane of `u` (along) and z.
+  function dannebrog(p, u, w, h, wave = 0) {
+    const at = (a, b) => [p[0] + u[0] * w * a, p[1] + u[1] * w * a, p[2] - h * b + wave * Math.sin(a * Math.PI) * 0.12];
+    const quad = (a0, b0, a1, b1, c) => `<polygon points="${pts([at(a0, b0), at(a1, b0), at(a1, b1), at(a0, b1)])}" fill="${c}"/>`;
+    return quad(0, 0, 1, 1, "#C8102E") + quad(12 / 37, 0, 16 / 37, 1, "#fff") + quad(0, 12 / 28, 1, 16 / 28, "#fff");
+  }
+
+  // Along the edge of a roof: lights hung in loops, or a string of small flags on Constitution Day.
+  function decorEave(a, b) {
+    if (!SEASON) return "";
+    const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
+    const len = Math.hypot(dx, dy, dz);
+    if (len < 1.2) return "";
+    const u = [dx / Math.hypot(dx, dy || 1e-9), dy / Math.hypot(dx || 1e-9, dy)];
+    const out = Math.abs(dy) < 1e-6 ? [0, 0.03] : [0.03, 0]; // a hair in front of the wall
+    const loops = Math.max(1, Math.round(len / 1.4));
+    const at = (t) => {
+      const f = (t * loops) % 1;
+      return [a[0] + dx * t + out[0], a[1] + dy * t + out[1], a[2] + dz * t - 0.3 - 0.16 * Math.sin(Math.PI * f)];
+    };
+    const wire = Array.from({ length: loops * 8 + 1 }, (_, i) => at(i / (loops * 8)));
+    let s = `<path d="${path3(wire)}" fill="none" stroke="#2B2F36" stroke-width=".8" stroke-opacity=".55"/>`;
+    if (SEASON === "flagday" || SEASON === "fodselsdag") {
+      const n = Math.max(2, Math.round(len / 0.75));
+      for (let i = 0; i < n; i += 1) {
+        const p = at((i + 0.25) / n);
+        s += dannebrog([p[0], p[1], p[2] + 0.02], u, 0.36, 0.28);
+      }
+      return s;
+    }
+    if (SEASON === "valentin" || SEASON === "aarsdag") {
+      const n = Math.max(2, Math.round(len / 0.6));
+      for (let i = 0; i < n; i += 1) {
+        const [x, y] = P(...at((i + 0.5) / n));
+        s += `<path class="cs-sway" style="--d:${(i % 5) * 0.3}s;transform-origin:${f1(x)}px ${f1(y)}px" d="${heartPath(x, y + 4, 3.4)}" fill="${i % 2 ? "#F472B6" : "#E11D48"}"/>`;
+      }
+      return s;
+    }
+    if (SEASON === "sankthans") return "";
+    if (SEASON === "easter" || SEASON === "fastelavn" || SEASON === "bryllup") {
+      // Pennants: spring colours at Easter, every colour at Fastelavn, white and gold at a wedding.
+      const cols = { easter: ["#F6C945", "#7FC8A9", "#F49AC1", "#8DB8F2"], fastelavn: ["#F43F5E", "#F59E0B", "#10B981", "#3B82F6", "#A855F7"], bryllup: ["#FFFFFF", "#E9D8A6"] }[SEASON];
+      const n = Math.max(2, Math.round(len / 0.55));
+      for (let i = 0; i < n; i += 1) {
+        const p = at((i + 0.2) / n), q = at((i + 0.8) / n);
+        const mid = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, Math.min(p[2], q[2]) - 0.32];
+        s += `<polygon class="cs-sway" style="--d:${(i % 4) * 0.35}s;transform-origin:${f1(P(...p)[0])}px ${f1(P(...p)[1])}px" points="${pts([p, q, mid])}" fill="${cols[(i + DECO_N) % cols.length]}" stroke="#0000001a" stroke-width=".4"/>`;
+      }
+      DECO_N += 1;
+      return s;
+    }
+    const colours = { xmas: ["#FFE3A3"], newyear: ["#FFE3A3", "#FFD24A", "#FFFFFF"], halloween: ["#FF8A1F", "#A66BFF"] }[SEASON];
+    const n = Math.max(3, Math.round(len / 0.42));
+    for (let i = 0; i <= n; i += 1) {
+      const [x, y] = P(...at(i / n));
+      const c = colours[(i + DECO_N) % colours.length];
+      s += `<circle class="cs-tw" style="--d:${((i * 0.37) % 2.4).toFixed(2)}s" cx="${f1(x)}" cy="${f1(y + 1.4)}" r="1.55" fill="${c}" stroke="#00000022" stroke-width=".5"/>`;
+      s += glow(x, y + 1.4, 3.6, c).replace("<circle ", `<circle class="cs-tw" style="--d:${((i * 0.37) % 2.4).toFixed(2)}s" `);
+    }
+    DECO_N += 1;
+    return s;
+  }
+
+  // On a round tree: lights and a star at Christmas, painted eggs at Easter, a small ghost at Halloween.
+  function decorTree(x, y, k) {
+    if (!SEASON) return "";
+    const n = DECO_N++;
+    const [bx, by] = P(x, y, 0);
+    const cy = by - 2.6 * S * k;
+    const r = 1.25 * S * k;
+    let s = "";
+    if (SEASON === "valentin" || SEASON === "aarsdag") {
+      for (let i = 0; i < 5; i += 1) { const a = (i / 5) * Math.PI * 2 + n; s += `<path class="cs-sway" style="--d:${i * 0.4}s;transform-origin:${f1(bx + Math.cos(a) * r * 0.6)}px ${f1(cy)}px" d="${heartPath(bx + Math.cos(a) * r * 0.6, cy + Math.sin(a) * r * 0.4 + r * 0.3, 3.6 * k)}" fill="${i % 2 ? "#F472B6" : "#E11D48"}"/>`; }
+      return s;
+    }
+    if (SEASON === "xmas") {
+      // Three loops of warm lights round the crown, a few red baubles and a star on top.
+      for (let row = 0; row < 3; row += 1) {
+        const yy = cy - r * 0.45 + row * r * 0.48;
+        const half = Math.sqrt(Math.max(0, 1 - ((yy - cy) / r) ** 2)) * r * 0.92;
+        const m = 7 - Math.abs(row - 1) * 2;
+        for (let i = 0; i <= m; i += 1) {
+          const t = i / m;
+          const px = bx - half + 2 * half * t, py = yy + Math.sin(Math.PI * t) * r * 0.16;
+          s += `<circle class="cs-tw" style="--d:${((row * 7 + i) * 0.29 % 2.4).toFixed(2)}s" cx="${f1(px)}" cy="${f1(py)}" r="1.4" fill="#FFE3A3"/>`;
+          s += glow(px, py, 3.2, "#FFE3A3", 0.8);
+        }
+      }
+      for (const [fx, fy] of [[-0.45, 0.05], [0.4, -0.2], [0.1, 0.42], [-0.15, -0.5]]) s += `<circle cx="${f1(bx + fx * r)}" cy="${f1(cy + fy * r)}" r="${f1(2.6 * k)}" fill="#D3263A"/><circle cx="${f1(bx + fx * r - 0.8)}" cy="${f1(cy + fy * r - 0.8)}" r=".8" fill="#fff" opacity=".7"/>`;
+      const sy = cy - r - 3.5 * k, R5 = 5.2 * k;
+      const star = Array.from({ length: 10 }, (_, i) => { const a = -Math.PI / 2 + (i * Math.PI) / 5, rr = i % 2 ? R5 * 0.45 : R5; return `${f1(bx + rr * Math.cos(a))},${f1(sy + rr * Math.sin(a))}`; }).join(" ");
+      s += `<polygon points="${star}" fill="#FFC53D" stroke="#C98A00" stroke-width=".6"/>`;
+      s += glow(bx, sy, 7, "#FFD45A", 0.9);
+    } else if (SEASON === "easter") {
+      // Painted eggs on threads under the crown.
+      const eggs = ["#F6C945", "#7FC8A9", "#F49AC1", "#8DB8F2", "#F59E5B"];
+      for (let i = 0; i < 6; i += 1) {
+        const a = (i / 6) * Math.PI * 2 + n;
+        const ex = bx + Math.cos(a) * r * 0.62, top = cy + Math.sin(a) * r * 0.35 + r * 0.25;
+        s += `<path d="M${f1(ex)} ${f1(top - 5)} L${f1(ex)} ${f1(top)}" stroke="#7A6A55" stroke-width=".6"/><ellipse cx="${f1(ex)}" cy="${f1(top + 3.2 * k)}" rx="${f1(2.3 * k)}" ry="${f1(3.1 * k)}" fill="${eggs[(i + n) % eggs.length]}" stroke="#00000026" stroke-width=".5"/><path d="M${f1(ex - 2.1 * k)} ${f1(top + 3 * k)} Q${f1(ex)} ${f1(top + 4.4 * k)} ${f1(ex + 2.1 * k)} ${f1(top + 3 * k)}" stroke="#fff" stroke-width=".9" fill="none" opacity=".85"/>`;
+      }
+      // Daffodils round the foot of the tree, and eggs hidden in the grass.
+      s += daffodils(x + 0.55, y + 0.35, 6, n);
+      for (const [ex, ey, c] of [[-0.9, 0.8, eggs[n % 5]], [1.4, -0.4, eggs[(n + 2) % 5]]]) {
+        const [px, py] = P(x + ex, y + ey, 0);
+        s += `<ellipse cx="${f1(px)}" cy="${f1(py - 3)}" rx="2.6" ry="3.4" fill="${c}" stroke="#00000022" stroke-width=".5"/>`;
+      }
+    } else if (SEASON === "halloween") {
+      // A small ghost on the first tree; orange lights on the others.
+      if (n % 3 === 0) {
+        const gx = bx + r * 0.75, gy = cy + r * 0.55;
+        s += `<g transform="translate(${f1(gx)} ${f1(gy)}) scale(1.5) translate(${f1(-gx)} ${f1(-gy)})">`;
+        s += `<path d="M${f1(gx)} ${f1(gy - 14)} L${f1(gx)} ${f1(gy - 9)}" stroke="#555" stroke-width=".6"/><path d="M${f1(gx - 6)} ${f1(gy + 6)} L${f1(gx - 6)} ${f1(gy - 3)} A6 6 0 0 1 ${f1(gx + 6)} ${f1(gy - 3)} L${f1(gx + 6)} ${f1(gy + 6)} l-2 -2 l-2 2 l-2 -2 l-2 2 l-2 -2 l-2 2 Z" fill="#FBFBFD" stroke="#00000030" stroke-width=".6" class="cs-ghost"/><circle cx="${f1(gx - 2.2)}" cy="${f1(gy - 3)}" r="1" fill="#222"/><circle cx="${f1(gx + 2.2)}" cy="${f1(gy - 3)}" r="1" fill="#222"/><ellipse cx="${f1(gx)}" cy="${f1(gy + 0.5)}" rx="1.2" ry="1.6" fill="#222"/></g>`;
+      }
+      for (let i = 0; i < 7; i += 1) {
+        const t = i / 6, px = bx - r * 0.8 + 1.6 * r * t, py = cy + r * 0.1 + Math.sin(Math.PI * t) * r * 0.3;
+        const c = i % 2 ? "#A66BFF" : "#FF8A1F";
+        s += `<circle cx="${f1(px)}" cy="${f1(py)}" r="1.4" fill="${c}"/>`;
+        s += glow(px, py, 3.2, c, 0.8);
+      }
+    }
+    return s;
+  }
+
+  function daffodils(x, y, count, n = 0) {
+    let s = "";
+    for (let i = 0; i < count; i += 1) {
+      const [fx, fy] = P(x + (i % 2) * 0.35, y + Math.floor(i / 2) * 0.3 + ((i + n) % 3) * 0.08, 0);
+      const h = 12 + ((i + n) % 3) * 2.5;
+      s += `<path d="M${f1(fx)} ${f1(fy)} L${f1(fx)} ${f1(fy - h)}" stroke="#4E8B3A" stroke-width="1.2"/><path d="M${f1(fx)} ${f1(fy)} q-4 -5 -3 -9" stroke="#5E9E46" stroke-width="1.4" fill="none"/>`;
+      for (let p = 0; p < 5; p += 1) {
+        const a = (p / 5) * Math.PI * 2;
+        s += `<circle cx="${f1(fx + Math.cos(a) * 2.8)}" cy="${f1(fy - h + Math.sin(a) * 2.8)}" r="2.1" fill="#FFE066"/>`;
+      }
+      s += `<circle cx="${f1(fx)}" cy="${f1(fy - h)}" r="1.9" fill="#F59E1B"/>`;
+    }
+    return s;
+  }
+
+  function pumpkin(x, y, z, k, face) {
+    const [px, py] = P(x, y, z);
+    const w = 7 * k, h = 5.6 * k;
+    let s = `<ellipse cx="${f1(px + 2)}" cy="${f1(py + 1)}" rx="${f1(w * 1.1)}" ry="${f1(h * 0.35)}" ${R("shadow", 'filter="url(#cs-blur-s)"')}/>`;
+    s += `<ellipse cx="${f1(px)}" cy="${f1(py - h)}" rx="${f1(w)}" ry="${f1(h)}" fill="#E8761E"/><ellipse cx="${f1(px)}" cy="${f1(py - h)}" rx="${f1(w * 0.45)}" ry="${f1(h)}" fill="none" stroke="#C45A10" stroke-width=".8"/>`;
+    s += `<path d="M${f1(px)} ${f1(py - 2 * h + 0.6)} q1 -3 3 -3.4" stroke="#4E6B2C" stroke-width="1.6" fill="none" stroke-linecap="round"/>`;
+    if (face) {
+      const f = `<path d="M${f1(px - w * 0.5)} ${f1(py - h * 1.15)} l${f1(w * 0.2)} ${f1(-h * 0.35)} l${f1(w * 0.2)} ${f1(h * 0.35)} Z M${f1(px + w * 0.1)} ${f1(py - h * 1.15)} l${f1(w * 0.2)} ${f1(-h * 0.35)} l${f1(w * 0.2)} ${f1(h * 0.35)} Z M${f1(px - w * 0.55)} ${f1(py - h * 0.75)} q${f1(w * 0.55)} ${f1(h * 0.5)} ${f1(w * 1.1)} 0 l${f1(-w * 0.2)} ${f1(h * 0.12)} l${f1(-w * 0.15)} ${f1(-h * 0.12)} l${f1(-w * 0.2)} ${f1(h * 0.14)} l${f1(-w * 0.2)} ${f1(-h * 0.14)} l${f1(-w * 0.15)} ${f1(h * 0.12)} Z`;
+      s += `<path d="${f}" fill="#7A3208"/>`;
+      s += `<path d="${f}" fill="#FFC14D" ${R("glowOn")}/>`;
+      s += glow(px, py - h, 9 * k, "#FF9A2E", 0.55);
+    }
+    return s;
+  }
+
+  // By a door (where its lamp is): a small spruce with lights, pumpkins, a pot of daffodils.
+  function decorDoor(x, y) {
+    if (!SEASON) return "";
+    const n = DECO_N++;
+    const gx = x + 0.55, gy = y + 0.5;
+    if (SEASON === "xmas") {
+      const [bx, by] = P(gx, gy, 0);
+      let s = `<ellipse cx="${f1(bx + 3)}" cy="${f1(by + 1)}" rx="13" ry="4.5" ${R("shadow", 'filter="url(#cs-blur-s)"')}/><g transform="translate(${f1(bx)} ${f1(by)}) scale(1.45) translate(${f1(-bx)} ${f1(-by)})">`;
+      s += `<path d="M${f1(bx - 5)} ${f1(by)} L${f1(bx - 4)} ${f1(by - 7)} L${f1(bx + 4)} ${f1(by - 7)} L${f1(bx + 5)} ${f1(by)} Z" fill="#8A5A3C"/>`;
+      s += `<path d="M${f1(bx)} ${f1(by - 34)} L${f1(bx - 9)} ${f1(by - 7)} L${f1(bx + 9)} ${f1(by - 7)} Z" fill="#2F6B4A"/><path d="M${f1(bx)} ${f1(by - 34)} L${f1(bx + 9)} ${f1(by - 7)} L${f1(bx + 2)} ${f1(by - 7)} Z" fill="#245639"/>`;
+      for (const [ox, oy] of [[-4, -12], [3, -15], [-1, -21], [5, -9], [1, -27], [-6, -8]]) {
+        s += `<circle cx="${f1(bx + ox)}" cy="${f1(by + oy)}" r="1.2" fill="#FFE3A3"/>`;
+        s += glow(bx + ox, by + oy, 3, "#FFE3A3", 0.85);
+      }
+      s += `<circle cx="${f1(bx)}" cy="${f1(by - 35)}" r="1.8" fill="#FFC53D"/></g>`;
+      return s;
+    }
+    if (SEASON === "halloween") return pumpkin(gx + 0.15, gy - 0.05, 0, 1.0, false) + pumpkin(gx + 0.7, gy + 0.45, 0, 1.55, true);
+    if (SEASON === "easter") {
+      const [bx, by] = P(gx, gy, 0);
+      return `<ellipse cx="${f1(bx + 3)}" cy="${f1(by + 1)}" rx="9" ry="3" ${R("shadow", 'filter="url(#cs-blur-s)"')}/><path d="M${f1(bx - 6)} ${f1(by - 8)} L${f1(bx + 6)} ${f1(by - 8)} L${f1(bx + 4.5)} ${f1(by)} L${f1(bx - 4.5)} ${f1(by)} Z" fill="#C86F4A"/>` + daffodils(gx - 0.1, gy - 0.25, 3, n);
+    }
+    if (SEASON === "fodselsdag") {
+      const [bx, by] = P(gx, gy, 0);
+      return [["#F43F5E", -6, 0], ["#3B82F6", 2, 0.6], ["#F59E0B", 9, 1.2]].map(([c, dx, d]) => `<g class="cs-bob" style="--d:${d}s"><path d="M${f1(bx)} ${f1(by - 4)} Q${f1(bx + dx * 0.4)} ${f1(by - 18)} ${f1(bx + dx)} ${f1(by - 30)}" fill="none" stroke="#fff" stroke-width=".7" opacity=".8"/><ellipse cx="${f1(bx + dx)}" cy="${f1(by - 36)}" rx="5.2" ry="6.6" fill="${c}"/><ellipse cx="${f1(bx + dx - 1.8)}" cy="${f1(by - 38.5)}" rx="1.3" ry="2" fill="#fff" opacity=".45"/></g>`).join("");
+    }
+    if (SEASON === "fastelavn") {
+      const [bx, by] = P(gx, gy, 0);
+      let t = `<path d="M${f1(bx - 5)} ${f1(by - 8)} L${f1(bx + 5)} ${f1(by - 8)} L${f1(bx + 4)} ${f1(by)} L${f1(bx - 4)} ${f1(by)} Z" fill="#7A8594"/>`;
+      [[-9, -34, "#F43F5E"], [-3, -40, "#F59E0B"], [4, -38, "#10B981"], [9, -30, "#3B82F6"], [0, -28, "#A855F7"]].forEach(([dx, dy, c], i) => { t += `<path d="M${f1(bx)} ${f1(by - 8)} Q${f1(bx + dx * 0.4)} ${f1(by + dy * 0.5)} ${f1(bx + dx)} ${f1(by + dy)}" fill="none" stroke="#6B4A33" stroke-width=".9"/><ellipse class="cs-sway" style="--d:${i * 0.3}s;transform-origin:${f1(bx + dx)}px ${f1(by + dy)}px" cx="${f1(bx + dx)}" cy="${f1(by + dy + 3)}" rx="1.6" ry="3.6" fill="${c}"/>`; });
+      return t;
+    }
+    return "";
+  }
+
+  // Sankt Hans: a bonfire in the garden, flames that flicker and sparks that rise.
+  function bonfire(x, y) {
+    const [bx, by] = P(x, y, 0);
+    let s = `<ellipse cx="${f1(bx)}" cy="${f1(by)}" rx="18" ry="6" fill="#3A2A1C" opacity=".55"/><circle cx="${f1(bx)}" cy="${f1(by - 14)}" r="46" fill="#FF9A3C" ${R("glowOn", 'data-k=".5" filter="url(#cs-glowf)"')}/>`;
+    for (const [a, b, c, d] of [[-14, 3, 10, -8], [14, 3, -10, -8], [-9, 4, 7, -15], [9, 4, -6, -14]]) s += `<path d="M${f1(bx + a)} ${f1(by + b)} L${f1(bx + c)} ${f1(by + d)}" stroke="#5A3A20" stroke-width="3" stroke-linecap="round"/>`;
+    for (let i = 0; i < 6; i += 1) { const fx = bx + (i - 2.5) * 3.4, h = 18 + (i % 3) * 5; s += `<path class="cs-flame" style="--d:${(i * 0.17).toFixed(2)}s;transform-origin:${f1(fx)}px ${f1(by - 2)}px" d="M${f1(fx - 4)} ${f1(by - 2)} Q${f1(fx - 2)} ${f1(by - h * 0.6)} ${f1(fx)} ${f1(by - h)} Q${f1(fx + 2)} ${f1(by - h * 0.6)} ${f1(fx + 4)} ${f1(by - 2)} Z" fill="${i % 2 ? "#FFC83D" : "#FF7A1F"}"/>`; }
+    for (let i = 0; i < 8; i += 1) s += `<circle class="cs-spark" style="--d:${(i * 0.31).toFixed(2)}s" cx="${f1(bx + ((i * 7) % 13) - 6)}" cy="${f1(by - 24)}" r="1.1" fill="#FFD27A"/>`;
+    return s;
+  }
+
+  // A flagpole in the garden on Constitution Day: the flag by day, the long pennant from sunset.
+  function flagpole(x, y, night) {
+    const [bx, by] = P(x, y, 0);
+    const [tx, ty] = P(x, y, 6.4);
+    let s = `<ellipse cx="${f1(bx + 4)}" cy="${f1(by + 1)}" rx="7" ry="2.5" ${R("shadow", 'filter="url(#cs-blur-s)"')}/>`;
+    s += `<path d="M${f1(bx)} ${f1(by)} L${f1(tx)} ${f1(ty)}" stroke="#F4F5F7" stroke-width="2.6" stroke-linecap="round"/><path d="M${f1(bx + 0.8)} ${f1(by)} L${f1(tx + 0.8)} ${f1(ty)}" stroke="#B8BEC8" stroke-width=".9"/><circle cx="${f1(tx)}" cy="${f1(ty - 2)}" r="2.6" fill="#E3B341"/>`;
+    const u = [1, 0];
+    {
+      // The pennant: red, split at the end, with the cross at the hoist, 5 m long on a 7 m pole.
+      const len = 3.0, root = [x, y, 6.25];
+      const at = (a, b) => [root[0] + a * len, root[1] + a * 0.4, root[2] - b - a * 0.9 + Math.sin(a * 5) * 0.06];
+      const body = [at(0, 0), at(1, 0.06), at(0.93, 0.13), at(1, 0.2), at(0, 0.34)];
+      s += `<g class="cs-nightonly"><polygon points="${pts(body)}" fill="#C8102E"/>${dannebrog([root[0], root[1], root[2] + 0.02], [0.99, 0.12], 0.5, 0.36)}</g>`;
+      s += `<g class="cs-dayonly cs-flag">${dannebrog([x, y, 6.25], u, 1.6, 1.2, 1)}</g>`;
+    }
+    return s;
+  }
+
+  // In the sky, behind the house: snow, fireworks, the moon and bats.
+  function decorSky(L, m) {
+    if (!SEASON || m.bare) return "";
+    // The sky above the house, as the picture is framed round it.
+    const xy = L.corners(m).map((c) => P(...c));
+    const x0 = Math.min(...xy.map((p) => p[0])) - 60, x1 = Math.max(...xy.map((p) => p[0])) + 60;
+    const top = Math.min(...xy.map((p) => p[1]));
+    const wide = x1 - x0;
+    const sky = [[x0 + wide * 0.14, top + 34], [x1 - wide * 0.1, top + 26], [x0 + wide * 0.64, top + 4], [x0 + wide * 0.34, top + 2], [x1 - wide * 0.3, top + 30]];
+    let s = "";
+    if (SEASON === "xmas") {
+      // No snow: the weather is not the holiday's to choose.
+    } else if (SEASON === "newyear") {
+      const cols = ["#FFD24A", "#FF5C7A", "#5CE1E6", "#B98CFF"];
+      const picks = [sky[0], sky[2], sky[1], sky[3]];
+      picks.forEach(([cx, cy], k) => {
+        const c = cols[k % cols.length], r = 22 + (k % 2) * 7;
+        let b = "";
+        for (let i = 0; i < 14; i += 1) {
+          const a = (i / 14) * Math.PI * 2;
+          b += `<path d="M${f1(cx + Math.cos(a) * r * 0.25)} ${f1(cy + Math.sin(a) * r * 0.25)} L${f1(cx + Math.cos(a) * r)} ${f1(cy + Math.sin(a) * r)}" stroke="${c}" stroke-width="1.6" stroke-linecap="round"/><circle cx="${f1(cx + Math.cos(a) * (r + 4))}" cy="${f1(cy + Math.sin(a) * (r + 4))}" r="1.6" fill="${c}"/>`;
+        }
+        s += `<g class="cs-fw" style="--d:${(k * 0.55).toFixed(2)}s;transform-origin:${f1(cx)}px ${f1(cy)}px">${b}</g>`;
+        s += (`<circle class="cs-fw" style="--d:${(k * 0.55).toFixed(2)}s;transform-origin:${f1(cx)}px ${f1(cy)}px" cx="${f1(cx)}" cy="${f1(cy)}" r="${r}" fill="${c}" opacity=".18" filter="url(#cs-glowf)"/>`);
+      });
+    } else if (SEASON === "fastelavn" || SEASON === "fodselsdag") {
+      const cols = ["#F43F5E", "#F59E0B", "#10B981", "#3B82F6", "#A855F7"];
+      for (let i = 0; i < 46; i += 1) { const x = x0 + ((i * 97.3) % (x1 - x0)), y = top - 60 + ((i * 53.7) % 480); s += `<rect class="cs-conf" style="--d:${((i * 0.41) % 6).toFixed(2)}s" x="${f1(x)}" y="${f1(y)}" width="5" height="2.4" rx=".8" fill="${cols[i % 5]}"/>`; }
+    } else if (SEASON === "valentin" || SEASON === "aarsdag") {
+      for (let i = 0; i < 12; i += 1) { const x = x0 + wide * (0.25 + ((i * 0.37) % 0.5)); s += `<path class="cs-rise" style="--d:${(i * 0.7).toFixed(2)}s" d="${heartPath(x, top + 60, 5 + (i % 3))}" fill="${i % 2 ? "#F472B6" : "#E11D48"}"/>`; }
+    } else if (SEASON === "bryllup") {
+      const cx0 = x0 + wide * 0.5, cy0 = top - 6;
+      s += `<g class="cs-bob" style="--d:0s"><circle cx="${f1(cx0)}" cy="${f1(cy0)}" r="34" fill="#FFE7A8" opacity=".35" filter="url(#cs-glowf)"/><circle cx="${f1(cx0 - 8)}" cy="${f1(cy0)}" r="12" fill="none" stroke="#E3B341" stroke-width="3.5"/><circle cx="${f1(cx0 + 8)}" cy="${f1(cy0)}" r="12" fill="none" stroke="#E3B341" stroke-width="3.5"/><path d="M${f1(cx0 - 8)} ${f1(cy0 - 17)} l4 4 -4 4 -4 -4 Z" fill="#DDF4FF"/></g>`;
+      for (let i = 0; i < 14; i += 1) s += `<circle class="cs-tw" style="--d:${(i * 0.33).toFixed(2)}s" cx="${f1(x0 + ((i * 61.7) % wide))}" cy="${f1(top - 30 + ((i * 37) % 90))}" r="1.6" fill="#FFE7A8"/>`;
+    } else if (SEASON === "halloween") {
+      const [mx, my] = [x1 - wide * 0.14, top + 4];
+      s += `<circle cx="${f1(mx)}" cy="${f1(my)}" r="34" fill="#FFE7B8" opacity=".25" filter="url(#cs-glowf)"/><circle cx="${f1(mx)}" cy="${f1(my)}" r="17" fill="#F8E2B0"/><circle cx="${f1(mx - 5)}" cy="${f1(my - 4)}" r="3.5" fill="#E8CF98"/><circle cx="${f1(mx + 6)}" cy="${f1(my + 5)}" r="2.4" fill="#E8CF98"/>`;
+      const bat = (x, y, k, d) => `<path class="cs-bat" style="--d:${d}s" transform="translate(${f1(x)} ${f1(y)}) scale(${k})" d="M0 2 C-3 -2 -7 -3 -12 -1 C-10 0 -9 2 -9 4 C-7 2 -5 3 -4 5 C-3 3 -1 3 0 4 C1 3 3 3 4 5 C5 3 7 2 9 4 C9 2 10 0 12 -1 C7 -3 3 -2 0 2 Z M-1.6 1 L-1 -1.6 L0 0 L1 -1.6 L1.6 1 Z" fill="#231D2E"/>`;
+      s += bat(mx - 46, my + 12, 1.2, 0) + bat(mx + 40, my - 6, 0.9, 0.6) + bat(mx + 70, my + 22, 0.7, 1.1);
+    }
+    return s;
   }
 
   /* ------------------------------------------------------------ things a household can place */
@@ -3040,7 +3345,7 @@ const ClayScene = (() => {
       for (const [a, b] of [[[G.x0, G.y1, 0], [G.x1, G.y1, 0]], [[G.x1, G.y1, 0], [G.x1, G.y0, 0]], [[Hh.x0, Hh.y1, 0], [Hh.x1, Hh.y1, 0]], [[Hh.x1, Hh.y1, 0], [Hh.x1, Hh.y0, 0]]]) {
         s += `<path d="${path3([a, b])}" ${R("shadowLine", 'stroke-width="7" stroke-linecap="round" filter="url(#cs-blur)" fill="none"')}/>`;
       }
-      s += tree(-3.4, 2.4, 1) + tree(-2.2, 1.2, 0.75) + tree(19.2, 7.6, 0.85);
+      s += tree(-3.4, 2.4, 1) + tree(-2.2, 1.2, 0.75);
       // The garage: grey walls, a white flat roof with a rim, the roof's shadow under it.
       s += rpoly([[G.x0, G.y1, 0], [G.x1, G.y1, 0], [G.x1, G.y1, G.h], [G.x0, G.y1, G.h]], "wallS");
       s += rpoly([[G.x1, G.y1, 0], [G.x1, G.y0, 0], [G.x1, G.y0, G.h], [G.x1, G.y1, G.h]], "wallE");
@@ -3073,11 +3378,13 @@ const ClayScene = (() => {
       s += rpoly([[Hh.x1 + Hh.gable, ym, Hh.ridge], [Hh.x1 + Hh.gable, Hh.y0 - Hh.over, eave], [Hh.x1 + Hh.gable, Hh.y0 - Hh.over, eave - 0.2], [Hh.x1 + Hh.gable, ym, Hh.ridge - 0.2]], "roofEdge", 'style="filter:brightness(.9)"');
       s += `<path d="${path3([[Hh.x0 - Hh.gable, ym, Hh.ridge + 0.02], [Hh.x1 + Hh.gable, ym, Hh.ridge + 0.02]])}" stroke="#fff" stroke-opacity=".55" stroke-width="1.2"/>`;
       // Light from the windows on the ground, and the lamps by the doors.
-      LIGHTS.push(`<polygon points="${pts([[Hh.x1, 3.2, 0], [Hh.x1, 7.4, 0], [Hh.x1 + 2.6, 7.9, 0], [Hh.x1 + 2.6, 2.7, 0]])}" fill="#FFC86B" opacity=".28" filter="url(#cs-shadow)"/>`);
-      LIGHTS.push(`<polygon points="${pts([[11.0, Hh.y1, 0], [13.4, Hh.y1, 0], [13.9, Hh.y1 + 2.3, 0], [10.5, Hh.y1 + 2.3, 0]])}" fill="#FFC86B" opacity=".28" filter="url(#cs-shadow)"/>`);
+      s += `<polygon points="${pts([[Hh.x1, 3.2, 0], [Hh.x1, 7.4, 0], [Hh.x1 + 2.6, 7.9, 0], [Hh.x1 + 2.6, 2.7, 0]])}" fill="#FFC86B" ${R("glowOn", 'data-k=".28"')} filter="url(#cs-shadow)"/>`;
+      s += `<polygon points="${pts([[11.0, Hh.y1, 0], [13.4, Hh.y1, 0], [13.9, Hh.y1 + 2.3, 0], [10.5, Hh.y1 + 2.3, 0]])}" fill="#FFC86B" ${R("glowOn", 'data-k=".28"')} filter="url(#cs-shadow)"/>`;
+      s += tree(19.2, 7.6, 0.85);
       for (const [x, y, z, rx] of [[5.5, G.y1, 2.3, 22], [7.85, Hh.y1, 2.4, 20]]) {
+        s += decorDoor(x, y);
         const [lx, ly] = P(x, y, z);
-        LIGHTS.push(`<ellipse cx="${f1(lx)}" cy="${f1(ly + 28)}" rx="${rx}" ry="${f1(rx * 0.55)}" fill="#FFC86B" opacity=".35" filter="url(#cs-glowf)"/><circle cx="${f1(lx)}" cy="${f1(ly)}" r="2.6" fill="#FFE2A8"/>`);
+        s += `<ellipse cx="${f1(lx)}" cy="${f1(ly + 28)}" rx="${rx}" ry="${f1(rx * 0.55)}" fill="#FFC86B" ${R("glowOn", 'data-k=".35"')} filter="url(#cs-glowf)"/><circle cx="${f1(lx)}" cy="${f1(ly)}" r="2.6" fill="#FFE2A8" ${R("glowOn")}/>`;
       }
       return s;
     }
@@ -3259,22 +3566,20 @@ const ClayScene = (() => {
       for (const [a, b] of [[[NW.x0, WALL, 0], [NW.x1, WALL, 0]], [[NW.x1, WALL, 0], [NW.x1, NW.y0, 0]], [[EW.x1, NW.y0, 0], [EW.x1, 4.02, 0]]]) {
         s += `<path d="${path3([a, b])}" ${R("shadowLine", 'stroke-width="7" stroke-linecap="round" filter="url(#cs-blur)" fill="none"')}/>`;
       }
-      s += tree(-3.2, 6.5, 1) + tree(-2.6, 13.5, 0.8) + tree(13.5, 3.2, 0.9) + tree(24.6, 12.2, 0.85);
+      s += tree(-3.2, 6.5, 1) + tree(-2.6, 13.5, 0.8) + tree(13.5, 3.2, 0.9);
       // The wing towards the garden, the furthest first: its far slope, the covered terrace, the wall to the yard.
       s += rpoly(Rf.east, "roofFar");
       s += rpoly([[4.43, 4.02, 0.02], [EW.x1, 4.02, 0.02], [EW.x1, 0, 0.02], [4.43, 0, 0.02]], "flat");
       s += rpoly([[4.43, 4.02, 0], [4.43, 0, 0], [4.43, 0, wall], [4.43, 4.02, wall]], "wallE", 'style="filter:brightness(.86)"');
-      s += windowX(4.44, 1.0, 2.0, 0.05, 2.2);
-      LIGHTS.pop();
+      s += unlit(windowX(4.44, 1.0, 2.0, 0.05, 2.2));
       s += eaveShadow([4.44, 4.02, e], [4.44, 0, e], 1.5);
       s += rpoly([[EW.x1 - 0.22, 0.22, 0], [EW.x1, 0.22, 0], [EW.x1, 0.22, e], [EW.x1 - 0.22, 0.22, e]], "wallS");
       s += rpoly([[EW.x1, 0.22, 0], [EW.x1, 0, 0], [EW.x1, 0, e], [EW.x1, 0.22, e]], "wallE");
       s += rpoly([[EW.x1, NW.y0, 0], [EW.x1, 4.02, 0], [EW.x1, 4.02, wall], [EW.x1, NW.y0, wall]], "wallE");
       s += windowX(EW.x1 + 0.01, 4.73, 6.78, 0.05, 2.2, 2, 2);
-      s += windowX(EW.x1 + 0.01, 8.4, 10.45, 0.05, 2.2, 2, 2);
-      LIGHTS.pop();
+      s += unlit(windowX(EW.x1 + 0.01, 8.4, 10.45, 0.05, 2.2, 2, 2));
       s += eaveShadow([EW.x1 + 0.02, NW.y0, e - edge - 0.02], [EW.x1 + 0.02, 4.02, e - edge - 0.02], 0.8);
-      LIGHTS.push(`<polygon points="${pts([[EW.x1, 4.6, 0], [EW.x1, 6.9, 0], [EW.x1 + 2.6, 7.3, 0], [EW.x1 + 2.6, 4.2, 0]])}" fill="#FFC86B" opacity=".28" filter="url(#cs-shadow)"/>`);
+      s += `<polygon points="${pts([[EW.x1, 4.6, 0], [EW.x1, 6.9, 0], [EW.x1 + 2.6, 7.3, 0], [EW.x1 + 2.6, 4.2, 0]])}" fill="#FFC86B" ${R("glowOn", 'data-k=".28"')} filter="url(#cs-shadow)"/>`;
       s += rpoly(Rf.yard, "roofW");
       s += rpoly([Rf.valley, [EW.x1 + o, Rf.south, e], [EW.x1 + o, Rf.south, e - edge], [Rf.valley[0], Rf.valley[1], e - edge]], "roofEdge", 'style="filter:brightness(.92)"');
       // The wing along the road: its slope towards the south, with the panels.
@@ -3310,11 +3615,13 @@ const ClayScene = (() => {
       s += `<path d="${path3([Rf.J, Rf.hip])}" stroke="#fff" stroke-opacity=".45" stroke-width="1.2" fill="none"/>`;
       // Light from the windows on the ground, and the lamps by the doors.
       for (const [a, b] of [[11.69, 13.62], [6.65, 8.58], [1.91, 3.84]]) {
-        LIGHTS.push(`<polygon points="${pts([[a, WALL, 0], [b, WALL, 0], [b + 0.4, WALL + 2.2, 0], [a - 0.4, WALL + 2.2, 0]])}" fill="#FFC86B" opacity=".26" filter="url(#cs-shadow)"/>`);
+        s += `<polygon points="${pts([[a, WALL, 0], [b, WALL, 0], [b + 0.4, WALL + 2.2, 0], [a - 0.4, WALL + 2.2, 0]])}" fill="#FFC86B" ${R("glowOn", 'data-k=".26"')} filter="url(#cs-shadow)"/>`;
       }
+      s += tree(24.6, 12.2, 0.85);
       for (const [x, y, z, rx] of [[17.845, WALL, 2.35, 24], [11.15, WALL, 2.35, 20]]) {
+        s += decorDoor(x, y);
         const [lx, ly] = P(x, y, z);
-        LIGHTS.push(`<ellipse cx="${f1(lx)}" cy="${f1(ly + 30)}" rx="${rx}" ry="${f1(rx * 0.55)}" fill="#FFC86B" opacity=".35" filter="url(#cs-glowf)"/><circle cx="${f1(lx)}" cy="${f1(ly)}" r="2.6" fill="#FFE2A8"/>`);
+        s += `<ellipse cx="${f1(lx)}" cy="${f1(ly + 30)}" rx="${rx}" ry="${f1(rx * 0.55)}" fill="#FFC86B" ${R("glowOn", 'data-k=".35"')} filter="url(#cs-glowf)"/><circle cx="${f1(lx)}" cy="${f1(ly)}" r="2.6" fill="#FFE2A8" ${R("glowOn")}/>`;
       }
       return s;
     }
@@ -3504,7 +3811,7 @@ const ClayScene = (() => {
       for (const [x0, x1, top = 2.15] of w.doors || []) s += rpoly([[x0, w.y1 + 0.01, 0.02], [x1, w.y1 + 0.01, 0.02], [x1, w.y1 + 0.01, top], [x0, w.y1 + 0.01, top]], "door");
       for (const [x0, x1, z0 = 0.93, z1 = 2.19, cols = 1] of w.winS || []) {
         s += windowY(x0, x1, w.y1 + 0.01, z0, z1, cols);
-        if (z0 < 2.5) LIGHTS.push(`<polygon points="${pts([[x0, w.y1, 0], [x1, w.y1, 0], [x1 + 0.4, w.y1 + 2.2, 0], [x0 - 0.4, w.y1 + 2.2, 0]])}" fill="#FFC86B" opacity=".24" filter="url(#cs-shadow)"/>`);
+        if (z0 < 2.5) s += `<polygon points="${pts([[x0, w.y1, 0], [x1, w.y1, 0], [x1 + 0.4, w.y1 + 2.2, 0], [x0 - 0.4, w.y1 + 2.2, 0]])}" fill="#FFC86B" ${R("glowOn", 'data-k=".24"')} filter="url(#cs-shadow)"/>`;
       }
       for (const [y0, y1, z0 = 0.93, z1 = 2.19, cols = 1, rows = 1] of w.winE || []) s += windowX(w.x1 + 0.01, y0, y1, z0, z1, cols, rows);
       for (const [y0, y1, top = 2.15] of w.doorsE || []) s += rpoly([[w.x1 + 0.01, y1, 0.02], [w.x1 + 0.01, y0, 0.02], [w.x1 + 0.01, y0, top], [w.x1 + 0.01, y1, top]], "door", 'style="filter:brightness(.92)"');
@@ -3512,6 +3819,7 @@ const ClayScene = (() => {
       if (flat || r.axis === "x") s += eaveShadow([w.x0, w.y1 + 0.02, w.h - (flat ? 0 : EDGE) - 0.02], [w.x1, w.y1 + 0.02, w.h - (flat ? 0 : EDGE) - 0.02], flat ? 0.35 : 0.9);
       if (flat || r.axis === "y") s += eaveShadow([w.x1 + 0.02, w.y1, w.h - (flat ? 0 : EDGE) - 0.02], [w.x1 + 0.02, w.y0, w.h - (flat ? 0 : EDGE) - 0.02], flat ? 0.35 : 0.8);
       // The roof one sees.
+      const roofAt = s.length;
       const cells = m.solar && plan.solar && plan.solar.wing === i ? drawCells(ROOFS.roof, pos.cells.roof) : "";
       if (flat) {
         const p = 0.22;
@@ -3546,6 +3854,7 @@ const ClayScene = (() => {
         }
         s += `<path d="${path3([[xm, ra, z + 0.02], [xm, rb, z + 0.02]])}" stroke="#fff" stroke-opacity=".55" stroke-width="1.2" fill="none"/>`;
       }
+      if (!(plan.solar && plan.solar.wing === i)) COVER.push(s.slice(roofAt));
       // A dormer in the slope towards the road: it stands where the slope is as high as its foot.
       for (const [x0, x1, z0, z1] of w.dormers || []) {
         const yAt = (zz) => w.y1 + O - ((zz - w.h) / r.rise) * (w.y1 + O - ym);
@@ -3581,7 +3890,8 @@ const ClayScene = (() => {
       for (const w of wings) {
         s += `<path d="${path3([[w.x0, w.y1, 0], [w.x1, w.y1, 0], [w.x1, w.y0, 0]])}" ${R("shadowLine", 'stroke-width="7" stroke-linecap="round" stroke-linejoin="round" filter="url(#cs-blur)" fill="none"')}/>`;
       }
-      for (const [x, y, k = 1] of plan.trees || []) s += tree(x, y, k);
+      const ahead = ([x, y]) => wings.every((w) => y > w.y1 || x > w.x1);
+      for (const [x, y, k = 1] of (plan.trees || []).filter((t) => !ahead(t))) s += tree(x, y, k);
       // The heat pump stands on the ground: it is drawn before the first wing that stands in front of it.
       const [hw, , hd] = SIZE.heat;
       const [hx, hy] = face === "E" ? [hd, hw] : [hw, hd];
@@ -3595,9 +3905,11 @@ const ClayScene = (() => {
       });
       if (m.battery) s += `<g class="cs-thing" data-thing="battery">${drawBattery(WALLS[pos.battery.w], pos.battery, BATTERY, m.battery.soc)}</g>`;
       s += heat;
+      for (const [x, y, k = 1] of (plan.trees || []).filter(ahead)) s += tree(x, y, k);
       for (const [x, y, z = 2.35, rx = 22] of plan.lamps || []) {
+        s += decorDoor(x, y);
         const [lx, ly] = P(x, y, z);
-        LIGHTS.push(`<ellipse cx="${f1(lx)}" cy="${f1(ly + 30)}" rx="${rx}" ry="${f1(rx * 0.55)}" fill="#FFC86B" opacity=".35" filter="url(#cs-glowf)"/><circle cx="${f1(lx)}" cy="${f1(ly)}" r="2.6" fill="#FFE2A8"/>`);
+        s += `<ellipse cx="${f1(lx)}" cy="${f1(ly + 30)}" rx="${rx}" ry="${f1(rx * 0.55)}" fill="#FFC86B" ${R("glowOn", 'data-k=".35"')} filter="url(#cs-glowf)"/><circle cx="${f1(lx)}" cy="${f1(ly)}" r="2.6" fill="#FFE2A8" ${R("glowOn")}/>`;
       }
       return s;
     }
@@ -3964,6 +4276,7 @@ const ClayScene = (() => {
       <filter id="cs-shadow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="14"/></filter>
       <filter id="cs-blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter>
       <filter id="cs-blur-s" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.6"/></filter>
+      <filter id="cs-bulbf" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="2.2"/></filter>
       <filter id="cs-glowf" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="6"/></filter>
       <filter id="cs-pkglow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3"/></filter>
       <linearGradient id="cs-pane" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".35" stop-color="#fff" stop-opacity=".04"/><stop offset=".55" stop-color="#fff" stop-opacity=".14"/><stop offset=".7" stop-color="#fff" stop-opacity="0"/></linearGradient>
@@ -4014,7 +4327,7 @@ const ClayScene = (() => {
     }
 
     _key(m) {
-      return JSON.stringify([m.house || "classic", m.layoutKey || "", !!m.solar, !!m.battery, !!m.heat, m.chargers.length, m.cars.map((c) => [c.body, c.paint, c.image || "", !!c.plugged, c.charger, c.spot]), this.lay, this.edit ? [this.edit.tab, this.edit.sel] : null, !!m.canEdit]);
+      return JSON.stringify([m.season || "", m.elev || 0.5, !!m.bare, m.house || "classic", m.layoutKey || "", !!m.solar, !!m.battery, !!m.heat, m.chargers.length, m.cars.map((c) => [c.body, c.paint, c.image || "", !!c.plugged, c.charger, c.spot]), this.lay, this.edit ? [this.edit.tab, this.edit.sel] : null, !!m.canEdit]);
     }
 
     update(m) {
@@ -4048,10 +4361,21 @@ const ClayScene = (() => {
       this.placed = L.placeCars(m);
       this.routes = wiresFor(L, m, boxes, pos, lay);
       LIGHTS = [];
+      COVER = [];
+      SEASON = SEASON_OF[m.season] || m.season || null;
+      ELEV = m.elev || 0.5;
+      CAM[2] = 2.5 * ELEV;
+      DECO_N = 0;
+      TREES = [];
       const [gx, gy] = P(L.ground[0], L.ground[1], 0);
-      let s = `<rect x="-1500" y="-1500" width="4000" height="4000" ${R("bg")}/><ellipse cx="${f1(gx)}" cy="${f1(gy)}" rx="${L.ground[2]}" ry="${L.ground[3]}" fill="url(#cs-ground)"/>`;
-      s += `<g class="cs-stars">${L.stars.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i % 3 ? 1.1 : 1.7}" style="--d:${i * 0.7}s"/>`).join("")}</g>`;
+      let s = m.bare ? "" : `<rect x="-1500" y="-1500" width="4000" height="4000" ${R("bg")}/><ellipse cx="${f1(gx)}" cy="${f1(gy)}" rx="${L.ground[2]}" ry="${L.ground[3]}" fill="url(#cs-ground)"/>`;
+      s += `<g class="cs-stars">${(m.bare ? [] : L.stars).map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i % 3 ? 1.1 : 1.7}" style="--d:${i * 0.7}s"/>`).join("")}</g>`;
+      s += `<g class="cs-sky">${decorSky(L, m)}</g>`;
       s += `<g class="cs-world">${L.scene(m, pos)}`;
+      if (FLAGGED.has(SEASON) || SEASON === "sankthans") {
+        const spot = FLAGPOLES[m.house || "classic"] || (TREES[0] ? [TREES[0][0] + 1.4, TREES[0][1] + 1.6] : [0, 0]);
+        s += SEASON === "sankthans" ? bonfire(spot[0], spot[1]) : flagpole(spot[0], spot[1]);
+      }
       // The chargers: by default one in the middle of the garage, a second by its right-hand corner.
       boxes.forEach((_, i) => {
         const t = pos[`charger${i}`];
@@ -4065,6 +4389,7 @@ const ClayScene = (() => {
         this.paths[`${k}Back`] = path3([...r].reverse());
         s += `<g class="cs-wire" data-route="${k}"><path d="${d}" ${R("flowGlow", 'fill="none" stroke-width="7" stroke-linejoin="round" filter="url(#cs-glowf)"')}/><path d="${d}" ${R("flow", 'fill="none" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"')}/><g class="cs-pk"></g></g>`;
       }
+      if (COVER.length) s += `<g class="cs-cover">${COVER.join("")}</g>`;
       s += `<g class="cs-thing" data-thing="gateway">${drawGateway(L.walls[pos.gateway.w], pos.gateway)}</g>`;
       // A cable rolled up on the wall where no car is plugged in, behind the cars.
       const plugged = new Set(this.placed.filter((p) => p.box !== null && p.car.plugged).map((p) => p.box));
@@ -4109,6 +4434,7 @@ const ClayScene = (() => {
     // on a narrow screen closer in. While something is dragged the picture stays where it is.
     _fit(built = false) {
       if (this.drag && this.view && built) return;
+      ELEV = (this.model && this.model.elev) || 0.5;
       const narrow = (this.el.clientWidth || W) < 560;
       const m = this.model || { cars: [], heat: null };
       const L = this.layout || CLASSIC;
@@ -4120,6 +4446,7 @@ const ClayScene = (() => {
         }
         if (m.heat && this.pos.moved.has("heat")) corners.push([this.pos.heat.x, this.pos.heat.y, 0], [this.pos.heat.x + 1.4, this.pos.heat.y + 1.4, 1.1]);
       }
+      if (m.bare) for (const [tx, ty, tk = 1] of TREES) corners.push([tx - 1.3 * tk, ty, 0], [tx + 1.3 * tk, ty, 0], [tx, ty, 3.6 * tk]);
       const xy = corners.map((c) => P(...c));
       const x0 = Math.min(...xy.map((p) => p[0]));
       const x1 = Math.max(...xy.map((p) => p[0]));
@@ -4149,7 +4476,7 @@ const ClayScene = (() => {
         if (first) this.el.classList.add("cs-instant");
         this.light = k;
         paint(this.roles, look);
-        this.el.style.background = look.bg;
+        this.el.style.background = m.bare ? "transparent" : look.bg;
         this.svg.querySelector(".cs-stars").setAttribute("opacity", look.stars.toFixed(2));
         this.svg.querySelector(".cs-lights").setAttribute("opacity", look.lights.toFixed(2));
         for (const c of this.svg.querySelectorAll(".cs-car")) c.style.filter = look.car < 0.99 ? `brightness(${look.car.toFixed(2)})` : "";
@@ -4697,6 +5024,9 @@ const ClayScene = (() => {
   }
 
   Scene.BODIES = Object.keys(BODIES);
+  Scene.PLANS = PLANS;
+  Scene.seasonOf = seasonOf;
+  Scene.easterSunday = easterSunday;
   Scene.HOUSES = Object.keys(LAYOUTS);
   Scene.preview = (kind, paint) => {
     const body = BODIES[kind] || BODIES.sedan;
@@ -4710,6 +5040,7 @@ const ClayScene = (() => {
     let body = "";
     try {
       LIGHTS = [];
+      COVER = [];
       body = L.scene(m, resolve(L, {}));
     } catch (_err) {
       return "";
@@ -4737,6 +5068,29 @@ const CLAY_CSS = `
 .cscene .cs-main .cs-stars, .cscene .cs-main .cs-lights, .cscene .cs-main .cs-car { transition: opacity 1.5s, filter 1.5s; }
 .cscene.cs-instant, .cscene.cs-instant * { transition: none !important; }
 .cscene .cs-stars circle { fill: #fff; }
+.cscene.is-dark .cs-dayonly, .cscene:not(.is-dark) .cs-nightonly { display: none; }
+.cscene .cs-snow { animation: cs-snow 9s linear infinite; animation-delay: calc(var(--d) * -1); }
+@keyframes cs-snow { from { transform: translate(0, -60px); } to { transform: translate(14px, 60px); } }
+.cscene .cs-fw { animation: cs-fw 3.2s ease-out infinite; animation-delay: var(--d); transform-box: view-box; }
+@keyframes cs-fw { 0% { transform: scale(.2); opacity: 0; } 12% { opacity: 1; } 55% { transform: scale(1); opacity: .9; } 85%, 100% { transform: scale(1.08); opacity: 0; } }
+.cscene .cs-bat { animation: cs-bat 2.6s ease-in-out infinite; animation-delay: var(--d); }
+.cscene .cs-tw { animation: cs-tw 2.4s ease-in-out infinite; animation-delay: calc(var(--d) * -1); }
+@keyframes cs-tw { 50% { opacity: .35; } }
+.cscene .cs-sway { animation: cs-sway 2.8s ease-in-out infinite alternate; animation-delay: calc(var(--d) * -1); transform-box: view-box; }
+@keyframes cs-sway { from { transform: rotate(-7deg); } to { transform: rotate(7deg); } }
+.cscene .cs-bob { animation: cs-bob 3.2s ease-in-out infinite alternate; animation-delay: calc(var(--d) * -1); }
+@keyframes cs-bob { to { transform: translate(1.5px, -5px); } }
+.cscene .cs-conf { animation: cs-conf 7s linear infinite; animation-delay: calc(var(--d) * -1); }
+@keyframes cs-conf { from { transform: translate(0, -60px) rotate(0deg); } to { transform: translate(18px, 60px) rotate(540deg); } }
+.cscene .cs-conf { transform-box: fill-box; transform-origin: center; }
+.cscene .cs-rise { animation: cs-rise 6s ease-in infinite; animation-delay: calc(var(--d) * -1); }
+@keyframes cs-rise { 0% { transform: translate(0, 40px); opacity: 0; } 20% { opacity: .9; } 100% { transform: translate(8px, -90px); opacity: 0; } }
+.cscene .cs-flame { animation: cs-flame .5s ease-in-out infinite alternate; animation-delay: calc(var(--d) * -1); transform-box: view-box; }
+@keyframes cs-flame { from { transform: scale(1, .82); } to { transform: scale(.92, 1.12); } }
+.cscene .cs-spark { animation: cs-spark 2.2s ease-out infinite; animation-delay: calc(var(--d) * -1); }
+@keyframes cs-spark { from { transform: translate(0, 0); opacity: 1; } to { transform: translate(6px, -46px); opacity: 0; } }
+@keyframes cs-bat { 50% { translate: 6px -5px; } }
+@media (prefers-reduced-motion: reduce) { .cscene .cs-snow, .cscene .cs-fw, .cscene .cs-bat, .cscene .cs-tw, .cscene .cs-sway, .cscene .cs-bob, .cscene .cs-conf, .cscene .cs-rise, .cscene .cs-flame, .cscene .cs-spark { animation: none; } }
 .cscene.is-dark .cs-stars circle { animation: cs-twinkle 4s ease-in-out infinite; animation-delay: var(--d); }
 @keyframes cs-twinkle { 50% { opacity: .25; } }
 .cscene svg { display: block; width: 100%; height: auto; }

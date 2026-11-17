@@ -3,7 +3,7 @@
    A file of its own, fetched the first time the Learning tab is opened with Insight on. */
 
 const CSS = `:host {
-  --bg: #f3f5f4; --card: #ffffff; --ink: #14201c; --soft: #5c6b66; --faint: #8b9893; --line: #dde4e1; --well: #eef2f0;
+  --snow: #cfdbe8; --bg: #f3f5f4; --card: #ffffff; --ink: #14201c; --soft: #5c6b66; --faint: #8b9893; --line: #dde4e1; --well: #eef2f0;
   --accent: #00a383; --accent-ink: #00745d; --fc: #d99600; --band: rgba(217,150,0,.16); --band2: rgba(217,150,0,.30);
   --bad: #d4513f; --car2: #5b6ee8; --cold: #3f8fd6; --sun: #e9a500; --path: rgba(20,32,28,.22); --soc: rgba(0,163,131,.16);
   --shadow: 0 1px 2px rgba(20,32,28,.05), 0 8px 28px rgba(20,32,28,.06);
@@ -12,7 +12,7 @@ const CSS = `:host {
   display: block; color: var(--ink); font: 15px/1.5 Inter, var(--ha-font-family-body, Roboto), system-ui, sans-serif; -webkit-text-size-adjust: 100%;
 }
 :host([dark]) {
-  --bg: #0e1312; --card: #161d1b; --ink: #edf3f1; --soft: #9caba6; --faint: #6f7d78; --line: #26312e; --well: #1c2523;
+  --snow: #ffffff; --bg: #0e1312; --card: #161d1b; --ink: #edf3f1; --soft: #9caba6; --faint: #6f7d78; --line: #26312e; --well: #1c2523;
   --accent: #20d3a8; --accent-ink: #7be8cd; --fc: #f2b838; --band: rgba(242,184,56,.14); --band2: rgba(242,184,56,.28);
   --bad: #ff7a66; --car2: #8f9dff; --cold: #6db4f2; --sun: #ffc83d; --path: rgba(237,243,241,.20); --soc: rgba(32,211,168,.16);
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35); color-scheme: dark;
@@ -167,6 +167,18 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } th, td { text
 .hglow { animation: hglow 2.4s ease-in-out infinite; } @keyframes hglow { 50% { opacity: .35; } }
 .hfill { transform-box: fill-box; transform-origin: left; animation: hfill 1.2s cubic-bezier(.2,.8,.2,1) both; } @keyframes hfill { from { transform: scaleX(0); } }
 .hstar { fill: var(--faint); } .hmoon { fill: var(--sun); }
+.hsnow { animation: hsnow 7s linear infinite; } @keyframes hsnow { from { transform: translate(0, -14px); } to { transform: translate(8px, 14px); } }
+.hfw { animation: hfw 3s ease-out infinite; } @keyframes hfw { 0% { transform: scale(.2); opacity: 0; } 15% { opacity: 1; } 60% { transform: scale(1); opacity: .9; } 90%, 100% { transform: scale(1.06); opacity: 0; } }
+.hbat { animation: hbat 2.4s ease-in-out infinite; } @keyframes hbat { 50% { translate: 5px -4px; } }
+.hbulb { animation: hbulb 2.4s ease-in-out infinite; } @keyframes hbulb { 50% { opacity: .55; } }
+.hconf { animation: hconf 7s linear infinite; transform-box: fill-box; transform-origin: center; } @keyframes hconf { from { transform: translate(0, -20px) rotate(0); } to { transform: translate(10px, 30px) rotate(540deg); } }
+.hsway { animation: hsway 2.8s ease-in-out infinite alternate; } @keyframes hsway { from { transform: rotate(-8deg); } to { transform: rotate(8deg); } }
+.hbob { animation: hbob 3s ease-in-out infinite alternate; } @keyframes hbob { to { transform: translate(1px, -4px); } }
+.hrise { animation: hrise 6s ease-in infinite; } @keyframes hrise { 0% { transform: translate(0, 0); opacity: 0; } 15% { opacity: .9; } 100% { transform: translate(8px, -100px); opacity: 0; } }
+.hflame { animation: hflame .5s ease-in-out infinite alternate; } @keyframes hflame { from { transform: scale(1, .82); } to { transform: scale(.92, 1.12); } }
+.hspark { animation: hspark 2.2s ease-out infinite; } @keyframes hspark { from { transform: translate(0, 0); opacity: 1; } to { transform: translate(6px, -50px); opacity: 0; } }
+.hbulb { animation: hbulb 2.4s ease-in-out infinite; }
+.calm .hsnow, .calm .hfw, .calm .hbat, .calm .hbulb, .calm .hconf, .calm .hsway, .calm .hbob, .calm .hrise, .calm .hflame, .calm .hspark { animation: none; }
 .hhead { display: flex; align-items: center; gap: 12px; }
 .hbadge { width: 44px; height: 44px; border-radius: 15px; background: linear-gradient(145deg, #17264a, #40307a); display: grid; place-items: center; flex: none; }
 .hbadge svg { width: 24px; height: 24px; fill: #ffd76a; }
@@ -314,6 +326,106 @@ const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 const BODIES = {"mini":{"L":4.42,"wheels":[0.8,3.53],"r":0.335,"cs":7,"ce":14,"pillars":[0.52],"cladding":false,"rails":false,"pts":[[0.1,0.3],[0.02,0.42],[0,0.55],[0.05,0.66],[0.2,0.75],[0.5,0.82],[0.85,0.87],[1.1,0.9],[1.45,1.1],[1.8,1.3],[2.1,1.41],[3.35,1.43],[3.75,1.36],[4.1,1.16],[4.28,0.98],[4.38,0.94],[4.42,0.8],[4.41,0.55],[4.36,0.4],[4.25,0.3]]},"sedan":{"L":4.72,"wheels":[0.97,3.85],"r":0.345,"cs":7,"ce":14,"pillars":[0.48],"cladding":false,"rails":false,"pts":[[0.1,0.28],[0.02,0.4],[0,0.5],[0.06,0.6],[0.25,0.69],[0.6,0.76],[1,0.82],[1.25,0.86],[1.65,1.08],[2.05,1.32],[2.4,1.42],[3.05,1.44],[3.55,1.35],[3.95,1.18],[4.25,1.03],[4.55,0.98],[4.7,0.94],[4.72,0.78],[4.7,0.52],[4.62,0.3]]},"suv":{"L":4.68,"wheels":[0.98,3.82],"r":0.37,"cs":7,"ce":14,"pillars":[0.4,0.76],"cladding":true,"rails":true,"pts":[[0.08,0.36],[0.02,0.5],[0,0.68],[0.04,0.84],[0.22,0.96],[0.6,1.02],[0.95,1.06],[1.15,1.08],[1.45,1.32],[1.75,1.58],[2,1.66],[4.3,1.68],[4.48,1.62],[4.58,1.45],[4.62,1.22],[4.66,1.12],[4.68,0.95],[4.68,0.62],[4.66,0.45],[4.58,0.36]]},"estate":{"L":4.93,"wheels":[1,3.95],"r":0.35,"cs":7,"ce":14,"pillars":[0.4,0.78],"cladding":false,"rails":true,"pts":[[0.1,0.29],[0.02,0.42],[0,0.53],[0.06,0.63],[0.25,0.72],[0.62,0.79],[1.05,0.85],[1.3,0.88],[1.7,1.1],[2.1,1.34],[2.45,1.44],[4.25,1.44],[4.55,1.36],[4.78,1.18],[4.88,1.02],[4.92,0.96],[4.93,0.82],[4.92,0.55],[4.88,0.4],[4.8,0.29]]},"van":{"L":4.71,"wheels":[0.88,3.88],"r":0.385,"cs":7,"ce":14,"pillars":[0.3,0.6,0.86],"cladding":false,"rails":false,"pts":[[0.06,0.4],[0.01,0.55],[0,0.75],[0.03,0.95],[0.15,1.07],[0.35,1.12],[0.5,1.14],[0.6,1.16],[0.8,1.42],[1.05,1.76],[1.3,1.9],[4.45,1.94],[4.6,1.88],[4.67,1.7],[4.7,1.45],[4.71,1.25],[4.71,1],[4.71,0.65],[4.68,0.48],[4.6,0.4]]}};
 const PAINTS = { white: { body: "var(--paint-white)", line: "var(--ink)", glass: "var(--glass)" }, black: { body: "var(--paint-black)", line: "var(--paint-black-line)", glass: "var(--glass-dark)" } };
 let carUid = 0;
+/* The holidays in tonight's picture: the same days as the house on the Home tab. */
+function easterSunday(year) {
+  const a = year % 19, b = Math.floor(year / 100), c = year % 100, d = Math.floor(b / 4), e = b % 4;
+  const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  return new Date(year, Math.floor((h + l - 7 * m + 114) / 31) - 1, ((h + l - 7 * m + 114) % 31) + 1);
+}
+function seasonOf(when) {
+  const mo = when.getMonth() + 1, d = when.getDate();
+  if (mo === 12 && d <= 27) return "xmas";
+  if ((mo === 12 && d >= 30) || (mo === 1 && d === 1)) return "newyear";
+  if ((mo === 10 && d >= 24) || (mo === 11 && d === 1)) return "halloween";
+  if (mo === 6 && d === 5) return "flagday";
+  const off = Math.round((new Date(when.getFullYear(), mo - 1, d) - easterSunday(when.getFullYear())) / 86400000);
+  return off >= -3 && off <= 1 ? "easter" : null;
+}
+const HFLAG = (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#C8102E"/><rect x="${x + (w * 12) / 37}" y="${y}" width="${(w * 4) / 37}" height="${h}" fill="#fff"/><rect x="${x}" y="${y + (h * 12) / 28}" width="${w}" height="${(h * 4) / 28}" fill="#fff"/>`;
+// A string hung from a to b, sagging; `item(x, y, i)` draws what hangs on it.
+function hString(a, b, sag, n, item) {
+  const at = (t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t + Math.sin(Math.PI * t) * sag];
+  let s = `<path d="M${a[0]} ${a[1]}Q${(a[0] + b[0]) / 2} ${(a[1] + b[1]) / 2 + sag * 2} ${b[0]} ${b[1]}" fill="none" stroke="var(--soft)" stroke-width=".8" opacity=".7"/>`;
+  for (let i = 1; i < n; i += 1) { const [x, y] = at(i / n); s += item(x, y, i); }
+  return s;
+}
+const hBulb = (cols) => (x, y, i) => `<circle class="hbulb" style="animation-delay:${(i % 4) * 0.4}s" cx="${x.toFixed(1)}" cy="${(y + 2).toFixed(1)}" r="2" fill="${cols[i % cols.length]}"/>`;
+function hPumpkin(x, k, face = true) {
+  const y = 112, w = 9 * k, h = 7 * k;
+  return `<ellipse cx="${x}" cy="${y - h}" rx="${w}" ry="${h}" fill="#E8761E"/><ellipse cx="${x}" cy="${y - h}" rx="${w * 0.45}" ry="${h}" fill="none" stroke="#C45A10" stroke-width="1"/><path d="M${x} ${y - 2 * h + 1}q1 -4 4 -4.5" stroke="#4E6B2C" stroke-width="2" fill="none" stroke-linecap="round"/>${face ? `<path d="M${x - w * 0.5} ${y - h * 1.1}l${w * 0.2} ${-h * 0.4}l${w * 0.2} ${h * 0.4}ZM${x + w * 0.1} ${y - h * 1.1}l${w * 0.2} ${-h * 0.4}l${w * 0.2} ${h * 0.4}ZM${x - w * 0.55} ${y - h * 0.7}q${w * 0.55} ${h * 0.55} ${w * 1.1} 0l${-w * 0.25} ${h * 0.15}l${-w * 0.2} ${-h * 0.15}l${-w * 0.2} ${h * 0.15}l${-w * 0.2} ${-h * 0.15}Z" fill="#FFC14D"/>` : ""}`;
+}
+function hEgg(x, y, c, r = 1) { return `<ellipse cx="${x}" cy="${y - 4.2 * r}" rx="${3.2 * r}" ry="${4.2 * r}" fill="${c}"/><path d="M${x - 3 * r} ${y - 4.5 * r}q${3 * r} ${2 * r} ${6 * r} 0" stroke="#fff" stroke-width="1" fill="none" opacity=".85"/>`; }
+function hDaffs(x, n) { let s = ""; for (let i = 0; i < n; i += 1) { const fx = x + i * 5 - n * 2.5, h = 14 + (i % 3) * 3; s += `<path d="M${fx} 112V${112 - h}" stroke="#4E8B3A" stroke-width="1.4"/>${[0, 1, 2, 3, 4].map((p) => `<circle cx="${(fx + Math.cos((p / 5) * 6.283) * 3).toFixed(1)}" cy="${(112 - h + Math.sin((p / 5) * 6.283) * 3).toFixed(1)}" r="2.2" fill="#FFE066"/>`).join("")}<circle cx="${fx}" cy="${112 - h}" r="2" fill="#F59E1B"/>`; } return s; }
+function hBurst(x, y, r, c, d) { let b = ""; for (let i = 0; i < 12; i += 1) { const a = (i / 12) * 6.283; b += `<path d="M${(x + Math.cos(a) * r * 0.3).toFixed(1)} ${(y + Math.sin(a) * r * 0.3).toFixed(1)}L${(x + Math.cos(a) * r).toFixed(1)} ${(y + Math.sin(a) * r).toFixed(1)}" stroke="${c}" stroke-width="1.4" stroke-linecap="round"/><circle cx="${(x + Math.cos(a) * (r + 3)).toFixed(1)}" cy="${(y + Math.sin(a) * (r + 3)).toFixed(1)}" r="1.3" fill="${c}"/>`; } return `<g class="hfw" style="animation-delay:${d}s;transform-origin:${x}px ${y}px">${b}</g>`; }
+const hBat = (x, y, k, d) => `<path class="hbat" style="animation-delay:${d}s" transform="translate(${x} ${y}) scale(${k})" d="M0 2C-3 -2 -7 -3 -12 -1C-10 0 -9 2 -9 4C-7 2 -5 3 -4 5C-3 3 -1 3 0 4C1 3 3 3 4 5C5 3 7 2 9 4C9 2 10 0 12 -1C7 -3 3 -2 0 2ZM-1.6 1L-1 -1.6L0 0L1 -1.6L1.6 1Z" fill="var(--ink)"/>`;
+function hTree(x) { let s = `<rect x="${x - 4}" y="104" width="8" height="8" rx="1.5" fill="#8A5A3C"/><path d="M${x} 52L${x - 16} 82H${x - 8}L${x - 20} 104H${x + 20}L${x + 8} 82H${x + 16}Z" fill="#2F6B4A"/><path d="M${x} 52L${x + 16} 82H${x + 8}L${x + 20} 104H${x}Z" fill="#245639"/>`; for (const [ox, oy, c] of [[-8, 74, "#FFE3A3"], [6, 70, "#D3263A"], [-3, 64, "#FFE3A3"], [10, 92, "#FFE3A3"], [-12, 96, "#D3263A"], [2, 86, "#FFE3A3"], [-6, 88, "#FFE3A3"]]) s += `<circle class="hbulb" cx="${x + ox}" cy="${oy}" r="2" fill="${c}"/>`; return s + `<path d="M${x} 44l2.4 5 5.4.6-4 3.7 1.1 5.3-4.9-2.7-4.9 2.7 1.1-5.3-4-3.7 5.4-.6Z" fill="#FFC53D"/>`; }
+function hPole(x, night) {
+  let s = `<rect x="${x - 1.5}" y="16" width="3" height="96" rx="1.5" fill="var(--card)" stroke="var(--line)"/><circle cx="${x}" cy="14" r="3" fill="#E3B341"/>`;
+  if (night) s += `<path d="M${x + 1.5} 19L${x + 74} 25L${x + 66} 28L${x + 74} 31L${x + 1.5} 31Z" fill="#C8102E"/>${HFLAG(x + 1.5, 19, 15, 12)}`;
+  else s += HFLAG(x + 1.5, 18, 37, 28);
+  return s;
+}
+/* What goes in the sky (behind the cars) and on the ground (in front), for a season; `one` is true with a single car, the right-hand side then free. */
+const HEART = (x, y, s) => `M${x} ${y + s * 0.35}C${x - s * 1.1} ${y - s * 0.35} ${x - s * 0.45} ${y - s * 1.05} ${x} ${y - s * 0.45}C${x + s * 0.45} ${y - s * 1.05} ${x + s * 1.1} ${y - s * 0.35} ${x} ${y + s * 0.35}Z`;
+const hPennant = (cols) => (x, y, i) => `<path class="hsway" style="animation-delay:${(i % 4) * -0.4}s;transform-origin:${x}px ${y}px" d="M${x - 5} ${y}L${x + 5} ${y}L${x} ${y + 9}Z" fill="${cols[i % cols.length]}"/>`;
+function heroDecor(season, one) {
+  season = { jul: "xmas", nytaar: "newyear", paaske: "easter", grundlov: "flagday" }[season] || season;
+  let sky = "", front = "", moon = true;
+  if (season === "xmas") {
+    sky += hString([2, 6], [188, 56], 10, 13, hBulb(["#FFE3A3", "#D3263A", "#FFE3A3", "#2FA36B"])) + hString([212, 56], [398, 6], 10, 13, hBulb(["#FFE3A3", "#D3263A", "#FFE3A3", "#2FA36B"]));
+    // No snow: the weather is not the holiday's to choose.
+    // A Santa hat on the charger.
+    front += `<path d="M188 60Q196 40 214 46Q206 50 208 60Z" fill="#D3263A"/><rect x="186" y="57" width="26" height="6" rx="3" fill="#fff"/><circle cx="215" cy="46" r="3.4" fill="#fff"/>`;
+    if (one) front += hTree(330);
+  } else if (season === "newyear") {
+    sky += hBurst(62, 30, 20, "#FFD24A", 0) + hBurst(334, 26, 22, "#FF5C7A", 0.8) + hBurst(128, 14, 12, "#5CE1E6", 1.6) + hBurst(274, 12, 11, "#B98CFF", 2.2);
+    front += `<path d="M190 58L200 34L210 58Z" fill="#FFC53D"/><path d="M193 50L207 50M195.5 44L204.5 44" stroke="#fff" stroke-width="1.6"/><circle cx="200" cy="33" r="2.6" fill="#FF5C7A"/>`;
+    for (let i = 0; i < 16; i += 1) front += `<rect x="${(i * 25.7 + 6) % 396}" y="${110 - (i % 3)}" width="3" height="1.6" rx=".8" fill="${["#FFD24A", "#FF5C7A", "#5CE1E6", "#B98CFF"][i % 4]}" transform="rotate(${(i * 37) % 80 - 40} ${(i * 25.7 + 6) % 396} 110)"/>`;
+    if (one) { sky += hBurst(300, 62, 16, "#FFD24A", 1.2); front += `<rect x="318" y="96" width="9" height="16" rx="3" fill="#2F6B4A"/><rect x="321" y="90" width="3" height="7" fill="#2F6B4A"/><path d="M322.5 90V56" stroke="var(--soft)" stroke-width="1.2"/><path d="M320 56L322.5 46L325 56Z" fill="#FF5C7A"/>`; }
+  } else if (season === "halloween") {
+    moon = false;
+    sky += `<circle cx="206" cy="17" r="20" fill="#FFE7B8" opacity=".22"/><circle cx="206" cy="17" r="11" fill="#F8E2B0"/><circle cx="203" cy="14" r="2.2" fill="#E8CF98"/><circle cx="210" cy="20" r="1.6" fill="#E8CF98"/>`;
+    sky += hBat(168, 26, 0.9, 0) + hBat(246, 12, 0.75, 0.6) + hBat(270, 34, 0.6, 1.1);
+    front += hPumpkin(226, 1.05) + hPumpkin(244, 0.7, false);
+    front += `<path d="M190 58L184 52M190 64L182 64M210 58L216 52M210 64L218 64" stroke="var(--soft)" stroke-width=".6"/>`;
+    if (one) front += hPumpkin(318, 1.4) + hPumpkin(345, 0.9) + `<path d="M366 52L366 60" stroke="var(--soft)" stroke-width=".7"/><path d="M357 78V66A9 9 0 0 1 375 66V78l-3 -3l-3 3l-3 -3l-3 3l-3 -3Z" fill="#FBFBFD" stroke="var(--line)"/><circle cx="363" cy="66" r="1.4" fill="#222"/><circle cx="369" cy="66" r="1.4" fill="#222"/>`;
+  } else if (season === "easter") {
+    front += hDaffs(180, 3) + hDaffs(222, 3) + hEgg(232, 112, "#F49AC1", 0.9) + hEgg(242, 112, "#7FC8A9", 0.8) + hEgg(170, 112, "#8DB8F2", 0.8);
+    if (one) {
+      // A vase with birch twigs and painted eggs: a Danish påskegren.
+      front += `<path d="M322 112L318 92H342L338 112Z" fill="#8DB8F2"/><path d="M330 92L316 44M330 92L332 38M330 92L350 48M330 92L304 60M330 92L358 66" stroke="#7A6A55" stroke-width="1.4" stroke-linecap="round" fill="none"/>`;
+      for (const [x, y, c] of [[318, 58, "#F6C945"], [340, 54, "#F49AC1"], [312, 72, "#7FC8A9"], [352, 72, "#8DB8F2"], [328, 64, "#F59E5B"]]) front += `<path d="M${x} ${y - 6}V${y}" stroke="#7A6A55" stroke-width=".6"/>${hEgg(x, y + 8, c, 0.85)}`;
+    }
+  } else if (season === "fodselsdag" || season === "fastelavn") {
+    const cols = ["#F43F5E", "#F59E0B", "#10B981", "#3B82F6", "#A855F7"];
+    for (let i = 0; i < 30; i += 1) sky += `<rect class="hconf" style="animation-delay:${-((i * 0.47) % 6).toFixed(2)}s" x="${((i * 47.3) % 400).toFixed(1)}" y="${((i * 29.1) % 100).toFixed(1)}" width="4" height="2" rx=".8" fill="${cols[i % 5]}"/>`;
+    const item = season === "fodselsdag" ? (x, y) => HFLAG(x - 6, y, 12, 9) : hPennant(cols);
+    sky += hString([2, 6], [188, 56], 9, 10, item) + (one ? "" : hString([212, 56], [398, 6], 9, 10, item));
+    if (season === "fodselsdag") front += [["#F43F5E", 222, 0], ["#3B82F6", 232, 0.6], ["#F59E0B", 242, 1.2]].map(([c, x, d]) => `<g class="hbob" style="animation-delay:-${d}s"><path d="M212 70Q${x - 6} 60 ${x} 40" stroke="var(--soft)" stroke-width=".7" fill="none"/><ellipse cx="${x}" cy="34" rx="6" ry="7.5" fill="${c}"/></g>`).join("");
+    if (one && season === "fastelavn") front += `<path d="M300 112V50H360V112" stroke="#7A5230" stroke-width="2.4" fill="none"/><g class="hsway" style="transform-origin:330px 50px"><path d="M330 50V60" stroke="#D6C29A"/><ellipse cx="330" cy="72" rx="10" ry="12" fill="#B7793A"/><path d="M321 66H339M321 78H339" stroke="#5B3A1E" stroke-width="1.4"/></g>`;
+  } else if (season === "bryllup" || season === "aarsdag" || season === "valentin") {
+    if (season === "bryllup") {
+      sky += hString([2, 6], [188, 56], 9, 10, hPennant(["#FFFFFF", "#E9D8A6"])) + (one ? "" : hString([212, 56], [398, 6], 9, 10, hPennant(["#FFFFFF", "#E9D8A6"])));
+      sky += `<g class="hbob"><circle cx="${one ? 320 : 150}" cy="30" r="16" fill="#FFE7A8" opacity=".25"/><circle cx="${one ? 314 : 144}" cy="30" r="8" fill="none" stroke="#E3B341" stroke-width="2.6"/><circle cx="${one ? 326 : 156}" cy="30" r="8" fill="none" stroke="#E3B341" stroke-width="2.6"/></g>`;
+    }
+    for (let i = 0; i < 9; i += 1) front += `<path class="hrise" style="animation-delay:${-(i * 0.8).toFixed(1)}s" d="${HEART(one ? 260 + (i * 31) % 120 : 30 + (i * 43) % 340, 112, 4 + (i % 3))}" fill="${i % 2 ? "#F472B6" : "#E11D48"}"/>`;
+  } else if (season === "sankthans") {
+    const bx = one ? 330 : 200;
+    sky += `<circle cx="${bx}" cy="104" r="${one ? 60 : 90}" fill="#FF9A3C" opacity=".22"/>`;
+    if (one) {
+      front += `<path d="M${bx - 16} 113L${bx + 10} 102M${bx + 16} 113L${bx - 10} 102" stroke="#5A3A20" stroke-width="3" stroke-linecap="round"/>`;
+      for (let i = 0; i < 6; i += 1) { const fx = bx + (i - 2.5) * 4, h = 22 + (i % 3) * 6; front += `<path class="hflame" style="animation-delay:-${(i * 0.17).toFixed(2)}s;transform-origin:${fx}px 110px" d="M${fx - 5} 110Q${fx - 2} ${110 - h * 0.6} ${fx} ${110 - h}Q${fx + 2} ${110 - h * 0.6} ${fx + 5} 110Z" fill="${i % 2 ? "#FFC83D" : "#FF7A1F"}"/>`; }
+    }
+    for (let i = 0; i < 10; i += 1) front += `<circle class="hspark" style="animation-delay:-${(i * 0.27).toFixed(2)}s" cx="${bx - 8 + ((i * 7) % 16)}" cy="96" r="1.2" fill="#FFD27A"/>`;
+  } else if (season === "flagday") {
+    const flag = (x, y) => HFLAG(x - 6, y, 12, 9);
+    sky += hString([2, 6], [188, 56], 9, 10, flag);
+    if (one) front += hPole(300, true);
+    else sky += hString([212, 56], [398, 6], 9, 10, flag);
+  }
+  return { sky, front, moon };
+}
 /* A car by its side, its battery the colour that fills the body under the windows from left to right; the dashed line is what a hard day takes. */
 function sideCar(kind, paint, o = {}) {
   const b = BODIES[kind] || BODIES.sedan, P = PAINTS[paint] || PAINTS.white;
@@ -332,7 +444,7 @@ function sideCar(kind, paint, o = {}) {
   const nose = b.pts[3], tail = b.pts[15], port = [b.L - 0.62, beltAt(Math.min(b.L - 0.62, u1)) - 0.16];
   const svg = `<g><clipPath id="${id}"><path d="${body}"/></clipPath><ellipse cx="${X(b.L / 2)}" cy="1.5" rx="${W * 0.47}" ry="3.2" fill="var(--ink)" opacity=".10"/><path d="${body}" fill="${P.body}"/>
     <g clip-path="url(#${id})">${b.cladding ? `<rect x="-20" y="${Y(0.52)}" width="${W + 40}" height="${0.3 * S}" fill="var(--tyre)" opacity=".55"/>` : ""}${lvl != null ? `<rect class="lvl${o.anim ? " hfill" : ""}" x="-20" y="${Y(belt)}" width="${W * lvl + 20}" height="${(belt + 0.2) * S}" fill="${o.color || "var(--accent)"}" opacity=".82"/>` : ""}<path d="${glass}" fill="${P.glass}" opacity=".78"/>${pillars}${floorX != null ? `<line x1="${floorX}" x2="${floorX}" y1="${Y(belt)}" y2="${0.2 * S}" stroke="var(--bad)" stroke-width="2" stroke-dasharray="4 3"/>` : ""}</g>
-    <path d="${body}" fill="none" stroke="${P.line}" stroke-width="1.8" stroke-linejoin="round"/>${b.rails ? `<path d="M${X(b.pts[10][0] + 0.15)} ${Y(b.pts[10][1] + 0.05)}L${X(b.pts[11][0] - 0.1)} ${Y(b.pts[11][1] + 0.05)}" stroke="${P.line}" stroke-width="2.4" stroke-linecap="round"/>` : ""}
+    <path d="${body}" fill="none" stroke="${P.line}" stroke-width="1.8" stroke-linejoin="round"/>${o.snow ? `<path d="M${b.pts.slice(9, 13).map((p) => `${X(p[0]).toFixed(1)} ${(Y(p[1]) - 2.2).toFixed(1)}`).join("L")}" fill="none" stroke="var(--snow)" stroke-width="${(0.15 * S).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round"/>` : ""}${b.rails ? `<path d="M${X(b.pts[10][0] + 0.15)} ${Y(b.pts[10][1] + 0.05)}L${X(b.pts[11][0] - 0.1)} ${Y(b.pts[11][1] + 0.05)}" stroke="${P.line}" stroke-width="2.4" stroke-linecap="round"/>` : ""}
     <ellipse cx="${X(nose[0] + 0.08)}" cy="${Y(nose[1] - 0.06)}" rx="${0.09 * S}" ry="${0.05 * S}" fill="var(--headlight)"/><ellipse cx="${X(tail[0] - 0.06)}" cy="${Y(tail[1] - 0.04)}" rx="${0.07 * S}" ry="${0.045 * S}" fill="var(--bad)"/>
     <rect x="${X(port[0]) - 4}" y="${Y(port[1]) - 4}" width="8" height="8" rx="2.5" fill="${P.line}" opacity=".85"/>${wheels}</g>`;
   return { svg, width: W, port: [X(port[0]), Y(port[1])] };
@@ -895,14 +1007,15 @@ function boot(host, root) {
       <line x1="${(mod(w0 - from, 24)) * 20}" x2="${Math.min(400, (mod(w0 - from, 24) + mod(w1 - w0, 24)) * 20)}" y1="47.5" y2="47.5" stroke="var(--ink)" stroke-width="1.5" opacity=".5"/></svg></div>` : "";
     // The picture: the cars by their sides, filled to their level, a hard day's floor as a dashed line, and the cable.
     const W = 400, G = 112;
-    const drawn = shown.map((id, k) => { const { c, o, lvl } = info(id); return sideCar(c.live.body, c.live.paint, { scale: 31, level: lvl ?? 0, floor: o.floor_pct, color: c.col, flip: k === 1, anim: st0() }); });
+    const season = globalThis.EV_SEASON !== undefined ? globalThis.EV_SEASON : seasonOf(TODAY), deco = heroDecor(season, shown.length === 1);
+    const drawn = shown.map((id, k) => { const { c, o, lvl } = info(id); return sideCar(c.live.body, c.live.paint, { scale: 31, level: lvl ?? 0, floor: o.floor_pct, color: c.col, flip: k === 1, anim: st0(), snow: season === "xmas" }); });
     const xs = drawn.map((d, k) => (k === 0 ? 4 : W - 4 - d.width)), ports = drawn.map((d, k) => [xs[k] + d.port[0], G + d.port[1]]);
     const kPick = pick ? shown.indexOf(pick) : -1, kIn = shown.findIndex((id) => info(id).plugged && id === pick) >= 0 ? kPick : shown.findIndex((id) => info(id).plugged);
     const flowing = kIn >= 0 && info(shown[kIn]).charging;
     const stars = [[30, 14], [74, 30], [120, 10], [160, 26], [246, 12], [292, 32], [336, 12], [372, 28]].map(([sx, sy], n) => `<circle class="hstar${still ? "" : " hglow"}" style="animation-delay:${n * 0.3}s" cx="${sx}" cy="${sy}" r="1.3"/>`).join("");
-    const scene = `<svg viewBox="0 0 ${W} 122" role="img" aria-label="${tr("Biler og lader i aften", "Cars and charger tonight")}">${stars}<path class="hmoon" d="M206 8a10 10 0 1 0 8 15a8 8 0 0 1-8-15Z"/>
+    const scene = `<svg viewBox="0 0 ${W} 122" role="img" aria-label="${tr("Biler og lader i aften", "Cars and charger tonight")}">${stars}${deco.moon ? '<path class="hmoon" d="M206 8a10 10 0 1 0 8 15a8 8 0 0 1-8-15Z"/>' : ""}${deco.sky}
       <line class="hground" x1="2" x2="${W - 2}" y1="${G + 1.5}" y2="${G + 1.5}"/>${drawn.map((d, k) => `<g transform="translate(${xs[k]} ${G})">${d.svg}</g>`).join("")}
-      <rect class="hpost" x="190" y="58" width="20" height="${G - 58}" rx="6"/><rect class="hscreen${pick && !still ? " hglow" : ""}" x="194" y="63" width="12" height="9" rx="3"/>
+      <rect class="hpost" x="190" y="58" width="20" height="${G - 58}" rx="6"/><rect class="hscreen${pick && !still ? " hglow" : ""}" x="194" y="63" width="12" height="9" rx="3"/>${deco.front}
       ${kPick >= 0 && kIn !== kPick ? `<circle class="${still ? "" : "hpulse"}" cx="${ports[kPick][0]}" cy="${ports[kPick][1]}" r="5" fill="none" stroke="var(--accent)" stroke-width="2"/>` : ""}
       <path class="hcab" id="h-cab"/>${flowing && !still ? '<path class="hflow" id="h-flow"/>' : ""}
       <g id="h-plug"><rect x="-7" y="-4.5" width="12" height="9" rx="3" fill="var(--ink)"/><rect x="5" y="-3" width="4" height="1.6" rx=".8" fill="var(--ink)"/><rect x="5" y="1.4" width="4" height="1.6" rx=".8" fill="var(--ink)"/></g></svg>`;
@@ -1547,3 +1660,17 @@ class EvPlannerInsight extends HTMLElement {
 }
 
 if (!customElements.get("ev-planner-insight")) customElements.define("ev-planner-insight", EvPlannerInsight);
+
+/* For the themes page only: tonight's picture as the Overview draws it, for given cars and a day. */
+export function heroPicture({ cars, season = null, still = false }) {
+  const W = 400, G = 112, one = cars.length === 1, deco = heroDecor(season, one);
+  const drawn = cars.map((c, k) => sideCar(c.body, c.paint, { scale: 31, level: c.level, floor: c.floor, color: c.color, flip: k === 1, anim: !still, snow: deco && (season === "xmas" || season === "jul") }));
+  const xs = drawn.map((d, k) => (k === 0 ? 4 : W - 4 - d.width)), ports = drawn.map((d, k) => [xs[k] + d.port[0], G + d.port[1]]);
+  const stars = [[30, 14], [74, 30], [120, 10], [160, 26], [246, 12], [292, 32], [336, 12], [372, 28]].map(([sx, sy], n) => `<circle class="hstar${still ? "" : " hglow"}" style="animation-delay:${n * 0.3}s" cx="${sx}" cy="${sy}" r="1.3"/>`).join("");
+  const [px, py] = ports[0];
+  return `<svg viewBox="0 0 ${W} 122" role="img" aria-label="Biler og lader i aften">${stars}${deco.moon ? '<path class="hmoon" d="M206 8a10 10 0 1 0 8 15a8 8 0 0 1-8-15Z"/>' : ""}${deco.sky}
+    <line class="hground" x1="2" x2="${W - 2}" y1="${G + 1.5}" y2="${G + 1.5}"/>${drawn.map((d, k) => `<g transform="translate(${xs[k]} ${G})">${d.svg}</g>`).join("")}
+    <rect class="hpost" x="190" y="58" width="20" height="${G - 58}" rx="6"/><rect class="hscreen${still ? "" : " hglow"}" x="194" y="63" width="12" height="9" rx="3"/>${deco.front}
+    <path class="hcab" d="M196 100 C 186 ${G + 6}, ${px + 12} ${G + 4}, ${px + 4} ${py}"/></svg>`;
+}
+export { CSS as INSIGHT_CSS };
