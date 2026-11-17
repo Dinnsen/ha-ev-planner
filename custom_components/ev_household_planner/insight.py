@@ -38,11 +38,14 @@ from homeassistant.util import dt as dt_util, location as loc_util
 from .const import DOMAIN
 from .insight_model import (
     DEFAULT_STYLE,
+    RIPE_DAYS,
+    STEP_DAYS,
     STYLES,
     CarOutlook,
     backtest,
     choose,
     efficiency,
+    fitted_styles,
     forecast_errors,
     home_price,
     home_share,
@@ -252,6 +255,8 @@ class Insight:
         self._task: asyncio.Task[None] | None = None
         # What is expected tonight, for the panel: made each hour and when the evening's message goes out.
         self.tonight: dict[str, Any] = {}
+        # The careful steps fitted to the cars' own days, made again each day.
+        self._styles: tuple[date | None, list[dict[str, Any]]] = (None, list(STYLES))
 
     @staticmethod
     def _empty() -> dict[str, Any]:
@@ -705,7 +710,35 @@ class Insight:
         """How careful the household wants it (0 bold … 5 every night)."""
         value = number(self.household.settings.get(SET_INSIGHT_STYLE))
         index = int(value) if value is not None and 0 <= value < len(STYLES) else DEFAULT_STYLE
-        return STYLES[index]
+        return self.styles()[index]
+
+    def styles(self) -> list[dict[str, Any]]:
+        """The six steps: bold to careful fitted so each is about one night a week more, then every night."""
+        today = dt_util.now().date()
+        if self._styles[0] != today:
+            self._styles = (today, fitted_styles(self._style_cars(today)) or list(STYLES))
+        return self._styles[1]
+
+    def _style_cars(self, today: date) -> list[dict[str, Any]]:
+        """The cars that share a charger (or the first two), with what each of their last 90 days took."""
+        groups = [list(group.get("cars") or []) for group in self.tonight.get("groups") or []]
+        ids = next((group for group in groups if len(group) > 1), groups[0] if groups else [])
+        ids = ids or list(self.household.vehicles)[:2]
+        start = today - timedelta(days=STEP_DAYS)
+        cars = []
+        for vid in ids:
+            vehicle = self.household.vehicles.get(vid)
+            days = self.data["days"].get(vid) or {}
+            if vehicle is None or len(days) < RIPE_DAYS:
+                continue
+            used = [
+                float((days.get((start + timedelta(days=day)).isoformat()) or {}).get("used") or 0.0)
+                for day in range(STEP_DAYS)
+            ]
+            capacity = vehicle.capacity or 60.0
+            target = min(100.0, max(10.0, vehicle.target or 80.0))
+            cars.append({"used": used, "cap": capacity, "full": capacity * target / 100, "weekday": start.weekday()})
+        return cars
 
     def _known_need(self, vehicle: Vehicle, now: datetime) -> float:
         """A ready-by time with its own target within a day and a half: the car must have that."""
@@ -1039,5 +1072,7 @@ class Insight:
                 if slot.end > now
             ],
             "trips": [trip for trip in self.data["trips"] if trip.get("vehicle") not in hidden][-200:],
+            # How careful, step by step: fitted to the cars' own days, the panel plays the same.
+            "styles": self.styles(),
             "ledger": {day: self.data["ledger"][day] for day in sorted(self.data["ledger"])[-30:]},
         }

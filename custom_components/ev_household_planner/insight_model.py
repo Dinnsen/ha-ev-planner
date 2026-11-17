@@ -385,3 +385,109 @@ def backtest(
         for level in levels:
             hits[level] += actual <= (quantile(before, day.weekday(), level, day) or 0.0) + 0.05
     return rows, [{"said": level, "hit": round(hits[level] / len(rows), 3)} for level in levels] if rows else []
+
+
+# ----------------------------------------------------------------------
+# How careful: the steps fitted to the household's own driving.
+
+STEP_DAYS = 90
+
+
+def _pick(values: Sequence[float], p: float) -> float:
+    """The value ``p`` of the way up the sorted values (as the panel picks it)."""
+    ordered = sorted(values)
+    if not ordered:
+        return 0.0
+    index = int(p * (len(ordered) - 1) + 0.5)
+    return ordered[min(max(index, 0), len(ordered) - 1)]
+
+
+def nights_a_week(style: Mapping[str, Any], cars: Sequence[Mapping[str, Any]]) -> float | None:
+    """How many nights a week the cars would have charged with ``style``, played over their own days.
+
+    ``cars``: each ``{"used": [kWh of each day, oldest first], "cap": kWh, "full": kWh, "weekday": the first
+    day's weekday}``. The same rule as the evening's choice, and as the panel plays it.
+    """
+    if not cars:
+        return None
+    count = min(len(car["used"]) for car in cars)
+    if count < 15:
+        return None
+    by_weekday = []
+    for car in cars:
+        lists: list[list[float]] = [[] for _ in range(7)]
+        for day, used in enumerate(car["used"][:count]):
+            lists[(car["weekday"] + day) % 7].append(used)
+        by_weekday.append(lists)
+
+    def need(i: int, day: int, p: float) -> float:
+        return _pick(by_weekday[i][(cars[i]["weekday"] + day) % 7], p)
+
+    soc = [float(car["full"]) for car in cars]
+    charged = 0
+    for day in range(count - 1):
+
+        def floor(i: int, ahead: int, day: int = day) -> float:
+            return min(cars[i]["full"], need(i, day + ahead, style["level"]) + style["reserve"] * cars[i]["cap"])
+
+        def reach(i: int, day: int = day) -> int:
+            left = soc[i]
+            if left < floor(i, 1) - 1e-6:
+                return 0
+            nights = 1
+            for ahead in range(1, 4):
+                left -= need(i, day + ahead, style["rest"])
+                if left < floor(i, ahead + 1):
+                    break
+                nights = ahead + 1
+            return nights
+
+        nights = [reach(i) for i in range(len(cars))]
+        must = [i for i, value in enumerate(nights) if value == 0]
+        below = [i for i in range(len(cars)) if soc[i] < cars[i]["full"] - 0.5]
+        share = lambda i: soc[i] / cars[i]["cap"]  # noqa: E731
+        pick = None
+        if must:
+            pick = max(must, key=lambda i: (floor(i, 1) - soc[i]) / cars[i]["cap"])
+        elif len(cars) > 1 and min(nights) <= 1 and min(nights) == max(nights) and below:
+            pick = min(below, key=share)
+        elif style["every"] and below:
+            pick = min(below, key=lambda i: (nights[i], share(i)))
+        if pick is not None:
+            soc[pick] = max(soc[pick], cars[pick]["full"])
+            charged += 1
+        for i, car in enumerate(cars):
+            soc[i] = max(0.0, soc[i] - car["used"][day + 1])
+    return charged / ((count - 1) / 7)
+
+
+def fitted_styles(cars: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]] | None:
+    """Steps 0-4 so that each is about one night a week more than the one before, on the household's own days.
+
+    "Every night" stays the last step. None without enough driving to play over.
+    """
+    every = nights_a_week(STYLES[-1], cars)
+    if every is None:
+        return None
+    # What a hard day is, and above all the reserve kept on top of it, decide how often a car charges.
+    tried: list[tuple[float, dict[str, Any]]] = []
+    for level in (0.6, 0.7, 0.8, 0.9, 0.95):
+        for percent in range(5, 61):
+            style = {"level": level, "reserve": percent / 100, "rest": 0.5, "every": False}
+            nights = nights_a_week(style, cars)
+            if nights is not None:
+                tried.append((nights, style))
+    if not tried:
+        return None
+    low = min(nights for nights, _ in tried)
+    high = min(every - 0.5, max(nights for nights, _ in tried))
+    step = 1.0 if high - low >= 4 else max(0.0, high - low) / 4
+    chosen: list[dict[str, Any]] = []
+    last = low
+    for k in range(5):
+        want = low + k * step
+        later = [(nights, style) for nights, style in tried if nights >= last - 1e-9]
+        nights, style = min(later, key=lambda item: (abs(item[0] - want), item[1]["reserve"], item[1]["level"]))
+        chosen.append(style)
+        last = nights
+    return [*chosen, dict(STYLES[-1])]

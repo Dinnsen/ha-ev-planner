@@ -244,3 +244,39 @@ def test_the_hours_a_car_is_home_and_its_prices_by_day_too() -> None:
     mixed = [light("a", 46.0, now_price=2.0, later=[0.5, 0.5, 0.5]), light("b", 47.0, now_price=1.0, later=[2.0] * 3)]
     assert choose(mixed, 1.0, [1.0, 1.0, 1.0], [])["wait"] is False
     assert light("a", 46.0, now_price=2.0, later=[0.5]).as_dict()["later"] == [0.5]
+
+
+def test_the_careful_steps_are_fitted_to_one_more_night_a_week_each() -> None:
+    """Steps 0-4 are about a night a week apart on the household's own days; every night stays last."""
+    from itertools import pairwise
+
+    from custom_components.ev_household_planner.insight_model import STYLES, fitted_styles, nights_a_week
+
+    # Two cars, a working week with a long Friday, 90 days.
+    week_a = [9.0, 9.5, 8.0, 10.0, 22.0, 3.0, 2.0]
+    week_b = [4.0, 5.0, 4.5, 6.0, 5.0, 12.0, 1.0]
+    cars = [
+        {
+            "used": [week_a[d % 7] * (1 + 0.15 * ((d * 7) % 5 - 2) / 2) for d in range(90)],
+            "cap": 60.0,
+            "full": 48.0,
+            "weekday": 0,
+        },
+        {
+            "used": [week_b[d % 7] * (1 + 0.2 * ((d * 3) % 5 - 2) / 2) for d in range(90)],
+            "cap": 40.0,
+            "full": 32.0,
+            "weekday": 0,
+        },
+    ]
+    steps = fitted_styles(cars)
+    assert steps is not None and len(steps) == 6
+    assert steps[-1] == STYLES[-1]
+    nights = [nights_a_week(step, cars) for step in steps[:5]]
+    assert all(b >= a for a, b in pairwise(nights))
+    gaps = [b - a for a, b in pairwise(nights)]
+    assert max(gaps) <= 1.6
+    # From the boldest the household can have to half a night under every night.
+    assert nights[-1] - nights[0] >= 2.5
+    # Too few days: the fixed steps are used.
+    assert fitted_styles([{**cars[0], "used": cars[0]["used"][:10]}]) is None

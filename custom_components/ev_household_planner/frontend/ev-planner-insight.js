@@ -358,6 +358,8 @@ function boot(host, root) {
   let WD, WDL, TODAY, NOWH, ids, CARS, temp, night, avg, PD, trips, charges, daily, L, PLACES, HOME, OTHER;
   let H, START, K, KW, price, sigma, TL, priceH, fcH, PLAN;
   const tr = (a, b) => (da ? a : b);
+  // How careful, step by step: fitted by the integration to the cars' own days, else the fixed steps.
+  const steps = () => (Array.isArray(DATA.styles) && DATA.styles.length === 6 ? DATA.styles : STYLES);
   const nf = (v, d = 0) => (v == null || !Number.isFinite(Number(v)) ? "–" : Number(v).toFixed(d).replace(".", da ? "," : "."));
   const kr = (v, d = 2) => nf(v, d);
   const money = (v, d = 2) => (v == null || !Number.isFinite(Number(v)) ? "–" : IN.money(Number(v), d));
@@ -567,7 +569,7 @@ function boot(host, root) {
     const st = {}, cells = {};
     for (const id of ids) { const lvl = cars[id].level; st[id] = { kwh: lvl == null ? null : (lvl / 100) * CARS[id].cap, target: ((Number(CARS[id].live.target) || 80) / 100) * CARS[id].cap, knows: CARS[id].week.length === 7 }; cells[id] = []; }
     // As careful as the household chose: what a hard day is, the reserve, how the days after count.
-    const style = STYLES[clamp(Math.round(Number(IN.style ?? 3)), 0, 5)] || STYLES[3];
+    const style = steps()[clamp(Math.round(Number(IN.style ?? 3)), 0, 5)] || steps()[3];
     const wdOfN = (d) => new Date(t0 + d * DAY + DAY / 2).getDay();
     const qd = (id, d, p) => { const list = L[id].byWd[wdOfN(d)] || []; return list.length ? q(list, p) : 0; };
     const floor = (id, d) => Math.min(st[id].target, qd(id, d, style.level) + style.reserve * CARS[id].cap);
@@ -1266,8 +1268,10 @@ function boot(host, root) {
 
   /* ---------- Learned: how careful. What each choice would have done on the household's own days. */
   const NAMES9 = () => (da ? ["Modig", "Lidt modig", "Mellem", "Anbefalet", "Forsigtig", "Hver nat"] : ["Bold", "Fairly bold", "Middle", "Recommended", "Careful", "Every night"]);
-  const HOW9 = () => STYLES.map((st, i) => (i === 5 ? tr("den laveste bil lader hver nat, den ikke er fuld (som før)", "the lowest car charges every night it is not full (as before)") : tr(`en bil lader kun, når den ellers ikke har til en ${{ 0.6: "6-af-10", 0.7: "7-af-10", 0.8: "8-af-10", 0.9: "9-af-10", 0.95: "19-af-20" }[st.level]}-dag og ${Math.round(st.reserve * 100)} % i reserve, eller når bilerne ellers ville mødes ved laderen`, `a car charges only when it would not have enough for a ${{ 0.6: "6-in-10", 0.7: "7-in-10", 0.8: "8-in-10", 0.9: "9-in-10", 0.95: "19-in-20" }[st.level]} day and ${Math.round(st.reserve * 100)} % in reserve, or when the cars would otherwise meet at the charger`)));
-  let runsFor = null, RUNS = [];
+  // A day as hard as p of the household's days: «en 9-af-10-dag», or as a share when it is not a round one.
+  const hardDay = (p) => { const k = Math.round(p * 100); return k % 10 === 0 ? tr(`${k / 10}-af-10`, `${k / 10}-in-10`) : k === 95 ? tr("19-af-20", "19-in-20") : tr(`${k}-af-100`, `${k}-in-100`); };
+  const HOW9 = () => steps().map((st, i) => (i === 5 ? tr("den laveste bil lader hver nat, den ikke er fuld (som før)", "the lowest car charges every night it is not full (as before)") : tr(`en bil lader kun, når den ellers ikke har til en ${hardDay(st.level)}-dag og ${Math.round(st.reserve * 100)} % i reserve, eller når bilerne ellers ville mødes ved laderen`, `a car charges only when it would not have enough for a ${hardDay(st.level)} day and ${Math.round(st.reserve * 100)} % in reserve, or when the cars would otherwise meet at the charger`)));
+  let runsFor = null, runsSteps = null, RUNS = [];
   // The cars that share a charger (or the one car): each night one of them may have it.
   const c9cars = () => { const groups = ((DATA.tonight || {}).groups || []).map((g) => (g.cars || []).filter((id) => CARS[id] && daily[id])); return (groups.find((g) => g.length > 1) || groups[0] || ids.slice(0, 2)).filter((id) => daily[id]); };
   function simulate(style, list) {
@@ -1302,7 +1306,7 @@ function boot(host, root) {
     if (!card) return;
     card.hidden = !list.length || !list.every((id) => CARS[id].known >= 28 || sum(daily[id]) > 0);
     if (card.hidden) return;
-    if (runsFor !== daily) { runsFor = daily; RUNS = STYLES.map((st) => simulate(st, list)); }
+    if (runsFor !== daily || runsSteps !== steps()) { runsFor = daily; runsSteps = steps(); RUNS = steps().map((st) => simulate(st, list)); }
     const i = clamp(S.c9 ?? Math.round(Number(IN.style ?? 3)), 0, 5), r = RUNS[i], input = $("#c9lv");
     if (root.activeElement !== input) input.value = String(i);
     const name = $("#c9-name"); name.textContent = NAMES9()[i]; name.className = `c9name${i <= 1 ? " hot" : i === 5 ? " calm" : ""}`;
