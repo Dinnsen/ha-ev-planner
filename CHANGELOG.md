@@ -2,6 +2,18 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b33] - 2026-11-17
+
+### Changed
+
+- **The cars' week and "Have enough for" follow one rule.** The circles under "Have enough for" are the coming seven nights from tonight, worked out as the cars' week is; at the household's own step they are the same nights, and moving the slider shows what this week would be at that step. The numbers (nights a week, days under 5 %, the morning) are still from the household's own 90 days.
+- **Christmas lights on the house** are coloured (red, gold, green, warm white and blue, as the garland in Learning), bigger and closer, so they are seen by day too.
+
+### Fixed
+
+- **Tonight in the cars' week is the plan as it is**: every car EV Planner's own plan charges tonight has its bolt, so the table, the graph and Home agree (before, only Insight's choice had one).
+- Insight's tabs (Overview, Driving, Power, Learned) sit above the tab bar again on a phone: the bar is measured with the room for the home indicator, which can come after it is drawn.
+
 ## [2.5.0b32] - 2026-11-17
 
 ### Added
