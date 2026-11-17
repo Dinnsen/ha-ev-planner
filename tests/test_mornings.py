@@ -147,7 +147,8 @@ async def test_a_car_that_cannot_make_it_is_warned_about_once(
     assert warning[0]["data"]["actions"][0]["action"] == f"{ACTION_CHARGE_NOW}_{TESLA}"
     await move(hass, freezer, now + timedelta(minutes=2))
     assert len(_tagged(notify, "short")) == 1
-    # Without the receipt setting, nothing is sent.
+    # The warning has its own card in the message centre: turned off there, nothing is sent (the receipt is apart).
+    await household.async_update_settings({"messages": {"short": {"on": False}}})
     await household.async_set_vehicle(TESLA, {"notify_receipt": False, "ready_by": "20:45"})
     await move(hass, freezer, now + timedelta(minutes=3))
     assert len(_tagged(notify, "short")) == 1
