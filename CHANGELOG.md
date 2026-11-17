@@ -2,6 +2,24 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b32] - 2026-11-17
+
+### Added
+
+- **An afternoon departure** at 15:00 (Frank's wish): home by the afternoon and out again. New households have Morning 06:00, Midday 12:00, Afternoon 15:00 and Evening 18:00; a household's own list gets the afternoon once, after midday, and keeps its own times.
+
+### Changed
+
+- **"How careful" has eleven steps**, about half a night a week apart, from Bold to Every night; Settings → Insight has the same slider. A step chosen before keeps its place (old step n is step 2n).
+- **Departures look like the messages and the holidays**: a card per departure with its time and what it does; "Adjust" opens it. The long text is behind a "?".
+- **At Christmas the house's trees are spruces**, green by day too, with lights, baubles and a star.
+- The profile menu is 90 % solid, with a light blur behind it.
+
+### Fixed
+
+- **A price forecast that is only the tariffs is left out.** Energi Data Service gives one when its Carnot forecast is missing: the tariffs' few steps, far under every published price. The coming days, the probability and the plans no longer wait for nights that only look cheap.
+- The night's price bars by "a cheap night" stand still (they flew up with the Midsummer bonfire's sparks).
+
 ## [2.5.0b31] - 2026-11-17
 
 ### Added
