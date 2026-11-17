@@ -2,6 +2,31 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b31] - 2026-11-17
+
+### Added
+
+- **The message centre** (Settings → Messages): a card per message and a phone beside them with one example of each message that is on, in the order they come. Each card: on and off, which cars, which phones, icon and colour on the phone, and whether it goes through the quiet hours or is held back. After the quiet hours what was held back comes as one message ("While you slept"), or nothing.
+- **Evening status at 22:00** for every car, also when it is plugged in: the battery, whether it is plugged in, when it charges and about what it costs. Time, days and which cars (all, plugged in, not plugged in) can be chosen; live with a bar for the battery.
+- **Holidays and special days**: Hverdagsro's eleven days with days before and after, the dates of the anniversaries and the household's birthdays. The house and Learning are decorated; the weather stays the weather (no holiday snow).
+- **Three looks**, chosen per person in the profile menu: Frisk (as before), Hverdag, and Theme Studio when it is installed.
+- **Hide the map** per car (Devices & services → EV Planner → the car → Privacy). The trips and places are still logged, but the map and the trips are not sent to the panel.
+- The support file counts each car's trips, places and position reports of the last 10 days, and how many of them have a position. No positions are in it.
+
+### Changed
+
+- **Tabs: Home, Cars, Guest, Learning, History.** Settings, messages, the look, the holidays and the support file are in the profile menu; History is a tab of its own.
+- **"How careful" fits the household**: each step about one night more a week, from the household's own days; "Every night" is the last step.
+- Trips are counted between parked positions, also for cars that only report where they are when they stand still.
+- "Cannot reach the target" is its own message, not part of the morning receipt.
+
+### Fixed
+
+- Frank: a car found at a charger was asked again and again (104 times in an hour and a half). It is asked at most three times per plug-in.
+- No "Paused at …" message when you paused the car yourself.
+- "kr.." at the end of a message.
+- The house's window light and its glow stay on their own wall, the cables are hidden behind roofs, and trees in front of the house are drawn in front of it.
+
 ## [2.5.0b30] - 2026-11-16
 
 ### Changed
