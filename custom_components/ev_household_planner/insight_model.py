@@ -445,7 +445,10 @@ def nights_a_week(style: Mapping[str, Any], cars: Sequence[Mapping[str, Any]]) -
         nights = [reach(i) for i in range(len(cars))]
         must = [i for i, value in enumerate(nights) if value == 0]
         below = [i for i in range(len(cars)) if soc[i] < cars[i]["full"] - 0.5]
-        share = lambda i: soc[i] / cars[i]["cap"]  # noqa: E731
+
+        def share(i: int) -> float:
+            return float(soc[i] / cars[i]["cap"])
+
         pick = None
         if must:
             pick = max(must, key=lambda i: (floor(i, 1) - soc[i]) / cars[i]["cap"])
