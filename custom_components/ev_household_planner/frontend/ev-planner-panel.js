@@ -10579,7 +10579,7 @@ class EvPlannerPanel extends HTMLElement {
       })),
       homeKw: Math.max(0, ...this._chargers.map((c) => Number(c.power) || 0)) || 11,
       window: this._insight?.window || [21, 7],
-      style: Number.isInteger(Number(settings.insight_style)) ? Number(settings.insight_style) : 3,
+      style: Number.isInteger(Number(settings.insight_style)) ? Number(settings.insight_style) : 6,
       use: Boolean(settings.insight_use),
       names: settings.insight_names || {},
       // The holiday or special day whose decorations are up.
