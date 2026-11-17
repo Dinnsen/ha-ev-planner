@@ -561,7 +561,9 @@ async def test_the_evening_which_car_and_the_hold(
     await hass.async_block_till_done()
     await insight._async_decide(now, tell=True)
     assert insight.tonight["groups"][0]["both"] is True
-    assert notify.messages()[-1] == planner.text("insight_plug_both", car="Tesla", other="Mercedes")
+    # The week plan never gives both the same hour: the car it charges the most in the coming hours is named.
+    need = round(insight.tonight["cars"][TESLA]["p90"])
+    assert notify.messages()[-1] == planner.text("insight_plug_why", car="Tesla", other="Mercedes", soc=20, need=need)
     # In the window the evening's choice stands.
     inside = at(now, hour=23)
     kept = insight.data["ledger"][dt_util.as_local(now).date().isoformat()]
