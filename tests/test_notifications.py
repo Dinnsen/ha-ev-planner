@@ -475,3 +475,50 @@ async def test_no_pause_message_when_the_household_paused_the_car_itself(
     hass.states.async_set(CHARGING, "off")
     await settle(hass, freezer)
     assert not [c for c in notify.calls if c.get("data", {}).get("tag") == f"evp_done_{TESLA}"]
+
+
+async def test_the_message_centre_holds_a_kind_back_or_lets_it_through_and_sums_up_the_night(
+    hass: HomeAssistant, household: MockConfigEntry, notify: NotifyCalls
+) -> None:
+    """A kind can be off, go through the quiet hours, or wait for them to end in one message."""
+    planner = household.runtime_data
+    await planner.async_update_settings(
+        {
+            "quiet_enabled": True,
+            "quiet_from": "00:00",
+            "quiet_to": "23:59",
+            "messages": {"short": {"through": False}, "receipt": {"on": False}, "plug": {"through": True}},
+        }
+    )
+    notify.calls.clear()
+    await planner.notifier.send(title="Tesla", message="Not quite", tag=f"evp_short_{TESLA}", icon="mdi:car")
+    await planner.notifier.send(title="Tesla", message="Ready", tag=f"evp_receipt_{TESLA}", icon="mdi:car")
+    await planner.notifier.send(title="Tesla", message="Plugged in", tag=f"evp_plug_{TESLA}", icon="mdi:car")
+    # Only the one that goes through the quiet hours is sent; the held one waits, the one that is off is gone.
+    assert [call["message"] for call in notify.calls] == ["Plugged in"]
+    assert planner.notifier.waiting == [("Tesla", "Not quite")]
+    # The quiet hours end: one message with what was held back.
+    await planner.async_update_settings({"quiet_enabled": False})
+    await planner.notifier.async_flush("EV Planner", "While you slept:")
+    assert notify.calls[-1]["message"] == "While you slept:\nTesla: Not quite"
+    assert planner.notifier.waiting == []
+
+
+async def test_the_evening_status_goes_at_its_time_also_when_the_car_is_plugged_in(
+    hass: HomeAssistant, household: MockConfigEntry, notify: NotifyCalls
+) -> None:
+    planner = household.runtime_data
+    await planner.async_update_settings({"messages": {"evening": {"at": "21:30", "live": True}}})
+    tesla = planner.vehicles[TESLA]
+    set_tesla(hass, soc=54, cable=True)
+    await hass.async_block_till_done()
+    notify.calls.clear()
+    evening = dt_util.now().replace(hour=21, minute=35, second=0, microsecond=0)
+    await planner._async_evening(evening)
+    sent = [c for c in notify.calls if c.get("data", {}).get("tag") == f"evp_evening_{TESLA}"]
+    assert sent and sent[0]["message"].startswith("54 % · plugged in")
+    assert sent[0]["data"]["progress"] == 54
+    # Once an evening.
+    await planner._async_evening(evening.replace(minute=40))
+    assert len([c for c in notify.calls if c.get("data", {}).get("tag") == f"evp_evening_{TESLA}"]) == 1
+    assert tesla.connected is True

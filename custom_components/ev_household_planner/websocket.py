@@ -20,6 +20,7 @@ from .const import (
     CONF_SUPPLY_SHARE,
     CONF_SUPPLY_WAIT,
     CONTROL_FAILS_ISSUE,
+    DAY_KEYS,
     DOMAIN,
     FORGET_RESUME,
     GUEST_BATTERY,
@@ -34,6 +35,7 @@ from .const import (
     GUEST_SOC,
     GUEST_STEP,
     GUEST_USE_READY_BY,
+    MESSAGE_KINDS,
     MODES,
     OCCUPANT_GUEST,
     OPPORTUNISTIC_OPTIONS,
@@ -263,6 +265,42 @@ SETTINGS_SCHEMA = vol.Schema(
         },
         vol.Optional("quiet_from"): _hhmm,
         vol.Optional("quiet_to"): _hhmm,
+        vol.Optional("quiet_after"): vol.In(["digest", "drop"]),
+        vol.Optional("messages"): {
+            vol.In(MESSAGE_KINDS): vol.Schema(
+                {
+                    vol.Optional("on"): cv.boolean,
+                    vol.Optional("cars"): vol.Any("all", [cv.string]),
+                    vol.Optional("to"): vol.Any("all", [cv.string]),
+                    vol.Optional("through"): cv.boolean,
+                    vol.Optional("icon"): vol.All(cv.string, vol.Length(max=60)),
+                    vol.Optional("color"): vol.Match(r"^#[0-9A-Fa-f]{6}$"),
+                    vol.Optional("live"): cv.boolean,
+                    vol.Optional("at"): _hhmm,
+                    vol.Optional("days"): [vol.All(vol.Coerce(int), vol.Range(min=0, max=6))],
+                    vol.Optional("plugged"): vol.In(["all", "in", "out"]),
+                }
+            )
+        },
+        vol.Optional("days"): {
+            vol.In(DAY_KEYS): vol.Schema(
+                {
+                    vol.Optional("on"): cv.boolean,
+                    vol.Optional("before"): vol.All(vol.Coerce(int), vol.Range(min=0, max=40)),
+                    vol.Optional("after"): vol.All(vol.Coerce(int), vol.Range(min=0, max=40)),
+                    vol.Optional("date"): vol.Any(None, vol.Match(r"^(\d{4}-)?\d{2}-\d{2}$")),
+                }
+            )
+        },
+        vol.Optional("day_people"): vol.All(
+            [
+                {
+                    vol.Required("name"): vol.All(cv.string, vol.Length(max=40)),
+                    vol.Required("date"): vol.Match(r"^(\d{4}-)?\d{2}-\d{2}$"),
+                }
+            ],
+            vol.Length(max=30),
+        ),
         vol.Optional("departures"): vol.All(
             cv.ensure_list,
             vol.Length(max=20),

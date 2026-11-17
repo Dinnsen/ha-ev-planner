@@ -1007,8 +1007,8 @@ function boot(host, root) {
       <line x1="${(mod(w0 - from, 24)) * 20}" x2="${Math.min(400, (mod(w0 - from, 24) + mod(w1 - w0, 24)) * 20)}" y1="47.5" y2="47.5" stroke="var(--ink)" stroke-width="1.5" opacity=".5"/></svg></div>` : "";
     // The picture: the cars by their sides, filled to their level, a hard day's floor as a dashed line, and the cable.
     const W = 400, G = 112;
-    const season = globalThis.EV_SEASON !== undefined ? globalThis.EV_SEASON : seasonOf(TODAY), deco = heroDecor(season, shown.length === 1);
-    const drawn = shown.map((id, k) => { const { c, o, lvl } = info(id); return sideCar(c.live.body, c.live.paint, { scale: 31, level: lvl ?? 0, floor: o.floor_pct, color: c.col, flip: k === 1, anim: st0(), snow: season === "xmas" }); });
+    const season = IN.season !== undefined ? IN.season : seasonOf(TODAY), deco = heroDecor(season, shown.length === 1);
+    const drawn = shown.map((id, k) => { const { c, o, lvl } = info(id); return sideCar(c.live.body, c.live.paint, { scale: 31, level: lvl ?? 0, floor: o.floor_pct, color: c.col, flip: k === 1, anim: st0(), snow: false }); });
     const xs = drawn.map((d, k) => (k === 0 ? 4 : W - 4 - d.width)), ports = drawn.map((d, k) => [xs[k] + d.port[0], G + d.port[1]]);
     const kPick = pick ? shown.indexOf(pick) : -1, kIn = shown.findIndex((id) => info(id).plugged && id === pick) >= 0 ? kPick : shown.findIndex((id) => info(id).plugged);
     const flowing = kIn >= 0 && info(shown[kIn]).charging;
@@ -1567,7 +1567,7 @@ function boot(host, root) {
 
   /* ---------- the whole page */
   // History is a tab of its own as well: the panel draws it (the charges, by car and by charger).
-  const TABS = () => [["plan", tr("Overblik", "Overview")], ["bil", tr("Kørsel", "Driving")], ["lad", tr("Strøm", "Power")], ["laer", tr("Lært", "Learned")], ["hist", tr("Historik", "History")]];
+  const TABS = () => [["plan", tr("Overblik", "Overview")], ["bil", tr("Kørsel", "Driving")], ["lad", tr("Strøm", "Power")], ["laer", tr("Lært", "Learned")]];
   const GROUP = { plan: ["plan"], bil: ["bil"], lad: ["pris", "lad"], laer: ["laer", "forud"] };
   const PANELS = ["plan", "bil", "pris", "lad", "laer", "forud"];
   function render(calm = false) {
@@ -1646,7 +1646,7 @@ class EvPlannerInsight extends HTMLElement {
   /* What the panel knows. Drawn again only when something that is shown has changed. */
   set input(value) {
     this.toggleAttribute("dark", !!value.dark);
-    const key = JSON.stringify([value.lang, value.dark, value.insightAt, value.statsAt, Math.floor(value.now / 3600000), value.style, value.use, (value.cars || []).map((c) => [c.id, Math.round(Number(c.soc) || 0), c.connected, c.charging, c.plan && c.plan.segments.length, (c.history || []).length, c.body, c.paint, c.spot]), (value.prices || []).length, value.names, value.tracksAt, (value.zones || []).length, value.tiles]);
+    const key = JSON.stringify([value.lang, value.dark, value.insightAt, value.statsAt, Math.floor(value.now / 3600000), value.style, value.use, (value.cars || []).map((c) => [c.id, Math.round(Number(c.soc) || 0), c.connected, c.charging, c.plan && c.plan.segments.length, (c.history || []).length, c.body, c.paint, c.spot]), (value.prices || []).length, value.names, value.season, value.tracksAt, (value.zones || []).length, value.tiles]);
     if (key === this._key) return;
     const fresh = !this._key;
     this._key = key;

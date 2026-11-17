@@ -69,6 +69,13 @@ const TEXT = {
     home_guard: "Vagten holder øje med måleren og skruer bilerne ned med det samme, hvis huset pludselig skal bruge mere.",
     tab_guest: "Gæst",
     tab_history: "Læring",
+    tab_past: "Historik",
+    prof_open: "Profil og indstillinger",
+    prof_settings: "Indstillinger",
+    prof_notifications: "Beskeder",
+    prof_look: "Udseende",
+    prof_days: "Højtider og mærkedage",
+    prof_support: "Supportfil",
     tab_settings: "Indstillinger",
     loading: "Henter EV Planner …",
     back: "Biler",
@@ -674,6 +681,13 @@ const TEXT = {
     home_guard: "The guard watches the meter and turns the cars down at once if the house suddenly needs more.",
     tab_guest: "Guest",
     tab_history: "Learning",
+    tab_past: "History",
+    prof_open: "Profile and settings",
+    prof_settings: "Settings",
+    prof_notifications: "Messages",
+    prof_look: "Look",
+    prof_days: "Holidays and special days",
+    prof_support: "Support file",
     tab_settings: "Settings",
     loading: "Loading EV Planner …",
     back: "Cars",
@@ -1493,7 +1507,51 @@ const DEADLINE_PRESETS = ["06:00", "07:00", "08:00"];
 const MODES = ["smart", "charge_now", "pause", "off"];
 const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 const OPPORTUNISTIC = ["off", "lower_ceiling", "follow_end_price"];
-const TABS = ["cars", "home", "guest", "history", "settings"];
+const TABS = ["home", "cars", "guest", "history", "past"];
+// The pages one can be on: the tabs, and the settings (opened from the profile menu).
+const PAGES = [...TABS, "settings"];
+// Holidays and special days: Hverdagsro's days and its dates, with days before and after (changed per day).
+const DAY_KEYS = ["jul", "nytaar", "fastelavn", "paaske", "halloween", "fodselsdag", "grundlov", "sankthans", "valentin", "aarsdag", "bryllup"];
+const DAY_DEFAULTS = { jul: [23, 2], nytaar: [0, 1], fastelavn: [2, 0], paaske: [4, 0], halloween: [7, 0], fodselsdag: [1, 0], grundlov: [0, 0], sankthans: [0, 0], valentin: [0, 0], aarsdag: [0, 0], bryllup: [1, 0] };
+const DAY_COLOURS = { jul: "#D9473B", nytaar: "#E3A21A", fastelavn: "#8B5CF6", paaske: "#D4A20B", halloween: "#F97316", fodselsdag: "#E4568C", grundlov: "#C8102E", sankthans: "#EA580C", valentin: "#EC4899", aarsdag: "#E11D48", bryllup: "#C9A227" };
+function easterOf(year) {
+  const a = year % 19, b = Math.floor(year / 100), c = year % 100, d = Math.floor(b / 4), e = b % 4;
+  const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  return new Date(year, Math.floor((h + l - 7 * m + 114) / 31) - 1, ((h + l - 7 * m + 114) % 31) + 1);
+}
+const dayAt = (y, m, d) => new Date(y, m - 1, d);
+const dayPlus = (date, n) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + n);
+// A "MM-DD" or "YYYY-MM-DD" date on a given year.
+const onYear = (y, text) => { const m = /^(?:\d{4}-)?(\d{2})-(\d{2})$/.exec(String(text || "")); return m ? dayAt(y, Number(m[1]), Number(m[2])) : null; };
+// Each day's own dates in a year (before the days before and after): [[first, last], …].
+function dayDates(key, y, conf, people) {
+  switch (key) {
+    case "jul": return [[dayAt(y, 12, 24), dayAt(y, 12, 26)]];
+    case "nytaar": return [[dayAt(y, 12, 31), dayAt(y + 1, 1, 1)]];
+    case "fastelavn": { const d = dayPlus(easterOf(y), -49); return [[d, d]]; }
+    case "paaske": return [[dayPlus(easterOf(y), -3), dayPlus(easterOf(y), 1)]];
+    case "halloween": return [[dayAt(y, 10, 31), dayAt(y, 10, 31)]];
+    case "grundlov": return [[dayAt(y, 6, 5), dayAt(y, 6, 5)]];
+    case "sankthans": return [[dayAt(y, 6, 23), dayAt(y, 6, 23)]];
+    case "valentin": return [[dayAt(y, 2, 14), dayAt(y, 2, 14)]];
+    case "fodselsdag": return (people || []).map((p) => onYear(y, p.date)).filter(Boolean).map((d) => [d, d]);
+    default: { const d = onYear(y, conf.date); return d ? [[d, d]] : []; }
+  }
+}
+// The day whose decorations are up now (the first in the list wins), or null.
+function dayNow(settings, now = new Date()) {
+  const days = settings?.days || {}, people = settings?.day_people || [];
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  for (const key of DAY_KEYS) {
+    const conf = { on: true, before: DAY_DEFAULTS[key][0], after: DAY_DEFAULTS[key][1], ...(days[key] || {}) };
+    if (conf.on === false) continue;
+    for (const y of [today.getFullYear() - 1, today.getFullYear()]) {
+      for (const [a, b] of dayDates(key, y, conf, people)) if (today >= dayPlus(a, -conf.before) && today <= dayPlus(b, conf.after)) return key;
+    }
+  }
+  return null;
+}
 const TAB_KEY = "ev-planner-tab";
 const CAR_KEY = "ev-planner-car";
 const LEVEL_KEY = "ev-planner-level";
@@ -5184,7 +5242,7 @@ class EvPlannerPanel extends HTMLElement {
     super();
     this.attachShadow({ mode: "open" });
     const tab = this._read(TAB_KEY);
-    this._tab = TABS.includes(tab) ? tab : "cars";
+    this._tab = PAGES.includes(tab) ? tab : "home";
     this._carId = this._read(CAR_KEY) || null;
     // How many choices the car page shows: Simple, Smart (as before) or Expert.
     const level = this._read(LEVEL_KEY);
@@ -5218,6 +5276,32 @@ class EvPlannerPanel extends HTMLElement {
 
   // ------------------------------------------------------------------ Home Assistant wiring
 
+  // The look, chosen per person (Home Assistant keeps it with the user): Frisk, Hverdag, or Theme Studio when it is installed.
+  _looks() {
+    const studio = (this._hass?.config?.components || []).includes("theme_studio");
+    return ["frisk", "hverdag", ...(studio ? ["studio"] : [])];
+  }
+
+  _applyTheme() {
+    if (this._lookAsked === undefined && this._hass?.callWS) {
+      this._lookAsked = true;
+      this._hass
+        .callWS({ type: "frontend/get_user_data", key: "ev_planner_look" })
+        .then((answer) => { this._look = answer?.value || null; this._applyTheme(); })
+        .catch(() => {});
+    }
+    const look = this._looks().includes(this._look) ? this._look : "frisk";
+    if (this.getAttribute("look") !== look) this.setAttribute("look", look);
+  }
+
+  _setLook(look) {
+    if (!this._looks().includes(look)) return;
+    this._look = look;
+    this._applyTheme();
+    this._hass?.callWS?.({ type: "frontend/set_user_data", key: "ev_planner_look", value: look }).catch(() => {});
+    if (this._tab === "settings") this._render();
+  }
+
   set hass(hass) {
     const first = !this._hass;
     this._hass = hass;
@@ -5228,6 +5312,14 @@ class EvPlannerPanel extends HTMLElement {
       this._renderShell();
       this._subscribe();
     }
+    const prof = this.shadowRoot.querySelector(".prof");
+    if (prof) {
+      const name = String(hass?.user?.name || "").trim();
+      const initial = (name[0] || "?").toUpperCase();
+      if (prof.textContent !== initial) prof.textContent = initial;
+      prof.setAttribute("aria-label", `${this._t("prof_open")}${name ? ` · ${name}` : ""}`);
+    }
+    this._applyTheme();
   }
 
   set narrow(narrow) {
@@ -5263,7 +5355,7 @@ class EvPlannerPanel extends HTMLElement {
     const id = raw ? decodeURIComponent(raw) : null;
     if (kind === "car" && id) [this._tab, this._carId, this._chargerId] = ["cars", id, null];
     else if (kind === "charger" && id) [this._tab, this._carId, this._chargerId] = ["home", null, id];
-    else if (TABS.includes(kind)) [this._tab, this._carId, this._chargerId] = [kind, null, null];
+    else if (PAGES.includes(kind)) [this._tab, this._carId, this._chargerId] = [kind, null, null];
     else return false;
     this._dropDraft();
     this._markDrilled();
@@ -5567,7 +5659,7 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   _setTab(tab) {
-    if (!TABS.includes(tab)) return;
+    if (!PAGES.includes(tab)) return;
     this._tab = tab;
     this._histClassic = null;
     this._sheet = null;
@@ -5846,11 +5938,36 @@ class EvPlannerPanel extends HTMLElement {
           <div class="menu"></div>
           <div class="brand">${MARK}<span>EV Planner</span></div>
           <nav class="tabs" role="tablist" aria-label="EV Planner"></nav>
+          <div class="prof-wrap"><button class="prof" aria-haspopup="menu" aria-expanded="false"></button><div class="prof-menu" role="menu" hidden></div></div>
         </header>
         <main class="content"><div class="loading">${MARK}<p>${this._t("loading")}</p></div></main>
         <div class="toast" role="status" aria-live="polite"></div>
         <div class="sheet-root"></div>
       </div>`;
+    // The profile menu: the settings, the messages, the look and the holidays.
+    const prof = this.shadowRoot.querySelector(".prof"), profMenu = this.shadowRoot.querySelector(".prof-menu");
+    if (prof && profMenu) {
+      const items = () => [["settings", null, "settings"], ["notifications", "notifications", "bell"], ["look", "look", "car"], ["days", "days", "calendar"], ["support", "support", "download"]];
+      const close = () => { profMenu.hidden = true; prof.setAttribute("aria-expanded", "false"); };
+      prof.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        if (!profMenu.hidden) { close(); return; }
+        profMenu.innerHTML = items().map(([key, , icon]) => `<button role="menuitem" data-prof="${key}">${ICONS[icon] || ""}<span>${esc(this._t(`prof_${key}`))}</span></button>`).join("");
+        profMenu.hidden = false;
+        prof.setAttribute("aria-expanded", "true");
+        profMenu.querySelector("button")?.focus();
+      });
+      profMenu.addEventListener("click", (ev) => {
+        const item = ev.target.closest("[data-prof]");
+        if (!item) return;
+        close();
+        const sheet = items().find(([key]) => key === item.dataset.prof)?.[1] || null;
+        this._setTab("settings");
+        if (sheet) { this._sheet = sheet; this._render(); this.shadowRoot.querySelector('[data-f="sheet-close"]')?.focus(); }
+      });
+      this.shadowRoot.addEventListener("click", (ev) => { if (!profMenu.hidden && !ev.composedPath().includes(profMenu)) close(); });
+      this.shadowRoot.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && !profMenu.hidden) { close(); prof.focus(); } });
+    }
     // Home Assistant's own menu button (it shows itself only where Home Assistant would: on a phone,
     // or with the sidebar hidden). Opened straight at /ev-planner it may not be loaded yet: then it is
     // added the moment it is. Outside Home Assistant (the web app) it never is, and nothing is added.
@@ -6102,12 +6219,13 @@ class EvPlannerPanel extends HTMLElement {
       const stays = this._state.settings?.insight && !this._histClassic && this._insEl && this._insEl.isConnected && content.querySelector(".insight-host") === this._insEl.parentNode;
       if (!stays) content.innerHTML = this._historyHtml();
     }
+    else if (this._tab === "past") content.innerHTML = this._historyHtml();
     else if (this._tab === "settings") content.innerHTML = this._settingsHtml();
     else if (car) content.innerHTML = this._carPageHtml(car);
     else if (this._currentCharger) content.innerHTML = this._chargerPageHtml(this._currentCharger);
     else content.innerHTML = this._overviewHtml();
     if (this._tab === "home" && !this._currentCharger) this._mountScene();
-    if (this._tab === "history") this._afterHistory();
+    if (this._tab === "history" || this._tab === "past") this._afterHistory();
     if (this._tab === "home" && !this._currentCharger) this._afterHome();
     if (this._tab === "guest") {
       this._bindBattery();
@@ -6131,7 +6249,7 @@ class EvPlannerPanel extends HTMLElement {
     const problems = this._cars.filter((v) => this._troubled(v)).length;
     const html = TABS.filter((tab) => tab !== "home" || this._homeShown).map((tab) => {
       const on = this._tab === tab;
-      const icon = { cars: "car", home: "home", guest: "guest", history: "history", settings: "settings" }[tab];
+      const icon = { cars: "car", home: "home", guest: "guest", history: "learn", past: "history", settings: "settings" }[tab];
       const badge = tab === "cars" && problems ? `<em class="bad" aria-label="${problems}">${problems}</em>` : "";
       return `<button role="tab" data-tab="${tab}" aria-selected="${on}" class="${on ? "on" : ""}">${ICONS[icon]}<span>${this._t(`tab_${tab}`)}</span>${badge}</button>`;
     }).join("");
@@ -9214,6 +9332,8 @@ class EvPlannerPanel extends HTMLElement {
     // From day (0) to night (1): day above 6°, night below −6°, gliding between them.
     const light = !Number.isFinite(elevation) ? (sun?.state === "below_horizon" ? 1 : 0) : clamp((6 - elevation) / 12, 0, 1);
     const model = {
+      // The decorations of the holiday or special day now, as Hverdagsro has them.
+      season: dayNow(this._state.settings),
       house: this._houseOf(place),
       // Another place has its own layout of its house.
       layoutKey: place.home ? this._houseOf(place) : `${this._houseOf(place)}@${place.id}`,
@@ -9563,14 +9683,18 @@ class EvPlannerPanel extends HTMLElement {
     // The learning centre: one row of parts. Charging (the history) and Learned are always there;
     // the others are Insight's, and dimmed while it is off.
     const insightOn = Boolean(this._state.settings?.insight);
-    // With Insight on the learning centre is the page; the history and what is learned open from it, with a way back.
-    if (insightOn && !this._histClassic) return `<div class="page stack hist-page insight-host"></div>`;
-    const parts = { sum: "sum", cars: "cars", history: "power", learned: "learn" };
+    // The History tab: the charging history alone, as Learning had it.
+    const past = this._tab === "past";
+    // With Insight on the learning centre is the page; what is learned opens from it, with a way back.
+    if (!past && insightOn && this._histClassic !== "learned") return `<div class="page stack hist-page insight-host"></div>`;
+    const parts = { sum: "sum", cars: "cars", learned: "learn" };
     const own = (k) => k === "history" || k === "learned";
-    const view = insightOn ? this._histClassic : this._histView in parts ? this._histView : "history";
+    const view = past ? "history" : insightOn ? "learned" : this._histView === "learned" || !(this._histView in parts) ? "learned" : this._histView;
     // With Insight on, the history is the last of Insight's tabs: the same row, the others lead back to Insight.
-    const insightTabs = [["plan", "insight_v_sum"], ["bil", "insight_v_cars"], ["lad", "insight_v_power"], ["laer", "insight_v_learn"], ["hist", "insight_v_history"]];
-    const switcher = insightOn
+    const insightTabs = [["plan", "insight_v_sum"], ["bil", "insight_v_cars"], ["lad", "insight_v_power"], ["laer", "insight_v_learn"]];
+    const switcher = past
+      ? ""
+      : insightOn
       ? `<nav class="chips hist-views learn-views" role="tablist">${insightTabs
           .map(([k, label]) => { const on = k === "hist" && view === "history"; return `<button role="tab" data-act="hist-view" data-value="${k === "hist" ? "history" : `ins:${k}`}" data-f="hv-${k}" aria-selected="${on}" class="${on ? "on" : ""}">${esc(this._t(label))}</button>`; })
           .join("")}</nav>`
@@ -10354,6 +10478,8 @@ class EvPlannerPanel extends HTMLElement {
       style: Number.isInteger(Number(settings.insight_style)) ? Number(settings.insight_style) : 3,
       use: Boolean(settings.insight_use),
       names: settings.insight_names || {},
+      // The holiday or special day whose decorations are up.
+      season: dayNow(settings),
       tiles: this._insTiles || null,
       tracks: this._insTracks || null,
       tracksAt: this._insTracksAt || 0,
@@ -10402,8 +10528,10 @@ class EvPlannerPanel extends HTMLElement {
     if (act === "tracks") { this._insMap = true; this._insightTiles(); this._insightTracks(); return; }
     if (act === "tiles") { this._insightTiles(true); return; }
     if (act === "open") {
-      this._histClassic = value === "learned" ? "learned" : "history";
-      this._histView = this._histClassic;
+      // The history has its own tab now; what is learned opens here.
+      if (value !== "learned") { this._setTab("past"); return; }
+      this._histClassic = "learned";
+      this._histView = "learned";
       this._render();
       this.shadowRoot.querySelector(".content")?.scrollTo?.({ top: 0 });
     } else if (act === "names" && value && typeof value === "object") {
@@ -11347,6 +11475,39 @@ const STYLE = `
   font-family: var(--ha-font-family-body, var(--paper-font-body1_-_font-family, Roboto, system-ui, sans-serif));
   -webkit-font-smoothing: antialiased;
 }
+/* ---------- themes (chosen per person in the profile menu → Look): Frisk is the look above; Hverdag is
+   Hverdagsro's; Theme Studio takes everything from the Home Assistant theme Theme Studio made. */
+:host([look="hverdag"]) {
+  --evp-a: #11A39A; --evp-b: #6E4AFF; --evp-coral: #FF7A59; --evp-sand: #F2B01E;
+  --evp-ink: #1B1530; --evp-soft: #6B6880; --evp-card: #FFFFFF; --evp-bg: #F2F4F6; --evp-base: #FFFFFF;
+  --evp-line: #E4E2EE; --evp-accent: #6E4AFF; --evp-radius: 18px; --evp-good: #1E9E62; --evp-bad: #D9473B;
+  --evp-well: #F1EEFB; --evp-shadow: 0 1px 2px rgba(27,21,48,.06), 0 8px 24px rgba(27,21,48,.07);
+  --evp-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  font-family: "Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+:host([look="hverdag"][dark]) {
+  --evp-a: #2CC4B8; --evp-b: #9B83FF; --evp-coral: #FF8E70; --evp-sand: #F6C243;
+  --evp-ink: #F1EFFA; --evp-soft: #A7A3BD; --evp-card: #191726; --evp-bg: #0F0E19; --evp-base: #191726;
+  --evp-line: #2D2A42; --evp-accent: #9B83FF; --evp-good: #3CCB83; --evp-bad: #F06A5E; --evp-well: #221F33;
+  --evp-shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 28px rgba(0,0,0,.28);
+}
+@media (prefers-color-scheme: dark) { :host([look="hverdag"]:not([light])) {
+  --evp-a: #2CC4B8; --evp-b: #9B83FF; --evp-coral: #FF8E70; --evp-sand: #F6C243;
+  --evp-ink: #F1EFFA; --evp-soft: #A7A3BD; --evp-card: #191726; --evp-bg: #0F0E19; --evp-base: #191726;
+  --evp-line: #2D2A42; --evp-accent: #9B83FF; --evp-good: #3CCB83; --evp-bad: #F06A5E; --evp-well: #221F33;
+  --evp-shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 28px rgba(0,0,0,.28);
+} }
+:host([look="hverdag"]) h1, :host([look="hverdag"]) h2, :host([look="hverdag"]) .brand { font-family: var(--evp-display); letter-spacing: -.01em; }
+:host([look="hverdag"]) .card, :host([look="hverdag"]) .panel, :host([look="hverdag"]) .tile, :host([look="hverdag"]) .vcard { box-shadow: var(--evp-shadow); border-color: transparent; }
+:host([look="studio"]) {
+  --evp-a: var(--primary-color, #00B894);
+  --evp-well: var(--theme-studio-soft-background-color, color-mix(in srgb, var(--evp-ink) 6%, transparent));
+}
+:host([look="studio"]) .card, :host([look="studio"]) .panel, :host([look="studio"]) .tile, :host([look="studio"]) .vcard {
+  box-shadow: var(--ha-card-box-shadow, none);
+  -webkit-backdrop-filter: var(--theme-studio-card-backdrop-filter, none); backdrop-filter: var(--theme-studio-card-backdrop-filter, none);
+}
+:host([look="studio"]) .chips button, :host([look="studio"]) .btn { border-radius: var(--theme-studio-chip-radius, 999px); }
 * { box-sizing: border-box; }
 button, input, select { font: inherit; color: inherit; }
 /* The list a select opens is drawn by the browser (on a PC a white box): its options get the
@@ -11360,7 +11521,7 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 /* ---------- header */
 .bar {
   position: sticky; top: 0; z-index: 4;
-  display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: 8px;
+  display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: 8px;
   padding: calc(6px + var(--evp-safe-top)) 16px 6px 4px;
   min-height: 56px;
   background: var(--app-header-background-color, var(--evp-card));
@@ -11368,6 +11529,14 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
   border-bottom: 1px solid var(--app-header-border-bottom, var(--evp-line));
 }
 .menu:empty { width: 8px; }
+.prof-wrap { position: relative; justify-self: end; }
+.prof { width: 34px; height: 34px; border-radius: 50%; border: 0; cursor: pointer; display: grid; place-items: center; font: 600 14px/1 inherit; background: var(--evp-accent); color: #fff; }
+.prof:focus-visible { outline: 2px solid var(--evp-accent); outline-offset: 2px; }
+.prof-menu { position: absolute; right: 0; top: calc(100% + 8px); z-index: 20; min-width: 220px; display: grid; gap: 2px; padding: 6px; border-radius: 14px; background: var(--evp-card); border: 1px solid var(--evp-line); box-shadow: 0 12px 32px rgba(0,0,0,.18); }
+.prof-menu button { display: flex; align-items: center; gap: 10px; border: 0; background: transparent; color: var(--evp-ink); padding: 10px 12px; border-radius: 10px; cursor: pointer; font: inherit; text-align: left; }
+.prof-menu button:hover, .prof-menu button:focus-visible { background: var(--evp-well, color-mix(in srgb, var(--evp-ink) 6%, transparent)); outline: none; }
+.prof-menu svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+:host([embed]) .prof-wrap, :host([card]) .prof-wrap { display: none; }
 .menu { display: flex; align-items: center; }
 .home-go svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; }
@@ -12408,7 +12577,7 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
   .car-title h1 { font-size: 20px; }
   .tabs button { flex-direction: column; gap: 2px; font-size: 12px; padding: 6px 10px; border-radius: 12px; }
   .tabs button em { position: absolute; top: 2px; right: 6px; }
-  .bar { grid-template-columns: auto 1fr; }
+  .bar { grid-template-columns: auto 1fr auto; }
   .field { grid-template-columns: 1fr; gap: 8px; }
   .panel { padding: 16px; }
   .vcard-body { grid-template-columns: 128px 1fr; gap: 12px; }

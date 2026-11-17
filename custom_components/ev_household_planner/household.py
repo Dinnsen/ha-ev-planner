@@ -212,6 +212,15 @@ LIMIT_REPORT_LAG = timedelta(minutes=15)
 IDLE_END = timedelta(minutes=30)
 # language: the language of notifications; "auto" follows Home Assistant's language.
 # house: which picture of a house the Home tab shows.
+# The evening status, unless the household changed it: every evening at 22, every car.
+EVENING_DEFAULT: dict[str, Any] = {
+    "on": True,
+    "at": "22:00",
+    "days": [0, 1, 2, 3, 4, 5, 6],
+    "cars": "all",
+    "plugged": "all",
+    "live": False,
+}
 SETTINGS_DEFAULTS: dict[str, Any] = {
     "bill_price": None,
     "payment_text": "",
@@ -225,6 +234,13 @@ SETTINGS_DEFAULTS: dict[str, Any] = {
     "quiet_enabled": False,
     "quiet_from": "22:00",
     "quiet_to": "06:00",
+    # What is held back in the quiet hours comes as one message when they end ("digest"), or not at all ("drop").
+    "quiet_after": "digest",
+    # The message centre: each kind of message's own choices, {kind: {on, cars, to, through, icon, color, live, at, days, plugged}}.
+    "messages": {},
+    # Holidays and special days (Hverdagsro's days): {day: {on, before, after, date}}, and the birthdays.
+    "days": {},
+    "day_people": [],
     # The departures a car can be set to (None: the defaults; see departures.py).
     "departures": None,
     # The phones messages go to (None: those chosen in the integration's options before 2.5).
@@ -516,6 +532,9 @@ class Household(DataUpdateCoordinator[None]):
             self.notify_services,
             lambda kind, **data: self.events.add(dt_util.now(), kind, **data),
             quiet=self.notifications_held,
+            off=lambda: not self.settings.get("notify_enabled", True),
+            rules=lambda: self.settings.get("messages") or {},
+            digest=lambda: self.settings.get("quiet_after", "digest") == "digest",
         )
         self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY.format(entry_id=entry.entry_id))
         self._unsub: list[CALLBACK_TYPE] = []
@@ -526,6 +545,8 @@ class Household(DataUpdateCoordinator[None]):
         self._control_lock = asyncio.Lock()
         self._save_due: float | None = None
         self._slots_cache: dict[str, tuple[State | None, date, float, list[PriceSlot]]] = {}
+        # The day the evening status went out.
+        self._evening_sent: str | None = None
         self._verify_unknown: dict[str, int] = {}
         self._verify_timers: dict[str, CALLBACK_TYPE] = {}
         self._unplug_timers: dict[str, CALLBACK_TYPE] = {}
@@ -1884,8 +1905,11 @@ class Household(DataUpdateCoordinator[None]):
         else:
             await self.async_evaluate(now)
         await self._async_reminders(now)
+        await self._async_evening(now)
         for vehicle in self.vehicles.values():
             await self._async_warn_short(vehicle)
+        # The quiet hours are over: what was held back, as one message.
+        await self.notifier.async_flush(self._text("digest_title"), self._text("digest_intro"))
 
     def _late(self, vehicle: Vehicle) -> bool:
         """Charging on past the ready-by time, until the target it had then is reached."""
@@ -2811,6 +2835,66 @@ class Household(DataUpdateCoordinator[None]):
             to=vehicle.notify_to,
         )
 
+    def evening_rule(self) -> dict[str, Any]:
+        """The evening status: each car's level and plan at a set time, also when it is plugged in."""
+        return {**EVENING_DEFAULT, **((self.settings.get("messages") or {}).get("evening") or {})}
+
+    async def _async_evening(self, now: datetime) -> None:
+        rule = self.evening_rule()
+        if not rule.get("on") or not self.notifier.enabled:
+            return
+        moment = parse_hhmm(rule.get("at")) or time(22)
+        today = now.date().isoformat()
+        if now.time() < moment or self._evening_sent == today:
+            return
+        if not (now - now.replace(hour=moment.hour, minute=moment.minute, second=0, microsecond=0)) < timedelta(
+            minutes=30
+        ):
+            # Started long after the time (a restart): not today.
+            self._evening_sent = today
+            return
+        self._evening_sent = today
+        days = rule.get("days")
+        if isinstance(days, list) and now.weekday() not in days:
+            return
+        cars = rule.get("cars")
+        for vehicle in self.vehicles.values():
+            if isinstance(cars, list) and vehicle.vehicle_id not in cars:
+                continue
+            plugged = vehicle.connected is True
+            if (rule.get("plugged") == "in" and not plugged) or (rule.get("plugged") == "out" and plugged):
+                continue
+            await self.notifier.send(
+                title=self._text("evening_title", name=vehicle.name),
+                message=self._evening_text(vehicle),
+                tag=tag_for("evening", vehicle.vehicle_id),
+                icon="mdi:weather-night",
+                color="#5B5BD6",
+                to=vehicle.notify_to,
+                progress=(round(vehicle.current_soc), 100)
+                if rule.get("live") and vehicle.current_soc is not None
+                else None,
+            )
+
+    def _evening_text(self, vehicle: Vehicle) -> str:
+        """``54 % · sidder i · lader 01.00-03.30, ca. 12,40 kr. · klar kl. 07.00``"""
+        soc = vehicle.current_soc
+        level = f"{self._num(soc, 0)} %" if soc is not None else "?"
+        if vehicle.connected is not True:
+            low = soc is not None and soc < vehicle.target - 0.5
+            return self._text("evening_out", level=level) + (self._text("evening_low") if low else "")
+        text = self._text("evening_in", level=level)
+        plan = vehicle.plan
+        if soc is not None and soc >= vehicle.target - 0.5:
+            text += self._text("evening_full")
+        elif plan is not None and plan.segments:
+            text += self._text("evening_plan", window=self._plan_windows(plan), cost=self._money(round(plan.cost, 2)))
+        elif vehicle.plan_error in ("no_price_data", "not_enough_prices"):
+            text += self._text("evening_prices")
+        if vehicle.deadline is not None:
+            text += self._text("evening_ready", time=self._time(vehicle.deadline))
+        return text
+
     def _cheapest_slot(self, now: datetime, ahead: timedelta = timedelta(hours=24)) -> PriceSlot | None:
         """The cheapest price from now until ``ahead``."""
         horizon = now + ahead
@@ -3397,6 +3481,16 @@ TEXT_EN: dict[str, str] = {
     "problem_resume_learned": "{name} did not charge again after the pause. Some cars must be plugged in again. "
     "From now on it charges in one go.",
     "reminder_cheapest": "Cheapest price: {price}/kWh ({when}).",
+    "evening_title": "{name} tonight",
+    "evening_in": "{level} · plugged in",
+    "evening_out": "{level} · not plugged in",
+    "evening_low": " · should be plugged in tonight",
+    "evening_full": " · full",
+    "evening_plan": " · charges {window}, about {cost}",
+    "evening_prices": " · waiting for tomorrow's prices",
+    "evening_ready": " · ready at {time}",
+    "digest_title": "EV Planner",
+    "digest_intro": "While you slept:",
     "receipt": "Ready at {time}: {soc} % of {target} %, {energy} kWh for {cost}.",
     "receipt_short": "Not quite ready at {time}: {soc} % of {target} % (planned {planned} %). {energy} kWh for {cost}.",
     "receipt_margin": "From now on it aims to be done {minutes} minutes earlier.",
@@ -3442,6 +3536,16 @@ TEXT_DA: dict[str, str] = {
     "problem_resume_learned": "{name} startede ikke igen efter pausen. Nogle biler skal have stikket sat i igen. "
     "Fremover lader den i ét stræk.",
     "reminder_cheapest": "Billigste pris: {price}/kWh ({when}).",
+    "evening_title": "{name} i aften",
+    "evening_in": "{level} · sidder i",
+    "evening_out": "{level} · ikke sat i",
+    "evening_low": " · bør i laderen i aften",
+    "evening_full": " · fuld",
+    "evening_plan": " · lader {window}, ca. {cost}",
+    "evening_prices": " · venter på morgendagens priser",
+    "evening_ready": " · klar kl. {time}",
+    "digest_title": "EV Planner",
+    "digest_intro": "Mens du sov:",
     "receipt": "Klar kl. {time}: {soc} % af {target} %, {energy} kWh for {cost}.",
     "receipt_short": "Ikke helt klar kl. {time}: {soc} % af {target} % (planlagt {planned} %). {energy} kWh for {cost}.",
     "receipt_margin": "Fremover sigter den efter at være færdig {minutes} minutter før.",

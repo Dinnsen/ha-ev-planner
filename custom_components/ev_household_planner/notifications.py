@@ -12,10 +12,13 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping
 from datetime import datetime
 import logging
+import re
 from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+
+from .const import DOMAIN, MESSAGE_ALWAYS, MESSAGE_THROUGH
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,6 +50,17 @@ def tag_for(kind: str, key: str) -> str:
     return clean[:64]
 
 
+TAG = re.compile(r"^evp_([a-z]+)_(.+)$")
+
+
+def kind_of(tag: str) -> tuple[str | None, str | None]:
+    """The message centre's kind of a notification, and the car (or charger) it is about, from its tag."""
+    if tag.startswith(f"{DOMAIN}_insight"):
+        return "pick", None
+    found = TAG.match(tag)
+    return (found.group(1), found.group(2)) if found else (None, None)
+
+
 class Notifier:
     """Send EV Planner notifications to the chosen notify actions."""
 
@@ -57,12 +71,22 @@ class Notifier:
         note: Callable[..., None] | None = None,
         *,
         quiet: Callable[[], bool] | None = None,
+        off: Callable[[], bool] | None = None,
+        rules: Callable[[], Mapping[str, Mapping[str, Any]]] | None = None,
+        digest: Callable[[], bool] | None = None,
     ) -> None:
         self.hass = hass
         self.services: list[str] = []
         self.set_services(services)
         # Whether notifications are held back now (turned off, or the quiet hours).
         self._quiet = quiet
+        # Turned off altogether (then nothing goes, not even what goes through the quiet hours).
+        self._off = off
+        # The message centre's choices for each kind of message.
+        self._rules = rules
+        # What is held back in the quiet hours comes as one message when they end.
+        self._digest = digest
+        self.waiting: list[tuple[str, str]] = []
         # Live notifications taken away for the quiet hours, so it is done once.
         self._hushed: set[str] = set()
         # Writes each notification in the event log (the support export).
@@ -98,11 +122,27 @@ class Notifier:
         color: str = COLOR_CHARGE,
         actions: list[dict[str, str]] | None = None,
         to: Iterable[str] | None = None,
+        progress: tuple[int, int] | None = None,
     ) -> None:
-        """A normal notification with an icon (the companion app shows it)."""
-        if self.held:
+        """A normal notification with an icon (the companion app shows it), as the message centre has the kind."""
+        kind, key = kind_of(tag)
+        rule = (self._rules() if self._rules is not None else {}).get(kind or "") or {}
+        if kind not in MESSAGE_ALWAYS and rule.get("on") is False:
+            return
+        cars = rule.get("cars")
+        if isinstance(cars, list) and key and kind not in ("pair", "pick") and key not in cars:
+            return
+        if isinstance(rule.get("to"), list) and rule["to"]:
+            to = rule["to"]
+        icon = str(rule.get("icon") or icon)
+        color = str(rule.get("color") or color)
+        through = bool(rule.get("through", kind in MESSAGE_THROUGH))
+        off = self._off is not None and self._off()
+        if off or (self.held and not through):
             if self._note is not None:
                 self._note("notification_held", title=title, message=message, tag=tag)
+            if not off and self._digest is not None and self._digest():
+                self.waiting.append((title, message))
             return
         if self._note is not None:
             self._note("notification", title=title, message=message, tag=tag, to=list(self.targets(to)))
@@ -120,6 +160,10 @@ class Notifier:
                 }
                 if actions:
                     extra["actions"] = actions
+                if progress is not None:
+                    # Shown with a bar (and as a live notification where the phone has them).
+                    extra["progress"], extra["progress_max"] = progress
+                    extra["progress_bar_color"] = color
                 data["data"] = extra
             await self._call(service, data)
 
@@ -183,6 +227,20 @@ class Notifier:
     @property
     def held(self) -> bool:
         return self._quiet is not None and self._quiet()
+
+    async def async_flush(self, title: str, intro: str) -> None:
+        """The quiet hours are over: what was held back, as one message."""
+        if self.held or not self.waiting:
+            return
+        lines = [f"{head}: {text}" for head, text in self.waiting[-12:]]
+        self.waiting = []
+        await self.send(
+            title=title,
+            message="\n".join([intro, *lines]),
+            tag="evp_digest_all",
+            icon="mdi:weather-night",
+            color="#5B5BD6",
+        )
 
     async def clear(self, tag: str, to: Iterable[str] | None = None) -> None:
         """End a live notification, or remove a delivered one."""

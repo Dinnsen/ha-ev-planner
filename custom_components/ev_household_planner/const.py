@@ -652,3 +652,34 @@ PART_KEYS: Final = {
     SUBENTRY_HEAT_PUMP: (CONF_HEAT_PUMP_POWER, CONF_HEAT_PUMP_BLOCK),
 }
 MOVED_KEYS: Final = (*SITE_KEYS, *(key for keys in PART_KEYS.values() for key in keys))
+
+# The message centre's kinds of message (each with its own choices), and the holidays and special days.
+MESSAGE_KINDS: Final = (
+    "evening",
+    "reminder",
+    "plug",
+    "live",
+    "done",
+    "short",
+    "receipt",
+    "pick",
+    "problem",
+    "pair",
+)
+# These are always sent; only who gets them, the look and the quiet hours can be chosen.
+MESSAGE_ALWAYS: Final = ("problem", "pair")
+# These go through the quiet hours unless the household says otherwise.
+MESSAGE_THROUGH: Final = ("short", "problem", "pair")
+DAY_KEYS: Final = (
+    "jul",
+    "nytaar",
+    "fastelavn",
+    "paaske",
+    "halloween",
+    "fodselsdag",
+    "grundlov",
+    "sankthans",
+    "valentin",
+    "aarsdag",
+    "bryllup",
+)
