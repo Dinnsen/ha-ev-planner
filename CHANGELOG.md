@@ -20,7 +20,7 @@ All notable changes to EV Planner. The version is the one in `custom_components/
 - **Low price to its own level**: "Charge at a low price" now charges to a level of its own (0 % is the target, as before).
 
 - **The week plan keeps the household's own limits**: at a shared charger the cable is not moved in the window (the night, 21–07, unless set otherwise), so a night is one car's and the car plugged in keeps it; a car's price ceiling (never for what it must have at the least), its earliest start, and its own ready-by times, which count as departures known for sure.
-- While the week plan steers a car, "Top up before departure" and "lower the ceiling / follow the end price" rest (they are hidden; with the week plan off they work as before), and the plug-in reminder goes out only when the plan charges the car before it next leaves.
+- While the week plan steers a car, "Top up before departure" and "lower the ceiling / follow the end price" rest (they are hidden; with the week plan off they work as before), and the plug-in reminder goes out only when the plan charges the car before it next leaves. The evening status says "should be plugged in tonight" only then too; otherwise it says when the next charge is (or that none is needed this week).
 
 ### Removed
 

@@ -522,3 +522,28 @@ async def test_the_evening_status_goes_at_its_time_also_when_the_car_is_plugged_
     await planner._async_evening(evening.replace(minute=40))
     assert len([c for c in notify.calls if c.get("data", {}).get("tag") == f"evp_evening_{TESLA}"]) == 1
     assert tesla.connected is True
+
+
+async def test_the_evening_status_follows_the_week_plan(
+    hass: HomeAssistant, household: MockConfigEntry, notify: NotifyCalls
+) -> None:
+    planner = household.runtime_data
+    tesla = planner.vehicles[TESLA]
+    set_tesla(hass, soc=54, cable=False)
+    await hass.async_block_till_done()
+    # Steered by the week plan and charged before it next leaves: it should be plugged in tonight.
+    tesla.week_target, tesla.week_deadline = 80.0, dt_util.now() + timedelta(hours=9)
+    assert planner._evening_text(tesla).endswith("should be plugged in tonight")
+    # Not charged before it leaves: when its next charge is, or that it needs none this week.
+    tesla.week_deadline = None
+    start = dt_util.now().replace(minute=0, second=0, microsecond=0) + timedelta(days=2)
+    planner.insight.week = {
+        "cars": {TESLA: {"charges": [{"start": start.isoformat(), "end": (start + timedelta(hours=3)).isoformat()}]}}
+    }
+    assert "next charge" in planner._evening_text(tesla) and planner._time(start) in planner._evening_text(tesla)
+    planner.insight.week = {
+        "cars": {TESLA: {"charges": [{"start": "odd", "end": (start + timedelta(hours=3)).isoformat()}]}}
+    }
+    assert planner._evening_text(tesla).endswith("next charge ")
+    planner.insight.week = {}
+    assert planner._evening_text(tesla).endswith("no charge needed this week")

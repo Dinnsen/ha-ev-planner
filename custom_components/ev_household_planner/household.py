@@ -2907,6 +2907,13 @@ class Household(DataUpdateCoordinator[None]):
         soc = vehicle.current_soc
         level = f"{self._num(soc, 0)} %" if soc is not None else "?"
         if vehicle.connected is not True:
+            if vehicle.week_target is not None:
+                # The week plan decides: plugged in tonight only when it charges the car before it next leaves.
+                if vehicle.week_deadline is not None:
+                    return self._text("evening_out", level=level) + self._text("evening_low")
+                nxt = self.insight.next_charge(vehicle.vehicle_id, dt_util.now())
+                tail = self._text("evening_next", when=self._when(nxt)) if nxt else self._text("evening_none")
+                return self._text("evening_out", level=level) + tail
             low = soc is not None and soc < vehicle.target - 0.5
             return self._text("evening_out", level=level) + (self._text("evening_low") if low else "")
         text = self._text("evening_in", level=level)
@@ -2920,6 +2927,19 @@ class Household(DataUpdateCoordinator[None]):
         if vehicle.deadline is not None:
             text += self._text("evening_ready", time=self._time(vehicle.deadline))
         return text
+
+    def _when(self, charge: Mapping[str, Any]) -> str:
+        """A charge of the week plan as it is said: ``fre 11.00-14.00``."""
+        start = dt_util.parse_datetime(str(charge.get("start")))
+        end = dt_util.parse_datetime(str(charge.get("end")))
+        if start is None or end is None:
+            return ""
+        days = (
+            ["man", "tir", "ons", "tor", "fre", "lør", "søn"]
+            if self._danish
+            else ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        )
+        return f"{days[dt_util.as_local(start).weekday()]} {self._time(start)}-{self._time(end)}"
 
     def _cheapest_slot(self, now: datetime, ahead: timedelta = timedelta(hours=24)) -> PriceSlot | None:
         """The cheapest price from now until ``ahead``."""
@@ -3514,6 +3534,8 @@ TEXT_EN: dict[str, str] = {
     "evening_in": "{level} · plugged in",
     "evening_out": "{level} · not plugged in",
     "evening_low": " · should be plugged in tonight",
+    "evening_next": " · next charge {when}",
+    "evening_none": " · no charge needed this week",
     "evening_full": " · full",
     "evening_plan": " · charges {window}, about {cost}",
     "evening_prices": " · waiting for tomorrow's prices",
@@ -3570,6 +3592,8 @@ TEXT_DA: dict[str, str] = {
     "evening_in": "{level} · sidder i",
     "evening_out": "{level} · ikke sat i",
     "evening_low": " · bør i laderen i aften",
+    "evening_next": " · næste ladning {when}",
+    "evening_none": " · skal ikke lade i ugen",
     "evening_full": " · fuld",
     "evening_plan": " · lader {window}, ca. {cost}",
     "evening_prices": " · venter på morgendagens priser",

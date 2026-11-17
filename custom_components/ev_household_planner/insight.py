@@ -1228,6 +1228,14 @@ class Insight:
                 icon="mdi:chart-bell-curve",
             )
 
+    def next_charge(self, vehicle_id: str, now: datetime) -> dict[str, Any] | None:
+        """The car's next charge in the week plan (the one under way first), or None."""
+        for charge in ((self.week.get("cars") or {}).get(vehicle_id) or {}).get("charges") or []:
+            end = dt_util.parse_datetime(str(charge.get("end")))
+            if end is not None and end > now:
+                return dict(charge)
+        return None
+
     def week_pick(self, ids: Sequence[str], now: datetime) -> str | None:
         """Of cars at one charger, the one the week plan charges the most in the next 18 hours (None: no car)."""
         cars = self.week.get("cars") or {}
