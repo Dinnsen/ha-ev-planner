@@ -677,6 +677,7 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     price_days: Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`2026-0${9 + Math.floor(i / 30)}-${String((i % 30) + 1).padStart(2, "0")}`.replace("010-", "10-"), { night: i % 9 ? 1 + (i % 5) / 10 : null, mean: 2, own: i > 55 }])),
     errors: [0.1, 0.17, 0.24, 0.31, 0.38, 0.45],
     price_hours: {},
+    rhythm: Array.from({ length: 7 }, (_, d) => Array.from({ length: 24 }, (_, h) => 1 + (h > 6 && h < 22 ? 0.6 : 0) + d / 50)),
     trips: [{ vehicle: a, start: "2026-10-10T07:00:00+02:00", end: "2026-10-10T07:40:00+02:00", from: "home", to: "work", km: 31.2, kwh: 5.1, temp: 8 }],
     ledger: { "2026-10-10": { cars: { [a]: outlook, [b]: outlook }, groups: [{ pick: a }] }, "2026-10-11": { cars: { [a]: outlook }, groups: [{ wait: true }] } },
   };
@@ -725,7 +726,7 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     await page.waitForFunction(() => window.harness.calls.some((c) => c.type === "recorder/statistics_during_period"));
     await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector("ev-planner-insight").shadowRoot.querySelectorAll("#tl circle").length > 0);
     assert.equal((await calls("insight")).length, 1);
-    assert.equal(await inside((root) => root.querySelectorAll("nav.tabs button").length), 4);
+    assert.equal(await inside((root) => root.querySelectorAll("nav.tabs button").length), 5);
     assert.match(await inside((root) => root.querySelector("#hero .hero").textContent), /Tesla/);
     assert.equal(await inside((root) => root.querySelectorAll("#hero svg clipPath").length), 2, "both cars are drawn by their sides");
     assert.ok(await inside((root) => root.querySelector("#hero #h-cab").getAttribute("d")), "the cable is drawn");
@@ -774,7 +775,7 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     // A finger held on a chart reads it, and the page stays put.
     await inside((root) => { const el = root.querySelector("#clock"), r = el.querySelector("path[data-wd]").getBoundingClientRect(); el.dispatchEvent(new PointerEvent("pointerdown", { clientX: r.x + r.width / 2, clientY: r.y + r.height / 2, pointerType: "touch", bubbles: true })); });
     await page.waitForTimeout(260);
-    assert.equal(await inside((root) => root.querySelector("#clock .tip").hidden), false);
+    assert.equal(await inside((root) => root.querySelector("#clock").closest(".card").querySelector(":scope > .tip").hidden), false);
     await inside((root) => root.querySelector("#clock").dispatchEvent(new PointerEvent("pointerup", { pointerType: "touch", bubbles: true })));
     assert.match(await inside((root) => root.querySelector("#sum-bil").textContent), /trips/);
     assert.equal(await inside((root) => root.querySelectorAll("#sum-wk rect").length), 13);
@@ -802,14 +803,29 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     await tap("ev-planner-insight #p-bil .q");
     assert.equal(await inside((root) => getComputedStyle(root.querySelector("#p-bil .card.help-open p.small")).display), "block");
     await tap(`ev-planner-insight #carsel [data-car="${b}"]`);
-    // Power: the coming days three ways (the ways it may go flow on a canvas), and the charging found in the statistics.
-    await tap('ev-planner-insight [data-tab="lad"]');
+    // Prices: now, hour by hour, the week, and the coming days three ways (the ways it may go flow on a canvas).
+    await tap('ev-planner-insight [data-tab="pris"]');
+    assert.match(await inside((root) => root.querySelector("#kpi-pris").textContent), /Now.*Cheapest in the next day.*Tomorrow/);
+    assert.ok(await inside((root) => root.querySelectorAll("#bars48 [data-bh]").length >= 2));
+    assert.ok(await inside((root) => root.querySelectorAll("#wkheat [data-wh]").length > 10));
     assert.ok(await inside((root) => root.querySelector("#wk-pris svg .known")));
+    // A tap on the price's rhythm reads it, and the tip stays: it does not change the view above.
+    const view = await inside((root) => root.querySelector("#view button.on").dataset.v);
+    await inside((root) => { const el = root.querySelector("#rhythm"), cell = el.querySelector("[data-rv]"); cell.scrollIntoView({ block: "center" }); const r = cell.getBoundingClientRect(); for (const type of ["pointerdown", "pointerup"]) el.dispatchEvent(new PointerEvent(type, { clientX: r.x + r.width / 2, clientY: r.y + r.height / 2, pointerType: "touch", bubbles: true })); cell.dispatchEvent(new MouseEvent("click", { bubbles: true, composed: true })); });
+    const tip = (sel) => inside((root, s) => { const t = root.querySelector(s).closest(".card").querySelector(":scope > .tip"); return t && !t.hidden ? t.textContent : null; }, sel);
+    assert.match(await tip("#rhythm"), /tends to cost/);
+    assert.equal(await inside((root) => root.querySelector("#view button.on").dataset.v), view);
+    // The tip of a chart that scrolls sideways is on its card, and inside it.
+    assert.ok(await inside((root) => { const t = root.querySelector("#rhythm").closest(".card"), tp = t.querySelector(":scope > .tip"), a = t.getBoundingClientRect(), b = tp.getBoundingClientRect(); return b.left >= a.left && b.right <= a.right && b.top >= a.top; }));
+    // A finger takes the price line by its handle, which the page never scrolls from.
+    assert.equal(await inside((root) => getComputedStyle(root.querySelector("#wk-pris .tgrab")).touchAction), "none");
+    // Charging: what was charged, and where the power came from.
     await tap('ev-planner-insight [data-v="paths"]');
     assert.equal(await inside((root) => root.querySelector("#wk-pris canvas").style.visibility), "visible");
     await tap('ev-planner-insight [data-v="prob"]');
     assert.ok(await inside((root) => root.querySelectorAll("#wk-pris .pbar").length > 10));
     await tap('ev-planner-insight [data-v="fan"]');
+    await tap('ev-planner-insight [data-tab="lad"]');
     assert.match(await inside((root) => root.querySelector("#kpi-lad").textContent), /2 charges/);
     // The other car has no energy meter: its charging is seen as the battery rising while it stands still.
     assert.match(await inside((root) => root.querySelector("#flow").textContent), /Mercedes/);
@@ -924,5 +940,25 @@ test("the week plan's next charges on Home and on a car without a plan of its ow
     await tap('.tabs button[data-tab="cars"]');
     const facts = await page.evaluate((id) => window.harness.panel.shadowRoot.querySelector(`.vcard[data-id="${id}"] .mini-facts`).textContent, a);
     assert.match(facts, /Next charge.*11–14/);
+  });
+});
+
+test("the house on Home has the light of now: dark before the sun is known in a dark app, and it follows the sun", async () => {
+  const state = fixture("shared-supply");
+  await withPanel(state, { size: DESKTOP }, async ({ page, tap }) => {
+    await tap('.tabs button[data-tab="home"]');
+    const look = () => page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".cscene").classList.contains("is-dark"));
+    // The app opens in dark mode before Home Assistant has told the sun: the house is drawn at night, not white.
+    await page.evaluate(() => {
+      const panel = window.harness.panel, states = { ...panel._hass.states };
+      delete states["sun.sun"];
+      panel.hass = { ...panel._hass, states, themes: { darkMode: true } };
+      panel._scene.light = null;
+      panel._render();
+    });
+    assert.equal(await look(), true);
+    // The sun comes up: the house follows at once, with no update from the planner.
+    await page.evaluate(() => { const panel = window.harness.panel; panel.hass = { ...panel._hass, states: { ...panel._hass.states, "sun.sun": { entity_id: "sun.sun", state: "above_horizon", attributes: { elevation: 30 } } } }; });
+    assert.equal(await look(), false);
   });
 });

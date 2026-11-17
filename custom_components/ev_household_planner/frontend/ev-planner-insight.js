@@ -1,4 +1,4 @@
-/* EV Planner - the learning centre: Overview (tonight and the timeline), Driving, Power and Learned.
+/* EV Planner - the learning centre: Overview (tonight and the timeline), Driving, Prices, Charging and Learned.
    Drawn from Insight's log, Home Assistant's own hourly statistics and the price sensor.
    A file of its own, fetched the first time the Learning tab is opened with Insight on. */
 
@@ -26,7 +26,7 @@ h3 { font-size: 14px; font-weight: 600; }
 p { margin: 0; }
 .tag { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent-ink); font-weight: 600; }
 .demo, .small { font-size: 12.5px; color: var(--soft); }
-.card { background: var(--card); border-radius: 22px; padding: 20px; box-shadow: var(--shadow); display: grid; gap: 14px; min-width: 0; align-content: start; }
+.card { position: relative; background: var(--card); border-radius: 22px; padding: 20px; box-shadow: var(--shadow); display: grid; gap: 14px; min-width: 0; align-content: start; }
 .row { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chips button, .btn { font: inherit; font-size: 13px; font-weight: 500; border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 999px; padding: 7px 13px; cursor: pointer; }
@@ -40,6 +40,8 @@ nav.tabs button.on { background: var(--ink); color: var(--card); }
 @media (max-width: 860px) { nav.tabs { position: fixed; top: auto; left: 10px; right: 10px; bottom: calc(var(--evp-tabbar, 62px) + 8px); margin: 0; padding: 4px; background: var(--card); border: 1px solid var(--line); box-shadow: 0 6px 22px rgba(0, 0, 0, .14); backdrop-filter: none; -webkit-backdrop-filter: none; border-radius: 16px; } nav.tabs #tabs { display: flex; justify-content: space-between; gap: 2px; } nav.tabs button { flex: 1 1 auto; justify-content: center; padding: 8px 6px; font-size: 13px; } nav.tabs button i { display: none; } }
 nav.tabs button i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; }
 nav.tabs button.dim i { background: var(--faint); }
+@media (max-width: 860px) { nav.tabs button i { display: none; } }
+#kpi-pris { grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); } .kpi b.t { font-size: 19px; line-height: 1.6; }
 .panel { display: grid; gap: 18px; animation: rise .45s cubic-bezier(.2,.8,.2,1); }
 .panel[hidden] { display: none !important; }
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
@@ -72,12 +74,14 @@ svg text { font-family: Inter, system-ui, sans-serif; font-size: 11px; fill: var
 .wk { position: relative; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
 .wk canvas { position: absolute; left: 0; top: 0; width: 100%; pointer-events: none; }
 .wk svg { position: relative; }
+.wk .tgrab { position: absolute; touch-action: none; cursor: ns-resize; border-radius: 22px; z-index: 1; }
 .tline { stroke: var(--bad); stroke-width: 1.5; stroke-dasharray: 2 4; }
 .thandle { fill: var(--bad); cursor: ns-resize; } .thandle-t { fill: #fff; font-size: 11px; font-weight: 600; pointer-events: none; }
 .scrub { stroke: var(--ink); stroke-width: 1; opacity: .5; }
 .now { stroke: var(--accent); stroke-width: 1.5; }
 .tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--card); border-radius: 12px; padding: 8px 11px; font-size: 12px; line-height: 1.45; transform: translate(-50%, -100%); white-space: nowrap; z-index: 2; }
 .tip b { font-variant-numeric: tabular-nums; }
+.tip.free { transform: none; white-space: normal; width: max-content; max-width: min(260px, calc(100% - 12px)); z-index: 4; }
 .cap rect { fill: var(--card); stroke: var(--line); stroke-width: 1; filter: drop-shadow(0 4px 10px rgba(0,0,0,.10)); }
 .cap text { fill: var(--ink); } .cap .l2 { fill: var(--soft); } .cap .trk { fill: none; stroke: var(--well); stroke-width: 3.5; } .cap .ring { fill: none; stroke-width: 3.5; stroke-linecap: round; }
 .cap.ghost rect { stroke-dasharray: 4 3; fill: transparent; filter: none; }
@@ -749,8 +753,11 @@ function boot(host, root) {
     </div>
   </div>
   <div class="panel" id="p-pris" hidden>
+    <section class="card"><div class="kpis" id="kpi-pris"></div></section>
+    <section class="card"><div class="row"><h2>${tr("Time for time", "Hour by hour")}</h2><span class="demo">${tr("de næste 48 timer", "the next 48 hours")}</span></div><div id="bars48" style="position:relative"></div><div class="legend" id="bars48-l"></div><p class="small">${tr("Fyldte søjler er kendte priser, lyse søjler er prognose med en streg for, hvor prisen lander 8 af 10 gange. Farverne under søjlerne er de timer, ugeplanen lader i. Tryk på en time.", "Solid bars are known prices, light bars the forecast, with a line for where the price lands 8 times of 10. The colours under the bars are the hours the week plan charges in. Tap an hour.")}</p></section>
+    <section class="card"><div class="row"><h2>${tr("Ugen i priser", "The week in prices")}</h2><span class="demo">${tr("en række pr. døgn, kl. 06 til 06", "a row a day, 06 to 06")}</span></div><div id="wkheat" style="position:relative"></div><div class="legend" id="wkheat-l"></div><p class="small">${tr("Grøn er billig, rød er dyr. Tydelige felter er kendte priser, dæmpede er prognose, og de svageste bygger kun på, hvad prisen plejer at være. Stregerne under felterne er ugeplanens ladninger, og tallet til højre er døgnets laveste pris.", "Green is cheap, red dear. Clear fields are known prices, dimmed ones the forecast, and the faintest only what the price tends to be. The lines under the fields are the week plan's charges, and the number on the right the day's lowest price.")}</p></section>
     <section class="card">
-      <div class="row"><h2>${tr("De næste dage", "The coming days")}</h2><div class="chips" id="view" role="group" aria-label="${tr("Visning", "View")}"><button data-v="fan" class="on">${tr("Udsigt", "Outlook")}</button><button data-v="paths">${tr("Mulige forløb", "Ways it may go")}</button><button data-v="prob">${tr("Sandsynlighed", "Probability")}</button></div></div>
+      <div class="row"><h2>${tr("Hvor sikker er prognosen?", "How sure is the forecast?")}</h2><div class="chips" id="view" role="group" aria-label="${tr("Visning", "View")}"><button data-v="fan" class="on">${tr("Udsigt", "Outlook")}</button><button data-v="paths">${tr("Mulige forløb", "Ways it may go")}</button><button data-v="prob">${tr("Sandsynlighed", "Probability")}</button></div></div>
       <div class="wk" id="wk-pris" aria-label="${tr("Elpris og prognose time for time", "Price and forecast hour by hour")}"></div>
       <div class="note" id="fc-none" hidden>${tr("Prissensoren har ingen prognose ud over de offentliggjorte priser, så usikkerheden kan ikke vises her.", "The price sensor has no forecast past the published prices, so the uncertainty cannot be shown here.")}</div>
       <p class="small" id="view-t"></p>
@@ -842,6 +849,11 @@ function boot(host, root) {
       ${o.threshold ? `<line class="tline" x1="${Lx}" x2="${W - R}" y1="${y(S.T)}" y2="${y(S.T)}"/><g><rect class="thandle" x="${W - R - 70}" y="${y(S.T) - 11}" width="70" height="22" rx="11"/><text class="thandle-t" x="${W - R - 35}" y="${y(S.T) + 4}" text-anchor="middle">${esc(money(S.T))}</text></g>` : ""}
       <line class="scrub" data-scrub y1="${Top}" y2="${Hh - 24}" x1="-99" x2="-99" style="opacity:0"/></svg><div class="tip" hidden></div>`;
     el.insertBefore(keep, el.firstChild); keep.style.visibility = o.view === "paths" ? "visible" : "hidden";
+    // The price line's handle, for a finger: the page never scrolls from it, and the rest of the chart scrolls as usual.
+    // The same element each time, so a finger dragging it keeps it while the chart is drawn again.
+    const grab = st.grab || (st.grab = Object.assign(document.createElement("div"), { className: "tgrab" }));
+    grab.hidden = !o.threshold; el.appendChild(grab);
+    if (o.threshold) { const k = el.clientWidth / W; grab.style.left = `${(W - R - 80) * k}px`; grab.style.top = `${(y(S.T) - 22) * k}px`; grab.style.width = `${84 * k}px`; grab.style.height = `${44 * k}px`; grab.setAttribute("aria-label", tr("Træk for at sætte en pris", "Drag to set a price")); }
     st.first = false; st.o = o;
     if (!st.wired) {
       st.wired = true;
@@ -850,11 +862,14 @@ function boot(host, root) {
       el.addEventListener("pointerdown", (ev) => {
         if (!st.geo) return;
         const { py } = at(ev), gg = st.geo;
-        if (st.o.threshold && Math.abs(py - gg.y(S.T)) < 16) { st.drag = true; el.setPointerCapture(ev.pointerId); el.style.touchAction = "none"; return; }
+        // A mouse takes the line anywhere; a finger takes the handle, which never scrolls the page.
+        const onGrab = ev.target === st.grab;
+        if (st.o.threshold && (onGrab || (ev.pointerType === "mouse" && Math.abs(py - gg.y(S.T)) < 16))) { st.drag = true; el.setPointerCapture(ev.pointerId); el.style.touchAction = "none"; if (onGrab) ev.preventDefault(); return; }
         // A finger held still for a moment reads the hours under it; one that moves at once scrolls the page.
         if (ev.pointerType !== "mouse") { clearTimeout(st.timer); st.from = [ev.clientX, ev.clientY]; st.timer = setTimeout(() => { st.hold = true; el.dispatchEvent(new PointerEvent("pointermove", { clientX: st.from[0], clientY: st.from[1], pointerType: "touch", bubbles: false })); }, 150); }
       });
       el.addEventListener("touchmove", (ev) => { if ((st.hold || st.drag) && ev.cancelable) ev.preventDefault(); }, { passive: false });
+      el.addEventListener("touchstart", (ev) => { if (ev.target === st.grab && ev.cancelable) ev.preventDefault(); }, { passive: false });
       el.addEventListener("pointermove", (ev) => {
         if (!st.geo) return;
         const { py, i } = at(ev), gg = st.geo;
@@ -874,7 +889,7 @@ function boot(host, root) {
   function river() {
     raf = 0;
     const st = charts["#wk-pris"], c = st && $("#wk-pris canvas");
-    if (!host.isConnected || !c || !st.geo || S.tab !== "lad" || S.view !== "paths" || K >= H) return;
+    if (!host.isConnected || !c || !st.geo || S.tab !== "pris" || S.view !== "paths" || K >= H) return;
     const gg = st.geo, dpr = Math.min(2, devicePixelRatio || 1);
     if (c.width !== Math.round(gg.W * dpr) || c.height !== Math.round(gg.Hh * dpr)) { c.width = Math.round(gg.W * dpr); c.height = Math.round(gg.Hh * dpr); }
     if (!st.parts.length || st.partsFor !== price) { const rr = rng(900); st.partsFor = price; st.parts = Array.from({ length: 500 }, () => ({ path: sample(rr), t: K - 1 + rr() * (H - K), v: 0.16 + rr() * 0.2 })); }
@@ -897,11 +912,15 @@ function boot(host, root) {
     st.sel = sel; st.text = text;
     if (st.wired) return;
     st.wired = true;
-    const tipEl = () => { let t = $(".tip", el); if (!t) { t = document.createElement("div"); t.className = "tip"; t.hidden = true; el.appendChild(t); } return t; };
-    let timer = 0, on = false, from = null, items = null, lit = null;
+    // The tip lives on the card, not in the chart: a chart that scrolls sideways cuts off what reaches past it,
+    // and a chart drawn again would take its tip with it.
+    const box = () => el.closest(".card") || el;
+    const tipEl = () => { const b = box(); let t = b.querySelector(":scope > .tip"); if (!t) { t = document.createElement("div"); t.className = "tip free"; t.hidden = true; b.appendChild(t); } return t; };
+    let timer = 0, on = false, from = null, items = null, lit = null, pinned = false;
     const light = (hit) => { if (lit && lit !== hit) lit.classList.remove("hl"); lit = hit; if (hit) hit.classList.add("hl"); };
+    const hide = () => { tipEl().hidden = true; light(null); pinned = false; };
     const show = (x, y, near) => {
-      const b = el.getBoundingClientRect(), t = tipEl(), under = root.elementFromPoint ? root.elementFromPoint(x, y) : null;
+      const t = tipEl(), under = root.elementFromPoint ? root.elementFromPoint(x, y) : null;
       let hit = under && el.contains(under) ? under.closest(st.sel) : null;
       if (!hit && near) {
         items ||= $$(st.sel, el).map((n) => { const r = n.getBoundingClientRect(); return [n, r.left + r.width / 2, r.top + r.height / 2]; });
@@ -910,7 +929,10 @@ function boot(host, root) {
       light(hit);
       if (!hit) { t.hidden = true; return; }
       t.hidden = false; t.innerHTML = st.text(hit);
-      t.style.left = `${clamp(x - b.left, 90, Math.max(90, b.width - 90))}px`; t.style.top = `${y - b.top - (near ? 34 : 12)}px`;
+      // Over the finger when there is room, else under it; always inside the card.
+      const b = box().getBoundingClientRect(), tw = t.offsetWidth, th = t.offsetHeight, gap = near ? 30 : 12, px = x - b.left, py = y - b.top;
+      const top = py - gap - th >= 4 ? py - gap - th : Math.min(b.height - th - 4, py + gap);
+      t.style.left = `${clamp(px - tw / 2, 6, Math.max(6, b.width - tw - 6))}px`; t.style.top = `${Math.max(4, top)}px`;
     };
     const stop = () => { clearTimeout(timer); on = false; from = null; items = null; };
     el.addEventListener("pointerdown", (ev) => {
@@ -923,9 +945,12 @@ function boot(host, root) {
       if (on) { from = { x: ev.clientX, y: ev.clientY }; show(ev.clientX, ev.clientY, true); return; }
       if (from && Math.hypot(ev.clientX - from.x, ev.clientY - from.y) > 8) stop();
     });
-    el.addEventListener("pointerup", (ev) => { if (ev.pointerType === "mouse") return; if (!on && from) show(ev.clientX, ev.clientY, true); stop(); });
+    // A finger's tip stays until the finger taps somewhere else or the page scrolls.
+    el.addEventListener("pointerup", (ev) => { if (ev.pointerType === "mouse") return; if (!on && from) show(ev.clientX, ev.clientY, true); if (from) pinned = !tipEl().hidden; stop(); });
     el.addEventListener("pointercancel", stop);
-    el.addEventListener("pointerleave", (ev) => { if (ev.pointerType === "mouse") { tipEl().hidden = true; light(null); } });
+    el.addEventListener("pointerleave", (ev) => { if (ev.pointerType === "mouse") hide(); });
+    root.addEventListener("pointerdown", (ev) => { if (pinned && !el.contains(ev.target)) hide(); }, true);
+    addEventListener("scroll", () => { if (pinned) hide(); }, { capture: true, passive: true });
     // While a finger holds the chart, the page does not scroll.
     el.addEventListener("touchmove", (ev) => { if (on && ev.cancelable) ev.preventDefault(); }, { passive: false });
     el.addEventListener("contextmenu", (ev) => { if (from || on) ev.preventDefault(); });
@@ -971,7 +996,7 @@ function boot(host, root) {
     const cheap = new Set(soonPlan ? bars.filter((x) => planned(x.h)).map((x) => x.h) : [...priced].sort((x, y) => x.p - y.p).slice(0, 3).map((x) => x.h));
     const ptop = Math.max(0.01, ...bars.map((x) => x.p || 0)), runs = [...cheap].sort((x, y) => x - y), span = runs.length ? `${pad(mod(runs[0], 24))}–${pad(mod(runs[runs.length - 1] + 1, 24))}` : null;
     const cheapP = runs.length ? mean(runs.map((h) => priceH.get(h)).filter((v) => v != null)) : null;
-    const rib = priced.length ? `<div class="hrib"><div class="row"><span>${tr("Det næste døgns priser", "The next day's prices")}</span>${span ? `<span>${soonPlan ? tr("lader", "charges") : tr("billigst", "cheapest")} <b>${tr("kl.", "")} ${span}</b> · ${esc(money(cheapP))}</span>` : ""}</div>
+    const rib = priced.length ? `<div class="hrib hit" data-tab="pris" role="button" aria-label="${tr("Se priserne", "See the prices")}"><div class="row"><span>${tr("Det næste døgns priser", "The next day's prices")}</span>${span ? `<span>${soonPlan ? tr("lader", "charges") : tr("billigst", "cheapest")} <b>${tr("kl.", "")} ${span}</b> · ${esc(money(cheapP))}</span>` : ""}</div>
       <svg viewBox="0 0 400 62" role="img" aria-label="${tr("Det næste døgns priser", "The next day's prices")}">${bars.map((x, n) => { if (x.p == null) return ""; const hh = Math.max(3, (x.p / ptop) * 40), on = cheap.has(x.h); return `<rect class="${st0() ? "grow" : ""}" style="animation-delay:${n * 25}ms" x="${n * 20 + 2}" y="${44 - hh}" width="16" height="${hh}" rx="4" fill="${on ? "var(--accent)" : x.fc ? "var(--fc)" : "var(--ink)"}" opacity="${on ? 1 : 0.3}"/>`; }).join("")}
       ${bars.filter((x) => x.hod % 3 === 0).map((x) => `<text x="${(x.h - from) * 20 + 10}" y="59" text-anchor="middle">${pad(x.hod)}</text>`).join("")}</svg></div>` : "";
     // The picture: the cars by their sides, filled to their level, a hard day's floor as a dashed line, and the cable.
@@ -1288,8 +1313,96 @@ function boot(host, root) {
     tipOn($("#trips"), "[data-trip]", (el) => { const t = trips[+el.dataset.trip]; return `${WD[dateOf(t.d).getDay()]} ${dm(t.d)} ${when(t)}<br>${esc(t.from)} → ${esc(t.to)} · <b>${nf(t.kwh, 1)} kWh</b>`; });
   }
 
-  /* ---------- Power: the prices */
+  /* ---------- Prices: what power costs now, hour by hour, and over the week */
+  // What the price tends to be at an hour (from the kept prices), and which cars the week plan charges then.
+  const usualAt = (h) => { const rh = DATA.rhythm || [], wd = mod(TODAY.getDay() + Math.floor(h / 24), 7); return (rh[(wd + 6) % 7] || [])[mod(h, 24)] ?? null; };
+  const chargingAt = (h) => ids.filter((id) => ((TL.cars[id] || {}).plan || []).some((x) => h + 1 > x.h && h < x.h + x.len));
+  const heat = (v, lo, hi) => `color-mix(in srgb, var(--bad) ${(clamp((v - lo) / (hi - lo || 1), 0, 1) * 100).toFixed(0)}%, var(--accent))`;
+  const range8 = (p, sg) => `${tr("8 af 10 gange", "8 times of 10")} ${kr(Math.max(0, p - 1.2816 * sg))}–${kr(p + 1.2816 * sg)}`;
+  const hourTip = (h, p, kind, sg) => {
+    const u = usualAt(h), who = chargingAt(h).map((id) => CARS[id].name), d = dateOf(N + Math.floor(h / 24));
+    const what = kind === "known" ? tr("kendt pris", "known price") : kind === "past" ? tr("betalt pris", "price paid") : kind === "pattern" ? tr("hvad den plejer at være", "what it tends to be") : sg ? range8(p, sg) : tr("prognose", "forecast");
+    return `${WD[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1} ${tr("kl.", "at")} ${pad(mod(h, 24))} · <b>${esc(money(p))}</b><br>${what}${u != null && kind !== "pattern" ? `<br>${tr("plejer", "usually")} ${esc(money(u))}` : ""}${who.length ? `<br><b>${esc(who.join(" + "))}</b> ${tr("lader", who.length > 1 ? "charge" : "charges")}` : ""}`;
+  };
+  function priceNow() {
+    const h0 = Math.floor(NOWH), now = priceH.get(h0), u = usualAt(h0);
+    const vs = now != null && u ? (now - u) / u : null;
+    const word = vs == null ? "" : vs < -0.1 ? tr(`billig · ${nf(-vs * 100)} % under normalt`, `cheap · ${nf(-vs * 100)} % under usual`) : vs > 0.1 ? tr(`dyr · ${nf(vs * 100)} % over normalt`, `dear · ${nf(vs * 100)} % over usual`) : tr("som den plejer", "as usual");
+    // The cheapest three hours in a row in the coming day.
+    let best = null;
+    for (let h = h0; h <= h0 + 21; h += 1) { const v = [h, h + 1, h + 2].map((x) => priceH.get(x)); if (v.some((x) => x == null)) continue; const m = mean(v); if (!best || m < best.m) best = { h, m, fc: [h, h + 1, h + 2].some((x) => fcH.has(x)) }; }
+    // Tomorrow: known once the day's prices are out, early in the afternoon.
+    const tom = Array.from({ length: 24 }, (_, k) => 24 + k), known = tom.every((h) => priceH.has(h) && !fcH.has(h)), guess = tom.map((h) => priceH.get(h)).filter((v) => v != null);
+    const low = known ? tom.reduce((a, h) => (priceH.get(h) < priceH.get(a) ? h : a), 24) : null;
+    const kpi = (label, value, sub, words = false) => `<div class="kpi"><small>${label}</small><b${words ? ' class="t"' : ""}>${value}</b><span>${sub}</span></div>`;
+    $("#kpi-pris").innerHTML = kpi(tr("Nu", "Now"), esc(money(now)), esc(word || `${tr("kl.", "at")} ${pad(h0 % 24)}`))
+      + kpi(tr("Billigst det næste døgn", "Cheapest in the next day"), esc(best ? money(best.m) : "–"), esc(best ? `${tr("kl.", "at")} ${pad(mod(best.h, 24))}–${pad(mod(best.h + 3, 24))}${best.fc ? ` · ${tr("prognose", "forecast")}` : ""}` : ""))
+      + kpi(tr("I morgen", "Tomorrow"), known ? esc(money(mean(tom.map((h) => priceH.get(h))))) : esc(tr("Ikke endnu", "Not yet")), esc(known ? `${tr("i snit · billigst kl.", "on average · cheapest at")} ${pad(low - 24)}` : `${NOWH < 13 ? tr("priserne kommer ca. kl. 13", "the prices come about 13:00") : tr("priserne ventes snart", "the prices are due soon")}${guess.length ? ` · ${tr("prognose", "forecast")} ${money(mean(guess))}` : ""}`), !known);
+  }
+  function bars48() {
+    const el = $("#bars48"), n = Math.min(48, H);
+    if (n < 2) { el.innerHTML = none(tr("Prissensoren har ingen priser lige nu.", "The price sensor has no prices right now.")); $("#bars48-l").innerHTML = ""; return; }
+    const W = Math.max(300, el.clientWidth), small = W < 560, Lx = 30, R = 4, Top = 18, PH = small ? 130 : 170, cw = (W - Lx - R) / n;
+    const who = ids.filter((id) => ((TL.cars[id] || {}).plan || []).some((x) => x.h < START + n && x.h + x.len > START)), BT = Top + PH + 8, Hh = BT + who.length * 9 + 18;
+    const top = Math.max(...Array.from({ length: n }, (_, i) => price[i] + 1.2816 * sigma[i])) * 1.06, step = nice(top), y = (v) => Top + (1 - clamp(v, 0, top) / top) * PH;
+    const shown = price.slice(0, n), lo = q(shown, 0.05), hi = q(shown, 0.95);
+    let g = "";
+    for (let v = 0; v <= top; v += step) g += `<line class="grid" x1="${Lx}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${Lx - 5}" y="${y(v) + 4}" text-anchor="end">${nf(v, step < 1 ? (step < 0.1 ? 2 : 1) : 0)}</text>`;
+    let b = "";
+    for (let i = 0; i < n; i += 1) {
+      const h = START + i, x0 = Lx + i * cw, fc = i >= K, p = price[i];
+      if (hourOf(i) === 0) g += `<line class="grid" x1="${x0}" x2="${x0}" y1="${Top - 14}" y2="${BT + who.length * 9}"/><text x="${x0 + 3}" y="${Top - 5}">${WD[wdOf(i)]}</text>`;
+      if (hourOf(i) % 6 === 0) g += `<text x="${x0 + cw / 2}" y="${Hh - 3}" text-anchor="middle">${pad(hourOf(i))}</text>`;
+      b += `<rect x="${(x0 + 0.6).toFixed(1)}" y="${y(p).toFixed(1)}" width="${Math.max(1, cw - 1.6).toFixed(1)}" height="${(Top + PH - y(p)).toFixed(1)}" rx="${Math.min(3, cw / 3).toFixed(1)}" fill="${heat(p, lo, hi)}" opacity="${fc ? 0.42 : 0.95}"/>`;
+      if (fc && sigma[i]) b += `<line x1="${(x0 + cw / 2).toFixed(1)}" x2="${(x0 + cw / 2).toFixed(1)}" y1="${y(p + 1.2816 * sigma[i]).toFixed(1)}" y2="${y(Math.max(0, p - 1.2816 * sigma[i])).toFixed(1)}" stroke="var(--ink)" stroke-opacity=".35" stroke-width="1.2"/>`;
+      who.forEach((id, k) => { if (chargingAt(h).includes(id)) b += `<rect x="${(x0 + 0.6).toFixed(1)}" y="${BT + k * 9}" width="${Math.max(1, cw - 1.6).toFixed(1)}" height="6" rx="2" fill="${CARS[id].col}"/>`; });
+      b += `<rect class="hit" data-bh="${i}" x="${x0.toFixed(1)}" y="${Top - 14}" width="${cw.toFixed(1)}" height="${BT + who.length * 9 - Top + 14}" fill="transparent"/>`;
+    }
+    const nowX = Lx + (NOWH - START) * cw;
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${tr("Elprisen time for time", "The price hour by hour")}">${g}<line x1="${Lx}" x2="${W - R}" y1="${Top + PH}" y2="${Top + PH}" stroke="var(--line)"/>${b}<line class="now" x1="${nowX.toFixed(1)}" x2="${nowX.toFixed(1)}" y1="${Top - 2}" y2="${Top + PH}"/></svg>`;
+    tipOn(el, "[data-bh]", (t) => { const i = +t.dataset.bh; return hourTip(START + i, price[i], i < K ? "known" : "forecast", sigma[i]); });
+    $("#bars48-l").innerHTML = `<span><i class="b" style="background:var(--accent)"></i>${tr("kendt", "known")}</span>${K < n ? `<span><i class="b" style="background:var(--accent);opacity:.42"></i>${tr("prognose", "forecast")}</span>` : ""}${who.map((id) => `<span><i class="dot" style="background:${CARS[id].col}"></i>${esc(CARS[id].name)} ${tr("lader", "charges")}</span>`).join("")}`;
+  }
+  function weekHeat() {
+    const el = $("#wkheat"), WK = WEEK || {}, wkS = WK.start ? Math.round((IN.wall(WK.start) - TODAY.getTime()) / 3600000) : START, h0 = Math.floor(NOWH), b0 = Math.floor((h0 - 6) / 24);
+    // Each hour's price and how it is known: paid, published, forecast, or only the usual price at that hour of the week.
+    const at = (h) => {
+      if (h < h0) { const p = priceH.get(h); return p == null ? null : { p, kind: "past" }; }
+      const i = h - wkS, wp = (WK.prices || [])[i];
+      if (wp != null) return { p: wp, kind: (WK.kinds || [])[i] || "forecast" };
+      const p = priceH.get(h); return p == null ? null : { p, kind: fcH.has(h) ? "forecast" : "known" };
+    };
+    const rows = Array.from({ length: 7 }, (_, n) => Array.from({ length: 24 }, (_, k) => { const h = (b0 + n) * 24 + 6 + k; return { h, ...(at(h) || { p: null }) }; }));
+    const ahead = rows.flat().filter((c) => c.p != null && c.kind !== "past").map((c) => c.p);
+    if (!ahead.length) { el.innerHTML = none(tr("Ingen priser for ugen endnu.", "No prices for the week yet.")); $("#wkheat-l").innerHTML = ""; return; }
+    const lo = q(ahead, 0.05), hi = q(ahead, 0.95), W = Math.max(300, el.clientWidth), LW = 54, RW = 38, Top = 16, RH = 28, cw = (W - LW - RW) / 24, Hh = Top + 7 * RH + 4;
+    const op = { known: 1, forecast: 0.62, pattern: 0.3, past: 0.16 };
+    let s = [0, 6, 12, 18, 24].map((k) => `<text x="${(LW + k * cw).toFixed(1)}" y="11" text-anchor="${k === 24 ? "end" : k ? "middle" : "start"}">${pad((6 + k) % 24)}</text>`).join("");
+    rows.forEach((row, n) => {
+      const d = dateOf(N + b0 + n), y0 = Top + n * RH, vals = row.filter((c) => c.p != null && c.kind !== "past").map((c) => c.p);
+      s += `<text x="0" y="${y0 + 13.5}" ${n === 0 ? 'style="fill:var(--ink);font-weight:600"' : ""}>${WD[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}</text>`;
+      row.forEach((c, k) => {
+        if (c.p == null) return;
+        const x0 = LW + k * cw, who = c.kind === "past" ? [] : chargingAt(c.h);
+        s += `<rect class="hit" data-wh="${c.h}" x="${(x0 + 0.75).toFixed(1)}" y="${y0 + 1}" width="${(cw - 1.5).toFixed(1)}" height="16" rx="3" fill="${heat(c.p, lo, hi)}" fill-opacity="${op[c.kind] ?? 0.6}"/>`;
+        // The week plan's charges: a line under the hour in the car's colour, shared when both cars charge.
+        who.forEach((id, j) => { const w = (cw - 1.5) / who.length; s += `<rect class="wch" x="${(x0 + 0.75 + j * w).toFixed(1)}" y="${y0 + 18.5}" width="${Math.max(1, w - (who.length > 1 ? 1 : 0)).toFixed(1)}" height="3.5" rx="1.5" fill="${CARS[id].col}"/>`; });
+      });
+      if (vals.length) s += `<text x="${W}" y="${y0 + 13.5}" text-anchor="end" style="fill:var(--ink)">${kr(Math.min(...vals))}</text>`;
+    });
+    // Now: a line through this hour.
+    const nk = h0 - (b0 * 24 + 6), nx = LW + (nk + (NOWH - h0)) * cw;
+    s += `<line class="now" x1="${nx.toFixed(1)}" x2="${nx.toFixed(1)}" y1="${Top - 2}" y2="${Top + 22}"/>`;
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${tr("Ugens elpriser time for time", "The week's prices hour by hour")}">${s}</svg>`;
+    const cell = new Map(rows.flat().map((c) => [c.h, c]));
+    tipOn(el, "[data-wh]", (t) => { const c = cell.get(+t.dataset.wh) || {}, i = c.h - START; return hourTip(c.h, c.p, c.kind, i >= 0 && i < H ? sigma[i] : 0); });
+    const used = ["known", "forecast", "pattern"].filter((k) => rows.flat().some((c) => c.kind === k));
+    const name = { known: tr("kendt", "known"), forecast: tr("prognose", "forecast"), pattern: tr("plejer", "usual") };
+    const who = ids.filter((id) => ((TL.cars[id] || {}).plan || []).length);
+    $("#wkheat-l").innerHTML = used.map((k) => `<span><i class="b" style="background:var(--accent);opacity:${op[k]}"></i>${name[k]}</span>`).join("") + who.map((id) => `<span><i style="background:${CARS[id].col}"></i>${esc(CARS[id].name)} ${tr("lader", "charges")}</span>`).join("");
+  }
   function priser() {
+    priceNow(); bars48(); weekHeat();
     weekChart("#wk-pris", { view: S.view, threshold: true });
     $("#fc-none").hidden = !(H >= 2 && K >= H);
     $("#view-t").textContent = viewText();
@@ -1299,8 +1412,8 @@ function boot(host, root) {
     const rh = DATA.rhythm || [], flat = rh.flat().filter((v) => v != null);
     if (!flat.length) { $("#rhythm").innerHTML = none(tr("Ingen priser gemt endnu.", "No prices kept yet.")); return; }
     const lo = Math.min(...flat), hi = Math.max(...flat), cell = 320 / 24;
-    $("#rhythm").innerHTML = `<svg viewBox="0 0 356 150">${[1, 2, 3, 4, 5, 6, 0].map((wd, row) => `<text x="0" y="${row * 18 + 13}">${WD[wd]}</text>` + [...Array(24).keys()].map((h) => { const v = (rh[row] || [])[h]; if (v == null) return ""; const k = clamp((v - lo) / (hi - lo || 1), 0, 1); return `<rect class="hit pop" style="animation-delay:${(row * 24 + h) * 3}ms" data-v="${v}" data-l="${WDL[wd]} ${tr("kl.", "")} ${pad(h)}" x="${32 + h * cell}" y="${row * 18 + 2}" width="${cell - 1.5}" height="15" rx="3" fill="color-mix(in srgb, var(--bad) ${(k * 100).toFixed(0)}%, var(--accent))" opacity="${0.35 + Math.abs(k - 0.5) * 1.3}"/>`; }).join("")).join("")}${[0, 6, 12, 18].map((h) => `<text x="${32 + h * cell}" y="142">${pad(h)}</text>`).join("")}</svg>`;
-    tipOn($("#rhythm"), "[data-v]", (el) => `${el.dataset.l}<br>${tr("plejer at koste", "tends to cost")} <b>${esc(money(+el.dataset.v))}</b>`);
+    $("#rhythm").innerHTML = `<svg viewBox="0 0 356 150">${[1, 2, 3, 4, 5, 6, 0].map((wd, row) => `<text x="0" y="${row * 18 + 13}">${WD[wd]}</text>` + [...Array(24).keys()].map((h) => { const v = (rh[row] || [])[h]; if (v == null) return ""; const k = clamp((v - lo) / (hi - lo || 1), 0, 1); return `<rect class="hit pop" style="animation-delay:${(row * 24 + h) * 3}ms" data-rv="${v}" data-l="${WDL[wd]} ${tr("kl.", "")} ${pad(h)}" x="${32 + h * cell}" y="${row * 18 + 2}" width="${cell - 1.5}" height="15" rx="3" fill="color-mix(in srgb, var(--bad) ${(k * 100).toFixed(0)}%, var(--accent))" opacity="${0.35 + Math.abs(k - 0.5) * 1.3}"/>`; }).join("")).join("")}${[0, 6, 12, 18].map((h) => `<text x="${32 + h * cell}" y="142">${pad(h)}</text>`).join("")}</svg>`;
+    tipOn($("#rhythm"), "[data-rv]", (el) => `${el.dataset.l}<br>${tr("plejer at koste", "tends to cost")} <b>${esc(money(+el.dataset.rv))}</b>`);
   }
 
   /* ---------- Power: the charging */
@@ -1516,8 +1629,8 @@ function boot(host, root) {
 
   /* ---------- the whole page */
   // History is a tab of its own as well: the panel draws it (the charges, by car and by charger).
-  const TABS = () => [["plan", tr("Overblik", "Overview")], ["bil", tr("Kørsel", "Driving")], ["lad", tr("Strøm", "Power")], ["laer", tr("Lært", "Learned")]];
-  const GROUP = { plan: ["plan"], bil: ["bil"], lad: ["pris", "lad"], laer: ["laer", "forud"] };
+  const TABS = () => [["plan", tr("Overblik", "Overview")], ["bil", tr("Kørsel", "Driving")], ["pris", tr("Priser", "Prices")], ["lad", tr("Ladning", "Charging")], ["laer", tr("Lært", "Learned")]];
+  const GROUP = { plan: ["plan"], bil: ["bil"], pris: ["pris"], lad: ["lad"], laer: ["laer", "forud"] };
   const PANELS = ["plan", "bil", "pris", "lad", "laer", "forud"];
   function render(calm = false) {
     if (!built || !IN) return;
@@ -1530,7 +1643,7 @@ function boot(host, root) {
   }
   root.addEventListener("click", (ev) => {
     if (!built) return;
-    const t = ev.target.closest("[data-wkp],[data-tlz],[data-tlnow],[data-day],[data-tlsheet],#tl-close,#tl-sheet,[data-open],[data-tab],[data-car],[data-v],[data-trip],[data-name],[data-place],[data-mi],[data-c9q],[data-log]");
+    const t = ev.target.closest("[data-wkp],[data-tlz],[data-tlnow],[data-day],[data-tlsheet],#tl-close,#tl-sheet,[data-open],[data-tab],[data-car],#view [data-v],[data-trip],[data-name],[data-place],[data-mi],[data-c9q],[data-log]");
     if (!t) return;
     if (t.dataset.log) { const d = t.dataset.log === "x" ? null : +t.dataset.log; S.logDay = d === S.logDay ? null : d; render(true); return; }
     if (t.dataset.open) { $("#tl-sheet").hidden = true; say("open", t.dataset.open); return; }

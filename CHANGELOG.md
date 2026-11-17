@@ -2,6 +2,19 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b36] - 2026-11-17
+
+### Added
+
+- **Learning has a Prices tab**: Power is split into Prices (what power will cost) and Charging (what was charged, as before). Prices shows the price now against what it usually is at that hour, the cheapest three hours of the coming day and whether tomorrow's prices are out; the next 48 hours as bars (known prices solid, the forecast light with the range it lands in 8 times of 10, and the hours the week plan charges in under them); and the week in prices, a row a day from 06 to 06 with the week plan's charges under the hours. The forecast's outlook, its accuracy and the price's rhythm follow. The day's prices on the Overview open the tab.
+
+### Fixed
+
+- A tap on the price's rhythm changed the view of the chart above it and lost its tip.
+- A chart's tip is kept inside its card: under the finger when there is no room above it, and no longer cut off by a chart that scrolls sideways (every trip in 90 days, use per day). A finger's tip stays until it taps elsewhere or the page scrolls.
+- Dragging the price line in the forecast scrolled the page as well: a finger now takes the line by its handle, which never scrolls the page; the rest of the chart scrolls as before.
+- The house on the Home tab could open white in a dark app, until another tab was opened: it now follows the sun as soon as Home Assistant reports it (and dark mode until then), and takes the light of now at once when the app comes back from the background.
+
 ## [2.5.0b35] - 2026-11-17
 
 ### Changed

@@ -1998,11 +1998,10 @@ Object.assign(TEXT.da, {
   insight_score_none: "Regnskabet begynder, når første aften er gået.",
   insight_trips: "{n} ture logget",
   insight_loading: "Henter …",
-  insight_v_power: "Strøm",
   insight_v_sum: "Overblik",
   insight_off_hint: "Slå Indsigt til under Indstillinger for at se dette.",
   insight_v_cars: "Kørsel",
-  insight_v_prices: "Elpriser",
+  insight_v_prices: "Priser",
   insight_v_charge: "Ladning",
   insight_v_learn: "Lært",
   insight_v_history: "Historik",
@@ -2150,7 +2149,6 @@ Object.assign(TEXT.en, {
   insight_score_none: "The ledger begins after the first evening.",
   insight_trips: "{n} trips logged",
   insight_loading: "Loading …",
-  insight_v_power: "Power",
   insight_v_sum: "Overview",
   insight_off_hint: "Turn Insight on in Settings to see this.",
   insight_v_cars: "Driving",
@@ -5443,6 +5441,10 @@ class EvPlannerPanel extends HTMLElement {
       prof.setAttribute("aria-label", `${this._t("prof_open")}${name ? ` · ${name}` : ""}`);
     }
     this._applyTheme();
+    // The house follows the sun as Home Assistant reports it, also between the planner's own updates:
+    // the app may open (or wake) with the house drawn in another light.
+    const scene = this._scene;
+    if (scene?.el.isConnected && this._state && scene.light !== null && Math.abs(this._sceneLight() - scene.light) > 0.004) scene.update(this._sceneModel());
   }
 
   set narrow(narrow) {
@@ -5519,10 +5521,19 @@ class EvPlannerPanel extends HTMLElement {
     clearInterval(this._tick);
     this._tick = setInterval(() => this._state && this._onTick(), 30000);
     if (this._hass && !this._unsub && !this._subscribing) this._subscribe();
+    // Back from the background: the house takes the light of now at once, without fading from the old one.
+    this._onVisible ||= () => {
+      const scene = this._scene;
+      if (document.visibilityState !== "visible" || !scene?.el.isConnected || !this._state) return;
+      scene.light = null;
+      scene.update(this._sceneModel());
+    };
+    document.addEventListener("visibilitychange", this._onVisible);
   }
 
   disconnectedCallback() {
     clearInterval(this._tick);
+    if (this._onVisible) document.removeEventListener("visibilitychange", this._onVisible);
     this._dropDraft();
     this._unsubscribe();
   }
@@ -9457,6 +9468,16 @@ class EvPlannerPanel extends HTMLElement {
     return ClayScene.HOUSES.includes(chosen) ? chosen : site.home ? "classic" : "cabin";
   }
 
+  /* From day (0) to night (1): day above 6°, night below −6°, gliding between them. Before the sun is known
+     (the app just opened), the theme decides, so a dark app does not show a white house. */
+  _sceneLight() {
+    const sun = this._hass?.states?.["sun.sun"];
+    const elevation = Number(sun?.attributes?.elevation);
+    if (Number.isFinite(elevation)) return clamp((6 - elevation) / 12, 0, 1);
+    if (sun) return sun.state === "below_horizon" ? 1 : 0;
+    return this.hasAttribute("dark") ? 1 : 0;
+  }
+
   _sceneModel() {
     const place = this._placeNow();
     const supply = place.home ? this._state.supply : place.supply;
@@ -9505,10 +9526,7 @@ class EvPlannerPanel extends HTMLElement {
       const dir = gridKw > 0.05 ? "in" : gridKw < -0.05 ? "out" : null;
       labels.push({ key: "grid", title: this._t("home_grid"), value: text, short: Math.abs(gridKw) < 0.05 ? "0 W" : power(Math.abs(gridKw)), on: Math.abs(gridKw) > 0.05, colour, icon: "grid", dir });
     }
-    const sun = this._hass?.states?.["sun.sun"];
-    const elevation = Number(sun?.attributes?.elevation);
-    // From day (0) to night (1): day above 6°, night below −6°, gliding between them.
-    const light = !Number.isFinite(elevation) ? (sun?.state === "below_horizon" ? 1 : 0) : clamp((6 - elevation) / 12, 0, 1);
+    const light = this._sceneLight();
     const model = {
       // The decorations of the holiday or special day now, as Hverdagsro has them.
       season: dayNow(this._state.settings),
@@ -9886,7 +9904,7 @@ class EvPlannerPanel extends HTMLElement {
     const own = (k) => k === "history" || k === "learned";
     const view = past ? "history" : insightOn ? "learned" : this._histView === "learned" || !(this._histView in parts) ? "learned" : this._histView;
     // With Insight on, the history is the last of Insight's tabs: the same row, the others lead back to Insight.
-    const insightTabs = [["plan", "insight_v_sum"], ["bil", "insight_v_cars"], ["lad", "insight_v_power"], ["laer", "insight_v_learn"]];
+    const insightTabs = [["plan", "insight_v_sum"], ["bil", "insight_v_cars"], ["pris", "insight_v_prices"], ["lad", "insight_v_charge"], ["laer", "insight_v_learn"]];
     const switcher = past
       ? ""
       : insightOn
