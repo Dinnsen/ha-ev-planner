@@ -451,3 +451,12 @@ async def test_a_message_says_where_the_car_is_plugged_in_and_when_it_charges(
     hass.states.async_set(CABLE, "on")
     await move(hass, freezer, dt_util.now() + timedelta(minutes=2))
     assert len([c for c in notify.calls if c.get("data", {}).get("tag") == tag]) == 1
+
+
+def test_an_amount_in_kroner_ends_a_sentence_with_one_full_stop() -> None:
+    """«3,26 kr.» at the end of a sentence: «kr.», not «kr..»."""
+    from custom_components.ev_household_planner.household import Household
+
+    danish = SimpleNamespace(_danish=True)
+    text = Household._text(danish, "done", soc="80", energy="1,5", cost="3,26 kr.")
+    assert text == "Ladet til 80 %: 1,5 kWh for 3,26 kr."

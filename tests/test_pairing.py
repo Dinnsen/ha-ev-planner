@@ -256,6 +256,22 @@ async def test_cars_that_have_not_reported_are_asked_to_and_the_charger_waits(
     assert len(presses) == 2
 
 
+async def test_a_car_found_at_the_charger_is_asked_at_most_three_times(
+    hass: HomeAssistant, home: MockConfigEntry, freezer: FrozenDateTimeFactory, presses: list[str]
+) -> None:
+    """The car at home is taken for the plug, but its cloud never says the cable is in: three asks, no more."""
+    household = home.runtime_data
+    _set_car(hass, "epiq", place="home")
+    hass.states.async_set("binary_sensor.epiq_cable", "unknown")
+    _set_car(hass, "elroq", place="not_home")
+    hass.states.async_set("binary_sensor.garage_car", "on")
+    await settle(hass, freezer)
+    for _minute in range(40):
+        await move(hass, freezer, dt_util.now() + timedelta(minutes=1))
+    assert presses.count("button.epiq_refresh") <= 3
+    assert len([e for e in household.events.items if e["kind"] == "asked_car"]) <= 3
+
+
 async def test_the_household_is_asked_when_the_car_cannot_be_told(
     hass: HomeAssistant, home: MockConfigEntry, freezer: FrozenDateTimeFactory, notify: NotifyCalls, presses: list[str]
 ) -> None:

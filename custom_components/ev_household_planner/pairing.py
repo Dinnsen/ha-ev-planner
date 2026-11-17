@@ -379,6 +379,8 @@ class Pairing:
                     charger.occupant = None
             if charger.connected is not True or charger.occupant is not None:
                 self._asked.pop(charger.charger_id, None)
+            if charger.connected is not True:
+                # The cars are asked at most three times for each plug-in: the log goes with the plug.
                 self._refreshed.pop(charger.charger_id, None)
 
         # A charger with a plug sensor that got a car: the car that fits.

@@ -2652,6 +2652,8 @@ class Household(DataUpdateCoordinator[None]):
         plan = vehicle.plan
         resume = plan.start if plan is not None and plan.start is not None and plan.start > now else None
         key = "done" if full else "paused_until" if resume is not None else "paused"
+        if key != "done" and vehicle.settings.get(SET_MODE) == MODE_PAUSE:
+            return  # paused by someone in the panel: they know
         vehicle.pause_notice = key != "done"
         await self.notifier.send(
             title=vehicle.name,
@@ -3288,7 +3290,8 @@ class Household(DataUpdateCoordinator[None]):
 
     def _text(self, key: str, **values: Any) -> str:
         table = TEXT_DA if self._danish else TEXT_EN
-        return table[key].format(**values)
+        # An amount ending in «kr.» at the end of a sentence gets one full stop, not two.
+        return table[key].format(**values).replace("..", ".")
 
     def _num(self, value: float | None, digits: int) -> str:
         if value is None:
