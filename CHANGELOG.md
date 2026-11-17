@@ -2,6 +2,12 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b34] - 2026-11-17
+
+### Fixed
+
+- **Only a car that will charge counts as charging tonight.** A car turned off or paused keeps a plan for when it is on again, and a car not plugged in has one for when it is; neither was a charge tonight. The cars' week, the graph, "Have enough for", Home's Tonight and the car cards now show only the car EV Planner will charge (plugged in and on), so with one charger they no longer show two cars charging at once. A car not plugged in is left out of Home's Tonight when Insight gives its charger to another car.
+
 ## [2.5.0b33] - 2026-11-17
 
 ### Changed
