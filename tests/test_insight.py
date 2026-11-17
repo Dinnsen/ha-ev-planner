@@ -22,6 +22,7 @@ from custom_components.ev_household_planner.insight import (
     hourly,
     number,
     price_factor,
+    share_from_states,
     spot_hours,
     tariff_hours,
 )
@@ -845,6 +846,22 @@ async def test_the_week_plan_hour_by_hour_and_what_it_hands_on(
     with patch.object(insight, "_wants_backfill", return_value=False):
         await insight.async_tick(now)
     assert insight.week
+    # Before its trips are enough, a car's hours at home come from Home Assistant's history of its tracker.
+    assert insight.home_hours(TESLA, now) is None
+    begin = dt_util.start_of_local_day(now) - timedelta(days=10)
+    rows = [
+        [(begin + timedelta(hours=h)).isoformat(), "home" if h % 24 >= 16 else "not_home"] for h in range(0, 240, 8)
+    ]
+    with (
+        patch.object(insight, "sources", return_value={"tracker": "device_tracker.car"}),
+        patch(
+            "custom_components.ev_household_planner.insight.async_history", return_value={"device_tracker.car": rows}
+        ),
+    ):
+        await insight._async_home_history(now)
+        await insight._async_home_history(now)  # once a day
+    share = insight.home_hours(TESLA, now)
+    assert share is not None and share[0][18] == 1.0 and share[0][10] == 0.0
     # «Have enough for»: the week plan over the days gone by at every step, once a day in the background.
     await insight._async_runs(now)
     runs = insight.detail()["runs"]
@@ -865,3 +882,18 @@ async def test_the_week_plan_hour_by_hour_and_what_it_hands_on(
     await insight._async_hold(now)
     await planner.async_update_settings({"insight": False})
     assert insight.week == {} and tesla.week_target is None and mercedes.week_target is None
+
+
+def test_home_hours_from_a_trackers_history() -> None:
+    start = datetime(2026, 11, 2, tzinfo=dt_util.DEFAULT_TIME_ZONE)  # a Monday
+    rows = []
+    for day in range(7):
+        base = start + timedelta(days=day)
+        rows += [(base + timedelta(hours=7), "not_home"), (base + timedelta(hours=15), "home")]
+    rows.insert(0, (start - timedelta(hours=1), "home"))
+    share = share_from_states(rows, start, start + timedelta(days=7))
+    assert share is not None and share[0][12] == 0.0 and share[0][20] == 1.0 and share[6][3] == 1.0
+    # Not every weekday seen yet, or nothing at all: not known.
+    assert share_from_states(rows, start, start + timedelta(days=3)) is None
+    assert share_from_states([], start, start + timedelta(days=7)) is None
+    assert share_from_states([(start, "unavailable")], start, start + timedelta(days=7)) is None

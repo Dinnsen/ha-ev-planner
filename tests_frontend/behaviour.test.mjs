@@ -861,7 +861,8 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     // The settings sheet shows the same figures.
     await page.evaluate(() => window.harness.panel._setTab("settings"));
     await tap('[data-act="tile"][data-tile="insight"]');
-    assert.match(await read(".sheet .insight-card strong"), /should have the charger/);
+    assert.ok(await read(".sheet .insight-card strong"));
+    assert.match(await read(".sheet .insight-card small"), /01–04/);
   });
   // With Insight off: Charging and Learned as before, the other four dimmed with one line.
   await withPanel(state, { size: PHONE }, async ({ page, tap, read, calls }) => {

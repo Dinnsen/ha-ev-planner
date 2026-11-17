@@ -1063,9 +1063,8 @@ function boot(host, root) {
       if (pts.length > 1) g += `<path class="tl-b" style="stroke:${col}" d="${path(pts, (x) => by(x.v))}"/>`;
       for (const c of car.charges) g += `<rect x="${X(c.h)}" y="${CT + k * 10}" width="${Math.max(3, c.len * w)}" height="7" rx="3" style="fill:${col}"/>`;
       for (const t of car.trips) g += `<circle cx="${X(t.h)}" cy="${BT - 18 + k * 9}" r="${clamp(1.6 + t.km / 50, 2.2, 6)}" style="fill:${col}"/>`;
-      const planned = car.plan.length ? car.plan.map((s) => [Math.max(s.h, TL.now), s.len]) : [];
-      const pace = Number(CARS[id].live.charge_speed) > 0 ? Number(CARS[id].live.charge_speed) : ((KW * 0.9) / CARS[id].cap) * 100;
-      PLAN.nights.forEach((nn) => { const cell = PLAN.cells[id] && PLAN.cells[id][nn.n]; if (cell && cell.charge && !(nn.n === 0 && planned.length)) planned.push([nn.n * 24 + 25, clamp((cell.add || 0) / pace, 0.5, 9)]); });
+      // The week plan's charges, each where it is planned.
+      const planned = car.plan.map((s) => [Math.max(s.h, TL.now), s.len - Math.max(0, TL.now - s.h)]);
       for (const [h, len] of planned) g += `<rect x="${X(h)}" y="${CT + k * 10}" width="${Math.max(4, len * w)}" height="7" rx="3" class="tl-c plan" style="stroke:${col}"/>`;
     });
     g += `<line x1="${X(TL.now)}" x2="${X(TL.now)}" y1="0" y2="${Ht}" class="tl-now"/><text x="${X(TL.now) + 5}" y="${Ht - 4}" class="tl-t now">${tr("nu", "now")}</text>`;

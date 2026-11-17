@@ -70,6 +70,7 @@ from .insight_model import (
     score,
 )
 from .planner import PriceSlot
+from .support import async_history
 from .weekplan import HOURS, PATTERN_ERROR, Hour, WeekCar, plan_week, replay, stay_end, summary
 
 if TYPE_CHECKING:
@@ -125,6 +126,8 @@ PARK_MOVED_M = 300
 PARK_SPEED_KMH = 40
 # Further than a car drives in a minute: the odometer moved this much between two readings while away.
 PARK_JUMP_KM = 3.0
+# How far back Home Assistant's own history of where a car was is read, until its trips are enough.
+HOME_HISTORY_DAYS = 10
 # The hours a car is usually home: learned from the last eight weeks of trips, once there are enough.
 HOME_DAYS = 56
 HOME_MIN_DAYS = 14
@@ -282,6 +285,10 @@ class Insight:
         # The week plan played over the last 90 days at every step, for «Have enough for»: made once a day.
         self._runs: tuple[date | None, list[dict[str, Any]]] = (None, [])
         self._running = False
+        # How often each car was home at each hour of each weekday, from Home Assistant's own history (about ten
+        # days): used until the car's own trips tell it. Read once a day.
+        self._home_hist: dict[str, list[list[float]]] = {}
+        self._home_read: date | None = None
 
     @staticmethod
     def _empty() -> dict[str, Any]:
@@ -445,6 +452,7 @@ class Insight:
                 self._price_hour = (local.date(), local.hour)
                 self._prices(now)
                 self._prune(now)
+                await self._async_home_history(now)
                 await self._async_decide(now)
                 await self._async_runs(now)
                 self._changed()
@@ -724,11 +732,32 @@ class Insight:
                 trips.append((start, end, trip.get("from"), trip.get("to")))
         trips.sort(key=lambda trip: trip[0])
         if sum(origin == "home" for _, _, origin, _ in trips) < HOME_MIN_TRIPS:
-            return None
+            return self._home_hist.get(vehicle_id)
         first = max(since, trips[0][0].date())
         if (today - first).days < HOME_MIN_DAYS:
-            return None
+            return self._home_hist.get(vehicle_id)
         return home_share(trips, first, today - timedelta(days=1))
+
+    async def _async_home_history(self, now: datetime) -> None:
+        """Once a day: when each car was home, hour by hour, in Home Assistant's own history of its tracker."""
+        today = dt_util.as_local(now).date()
+        if self._home_read == today:
+            return
+        self._home_read = today
+        start = dt_util.start_of_local_day(now) - timedelta(days=HOME_HISTORY_DAYS)
+        end = dt_util.start_of_local_day(now)
+        for vehicle in self.household.vehicles.values():
+            tracker = self.sources(vehicle).get("tracker")
+            if not tracker:
+                continue
+            rows = await async_history(self.hass, [tracker], start, end)
+            if not isinstance(rows, dict) or not rows.get(tracker):
+                continue
+            share = share_from_states(
+                [(dt_util.as_local(datetime.fromisoformat(at)), place) for at, place in rows[tracker]], start, end
+            )
+            if share is not None:
+                self._home_hist[vehicle.vehicle_id] = share
 
     def _home_prices(self, car: CarOutlook, prices: dict[str, list[float | None]], now: datetime) -> None:
         """The car's prices by day as well as by night, at the hours it is usually home.
@@ -1454,3 +1483,29 @@ def replay_steps(inputs: Mapping[str, Any]) -> list[dict[str, Any]]:
         ]
         out.append(replay(cars, inputs["prices"], inputs["first"], inputs["days"], style))
     return out
+
+
+def share_from_states(rows: Sequence[tuple[datetime, str]], start: datetime, end: datetime) -> list[list[float]] | None:
+    """How often a tracker said "home" at each hour of each weekday (Monday first), from its states in order.
+
+    None until every weekday has been seen.
+    """
+    if not rows:
+        return None
+    rows = sorted(rows)
+    home = [[0] * 24 for _ in range(7)]
+    seen = [[0] * 24 for _ in range(7)]
+    index = 0
+    state: str | None = None
+    moment = dt_util.as_local(start).replace(minute=30, second=0, microsecond=0)
+    while moment < end:
+        while index < len(rows) and rows[index][0] <= moment:
+            state = rows[index][1]
+            index += 1
+        if state is not None and state not in ("unknown", "unavailable"):
+            seen[moment.weekday()][moment.hour] += 1
+            home[moment.weekday()][moment.hour] += state == "home"
+        moment += timedelta(hours=1)
+    if any(not any(row) for row in seen):
+        return None
+    return [[home[wd][h] / seen[wd][h] if seen[wd][h] else 1.0 for h in range(24)] for wd in range(7)]

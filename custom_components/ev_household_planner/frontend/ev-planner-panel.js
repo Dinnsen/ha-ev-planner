@@ -10525,15 +10525,13 @@ class EvPlannerPanel extends HTMLElement {
     let figures = "";
     if (on && !data) figures = `<p class="hint">${t("loading")}</p>`;
     if (on && data) {
-      const tonight = data.tonight || {};
-      const groups = (tonight.groups || [])
-        .map((g) => {
-          const head = g.pick ? t("pick", { car: names[g.pick] || "" }) : t("none");
-          const why = t(`reason_${g.reason}`, { pct: Math.round((g.chance || 0) * 100) });
-          const cars = g.cars
-            .map((id) => { const c = (tonight.cars || {})[id] || {}; return `<small><b>${esc(names[id] || "")}</b>: ${esc(t("car_line", { kwh: num(c.soc_kwh), p50: num(c.p50), p90: num(c.p90), n: c.reach ?? "–" }))}</small>`; })
-            .join("");
-          return `<div class="insight-card"><strong>${esc(head)}</strong><small>${esc(why)}</small>${g.both ? `<small class="warn-text">${esc(t("both"))}</small>` : ""}${cars}</div>`;
+      // The week plan's next charge of each car (the same as on Home and in Learning).
+      const now = znow();
+      const groups = Object.entries(data.week?.cars || {})
+        .map(([id, c]) => {
+          const next = (c.charges || []).find((x) => ZD(x.end).getTime() > now);
+          const line = next ? this._t("next_charge_text", { when: this._whenSpan(next), kwh: this._kwh(next.kwh) }) : this._t("home_tonight_none");
+          return `<div class="insight-card"><strong>${esc(names[id] || "")}</strong><small>${esc(line)}</small></div>`;
         })
         .join("");
       const wd = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((d) => this._t(`day_${d}`));
@@ -10557,7 +10555,7 @@ class EvPlannerPanel extends HTMLElement {
         .join("");
       const sc = data.score || {};
       const score = sc.scored ? t("score", { rate: Math.round((sc.rate || 0) * 100), n: sc.scored, saved: this._money ? this._money(sc.saved || 0) : num(sc.saved, 0) }) : t("score_none");
-      figures = `<h3 class="sheet-sub">${esc(t("tonight"))}</h3>${groups || `<p class="hint">${esc(t("reason_learning"))}</p>`}
+      figures = `<h3 class="sheet-sub">${esc(this._t("next_charge"))}</h3>${groups || `<p class="hint">${esc(t("reason_learning"))}</p>`}
         <p class="hint">${esc(score)}</p>${cars}
         <p class="hint">${esc(t("prices", { own: data.prices || 0, spot: data.spot || 0, fc: data.forecasts || 0 }))}</p>`;
     }

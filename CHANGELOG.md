@@ -2,6 +2,27 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b35] - 2026-11-17
+
+### Changed
+
+- **One week plan for every charger, hour by hour.** EV Planner now plans the coming seven days for each charger in one place: the cheapest hours each car is home, night or day, so that it always has enough for a hard day with the reserve at every departure. Two cars at one charger never get the same hour. Home, the car cards, the charger, Learning's overview, the cars' week, the graph and "Have enough for" all show this one plan, so they can no longer disagree ("can wait 4 nights" beside a week with no charge is gone; it now says when the car charges, e.g. "Fri 11–14").
+- **Learned per weekday and hour.** When each car is home is learned for each weekday and hour (from its trips, and until there are enough of them from Home Assistant's own history of its tracker), so a car home on Mondays charges in Monday's cheap hours. Prices past the forecast follow the years' prices for that weekday and hour.
+- **The charger follows the week plan** ("Let the week plan steer", on by default): each car's stay at home gets the plan's target and a time to be done by. The planner that picks the hours, the charger control and load balancing are unchanged.
+- **How careful** sets both the reserve at each departure and how sure the plan must be that a car is home before it counts on an hour. Its last step, "Fill up", fills every car at every stay as before.
+- **"Have enough for"** is the week plan played by EV Planner over the household's own 90 days at each step (charges a week, days a battery ran short, the mornings), worked out once a day.
+- The evening message names the car the week plan charges the most in the coming hours.
+
+### Added
+
+- **How much a charge** (per car): "Always cheapest" (what is needed, and more in the week's cheapest hours) or "Fill up" (to the target every time it is home).
+- **Full charge** (per car): to a level every so many days, e.g. 100 % once a week as Tesla advises, in the week's cheapest stay just before a departure.
+- **Low price to its own level**: "Charge at a low price" now charges to a level of its own (0 % is the target, as before).
+
+### Removed
+
+- The rules from 2.5.0b34 that hid a car's plan when Insight gave the charger to another car: the week plan never gives two cars the same hour.
+
 ## [2.5.0b34] - 2026-11-17
 
 ### Fixed
