@@ -28,11 +28,14 @@ PRICE_CHEAPEST = "cheapest"  # only in the cheapest ``pct`` % of the hours until
 PRICES = (PRICE_NORMAL, PRICE_LOWEST, PRICE_CHEAPEST)
 
 HOLIDAY = "holiday"
+AFTERNOON = "afternoon"
 
 DEFAULT_DEPARTURES: tuple[dict[str, Any], ...] = (
     {"id": "morning", "day": DAY_NEXT, "time": "06:00", "price": PRICE_NORMAL},
     {"id": "midday", "day": DAY_NEXT, "time": "12:00", "price": PRICE_NORMAL},
-    {"id": "evening", "day": DAY_NEXT, "time": "17:00", "price": PRICE_NORMAL},
+    # Home by the afternoon and out again (since 2.5.0b32; Frank's wish).
+    {"id": AFTERNOON, "day": DAY_NEXT, "time": "15:00", "price": PRICE_NORMAL},
+    {"id": "evening", "day": DAY_NEXT, "time": "18:00", "price": PRICE_NORMAL},
     {"id": "tomorrow_afternoon", "day": DAY_TOMORROW, "time": "17:00", "price": PRICE_NORMAL},
     {"id": "weekend", "day": "mon", "time": "06:00", "price": PRICE_LOWEST, "pct": 10},
     {"id": HOLIDAY, "day": DAY_DATE, "time": "06:00", "price": PRICE_CHEAPEST, "pct": 10},
@@ -80,6 +83,17 @@ def departures(stored: Any) -> list[dict[str, Any]]:
     if HOLIDAY not in seen:
         out.append(dict(DEFAULT_DEPARTURES[-1]))
     return out
+
+
+def with_afternoon(stored: Any) -> Any:
+    """A household's own list from before 2.5.0b32 gets the afternoon after midday, once (unless it has one)."""
+    if not isinstance(stored, list) or any(
+        isinstance(item, Mapping) and item.get("id") == AFTERNOON for item in stored
+    ):
+        return stored
+    at = next((i + 1 for i, item in enumerate(stored) if isinstance(item, Mapping) and item.get("id") == "midday"), 0)
+    afternoon = next(dict(item) for item in DEFAULT_DEPARTURES if item["id"] == AFTERNOON)
+    return [*stored[:at], afternoon, *stored[at:]]
 
 
 def find(stored: Any, ident: str | None) -> dict[str, Any] | None:

@@ -29,18 +29,24 @@ RESERVE = 0.10
 TOP = 0.80
 LOOKAHEAD = 4
 MIN_PROBABILITY = 0.70
-# How careful the household wants it, from bold (0) to every night (5): what a hard day is, the reserve
+# How careful the household wants it, from bold (0) to every night (10): what a hard day is, the reserve
 # kept on top of it, how the days after tomorrow are counted, and whether a car that is not full gets the
-# charger every night. 5 is how it chose before there was a choice.
+# charger every night. Eleven steps since 2.5.0b32 (six before: an old step n is 2n now). These are the steps
+# until the household's own days fit them (fitted_styles).
 STYLES: tuple[dict[str, Any], ...] = (
     {"level": 0.60, "reserve": 0.05, "rest": 0.5, "every": False},
+    {"level": 0.65, "reserve": 0.05, "rest": 0.5, "every": False},
     {"level": 0.70, "reserve": 0.05, "rest": 0.5, "every": False},
+    {"level": 0.75, "reserve": 0.05, "rest": 0.5, "every": False},
     {"level": 0.80, "reserve": 0.05, "rest": 0.5, "every": False},
+    {"level": 0.85, "reserve": 0.08, "rest": 0.5, "every": False},
     {"level": 0.90, "reserve": 0.10, "rest": 0.5, "every": False},
+    {"level": 0.90, "reserve": 0.13, "rest": 0.5, "every": False},
     {"level": 0.95, "reserve": 0.15, "rest": 0.5, "every": False},
+    {"level": 0.95, "reserve": 0.20, "rest": 0.5, "every": False},
     {"level": 0.90, "reserve": 0.10, "rest": 0.9, "every": True},
 )
-DEFAULT_STYLE = 3
+DEFAULT_STYLE = 6
 # The forecast's error (relative, one standard deviation) a number of nights ahead, until it is learned.
 DEFAULT_ERROR = (0.10, 0.17, 0.24, 0.31, 0.38, 0.45)
 MILD = 15.0
@@ -465,7 +471,7 @@ def nights_a_week(style: Mapping[str, Any], cars: Sequence[Mapping[str, Any]]) -
 
 
 def fitted_styles(cars: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]] | None:
-    """Steps 0-4 so that each is about one night a week more than the one before, on the household's own days.
+    """Steps 0-9 so that each is about half a night a week more than the one before, on the household's own days.
 
     "Every night" stays the last step. None without enough driving to play over.
     """
@@ -484,10 +490,11 @@ def fitted_styles(cars: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]] | N
         return None
     low = min(nights for nights, _ in tried)
     high = min(every - 0.5, max(nights for nights, _ in tried))
-    step = 1.0 if high - low >= 4 else max(0.0, high - low) / 4
+    fitted = len(STYLES) - 1
+    step = 0.5 if high - low >= 0.5 * (fitted - 1) else max(0.0, high - low) / (fitted - 1)
     chosen: list[dict[str, Any]] = []
     last = low
-    for k in range(5):
+    for k in range(fitted):
         want = low + k * step
         later = [(nights, style) for nights, style in tried if nights >= last - 1e-9]
         nights, style = min(later, key=lambda item: (abs(item[0] - want), item[1]["reserve"], item[1]["level"]))

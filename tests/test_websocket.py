@@ -181,6 +181,8 @@ async def test_guest_commands(
         "update_widgets": None,
         "places": {},
         "quiet_after": "digest",
+        "insight_steps": 11,
+        "afternoon_added": True,
         "messages": {},
         "days": {},
         "day_people": [],

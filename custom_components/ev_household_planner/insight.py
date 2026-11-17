@@ -73,7 +73,7 @@ SET_INSIGHT_TO = "insight_to"
 SET_INSIGHT_USE = "insight_use"
 # How hard a day the cars must always have enough for: 80, 90 or 95 (% of days). Before the styles.
 SET_INSIGHT_LEVEL = "insight_level"
-# How careful: 0 (bold) to 5 (every night), see insight_model.STYLES.
+# How careful: 0 (bold) to 10 (every night), see insight_model.STYLES.
 SET_INSIGHT_STYLE = "insight_style"
 SET_INSIGHT_NAMES = "insight_names"
 INSIGHT_SETTINGS: dict[str, Any] = {
@@ -707,13 +707,13 @@ class Insight:
 
     @property
     def style(self) -> dict[str, Any]:
-        """How careful the household wants it (0 bold … 5 every night)."""
+        """How careful the household wants it (0 bold … 10 every night)."""
         value = number(self.household.settings.get(SET_INSIGHT_STYLE))
         index = int(value) if value is not None and 0 <= value < len(STYLES) else DEFAULT_STYLE
         return self.styles()[index]
 
     def styles(self) -> list[dict[str, Any]]:
-        """The six steps: bold to careful fitted so each is about one night a week more, then every night."""
+        """The eleven steps: bold to careful fitted so each is about half a night a week more, then every night."""
         today = dt_util.now().date()
         if self._styles[0] != today:
             self._styles = (today, fitted_styles(self._style_cars(today)) or list(STYLES))

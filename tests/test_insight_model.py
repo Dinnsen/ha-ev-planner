@@ -136,8 +136,8 @@ def test_which_car_gets_the_charger() -> None:
 def test_the_styles_go_from_bold_to_every_night() -> None:
     from custom_components.ev_household_planner.insight_model import DEFAULT_STYLE, STYLES
 
-    assert len(STYLES) == 6 and STYLES[DEFAULT_STYLE]["every"] is False and STYLES[-1]["every"] is True
-    floors = [car("a", 30.0, level=s["level"], reserve=s["reserve"]).floor(1) for s in STYLES[:5]]
+    assert len(STYLES) == 11 and STYLES[DEFAULT_STYLE]["every"] is False and STYLES[-1]["every"] is True
+    floors = [car("a", 30.0, level=s["level"], reserve=s["reserve"]).floor(1) for s in STYLES[:10]]
     assert floors == sorted(floors), "each step keeps more"
     # Counting the days after tomorrow as typical days lets a car wait longer.
     assert car("a", 46.0, rest=0.5).reach >= car("a", 46.0).reach
@@ -247,7 +247,7 @@ def test_the_hours_a_car_is_home_and_its_prices_by_day_too() -> None:
 
 
 def test_the_careful_steps_are_fitted_to_one_more_night_a_week_each() -> None:
-    """Steps 0-4 are about a night a week apart on the household's own days; every night stays last."""
+    """Steps 0-9 are about half a night a week apart on the household's own days; every night stays last."""
     from itertools import pairwise
 
     from custom_components.ev_household_planner.insight_model import STYLES, fitted_styles, nights_a_week
@@ -270,12 +270,12 @@ def test_the_careful_steps_are_fitted_to_one_more_night_a_week_each() -> None:
         },
     ]
     steps = fitted_styles(cars)
-    assert steps is not None and len(steps) == 6
+    assert steps is not None and len(steps) == 11
     assert steps[-1] == STYLES[-1]
-    nights = [nights_a_week(step, cars) for step in steps[:5]]
+    nights = [nights_a_week(step, cars) for step in steps[:10]]
     assert all(b >= a for a, b in pairwise(nights))
     gaps = [b - a for a, b in pairwise(nights)]
-    assert max(gaps) <= 1.6
+    assert max(gaps) <= 1.1
     # From the boldest the household can have to half a night under every night.
     assert nights[-1] - nights[0] >= 2.5
     # Too few days: the fixed steps are used.

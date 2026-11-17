@@ -246,7 +246,7 @@ SETTINGS_SCHEMA = vol.Schema(
         vol.Optional("insight_to"): _hhmm,
         vol.Optional("insight_use"): cv.boolean,
         vol.Optional("insight_level"): vol.All(vol.Coerce(int), vol.Range(min=50, max=99)),
-        vol.Optional("insight_style"): vol.All(vol.Coerce(int), vol.Range(min=0, max=5)),
+        vol.Optional("insight_style"): vol.All(vol.Coerce(int), vol.Range(min=0, max=10)),
         vol.Optional("insight_names"): {
             cv.string: vol.All(
                 cv.ensure_list,

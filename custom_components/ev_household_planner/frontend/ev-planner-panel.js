@@ -1710,6 +1710,7 @@ Object.assign(TEXT.da, {
   plan_type_hint: "Én periode lader i ét stræk; de billigste perioder kan dele ladningen op.",
   go_morning: "Morgen",
   go_midday: "Middag",
+  go_afternoon: "Eftermiddag",
   go_evening: "Aften",
   go_cheap: "kun de billigste timer",
   week_off: "fri: {days}",
@@ -1808,6 +1809,7 @@ Object.assign(TEXT.en, {
   plan_type_hint: "One period charges in one go; the cheapest periods may split the charge.",
   go_morning: "Morning",
   go_midday: "Midday",
+  go_afternoon: "Afternoon",
   go_evening: "Evening",
   go_cheap: "cheapest hours only",
   week_off: "off: {days}",
@@ -1847,6 +1849,8 @@ Object.assign(TEXT.da, {
   notify_household_link: "Telefoner, stille timer og sprog gælder alle biler · Indstillinger → Beskeder",
   notify_missing: "Vælg telefoner under Indstillinger → Beskeder.",
   dep_title: "Afgange",
+  dep_lead: "Valgene i bilernes rullemenu",
+  dep_adjust: "Tilpas",
   dep_intro: "Det, bilerne kan vælge i dropdown på bilens side, ud over ugeplanen. Gælder alle biler. Ret, slet, flyt eller lav dine egne.",
   dep_week_hint: "Bilens egen plan pr. dag · fast",
   dep_add: "Ny afgang",
@@ -1934,11 +1938,16 @@ Object.assign(TEXT.da, {
   insight_style: "Hvor forsigtig",
   insight_style_hint: "Hvornår en bil skal have laderen. Se, hvad hvert valg ville have gjort, under Læring → Lært.",
   insight_style_0: "Modig",
-  insight_style_1: "Lidt modig",
-  insight_style_2: "Mellem",
-  insight_style_3: "Anbefalet",
-  insight_style_4: "Forsigtig",
-  insight_style_5: "Hver nat",
+  insight_style_1: "Ret modig",
+  insight_style_2: "Lidt modig",
+  insight_style_3: "Lidt modig +",
+  insight_style_4: "Mellem",
+  insight_style_5: "Mellem +",
+  insight_style_6: "Anbefalet",
+  insight_style_7: "Anbefalet +",
+  insight_style_8: "Forsigtig",
+  insight_style_9: "Meget forsigtig",
+  insight_style_10: "Hver nat",
   insight_reason_enough: "der er nok på batterierne til en svær dag i morgen",
   insight_tonight: "I aften",
   insight_pick: "{car} bør have laderen",
@@ -1996,6 +2005,8 @@ Object.assign(TEXT.en, {
   notify_household_link: "Phones, quiet hours and language are for all cars · Settings → Messages",
   notify_missing: "Choose phones under Settings → Messages.",
   dep_title: "Departures",
+  dep_lead: "The choices in the cars' dropdown",
+  dep_adjust: "Adjust",
   dep_intro: "What the cars can pick in the dropdown on a car's page, besides the week plan. For all cars. Change, delete, move or make your own.",
   dep_week_hint: "The car's own plan per day · fixed",
   dep_add: "New departure",
@@ -2083,11 +2094,16 @@ Object.assign(TEXT.en, {
   insight_style: "How careful",
   insight_style_hint: "When a car should have the charger. See what each choice would have done under Learning → Learned.",
   insight_style_0: "Bold",
-  insight_style_1: "Fairly bold",
-  insight_style_2: "Middle",
-  insight_style_3: "Recommended",
-  insight_style_4: "Careful",
-  insight_style_5: "Every night",
+  insight_style_1: "Quite bold",
+  insight_style_2: "Fairly bold",
+  insight_style_3: "Fairly bold +",
+  insight_style_4: "Middle",
+  insight_style_5: "Middle +",
+  insight_style_6: "Recommended",
+  insight_style_7: "Recommended +",
+  insight_style_8: "Careful",
+  insight_style_9: "Very careful",
+  insight_style_10: "Every night",
   insight_reason_enough: "there is enough in the batteries for a hard day tomorrow",
   insight_tonight: "Tonight",
   insight_pick: "{car} should have the charger",
@@ -2871,7 +2887,32 @@ const ClayScene = (() => {
   // A round clay tree.
   function tree(x, y, k = 1) {
     TREES.push([x, y, k]);
+    // At Christmas the round trees are spruces, green by day too, with baubles, lights and a star.
+    if (SEASON === "xmas") return xmasTree(x, y, k);
     return treeBase(x, y, k) + decorTree(x, y, k);
+  }
+  function xmasTree(x, y, k = 1) {
+    const [bx, by] = P(x, y, 0), h = 4.2 * S * k, w = 1.55 * S * k, n = DECO_N++;
+    let s = `<ellipse cx="${f1(bx + 8)}" cy="${f1(by + 2)}" rx="${f1(24 * k)}" ry="${f1(9 * k)}" ${R("shadow", 'filter="url(#cs-blur)"')}/>`;
+    s += `<rect x="${f1(bx - 2.2 * k)}" y="${f1(by - 0.55 * S * k)}" width="${f1(4.4 * k)}" height="${f1(0.55 * S * k)}" fill="#7A4E2E"/>`;
+    // Three tiers, each a little narrower; the right half in shade.
+    for (let t = 0; t < 3; t += 1) {
+      const b = by - 0.45 * S * k - t * h * 0.27, top = b - h * 0.48, half = w * (1 - t * 0.24);
+      s += `<path d="M${f1(bx)} ${f1(top)} L${f1(bx - half)} ${f1(b)} L${f1(bx + half)} ${f1(b)} Z" fill="#3E8A5F"/>`;
+      s += `<path d="M${f1(bx)} ${f1(top)} L${f1(bx + half)} ${f1(b)} L${f1(bx + half * 0.15)} ${f1(b)} Z" fill="#2F6B4A"/>`;
+    }
+    const tip = by - 0.45 * S * k - 2 * h * 0.27 - h * 0.48;
+    // A loop of lights down the tree, and red and gold baubles.
+    for (let i = 0; i < 14; i += 1) {
+      const t = (i + 0.5) / 14, yy = tip + (by - 0.6 * S * k - tip) * t, half = w * t * 0.92, px = bx + half * Math.sin(i * 1.9 + n);
+      s += `<circle class="cs-tw" style="--d:${((i * 0.37 + n) % 2.4).toFixed(2)}s" cx="${f1(px)}" cy="${f1(yy)}" r="1.3" fill="#FFE3A3"/>` + glow(px, yy, 3, "#FFE3A3", 0.8);
+    }
+    for (const [fx, ft, c] of [[-0.5, 0.82, "#D3263A"], [0.35, 0.62, "#E8B33A"], [-0.2, 0.45, "#D3263A"], [0.45, 0.88, "#E8B33A"], [0.05, 0.28, "#D3263A"]]) {
+      const yy = tip + (by - 0.6 * S * k - tip) * ft, px = bx + fx * w * ft;
+      s += `<circle cx="${f1(px)}" cy="${f1(yy)}" r="${f1(2.4 * k)}" fill="${c}"/><circle cx="${f1(px - 0.7)}" cy="${f1(yy - 0.7)}" r=".7" fill="#fff" opacity=".7"/>`;
+    }
+    const R5 = 5 * k, star = Array.from({ length: 10 }, (_, i) => { const a = -Math.PI / 2 + (i * Math.PI) / 5, rr = i % 2 ? R5 * 0.45 : R5; return `${f1(bx + rr * Math.cos(a))},${f1(tip - 1 + rr * Math.sin(a))}`; }).join(" ");
+    return s + `<polygon points="${star}" fill="#FFC53D" stroke="#C98A00" stroke-width=".6"/>` + glow(bx, tip - 1, 7, "#FFD45A", 0.9);
   }
   function treeBase(x, y, k = 1) {
     const [bx, by] = P(x, y, 0);
@@ -10423,7 +10464,7 @@ class EvPlannerPanel extends HTMLElement {
         <p class="hint">${esc(score)}</p>${cars}
         <p class="hint">${esc(t("prices", { own: data.prices || 0, spot: data.spot || 0, fc: data.forecasts || 0 }))}</p>`;
     }
-    const style = Number.isInteger(Number(settings.insight_style)) ? Number(settings.insight_style) : 3;
+    const style = Number.isInteger(Number(settings.insight_style)) ? clamp(Number(settings.insight_style), 0, 10) : 6;
     return {
       icon: "history",
       title: t("title"),
@@ -10433,7 +10474,7 @@ class EvPlannerPanel extends HTMLElement {
         ${on ? `${this._ruleRow({ icon: "bell", title: t("notify"), hint: t("notify_hint"), off: !settings.insight_notify, control: `${settings.insight_notify ? time("insight-at", "insight_notify_at", "19:30") : ""}${sw("insight_notify")}` })}
         ${this._ruleRow({ icon: "car", title: t("window"), hint: t("window_hint"), off: !settings.insight_window, control: `${settings.insight_window ? `${time("insight-from", "insight_from", "21:00")}<span class="dash">–</span>${time("insight-to", "insight_to", "07:00")}` : ""}${sw("insight_window")}` })}
         ${this._ruleRow({ icon: "sun", title: t("use"), hint: t("use_hint"), off: !settings.insight_use, control: sw("insight_use") })}
-        <div class="field col"><span>${esc(t("style"))}</span><div class="chips">${[0, 1, 2, 3, 4, 5].map((v) => `<button class="${style === v ? "on" : ""}" data-act="insight-style" data-style="${v}" data-f="insight-style-${v}" aria-pressed="${style === v}">${esc(t(`style_${v}`))}</button>`).join("")}</div><p class="hint">${esc(t("style_hint"))}</p></div>
+        <div class="field col"><span>${esc(t("style"))} · <b>${esc(t(`style_${style}`))}</b></span><input type="range" min="0" max="10" step="1" value="${style}" data-insight-style="1" data-f="insight-style" aria-label="${esc(t("style"))}" aria-valuetext="${esc(t(`style_${style}`))}"><div class="c9ends"><small>${esc(t("style_0"))}</small><small>${esc(t("style_10"))}</small></div><p class="hint">${esc(t("style_hint"))}</p></div>
         ${figures}` : ""}`,
     };
   }
@@ -10652,7 +10693,7 @@ class EvPlannerPanel extends HTMLElement {
       this.shadowRoot.querySelector(".content")?.scrollTo?.({ top: 0 });
     } else if (act === "names" && value && typeof value === "object") {
       this._saveSettings({ insight_names: value });
-    } else if (act === "style" && Number.isInteger(Number(value)) && Number(value) >= 0 && Number(value) <= 5) {
+    } else if (act === "style" && Number.isInteger(Number(value)) && Number(value) >= 0 && Number(value) <= 10) {
       this._saveSettings({ insight_style: Number(value) });
       this._insightAt = 0;
     }
@@ -10831,7 +10872,7 @@ class EvPlannerPanel extends HTMLElement {
   /* A departure's name: its own, or the default's in the panel's language. */
   _depName(d) {
     if (d?.name) return d.name;
-    const own = { morning: "go_morning", midday: "go_midday", evening: "go_evening" }[d?.id];
+    const own = { morning: "go_morning", midday: "go_midday", afternoon: "go_afternoon", evening: "go_evening" }[d?.id];
     if (own) return this._t(own);
     const key = `trip_${d?.id}`;
     return TEXT[this._lang]?.[key] || TEXT.en[key] ? this._t(key) : String(d?.id || "");
@@ -10907,15 +10948,20 @@ class EvPlannerPanel extends HTMLElement {
         </div>
       </div>`;
     };
+    // As the messages and the holidays: a card per departure, its time and what it does; «Tilpas» opens it.
+    const iconOf = (d) => (d.id === "holiday" ? "calendar" : WEEKDAYS.includes(d.day) ? "calendar" : "history");
     const rows = list
       .map((d, i) => {
         const on = d.id === open;
-        return `<div class="dep-row${on ? " open" : ""}">
-          <button class="dep-head" data-act="dep-open" data-dep-id="${on ? "" : esc(d.id)}" data-f="dep-${esc(d.id)}" aria-expanded="${on}">
-            <span class="dep-text"><strong>${esc(this._depName(d))}</strong><small>${esc([this._depWhen(d), this._depPrice(d), isNum(d.target) ? this._pct(d.target) : ""].filter(Boolean).join(" · "))}</small></span>
+        return `<div class="dep-row dep-card${on ? " open" : ""}">
+          <div class="dep-top">
+            <span class="dep-ic">${ICONS[iconOf(d)] || ""}</span>
+            <button class="dep-head" data-act="dep-open" data-dep-id="${on ? "" : esc(d.id)}" data-f="dep-${esc(d.id)}" aria-expanded="${on}">
+              <span class="dep-text"><strong>${esc(this._depName(d))}</strong><small>${esc([this._depWhen(d), this._depPrice(d), isNum(d.target) ? this._pct(d.target) : ""].filter(Boolean).join(" · "))}</small></span>
+            </button>
             ${d.id === "holiday" ? "" : `<span class="dep-time">${esc(this._hhmm(d.time || "06:00"))}</span>`}
-          </button>
-          ${on ? form(d, i) : ""}
+          </div>
+          ${on ? form(d, i) : `<button class="dep-more" data-act="dep-open" data-dep-id="${esc(d.id)}">${esc(this._t("dep_adjust"))}</button>`}
         </div>`;
       })
       .join("");
@@ -10923,7 +10969,7 @@ class EvPlannerPanel extends HTMLElement {
       icon: "history",
       title: this._t("dep_title"),
       summary: list.filter((d) => d.id !== "holiday").map((d) => this._depName(d)).join(", "),
-      body: `<p class="hint">${this._t("dep_intro")}</p>
+      body: `<div class="inline-values"><span>${this._t("dep_lead")}${this._helpButton("dep", this._t("dep_title"))}</span></div>${this._helpBubble("dep", this._t("dep_intro"))}
         <div class="dep-list">
           <div class="dep-row locked"><div class="dep-head static"><span class="dep-text"><strong>${this._t("trip_week")}</strong><small>${this._t("dep_week_hint")}</small></span></div></div>
           ${rows}
@@ -11639,6 +11685,8 @@ class EvPlannerPanel extends HTMLElement {
       const list = (this._state.settings?.day_people || []).map((p) => ({ ...p }));
       const p = list[Number(el.dataset.dayperson)];
       if (p && (el.dataset.part !== "date" || el.value)) { p[el.dataset.part] = el.dataset.part === "name" ? el.value.trim() : el.value; this._peopleSave(list); }
+    } else if (el.dataset.insightStyle) {
+      this._saveSettings({ insight_style: clamp(Math.round(Number(el.value)), 0, 10) });
     } else if (el.dataset.calkw) {
       this._run("settings", "ev_household_planner/vehicle_set", { vehicle_id: el.dataset.calkw, settings: { calendar_keyword: el.value.trim() } }).then(
         (ok) => ok && this._toast(this._t("saved")),
@@ -11777,7 +11825,7 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .prof-wrap { position: relative; justify-self: end; }
 .prof { width: 34px; height: 34px; border-radius: 50%; border: 0; cursor: pointer; display: grid; place-items: center; font: 600 14px/1 inherit; background: var(--evp-accent); color: #fff; }
 .prof:focus-visible { outline: 2px solid var(--evp-accent); outline-offset: 2px; }
-.prof-menu { position: absolute; right: 0; top: calc(100% + 8px); z-index: 20; min-width: 220px; display: grid; gap: 2px; padding: 6px; border-radius: 14px; background: var(--evp-card); border: 1px solid var(--evp-line); box-shadow: 0 12px 32px rgba(0,0,0,.18); }
+.prof-menu { position: absolute; right: 0; top: calc(100% + 8px); z-index: 20; min-width: 220px; display: grid; gap: 2px; padding: 6px; border-radius: 14px; background: linear-gradient(var(--evp-card), var(--evp-card)), color-mix(in srgb, var(--evp-bg) 90%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border: 1px solid var(--evp-line); box-shadow: 0 12px 32px rgba(0,0,0,.18); }
 .prof-menu button { display: flex; align-items: center; gap: 10px; border: 0; background: transparent; color: var(--evp-ink); padding: 10px 12px; border-radius: 10px; cursor: pointer; font: inherit; text-align: left; }
 .prof-menu button:hover, .prof-menu button:focus-visible { background: var(--evp-well, color-mix(in srgb, var(--evp-ink) 6%, transparent)); outline: none; }
 .prof-menu svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
@@ -12683,6 +12731,14 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 .tile-go svg { width: 16px; height: 16px; transform: rotate(180deg); fill: none; stroke: var(--evp-soft); stroke-width: 2; }
 .sheet.in-page { display: grid; gap: 12px; }
 .sheet.wide { width: min(1040px, 100%); }
+.dep-card { display: grid; gap: 4px; padding: 4px 4px 8px; }
+.dep-top { display: flex; align-items: center; gap: 10px; padding: 6px 10px 0 12px; }
+.dep-top .dep-head { flex: 1; min-width: 0; padding: 6px 0; }
+.dep-ic { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--evp-a) 14%, transparent); flex: none; }
+.dep-ic svg { width: 18px; height: 18px; fill: none; stroke: var(--evp-a); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.dep-more { justify-self: start; margin-left: 56px; border: 0; background: none; color: var(--evp-accent); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; padding: 2px 0; }
+.dep-card.open .dep-form { padding-top: 8px; }
+.c9ends { display: flex; justify-content: space-between; color: var(--evp-soft); }
 .look-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
 .look-pick { display: grid; gap: 8px; padding: 10px; border-radius: 16px; border: 1.5px solid var(--evp-line); background: var(--evp-card); color: var(--evp-ink); cursor: pointer; font: inherit; text-align: left; }
 .look-pick.on { border-color: var(--evp-accent); box-shadow: 0 0 0 1.5px var(--evp-accent) inset; }

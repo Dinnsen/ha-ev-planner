@@ -65,7 +65,9 @@ def extract_price_slots(state: State | None, now: datetime) -> list[PriceSlot]:
     starts: list[tuple[datetime, datetime | None, float, bool]] = []
     for key in LIST_ATTRIBUTES:
         starts.extend((*row, False) for row in _rows(attrs.get(key)))
-    starts.extend((*row, True) for row in _rows(attrs.get(FORECAST_ATTRIBUTE)))
+    forecast_rows = list(_rows(attrs.get(FORECAST_ATTRIBUTE)))
+    if forecast_has_market(forecast_rows, [row[2] for row in starts]):
+        starts.extend((*row, True) for row in forecast_rows)
 
     if not starts and isinstance(attrs.get("today"), list):
         base = dt_util.as_local(now).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -98,6 +100,22 @@ def extract_price_slots(state: State | None, now: datetime) -> list[PriceSlot]:
             end = following if following and following - start <= step else start + step
         slots.append(PriceSlot(start, end, price, forecast))
     return slots
+
+
+# A forecast that is only the tariffs' few steps (no more than this many prices over a day or more), and well
+# under every published price, has lost its market price: Energi Data Service gives that when its Carnot
+# forecast is missing. It is left out, so no plan waits for a night that only looks cheap.
+FORECAST_MIN_LEVELS = 8
+FORECAST_UNDER = 0.5
+
+
+def forecast_has_market(rows: list[tuple[datetime, datetime | None, float]], published: list[float]) -> bool:
+    """Whether a forecast has a market price in it, not only the tariffs."""
+    prices = sorted(price for _, _, price in rows)
+    if len(prices) < 24 or len(published) < 24:
+        return True
+    few = len({round(price, 2) for price in prices}) <= FORECAST_MIN_LEVELS
+    return not (few and prices[len(prices) // 2] < FORECAST_UNDER * min(published))
 
 
 def _rows(rows: Any) -> Iterable[tuple[datetime, datetime | None, float]]:

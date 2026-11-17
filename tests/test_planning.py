@@ -354,3 +354,22 @@ def test_extract_price_slots_today_without_tomorrow() -> None:
     state = State("sensor.prices", "1.0", {"today": [1.0], "tomorrow": None})
 
     assert len(extract_price_slots(state, now)) == 1
+
+
+def test_a_forecast_of_only_the_tariffs_is_left_out() -> None:
+    """Energi Data Service without its Carnot forecast: the tariffs' steps alone, far under every published price."""
+    published = [{"hour": (START + timedelta(hours=i)).isoformat(), "price": 1.2 + (i % 24) / 20} for i in range(48)]
+    tariffs = [
+        {"hour": (START + timedelta(hours=48 + i)).isoformat(), "price": 0.68 if 17 <= i % 24 <= 20 else 0.36}
+        for i in range(72)
+    ]
+    state = State(
+        "sensor.prices", "1.2", {"raw_today": published[:24], "raw_tomorrow": published[24:], "forecast": tariffs}
+    )
+    assert not any(slot.forecast for slot in extract_price_slots(state, START))
+    # A real forecast, with the market's hours in it, is kept.
+    market = [{**row, "price": 0.9 + (i % 24) / 30 + (i // 24) / 10} for i, row in enumerate(tariffs)]
+    state = State(
+        "sensor.prices", "1.2", {"raw_today": published[:24], "raw_tomorrow": published[24:], "forecast": market}
+    )
+    assert sum(slot.forecast for slot in extract_price_slots(state, START)) == 72

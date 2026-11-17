@@ -529,7 +529,7 @@ async def test_the_evening_which_car_and_the_hold(
     assert (group["pick"], group["wait"], group["reason"]) == (None, False, "enough")
     assert tesla.insight_hold == insight.tonight["cars"][TESLA]["floor_pct"]
     # Every night, as it chose before: the emptier car should have the charger, and it is not plugged in.
-    planner.settings["insight_style"] = 5
+    planner.settings["insight_style"] = 10
     notify.calls.clear()
     await insight._async_decide(now, tell=True)
     group = insight.tonight["groups"][0]
@@ -694,7 +694,7 @@ async def test_tonight_is_kept_over_a_restart_in_the_window_and_follows_a_new_ch
     assert insight.tonight == kept
     # A new choice of how careful is looked at again at once, in the window too.
     with patch.object(insight, "_async_decide", wraps=insight._async_decide) as decide:
-        await planner.async_update_settings({"insight_style": 5})
+        await planner.async_update_settings({"insight_style": 10})
     assert decide.call_args.kwargs.get("again") is True
 
 

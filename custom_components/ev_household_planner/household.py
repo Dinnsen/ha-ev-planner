@@ -164,6 +164,7 @@ from .departures import (
     departures as household_departures,
     find as find_departure,
     from_cars as departures_from_cars,
+    with_afternoon,
 )
 from .events import EventLog
 from .guest import GuestSession
@@ -236,6 +237,10 @@ SETTINGS_DEFAULTS: dict[str, Any] = {
     "quiet_to": "06:00",
     # What is held back in the quiet hours comes as one message when they end ("digest"), or not at all ("drop").
     "quiet_after": "digest",
+    # How many steps "How careful" has (eleven since 2.5.0b32); an old choice is moved once.
+    "insight_steps": 11,
+    # Whether the afternoon departure (2.5.0b32) has been added to a household's own list.
+    "afternoon_added": True,
     # The message centre: each kind of message's own choices, {kind: {on, cars, to, through, icon, color, live, at, days, plugged}}.
     "messages": {},
     # Holidays and special days (Hverdagsro's days): {day: {on, before, after, date}}, and the birthdays.
@@ -823,6 +828,14 @@ class Household(DataUpdateCoordinator[None]):
                 self.solars[site_id].load(place.get("solar"))
         self.solar.load(stored.get("solar"))
         self.settings = {**SETTINGS_DEFAULTS, **(stored.get("settings") or {})}
+        # How careful had six steps before 2.5.0b32 and has eleven: an old step n is 2n now (once).
+        kept = stored.get("settings") or {}
+        if kept and kept.get("insight_steps") != 11 and isinstance(kept.get("insight_style"), int):
+            self.settings["insight_style"] = min(10, kept["insight_style"] * 2)
+        # The afternoon departure (since 2.5.0b32) is added once to a household's own list.
+        if kept and not kept.get("afternoon_added"):
+            self.settings["departures"] = with_afternoon(self.settings.get("departures"))
+        self.settings["afternoon_added"] = True
         self._adopt_car_calendars()
         self._adopt_25()
         self.notifier.set_services(self.notify_services)
@@ -3517,6 +3530,7 @@ TEXT_EN: dict[str, str] = {
     "src_week": "Week plan",
     "dep_morning": "Morning",
     "dep_midday": "Midday",
+    "dep_afternoon": "Afternoon",
     "dep_evening": "Evening",
     "dep_tomorrow_afternoon": "Tomorrow afternoon",
     "dep_weekend": "Weekend",
@@ -3572,6 +3586,7 @@ TEXT_DA: dict[str, str] = {
     "src_week": "Ugeplan",
     "dep_morning": "Morgen",
     "dep_midday": "Middag",
+    "dep_afternoon": "Eftermiddag",
     "dep_evening": "Aften",
     "dep_tomorrow_afternoon": "I morgen eftermiddag",
     "dep_weekend": "Weekend",

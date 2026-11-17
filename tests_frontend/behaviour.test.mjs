@@ -809,9 +809,9 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     // How careful: one slider, and what each choice would have done on the household's own days.
     assert.equal(await inside((root) => root.querySelectorAll("#c9-week i").length), 7);
     assert.equal(await inside((root) => root.querySelector("#c9-name").textContent), "Recommended");
-    await inside((root) => { const input = root.querySelector("#c9lv"); input.value = "5"; input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true })); });
+    await inside((root) => { const input = root.querySelector("#c9lv"); input.value = "10"; input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true })); });
     assert.equal(await inside((root) => root.querySelector("#c9-name").textContent), "Every night");
-    assert.deepEqual((await calls("settings")).at(-1).settings, { insight_style: 5 });
+    assert.deepEqual((await calls("settings")).at(-1).settings, { insight_style: 10 });
     await tap("ev-planner-insight [data-c9q]");
     assert.equal(await inside((root) => root.querySelector("#tl-sheet").hidden), false);
     assert.ok(await inside((root) => root.querySelectorAll("#tl-sheet .strip i").length > 80));

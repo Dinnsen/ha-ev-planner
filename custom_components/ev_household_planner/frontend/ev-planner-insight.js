@@ -176,9 +176,9 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } th, td { text
 .hbob { animation: hbob 3s ease-in-out infinite alternate; } @keyframes hbob { to { transform: translate(1px, -4px); } }
 .hrise { animation: hrise 6s ease-in infinite; } @keyframes hrise { 0% { transform: translate(0, 0); opacity: 0; } 15% { opacity: .9; } 100% { transform: translate(8px, -100px); opacity: 0; } }
 .hflame { animation: hflame .5s ease-in-out infinite alternate; } @keyframes hflame { from { transform: scale(1, .82); } to { transform: scale(.92, 1.12); } }
-.hspark { animation: hspark 2.2s ease-out infinite; } @keyframes hspark { from { transform: translate(0, 0); opacity: 1; } to { transform: translate(6px, -50px); opacity: 0; } }
+.hember { animation: hember 2.2s ease-out infinite; } @keyframes hember { from { transform: translate(0, 0); opacity: 1; } to { transform: translate(6px, -50px); opacity: 0; } }
 .hbulb { animation: hbulb 2.4s ease-in-out infinite; }
-.calm .hsnow, .calm .hfw, .calm .hbat, .calm .hbulb, .calm .hconf, .calm .hsway, .calm .hbob, .calm .hrise, .calm .hflame, .calm .hspark { animation: none; }
+.calm .hsnow, .calm .hfw, .calm .hbat, .calm .hbulb, .calm .hconf, .calm .hsway, .calm .hbob, .calm .hrise, .calm .hflame, .calm .hember { animation: none; }
 .hhead { display: flex; align-items: center; gap: 12px; }
 .hbadge { width: 44px; height: 44px; border-radius: 15px; background: linear-gradient(145deg, #17264a, #40307a); display: grid; place-items: center; flex: none; }
 .hbadge svg { width: 24px; height: 24px; fill: #ffd76a; }
@@ -417,7 +417,7 @@ function heroDecor(season, one) {
       front += `<path d="M${bx - 16} 113L${bx + 10} 102M${bx + 16} 113L${bx - 10} 102" stroke="#5A3A20" stroke-width="3" stroke-linecap="round"/>`;
       for (let i = 0; i < 6; i += 1) { const fx = bx + (i - 2.5) * 4, h = 22 + (i % 3) * 6; front += `<path class="hflame" style="animation-delay:-${(i * 0.17).toFixed(2)}s;transform-origin:${fx}px 110px" d="M${fx - 5} 110Q${fx - 2} ${110 - h * 0.6} ${fx} ${110 - h}Q${fx + 2} ${110 - h * 0.6} ${fx + 5} 110Z" fill="${i % 2 ? "#FFC83D" : "#FF7A1F"}"/>`; }
     }
-    for (let i = 0; i < 10; i += 1) front += `<circle class="hspark" style="animation-delay:-${(i * 0.27).toFixed(2)}s" cx="${bx - 8 + ((i * 7) % 16)}" cy="96" r="1.2" fill="#FFD27A"/>`;
+    for (let i = 0; i < 10; i += 1) front += `<circle class="hember" style="animation-delay:-${(i * 0.27).toFixed(2)}s" cx="${bx - 8 + ((i * 7) % 16)}" cy="96" r="1.2" fill="#FFD27A"/>`;
   } else if (season === "flagday") {
     const flag = (x, y) => HFLAG(x - 6, y, 12, 9);
     sky += hString([2, 6], [188, 56], 9, 10, flag);
@@ -450,14 +450,21 @@ function sideCar(kind, paint, o = {}) {
   return { svg, width: W, port: [X(port[0]), Y(port[1])] };
 }
 /* How careful, from bold to every night: what a hard day is, the reserve on top, how the days after tomorrow count, and whether a car that is not full charges every night. As the integration's own. */
+// Eleven steps from bold to every night (six before 2.5.0b32): until the household's own days fit them.
 const STYLES = [
   { level: 0.6, reserve: 0.05, rest: 0.5, every: false },
+  { level: 0.65, reserve: 0.05, rest: 0.5, every: false },
   { level: 0.7, reserve: 0.05, rest: 0.5, every: false },
+  { level: 0.75, reserve: 0.05, rest: 0.5, every: false },
   { level: 0.8, reserve: 0.05, rest: 0.5, every: false },
+  { level: 0.85, reserve: 0.08, rest: 0.5, every: false },
   { level: 0.9, reserve: 0.1, rest: 0.5, every: false },
+  { level: 0.9, reserve: 0.13, rest: 0.5, every: false },
   { level: 0.95, reserve: 0.15, rest: 0.5, every: false },
+  { level: 0.95, reserve: 0.2, rest: 0.5, every: false },
   { level: 0.9, reserve: 0.1, rest: 0.9, every: true },
 ];
+const LAST_STEP = STYLES.length - 1, DEFAULT_STEP = 6;
 
 function boot(host, root) {
   const $ = (s, r = root) => r.querySelector(s), $$ = (s, r = root) => [...r.querySelectorAll(s)];
@@ -471,7 +478,7 @@ function boot(host, root) {
   let H, START, K, KW, price, sigma, TL, priceH, fcH, PLAN;
   const tr = (a, b) => (da ? a : b);
   // How careful, step by step: fitted by the integration to the cars' own days, else the fixed steps.
-  const steps = () => (Array.isArray(DATA.styles) && DATA.styles.length === 6 ? DATA.styles : STYLES);
+  const steps = () => (Array.isArray(DATA.styles) && DATA.styles.length === STYLES.length ? DATA.styles : STYLES);
   const nf = (v, d = 0) => (v == null || !Number.isFinite(Number(v)) ? "–" : Number(v).toFixed(d).replace(".", da ? "," : "."));
   const kr = (v, d = 2) => nf(v, d);
   const money = (v, d = 2) => (v == null || !Number.isFinite(Number(v)) ? "–" : IN.money(Number(v), d));
@@ -681,7 +688,7 @@ function boot(host, root) {
     const st = {}, cells = {};
     for (const id of ids) { const lvl = cars[id].level; st[id] = { kwh: lvl == null ? null : (lvl / 100) * CARS[id].cap, target: ((Number(CARS[id].live.target) || 80) / 100) * CARS[id].cap, knows: CARS[id].week.length === 7 }; cells[id] = []; }
     // As careful as the household chose: what a hard day is, the reserve, how the days after count.
-    const style = steps()[clamp(Math.round(Number(IN.style ?? 3)), 0, 5)] || steps()[3];
+    const style = steps()[clamp(Math.round(Number(IN.style ?? DEFAULT_STEP)), 0, LAST_STEP)] || steps()[DEFAULT_STEP];
     const wdOfN = (d) => new Date(t0 + d * DAY + DAY / 2).getDay();
     const qd = (id, d, p) => { const list = L[id].byWd[wdOfN(d)] || []; return list.length ? q(list, p) : 0; };
     const floor = (id, d) => Math.min(st[id].target, qd(id, d, style.level) + style.reserve * CARS[id].cap);
@@ -806,7 +813,7 @@ function boot(host, root) {
     <section class="card c9" id="c9card"><div class="c9h"><h2>${tr("Hav nok til", "Have enough for")}</h2><span class="c9name" id="c9-name"></span><button class="q" type="button" data-c9q aria-label="${tr("Hele forklaringen", "The whole explanation")}">?</button></div>
       <div class="c9week" id="c9-week" aria-hidden="true"></div><div class="c9key" id="c9-key"></div>
       <div class="c9stats"><div><b id="c9-n"></b><small>${tr("nætter om ugen", "nights a week")}</small></div><div><b id="c9-short"></b><small>${tr("dage under 5 %", "days under 5 %")}</small></div><div><b id="c9-morn"></b><small>${tr("om morgenen", "in the morning")}</small></div></div>
-      <input type="range" id="c9lv" min="0" max="5" step="1" value="3" aria-label="${tr("Hvor forsigtig", "How careful")}"><div class="c9ends"><span>${tr("Modig", "Bold")}</span><span>${tr("Hver nat", "Every night")}</span></div></section>
+      <input type="range" id="c9lv" min="0" max="10" step="1" value="6" aria-label="${tr("Hvor forsigtig", "How careful")}"><div class="c9ends"><span>${tr("Modig", "Bold")}</span><span>${tr("Hver nat", "Every night")}</span></div></section>
     <section class="card"><div class="row"><h2>${tr("Det har systemet lært", "This is what it has learned")}</h2><span class="demo">${tr("ringen viser, hvor moden hver model er", "the ring shows how ripe each model is")}</span></div><div id="models"></div></section>
     <div class="two">
       <section class="card"><div class="row"><h2>${tr("Afgangstider, dag for dag", "Departures, day by day")}</h2><div class="chips" id="carsel2" role="group" aria-label="${tr("Bil", "Car")}"></div></div><div id="ridge"></div><p class="small">${tr("Hver bølge er en ugedag. Smal og høj betyder fast rytme, bred og flad betyder, at dagen er svær at forudsige.", "Each wave is a weekday. Narrow and tall is a steady rhythm; wide and flat is a day that is hard to foresee.")}</p></section>
@@ -1380,10 +1387,12 @@ function boot(host, root) {
   }
 
   /* ---------- Learned: how careful. What each choice would have done on the household's own days. */
-  const NAMES9 = () => (da ? ["Modig", "Lidt modig", "Mellem", "Anbefalet", "Forsigtig", "Hver nat"] : ["Bold", "Fairly bold", "Middle", "Recommended", "Careful", "Every night"]);
+  const NAMES9 = () => (da
+    ? ["Modig", "Ret modig", "Lidt modig", "Lidt modig +", "Mellem", "Mellem +", "Anbefalet", "Anbefalet +", "Forsigtig", "Meget forsigtig", "Hver nat"]
+    : ["Bold", "Quite bold", "Fairly bold", "Fairly bold +", "Middle", "Middle +", "Recommended", "Recommended +", "Careful", "Very careful", "Every night"]);
   // A day as hard as p of the household's days: «en 9-af-10-dag», or as a share when it is not a round one.
   const hardDay = (p) => { const k = Math.round(p * 100); return k % 10 === 0 ? tr(`${k / 10}-af-10`, `${k / 10}-in-10`) : k === 95 ? tr("19-af-20", "19-in-20") : tr(`${k}-af-100`, `${k}-in-100`); };
-  const HOW9 = () => steps().map((st, i) => (i === 5 ? tr("den laveste bil lader hver nat, den ikke er fuld (som før)", "the lowest car charges every night it is not full (as before)") : tr(`en bil lader kun, når den ellers ikke har til en ${hardDay(st.level)}-dag og ${Math.round(st.reserve * 100)} % i reserve, eller når bilerne ellers ville mødes ved laderen`, `a car charges only when it would not have enough for a ${hardDay(st.level)} day and ${Math.round(st.reserve * 100)} % in reserve, or when the cars would otherwise meet at the charger`)));
+  const HOW9 = () => steps().map((st, i) => (i === LAST_STEP ? tr("den laveste bil lader hver nat, den ikke er fuld (som før)", "the lowest car charges every night it is not full (as before)") : tr(`en bil lader kun, når den ellers ikke har til en ${hardDay(st.level)}-dag og ${Math.round(st.reserve * 100)} % i reserve, eller når bilerne ellers ville mødes ved laderen`, `a car charges only when it would not have enough for a ${hardDay(st.level)} day and ${Math.round(st.reserve * 100)} % in reserve, or when the cars would otherwise meet at the charger`)));
   let runsFor = null, runsSteps = null, RUNS = [];
   // The cars that share a charger (or the one car): each night one of them may have it.
   const c9cars = () => { const groups = ((DATA.tonight || {}).groups || []).map((g) => (g.cars || []).filter((id) => CARS[id] && daily[id])); return (groups.find((g) => g.length > 1) || groups[0] || ids.slice(0, 2)).filter((id) => daily[id]); };
@@ -1420,9 +1429,9 @@ function boot(host, root) {
     card.hidden = !list.length || !list.every((id) => CARS[id].known >= 28 || sum(daily[id]) > 0);
     if (card.hidden) return;
     if (runsFor !== daily || runsSteps !== steps()) { runsFor = daily; runsSteps = steps(); RUNS = steps().map((st) => simulate(st, list)); }
-    const i = clamp(S.c9 ?? Math.round(Number(IN.style ?? 3)), 0, 5), r = RUNS[i], input = $("#c9lv");
+    const i = clamp(S.c9 ?? Math.round(Number(IN.style ?? DEFAULT_STEP)), 0, LAST_STEP), r = RUNS[i], input = $("#c9lv");
     if (root.activeElement !== input) input.value = String(i);
-    const name = $("#c9-name"); name.textContent = NAMES9()[i]; name.className = `c9name${i <= 1 ? " hot" : i === 5 ? " calm" : ""}`;
+    const name = $("#c9-name"); name.textContent = NAMES9()[i]; name.className = `c9name${i <= 2 ? " hot" : i === LAST_STEP ? " calm" : ""}`;
     // A typical week: the nights a car charges, spread over the week, each car its share.
     const n = clamp(Math.round(r.perWeek), 0, 7), shares = list.map((id) => [id, r.per[id]]).sort((a, b) => b[1] - a[1]);
     const counts = Object.fromEntries(list.map((id) => [id, 0])); let left = n;
@@ -1440,7 +1449,7 @@ function boot(host, root) {
   }
   // The whole explanation, behind the "?".
   const c9sheet = () => {
-    const list = c9cars(), i = clamp(S.c9 ?? Math.round(Number(IN.style ?? 3)), 0, 5), r = RUNS[i];
+    const list = c9cars(), i = clamp(S.c9 ?? Math.round(Number(IN.style ?? DEFAULT_STEP)), 0, LAST_STEP), r = RUNS[i];
     if (!r) return none(tr("Der er ikke kørsel nok endnu.", "There is not enough driving yet."));
     const full = Math.floor(r.perWeek), half = r.perWeek - full >= 0.35, shortSet = new Set(r.shortDays.map(([d]) => d - 1));
     const cells = r.nights.map((pk, d) => `<i class="${shortSet.has(d) ? "short" : ""}" style="${pk ? `background:${CARS[pk].col}` : ""}" title="${WD[dateOf(d).getDay()]} ${dm(d)}"></i>`), weeks = [];
@@ -1453,7 +1462,7 @@ function boot(host, root) {
       <h3>${tr("Sådan vælger den", "How it chooses")}</h3><p class="small" style="display:block">${tr("En bil lader den nat, den ellers ikke har nok til en svær dag i morgen med reserven oveni, eller når begge biler ellers ville skulle lade samme nat. Dagene derefter regnes som typiske dage. »Hver nat« er den gamle måde: den laveste bil lader hver nat, den ikke er fuld.", "A car charges the night it would otherwise not have enough for a hard day tomorrow with the reserve on top, or when both cars would otherwise need the same night. The days after are counted as typical days. »Every night« is the old way: the lowest car charges every night it is not full.")}</p>
       <p class="small" style="display:block">${tr(`Regnet på jeres egne ${r.days} dage med det forbrug, bilerne har haft, og deres mål. En dag længere, end et fuldt batteri rækker til, tæller ikke med. Laderen styres kun efter dette, når »Lad planen vente på et billigere tidspunkt« er slået til.`, `Worked out on your own ${r.days} days with the use the cars had, and their targets. A day longer than a full battery reaches does not count. The charger follows this only when »Let the plan wait for a cheaper time« is on.`)}</p>`;
   };
-  SHEETS.style = [() => `${tr("Hav nok til", "Have enough for")} · ${NAMES9()[clamp(S.c9 ?? Math.round(Number(IN.style ?? 3)), 0, 5)]}`, c9sheet];
+  SHEETS.style = [() => `${tr("Hav nok til", "Have enough for")} · ${NAMES9()[clamp(S.c9 ?? Math.round(Number(IN.style ?? DEFAULT_STEP)), 0, LAST_STEP)]}`, c9sheet];
 
   /* ---------- Learned */
   function laering() {

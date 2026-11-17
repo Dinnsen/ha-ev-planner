@@ -243,10 +243,22 @@ async def test_a_week_day_with_climate_starts_it_and_a_start_button_has_its_stop
 
 
 def test_departures_are_the_defaults_with_the_holiday_always_there() -> None:
-    from custom_components.ev_household_planner.departures import departures, from_cars
+    from custom_components.ev_household_planner.departures import departures, from_cars, with_afternoon
 
     ids = [item["id"] for item in departures(None)]
-    assert ids == ["morning", "midday", "evening", "tomorrow_afternoon", "weekend", "holiday"]
+    assert ids == ["morning", "midday", "afternoon", "evening", "tomorrow_afternoon", "weekend", "holiday"]
+    times = {item["id"]: item["time"] for item in departures(None)}
+    assert (times["morning"], times["midday"], times["afternoon"], times["evening"]) == (
+        "06:00",
+        "12:00",
+        "15:00",
+        "18:00",
+    )
+    # A household's own list from before gets the afternoon after midday, and only one.
+    old = [{"id": "morning", "time": "07:00"}, {"id": "midday", "time": "12:00"}, {"id": "evening", "time": "17:00"}]
+    assert [item["id"] for item in with_afternoon(old)] == ["morning", "midday", "afternoon", "evening"]
+    assert with_afternoon(with_afternoon(old)) == with_afternoon(old)
+    assert with_afternoon(None) is None
     # Your own list, and the holiday comes back if it was left out.
     own = departures([{"id": "x", "name": "Fodbold", "day": "sat", "time": "9:30"}])
     assert [item["id"] for item in own] == ["x", "holiday"]
