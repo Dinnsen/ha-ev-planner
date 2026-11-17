@@ -16,7 +16,7 @@ const SHOTS = [
   { file: "panel-home-en.png", state: "shared-supply", lang: "en", taps: ['.tabs button[data-tab="home"]'] },
   { file: "panel-car-da.png", state: "two-cars", lang: "da", taps: ['.tabs button[data-tab="cars"]', '[data-act="open-car"][data-id="tesla_model_y"]'] },
   { file: "panel-car-en.png", state: "two-cars", lang: "en", taps: ['.tabs button[data-tab="cars"]', '[data-act="open-car"][data-id="tesla_model_y"]'] },
-  { file: "panel-history-en.png", state: "two-cars", lang: "en", taps: ['.tabs button[data-tab="history"]'] },
+  { file: "panel-history-en.png", state: "two-cars", lang: "en", taps: ['.tabs button[data-tab="past"]'] },
   { file: "panel-home-angle-en.png", state: "shared-supply", lang: "en", taps: ['.tabs button[data-tab="home"]'], change: (s) => (s.settings.house = "angle") },
   { file: "panel-home-desktop-en.png", state: "shared-supply", lang: "en", size: DESKTOP, scale: 1, taps: ['.tabs button[data-tab="home"]'] },
 ];

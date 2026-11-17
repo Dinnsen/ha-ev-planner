@@ -149,6 +149,7 @@ test("a plan on the price forecast says so, and a button makes it from the known
   await withPanel("two-cars", {}, async ({ page, tap, read, calls, waitForCall, push, state }) => {
     const car = state.vehicles.find((v) => v.plan);
     const note = '.cars-grid .basis [data-act="known-prices"]';
+    await tap('.tabs button[data-tab="cars"]');
     assert.equal(await read(note), null);
     await push({ ...state, vehicles: state.vehicles.map((v) => (v.id === car.id ? { ...v, plan_forecast: true, plan_other_cost: v.plan.cost + 12.5 } : v)) });
     await page.waitForFunction((s) => window.harness.panel.shadowRoot.querySelector(s), note, { timeout: 5000 });
@@ -185,7 +186,8 @@ test("each place has its own picture and its own house", async () => {
     const cabin = await scene();
 
     // Each place's house is chosen by itself: the summer house starts as the wooden one.
-    await tap('.tabs button[data-tab="settings"]');
+    await tap(".prof");
+    await tap('[data-prof="settings"]');
     await tap('[data-act="tile"][data-tile="places"]');
     assert.equal(await read('[data-act="house-look"][data-site="home"][data-house="classic"]', "aria-pressed"), "true");
     assert.equal(await read('[data-act="house-look"][data-site="summer"][data-house="cabin"]', "aria-pressed"), "true");
@@ -211,7 +213,8 @@ test("the house's look is stored, and the house is drawn again when it changes",
     const classic = await scene();
     assert.ok(classic.includes("cs-wire"), "the classic house is drawn");
 
-    await tap('.tabs button[data-tab="settings"]');
+    await tap(".prof");
+    await tap('[data-prof="settings"]');
     await tap('[data-act="tile"][data-tile="places"]');
     assert.equal(await read('[data-act="house-look"][data-house="classic"]', "aria-pressed"), "true");
     // The focus is on the sheet's "Done" button and stays there: the choice must show all the same.
@@ -244,7 +247,7 @@ async function exported({ page, tap }) {
 
 test("the history as CSV: what the view shows, for Excel in English", async () => {
   await withPanel("two-cars", {}, async (tools) => {
-    await tools.tap('.tabs button[data-tab="history"]');
+    await tools.tap('.tabs button[data-tab="past"]');
     assert.equal(await tools.read('[data-act="hist-export"]'), "Export CSV");
     const file = await exported(tools);
     assert.equal(file.name, "ev-planner-2026-11-01-2026-11-30.csv");
@@ -282,7 +285,7 @@ test("the history as CSV: what the view shows, for Excel in English", async () =
 
 test("the history as CSV in Danish: semicolons and decimal commas", async () => {
   await withPanel("two-cars", { lang: "da" }, async (tools) => {
-    await tools.tap('.tabs button[data-tab="history"]');
+    await tools.tap('.tabs button[data-tab="past"]');
     assert.equal(await tools.read('[data-act="hist-export"]'), "Eksportér CSV");
     const lines = (await exported(tools)).text.slice(1).split("\r\n");
     assert.equal(lines[0], "Start;Slut;Bil eller gæst;Lader;kWh;Pris;Valuta;Ladeniveau ved start (%);Ladeniveau ved slut (%);Heraf fra solen (kWh);Målt med");
@@ -297,7 +300,7 @@ test("the CSV keeps names with commas, quotes and formulas in one harmless cell"
   state.vehicles[0].name = '=2+3, "Zoe"';
   state.vehicles[0].history[0].cost = -1.5;
   await withPanel(state, {}, async (tools) => {
-    await tools.tap('.tabs button[data-tab="history"]');
+    await tools.tap('.tabs button[data-tab="past"]');
     const lines = (await exported(tools)).text.slice(1).split("\r\n");
     // A name is text, also when it looks like a formula; a negative cost stays a number.
     assert.equal(lines[1], '2026-11-09 02:00,2026-11-09 03:50,"\'=2+3, ""Zoe""",Garage,19.80,-1.50,DKK,44,80,0.00,Charge level');
@@ -457,7 +460,8 @@ test("a car whose charger is not found yet says so, without a warning", async ()
 
 test("the household's departures: your own is added, changed and in every car's dropdown", async () => {
   await withPanel("two-cars", {}, async ({ page, tap, calls, waitForCall, state }) => {
-    await tap('.tabs button[data-tab="settings"]');
+    await tap(".prof");
+    await tap('[data-prof="settings"]');
     await tap('[data-act="tile"][data-tile="departures"]');
     await tap('[data-act="dep-add"]');
     await waitForCall("settings");
@@ -485,6 +489,7 @@ test("the household's departures: your own is added, changed and in every car's 
 test("a car's messages are set in Settings → Messages, and the phones for all cars", async () => {
   await withPanel("two-cars", {}, async ({ tap, calls, waitForCall, state }) => {
     const car = state.vehicles[0];
+    await tap('.tabs button[data-tab="cars"]');
     await tap(`[data-act="open-car"][data-id="${car.id}"]`);
     await tap('[data-act="car-view"][data-view="rules"]');
     // The car's Messages tile leads to the household's settings, with this car open.
@@ -502,7 +507,8 @@ test("a car's messages are set in Settings → Messages, and the phones for all 
 
 test("a settings sheet stays where it is scrolled to when something in it changes", async () => {
   await withPanel("two-cars", { size: { width: 390, height: 700 } }, async ({ page, tap }) => {
-    await tap('.tabs button[data-tab="settings"]');
+    await tap(".prof");
+    await tap('[data-prof="settings"]');
     await tap('[data-act="tile"][data-tile="departures"]');
     await tap('[data-act="dep-open"][data-dep-id="weekend"]');
     const before = await page.evaluate(() => {
@@ -547,16 +553,16 @@ function swipe(page, selector, dx, dy) {
 test("a swipe to the side changes the tab, and a scroll up and down does not", async () => {
   await withPanel("two-cars", { size: { width: 390, height: 844 } }, async ({ page, read }) => {
     const tab = () => read('.tabs button[aria-selected="true"]', "data-tab");
-    assert.equal(await tab(), "cars");
+    assert.equal(await tab(), "home");
     await swipe(page, ".content", -160, 10);
-    assert.equal(await tab(), "home");
-    await swipe(page, ".content", 0, -200);
-    assert.equal(await tab(), "home");
-    await swipe(page, ".content", 160, -8);
     assert.equal(await tab(), "cars");
+    await swipe(page, ".content", 0, -200);
+    assert.equal(await tab(), "cars");
+    await swipe(page, ".content", 160, -8);
+    assert.equal(await tab(), "home");
     // The first tab has nothing before it.
     await swipe(page, ".content", 160, 0);
-    assert.equal(await tab(), "cars");
+    assert.equal(await tab(), "home");
   });
 });
 
@@ -566,6 +572,7 @@ test("the climate's sheet is closed by a swipe down, and its temperature is set 
   car.climate = { entity: "climate.car", on: false, started_at: null, inside: 14, outside: 6 };
   car.settings = { ...car.settings, climate_temperature: 21 };
   await withPanel(state, { size: { width: 390, height: 844 } }, async ({ page, tap, read, calls, waitForCall }) => {
+    await tap('.tabs button[data-tab="cars"]');
     await tap(`[data-act="open-car"][data-id="${car.id}"]`);
     await tap('[data-act="climate-open"]');
     assert.ok(await read(".sheet.pop-climate .cabin-temp output"));
@@ -593,6 +600,7 @@ test("the climate's sheet is closed by a swipe down, and its temperature is set 
 
 test("a rule changed just before leaving the car's page is still stored", async () => {
   await withPanel("two-cars", { size: PHONE }, async ({ page, tap, read, calls, waitForCall }) => {
+    await tap('.tabs button[data-tab="cars"]');
     await tap('[data-act="open-car"][data-id="tesla_model_y"]');
     await tap('[data-act="car-view"][data-view="rules"]');
     await tap('[data-act="tile"][data-tile="price"]');
@@ -698,7 +706,7 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     await page.waitForFunction(() => window.harness.calls.some((c) => c.type === "recorder/statistics_during_period"));
     await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector("ev-planner-insight").shadowRoot.querySelectorAll("#tl circle").length > 0);
     assert.equal((await calls("insight")).length, 1);
-    assert.equal(await inside((root) => root.querySelectorAll("nav.tabs button").length), 5);
+    assert.equal(await inside((root) => root.querySelectorAll("nav.tabs button").length), 4);
     assert.match(await inside((root) => root.querySelector("#hero .hero").textContent), /Tesla/);
     assert.equal(await inside((root) => root.querySelectorAll("#hero svg clipPath").length), 2, "both cars are drawn by their sides");
     assert.ok(await inside((root) => root.querySelector("#hero #h-cab").getAttribute("d")), "the cable is drawn");
@@ -813,15 +821,13 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     await tap('ev-planner-insight .tl-q[data-tlsheet="kost"]');
     assert.equal(await inside((root) => root.querySelector("#tl-sheet").hidden), false);
     await tap('ev-planner-insight #tl-sheet [data-open="history"]');
-    assert.equal(await read('.learn-views button[aria-selected="true"]', "data-value"), "history");
-    assert.ok(await page.evaluate(() => !window.harness.panel.shadowRoot.querySelector("ev-planner-insight")));
-    // The history is the last of Insight's tabs: the same row, and the others lead back to Insight.
-    assert.deepEqual(await page.evaluate(() => [...window.harness.panel.shadowRoot.querySelectorAll(".learn-views button")].map((b) => b.textContent.trim())), ["Overview", "Driving", "Power", "Learned", "History"]);
-    await tap('[data-act="hist-view"][data-value="ins:plan"]');
-    assert.ok(await inside((root) => root.querySelector("#tl svg")));
-    await tap('ev-planner-insight [data-tab="hist"]');
-    assert.equal(await read('.learn-views button[aria-selected="true"]', "data-value"), "history");
-    await tap('[data-act="hist-view"][data-value="ins:laer"]');
+    // The history is a tab of its own: the charging history alone, and back to Learning from the tab bar.
+    assert.equal(await read('.tabs button[aria-selected="true"]', "data-tab"), "past");
+    assert.ok(await read(".hist-controls"));
+    assert.equal(await read(".learn-views"), null);
+    await tap('.tabs button[data-tab="history"]');
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector("ev-planner-insight")?.shadowRoot.querySelector("#tl svg"));
+    await tap('ev-planner-insight [data-tab="laer"]');
     assert.equal(await inside((root) => root.querySelector('#tabs button.on').dataset.tab), "laer");
     await tap('ev-planner-insight [data-tab="plan"]');
     // Fetched once a minute, not for every look (and once more after the choice of how careful). No sideways scroll on a phone.
@@ -838,7 +844,7 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
   // With Insight off: Charging and Learned as before, the other four dimmed with one line.
   await withPanel(state, { size: PHONE }, async ({ page, tap, read, calls }) => {
     await page.evaluate(() => window.harness.panel._setTab("history"));
-    assert.equal(await read('.learn-views button[aria-selected="true"]', "data-value"), "history");
+    assert.equal(await read('.learn-views button[aria-selected="true"]', "data-value"), "learned");
     assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".learn-views button.dim").length), 2);
     await tap('[data-act="hist-view"][data-value="cars"]');
     assert.match(await read(".hist-page .hint"), /Insight/);
@@ -855,6 +861,7 @@ test("A charge elsewhere is a grey line without kWh or price, and a charge over 
     ...zoe.history,
   ];
   await withPanel(state, { size: PHONE }, async ({ page, tap, read }) => {
+    await tap('.tabs button[data-tab="cars"]');
     await tap(`[data-act="open-car"][data-id="${zoe.id}"]`);
     await tap('[data-act="car-view"][data-view="history"]');
     const rows = await page.evaluate(() => [...window.harness.panel.shadowRoot.querySelectorAll(".car-history .sessions li")].map((li) => ({ cls: li.className, when: li.querySelector(".when b").textContent, nums: li.querySelector(".nums").textContent.trim(), what: li.querySelector(".what span").textContent })));

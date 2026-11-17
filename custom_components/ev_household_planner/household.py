@@ -1762,7 +1762,8 @@ class Household(DataUpdateCoordinator[None]):
             return
         vehicle.warned_for = key
         self.async_save()
-        if not vehicle.settings.get(SET_NOTIFY_RECEIPT) or not self.notifier.enabled or self.notify_muted(vehicle):
+        # Its own card in the message centre since 2.5.0b31 (before, it came with the morning receipt).
+        if not self.notifier.enabled or self.notify_muted(vehicle):
             return
         await self.notifier.send(
             title=vehicle.name,

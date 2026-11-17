@@ -79,8 +79,12 @@ export async function walkPanel({ lang }) {
   tab("guest");
   await check("guest");
 
-  // History: every period and every scope, and what EV Planner has learned.
+  // Learning: what EV Planner has learned.
   tab("history");
+  await check("history › learned");
+
+  // History: every period and every scope.
+  tab("past");
   await check("history");
   for (const period of values('[data-act="hist-period"]', "value")) {
     click(`[data-act="hist-period"][data-value="${period}"]`);
@@ -95,11 +99,10 @@ export async function walkPanel({ lang }) {
     click(`[data-act="hist-scope"][data-value="${scope}"]`);
     await check(`history › ${scope}`);
   }
-  click('[data-act="hist-view"][data-value="learned"]');
-  await check("history › learned");
-  click('[data-act="hist-view"][data-value="history"]');
 
-  tab("settings");
+  // Settings, from the profile menu.
+  click(".prof");
+  click('[data-prof="settings"]');
   await check("settings");
   await tiles("settings");
 

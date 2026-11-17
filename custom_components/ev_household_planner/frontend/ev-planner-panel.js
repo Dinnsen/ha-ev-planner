@@ -76,6 +76,37 @@ const TEXT = {
     prof_look: "Udseende",
     prof_days: "Højtider og mærkedage",
     prof_support: "Supportfil",
+    look_frisk: "Frisk",
+    look_hverdag: "Hverdag",
+    look_studio: "Theme Studio",
+    look_pick: "Vælg udseende",
+    look_hint: "Gemmes for dig, ikke for hele husstanden. Kun farver, skrift og former skifter. Theme Studio vises, når det er installeret.",
+    day_jul: "Jul",
+    day_nytaar: "Nytår",
+    day_fastelavn: "Fastelavn",
+    day_paaske: "Påske",
+    day_halloween: "Halloween",
+    day_fodselsdag: "Fødselsdage",
+    day_grundlov: "Grundlovsdag",
+    day_sankthans: "Sankt Hans",
+    day_valentin: "Valentinsdag",
+    day_aarsdag: "Årsdag",
+    day_bryllup: "Bryllupsdag",
+    days_lead: "Pynt på huset og i Læring",
+    days_hint: "Samme dage og datoer som i Hverdagsro. Før og efter er antal dage rundt om selve dagen. Pynten ændrer ikke vejret.",
+    days_before: "Før",
+    days_after: "Efter",
+    days_date: "Dato",
+    days_people: "Personer",
+    days_name: "Navn",
+    days_add_person: "Tilføj person",
+    days_new_person: "Ny",
+    days_from: "pynt fra {date}",
+    days_to: "til {date}",
+    days_now: "Nu",
+    days_count: "{n} slået til",
+    days_no_date: "Vælg en dato",
+    days_no_people: "Tilføj personer",
     tab_settings: "Indstillinger",
     loading: "Henter EV Planner …",
     back: "Biler",
@@ -688,6 +719,37 @@ const TEXT = {
     prof_look: "Look",
     prof_days: "Holidays and special days",
     prof_support: "Support file",
+    look_frisk: "Frisk",
+    look_hverdag: "Hverdag",
+    look_studio: "Theme Studio",
+    look_pick: "Choose a look",
+    look_hint: "Kept for you, not for the whole household. Only colours, type and shapes change. Theme Studio is shown when it is installed.",
+    day_jul: "Christmas",
+    day_nytaar: "New Year",
+    day_fastelavn: "Shrovetide",
+    day_paaske: "Easter",
+    day_halloween: "Halloween",
+    day_fodselsdag: "Birthdays",
+    day_grundlov: "Constitution Day",
+    day_sankthans: "Midsummer",
+    day_valentin: "Valentine's Day",
+    day_aarsdag: "Anniversary",
+    day_bryllup: "Wedding anniversary",
+    days_lead: "Decorations on the house and in Learning",
+    days_hint: "The same days and dates as in Hverdagsro. Before and after are the number of days around the day itself. The decorations do not change the weather.",
+    days_before: "Before",
+    days_after: "After",
+    days_date: "Date",
+    days_people: "People",
+    days_name: "Name",
+    days_add_person: "Add a person",
+    days_new_person: "New",
+    days_from: "up from {date}",
+    days_to: "until {date}",
+    days_now: "Now",
+    days_count: "{n} on",
+    days_no_date: "Choose a date",
+    days_no_people: "Add people",
     tab_settings: "Settings",
     loading: "Loading EV Planner …",
     back: "Cars",
@@ -6226,6 +6288,7 @@ class EvPlannerPanel extends HTMLElement {
     else content.innerHTML = this._overviewHtml();
     if (this._tab === "home" && !this._currentCharger) this._mountScene();
     if (this._tab === "history" || this._tab === "past") this._afterHistory();
+    if (this._tab === "settings") this._messagesMount();
     if (this._tab === "home" && !this._currentCharger) this._afterHome();
     if (this._tab === "guest") {
       this._bindBattery();
@@ -8668,7 +8731,7 @@ class EvPlannerPanel extends HTMLElement {
       JSON.stringify([this._sheet, this._ruleValues(s), v.target_steps, s.reminder, s.reminder_time, s.reminder_soc, s.reminder_price_enabled, s.reminder_price, s.reminder_days, s.reminder_repeat, s.reminder_horizon, s.notify_targets, s.live_notification, s.notify_done, s.notify_plug, s.notify_receipt, s.notify_away, this._state.config?.notify, this._currency, lang]),
       open
         ? `<div class="scrim in-page" data-act="sheet-close"></div>
-          <div class="sheet in-page" role="dialog" aria-modal="true" aria-label="${esc(open.title)}">
+          <div class="sheet in-page${open.wide ? " wide" : ""}" role="dialog" aria-modal="true" aria-label="${esc(open.title)}">
             <header><h2>${ICONS[open.icon] || ""}<span>${esc(open.title)}</span></h2><button class="btn ghost small" data-act="sheet-close" data-f="sheet-close">${this._t("tile_close")}</button></header>
             <div class="sheet-body">${body}</div>
           </div>`
@@ -10518,6 +10581,59 @@ class EvPlannerPanel extends HTMLElement {
     if (this._insTab) { this._insEl.tab = this._insTab; this._insTab = null; }
   }
 
+  /* Settings → Messages: the message centre is a module of its own, fetched when first opened, and kept across
+     this panel's renders so a field being typed in is not drawn over. */
+  _messagesMount() {
+    const place = this.shadowRoot.querySelector(".msg-host");
+    if (!place) return;
+    if (!this._msgEl) {
+      if (!this._msgWait) {
+        const url = new URL(import.meta.url);
+        this._msgWait = import(`${new URL("./ev-planner-messages.js", url).href}${url.search}`)
+          .then((mod) => {
+            this._msgEl = document.createElement("div");
+            this._msgEl.className = "msg-centre";
+            this._msgApi = mod.mountMessages(this._msgEl, this._messagesInput());
+            if (this._tab === "settings") this._messagesMount();
+          })
+          .catch(() => { this._msgWait = null; });
+      }
+      return;
+    }
+    if (this._msgEl.parentNode !== place) place.replaceChildren(this._msgEl);
+    this._msgApi.update(this._messagesInput());
+  }
+
+  /* What the message centre shows: the cars as they are, the household's choices, and how to store a change. */
+  _messagesInput() {
+    const config = this._state.config || {};
+    const names = config.notify_names || {};
+    const chosen = config.notify || [];
+    const cars = this._cars.map((v) => {
+      const plan = hasSegments(v.plan) ? v.plan : null;
+      return {
+        id: v.id,
+        name: v.name,
+        soc: isNum(v.soc) ? Number(v.soc) : null,
+        target: isNum(v.target) ? Number(v.target) : 80,
+        connected: v.connected,
+        ready: v.deadline ? this._time(v.deadline) : "",
+        plan: plan ? `${this._time(plan.segments[0].start)}–${this._time(plan.segments.at(-1).end)}` : "",
+        cost: plan ? this._money(plan.cost) : "",
+        s: this._vs(v),
+      };
+    });
+    return {
+      lang: this._lang,
+      settings: this._state.settings || {},
+      cars,
+      charger: this._state.chargers?.[0]?.name || "",
+      phones: chosen.map((id) => ({ id, name: names[id] || id.replace(/^notify\.(mobile_app_)?/, "") })),
+      saveSettings: (changes) => this._saveSettings(changes),
+      saveCar: (id, changes) => this._ws("ev_household_planner/vehicle_set", { vehicle_id: id, settings: changes }).catch((err) => this._showError(err)),
+    };
+  }
+
   _insightHome() {
     const zone = this._hass?.states?.["zone.home"]?.attributes, config = this._hass?.config || {};
     const lat = Number(zone?.latitude ?? config.latitude), lon = Number(zone?.longitude ?? config.longitude);
@@ -10552,6 +10668,8 @@ class EvPlannerPanel extends HTMLElement {
       departures: this._departuresTile(settings),
       calendar: this._calendarTile(settings),
       notifications: this._notifyTile(settings, config),
+      look: this._lookTile(),
+      days: this._daysTile(settings),
       places: this._placesTile(settings),
       billing: {
         icon: "receipt",
@@ -10605,12 +10723,109 @@ class EvPlannerPanel extends HTMLElement {
       .join("");
     const sheet = open
       ? `<div class="scrim in-page" data-act="sheet-close"></div>
-        <div class="sheet in-page" role="dialog" aria-modal="true" aria-label="${esc(open.title)}">
+        <div class="sheet in-page${open.wide ? " wide" : ""}" role="dialog" aria-modal="true" aria-label="${esc(open.title)}">
           <header><h2>${ICONS[open.icon] || ""}<span>${esc(open.title)}</span></h2><button class="btn ghost small" data-act="sheet-close" data-f="sheet-close">${this._t("tile_close")}</button></header>
           <div class="sheet-body">${open.body}</div>
         </div>`
       : "";
     return `<div class="page settings-page"><div class="tile-grid">${tiles}</div>${sheet}</div>`;
+  }
+
+  /* Settings → Look: Frisk, Hverdag, or Theme Studio when it is installed; kept for this person only. */
+  _lookTile() {
+    const now = this.getAttribute("look") || "frisk";
+    const swatch = { frisk: ["#F4F7F5", "#14B47C", "#1B2230"], hverdag: ["#F2F4F6", "#6E4AFF", "#11A39A"], studio: ["var(--primary-background-color, #F5F5F5)", "var(--primary-color, #03A9F4)", "var(--primary-text-color, #212121)"] };
+    const cards = this._looks()
+      .map((look) => {
+        const [bg, a, b] = swatch[look];
+        return `<button class="look-pick${now === look ? " on" : ""}" data-act="look" data-look="${look}" data-f="look-${look}" aria-pressed="${now === look}">
+          <span class="look-pic" style="background:${bg}"><i style="background:${a}"></i><i style="background:${b}"></i><i style="background:${a};opacity:.35"></i></span>
+          <span>${esc(this._t(`look_${look}`))}</span></button>`;
+      })
+      .join("");
+    return {
+      icon: "car",
+      title: this._t("prof_look"),
+      summary: this._t(`look_${now}`),
+      body: `<div class="inline-values"><span>${this._t("look_pick")}${this._helpButton("look", this._t("prof_look"))}</span></div>${this._helpBubble("look", this._t("look_hint"))}
+        <div class="look-grid">${cards}</div>`,
+    };
+  }
+
+  /* Settings → Holidays and special days: Hverdagsro's days, each with its days before and after. */
+  _dayConf(key) {
+    const d = DAY_DEFAULTS[key];
+    return { on: true, before: d[0], after: d[1], ...((this._state.settings?.days || {})[key] || {}) };
+  }
+
+  _dayNext(key) {
+    const conf = this._dayConf(key), people = this._state.settings?.day_people || [];
+    const now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    let best = null;
+    for (const y of [today.getFullYear() - 1, today.getFullYear(), today.getFullYear() + 1]) {
+      for (const [a, b] of dayDates(key, y, conf, people)) if (dayPlus(b, conf.after) >= today && (!best || a < best[0])) best = [a, b];
+    }
+    return best;
+  }
+
+  _dayText(key) {
+    const next = this._dayNext(key), conf = this._dayConf(key);
+    if (!next) return this._t(key === "fodselsdag" ? "days_no_people" : "days_no_date");
+    const f = new Intl.DateTimeFormat(this._locale, { day: "numeric", month: "short" });
+    const [a, b] = next;
+    const when = a.getTime() === b.getTime() ? f.format(a) : `${f.format(a)}–${f.format(b)}`;
+    const extra = [conf.before ? this._t("days_from", { date: f.format(dayPlus(a, -conf.before)) }) : "", conf.after ? this._t("days_to", { date: f.format(dayPlus(b, conf.after)) }) : ""].filter(Boolean).join(", ");
+    return extra ? `${when} · ${extra}` : when;
+  }
+
+  _daysTile(settings) {
+    const open = this._dayOpen, people = settings.day_people || [], up = dayNow(settings);
+    const stepper = (key, field, value) => `<div class="hday-step" role="group" aria-label="${esc(this._t(`days_${field}`))}">
+        <button class="btn ghost small" data-act="day-step" data-day="${key}" data-field="${field}" data-dir="-1" data-f="ds-${key}-${field}-m"${value <= 0 ? " disabled" : ""} aria-label="−">−</button>
+        <output>${value}</output>
+        <button class="btn ghost small" data-act="day-step" data-day="${key}" data-field="${field}" data-dir="1" data-f="ds-${key}-${field}-p"${value >= 40 ? " disabled" : ""} aria-label="+">+</button></div>`;
+    const form = (key, conf) => {
+      const rows = [`<div class="inline-values"><span>${this._t("days_before")}</span>${stepper(key, "before", conf.before)}<span>${this._t("days_after")}</span>${stepper(key, "after", conf.after)}</div>`];
+      if (key === "aarsdag" || key === "bryllup") {
+        rows.push(`<label class="field col"><span>${this._t("days_date")}</span><input type="date" data-daydate="${key}" value="${esc(/^\d{4}-/.test(conf.date || "") ? conf.date : conf.date ? `2000-${conf.date}` : "")}"></label>`);
+      }
+      if (key === "fodselsdag") {
+        rows.push(`<div class="field col"><span>${this._t("days_people")}</span>${people
+          .map((p, i) => `<div class="hday-person"><input type="text" maxlength="40" data-dayperson="${i}" data-part="name" value="${esc(p.name)}" aria-label="${esc(this._t("days_name"))}"><input type="date" data-dayperson="${i}" data-part="date" value="${esc(/^\d{4}-/.test(p.date) ? p.date : `2000-${p.date}`)}" aria-label="${esc(this._t("days_date"))}"><button class="btn ghost small danger" data-act="day-person-del" data-i="${i}" data-f="dp-del-${i}" aria-label="${esc(this._t("dep_delete"))}">×</button></div>`)
+          .join("")}<button class="btn ghost small" data-act="day-person-add" data-f="dp-add">${ICONS.plus || "+"}<span>${this._t("days_add_person")}</span></button></div>`);
+      }
+      return `<div class="dep-form">${rows.join("")}</div>`;
+    };
+    const rows = DAY_KEYS.map((key) => {
+      const conf = this._dayConf(key), on = open === key;
+      return `<div class="dep-row hday-row${on ? " open" : ""}${conf.on === false ? " off" : ""}" style="--day:${DAY_COLOURS[key]}">
+        <div class="hday-head">
+          <button class="dep-head" data-act="day-open" data-day="${on ? "" : key}" data-f="day-${key}" aria-expanded="${on}">
+            <span class="hday-dot"></span><span class="dep-text"><strong>${esc(this._t(`day_${key}`))}${up === key ? ` <span class="tag">${this._t("days_now")}</span>` : ""}</strong><small>${esc(this._dayText(key))}</small></span>
+          </button>
+          <button class="switch" role="switch" data-act="day-toggle" data-day="${key}" data-f="dt-${key}" aria-checked="${conf.on !== false}" aria-label="${esc(this._t(`day_${key}`))}"><i></i></button>
+        </div>
+        ${on ? form(key, conf) : ""}
+      </div>`;
+    }).join("");
+    const count = DAY_KEYS.filter((k) => this._dayConf(k).on !== false).length;
+    return {
+      icon: "calendar",
+      title: this._t("prof_days"),
+      summary: [up ? this._t(`day_${up}`) : "", this._t("days_count", { n: count })].filter(Boolean).join(" · "),
+      body: `<div class="inline-values"><span>${this._t("days_lead")}${this._helpButton("days", this._t("prof_days"))}</span></div>${this._helpBubble("days", this._t("days_hint"))}
+        <div class="dep-list">${rows}</div>`,
+    };
+  }
+
+  _daySave(key, patch) {
+    const days = { ...(this._state.settings?.days || {}) };
+    days[key] = { ...(days[key] || {}), ...patch };
+    this._saveSettings({ days });
+  }
+
+  _peopleSave(list) {
+    this._saveSettings({ day_people: list.filter((p) => p.name && /^(\d{4}-)?\d{2}-\d{2}$/.test(p.date)) });
   }
 
   /* A departure's name: its own, or the default's in the panel's language. */
@@ -10758,15 +10973,9 @@ class EvPlannerPanel extends HTMLElement {
         settings.notify_enabled !== false && settings.quiet_enabled && this._t("quiet_summary", { from: this._hhmm(settings.quiet_from || "22:00"), to: this._hhmm(settings.quiet_to || "06:00") }),
         phones.length ? phones.map((n) => names[n] || n).join(", ") : this._t("not_set"),
       ]),
-      body: `<h3 class="sheet-sub">${this._t("notify_common")}</h3>
-        ${this._ruleRow({ icon: "bell", title: this._t("notify_all"), hint: this._t("notify_all_hint"), off: settings.notify_enabled === false, control: `<button class="switch" role="switch" data-act="hh-toggle" data-key="notify_enabled" data-f="hh-notify_enabled" aria-checked="${settings.notify_enabled !== false}" aria-label="${esc(this._t("notify_all"))}"><i></i></button>` })}
-        ${this._ruleRow({
-          icon: "history",
-          title: this._t("quiet_hours"),
-          hint: this._t("quiet_hours_hint"),
-          off: !settings.quiet_enabled,
-          control: `${settings.quiet_enabled ? `<label class="chip-input time on"><input type="time" step="900" id="quiet-from" value="${esc(settings.quiet_from || "22:00")}" aria-label="${this._t("quiet_from")}"></label><span class="dash">–</span><label class="chip-input time on"><input type="time" step="900" id="quiet-to" value="${esc(settings.quiet_to || "06:00")}" aria-label="${this._t("quiet_to")}"></label>` : ""}<button class="switch" role="switch" data-act="hh-toggle" data-key="quiet_enabled" data-f="hh-quiet_enabled" aria-checked="${Boolean(settings.quiet_enabled)}" aria-label="${esc(this._t("quiet_hours"))}"><i></i></button>`,
-        })}
+      wide: true,
+      body: `<div class="msg-host"></div>
+        <h3 class="sheet-sub">${this._t("notify_common")}</h3>
         <div class="field col"><span>${this._t("notify_phones")}</span>${phoneChips}<small>${this._t("phones_hint")}</small></div>
         <div class="field col"><span>${this._t("notify_language")}</span>
           <div class="chips">${["auto", "da", "en"]
@@ -10934,6 +11143,36 @@ class EvPlannerPanel extends HTMLElement {
       case "tab":
         this._setTab(button.dataset.tab);
         break;
+      case "look":
+        this._setLook(button.dataset.look);
+        break;
+      case "day-open":
+        this._dayOpen = button.dataset.day || null;
+        this._render();
+        break;
+      case "day-toggle": {
+        const key = button.dataset.day;
+        this._daySave(key, { on: this._dayConf(key).on === false });
+        break;
+      }
+      case "day-step": {
+        const key = button.dataset.day, field = button.dataset.field;
+        this._daySave(key, { [field]: clamp(Number(this._dayConf(key)[field]) + Number(button.dataset.dir), 0, 40) });
+        break;
+      }
+      case "day-person-add": {
+        const list = [...(this._state.settings?.day_people || [])];
+        const name = this._t("days_new_person");
+        list.push({ name, date: `${new Date().getFullYear()}-01-01` });
+        this._peopleSave(list);
+        break;
+      }
+      case "day-person-del": {
+        const list = [...(this._state.settings?.day_people || [])];
+        list.splice(Number(button.dataset.i), 1);
+        this._peopleSave(list);
+        break;
+      }
       case "car-view":
         this._carView = CAR_VIEWS.includes(button.dataset.view) ? button.dataset.view : "now";
         this._sheet = null;
@@ -11394,6 +11633,12 @@ class EvPlannerPanel extends HTMLElement {
         const value = clamp(Math.round(Number(el.value) * 2) / 2, 10, 32);
         this._vchange({ day_climate: { ...(this._vs(v).day_climate || {}), [el.dataset.dayclimate]: value } });
       }
+    } else if (el.dataset.daydate) {
+      this._daySave(el.dataset.daydate, { date: el.value || null });
+    } else if (el.dataset.dayperson) {
+      const list = (this._state.settings?.day_people || []).map((p) => ({ ...p }));
+      const p = list[Number(el.dataset.dayperson)];
+      if (p && (el.dataset.part !== "date" || el.value)) { p[el.dataset.part] = el.dataset.part === "name" ? el.value.trim() : el.value; this._peopleSave(list); }
     } else if (el.dataset.calkw) {
       this._run("settings", "ev_household_planner/vehicle_set", { vehicle_id: el.dataset.calkw, settings: { calendar_keyword: el.value.trim() } }).then(
         (ok) => ok && this._toast(this._t("saved")),
@@ -12437,6 +12682,22 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 .tile-text small { color: var(--evp-soft); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tile-go svg { width: 16px; height: 16px; transform: rotate(180deg); fill: none; stroke: var(--evp-soft); stroke-width: 2; }
 .sheet.in-page { display: grid; gap: 12px; }
+.sheet.wide { width: min(1040px, 100%); }
+.look-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+.look-pick { display: grid; gap: 8px; padding: 10px; border-radius: 16px; border: 1.5px solid var(--evp-line); background: var(--evp-card); color: var(--evp-ink); cursor: pointer; font: inherit; text-align: left; }
+.look-pick.on { border-color: var(--evp-accent); box-shadow: 0 0 0 1.5px var(--evp-accent) inset; }
+.look-pic { display: flex; gap: 6px; align-items: flex-end; height: 56px; border-radius: 10px; padding: 8px; border: 1px solid var(--evp-line); }
+.look-pic i { flex: 1; border-radius: 6px; height: 60%; }
+.look-pic i:nth-child(2) { height: 85%; }
+.hday-head { display: flex; align-items: center; gap: 8px; padding-right: 10px; }
+.hday-head .dep-head { flex: 1; min-width: 0; }
+.hday-row.off .dep-text { opacity: .55; }
+.hday-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--day); flex: none; margin-right: 10px; }
+.hday-step { display: inline-flex; align-items: center; gap: 4px; }
+.hday-step output { min-width: 2ch; text-align: center; font-variant-numeric: tabular-nums; font-weight: 600; }
+.hday-person { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.hday-person input[type="text"] { flex: 1 1 120px; min-width: 0; }
+.msg-host:empty { display: none; }
 .sheet.in-page header { position: sticky; top: -18px; background: var(--evp-solid); padding: 4px 0 8px; z-index: 1; }
 .sheet.in-page h2 { display: flex; align-items: center; gap: 8px; }
 .sheet.in-page h2 svg { width: 20px; height: 20px; fill: none; stroke: var(--evp-a); stroke-width: 1.8; }

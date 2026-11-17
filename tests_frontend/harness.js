@@ -132,6 +132,12 @@ const harness = {
         return this.history || {};
       case "map_tiles/access_token":
         return { token: "tiles" };
+      // Home Assistant keeps a little per person: the panel's look.
+      case "frontend/get_user_data":
+        return { value: (this.userData || {})[message.key] ?? null };
+      case "frontend/set_user_data":
+        this.userData = { ...(this.userData || {}), [message.key]: message.value };
+        return null;
       default:
         this.unknown.push(message.type);
         throw { code: "unknown_command", message: `Unknown command: ${message.type}` };
