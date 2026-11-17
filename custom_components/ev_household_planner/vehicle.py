@@ -383,7 +383,9 @@ class Vehicle:
     meter_kwh: float | None = None
     meter_at: datetime | None = None
     other_cost: float | None = None  # the plan's cost on the other prices (known or forecast), when they differ
-    insight_hold: float | None = None  # Insight waits for a cheaper night: charge no further than this (%)
+    # The week plan's part for the car's stay at home: charge to this (%) by this time. None: not steered.
+    week_target: float | None = None
+    week_deadline: datetime | None = None
     trip_cap: float | None = None  # the price a departure at the cheapest prices only never goes over
     # The plan came from storage (Home Assistant restarted) and has not been acted on yet.
     plan_restored: bool = False
@@ -691,19 +693,19 @@ class Vehicle:
 
     @property
     def target(self) -> float:
-        """The charge level to aim for tonight: the wanted one, or lower a night Insight waits for a cheaper one.
+        """The charge level to aim for in this stay: the week plan's, else the wanted one.
 
-        A trip or a calendar's target is never held back.
+        A trip or a calendar's target is never changed by the week plan.
         """
         wanted = self.wanted_target
-        hold = self.insight_hold
+        week = self.week_target
         if (
-            hold is None
+            week is None
             or self.calendar_target is not None
             or (self.trip is not None and self.deadline == self.trip["at"])
         ):
             return wanted
-        return min(wanted, max(hold, to_float(self.settings.get(SET_MIN_SOC)) or 0.0))
+        return min(100.0, max(week, to_float(self.settings.get(SET_MIN_SOC)) or 0.0))
 
     @property
     def wanted_target(self) -> float:
@@ -804,12 +806,17 @@ class Vehicle:
         if trip is not None and trip["at"] > now:
             event = self.calendar_event
             return event if event is not None and now < event < trip["at"] else trip["at"]
+        event = self.calendar_event
+        week = self.week_deadline
+        if week is not None and week > now and (event is None or event <= now or event > week):
+            # The week plan's stay: done by the time the car is expected to leave (a calendar trip before it wins).
+            return week
         return next_deadline(
             now,
             default=self.ready_by,
             use_default=bool(self.settings.get(SET_USE_READY_BY, True)),
             schedule=self.settings.get(SET_SCHEDULE) or {},
-            event=self.calendar_event,
+            event=event,
         )
 
     # ------------------------------------------------------------------

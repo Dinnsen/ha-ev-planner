@@ -317,6 +317,17 @@ SPOT_OPTIONS: Final = ["auto", "left", "right"]
 PAINT_OPTIONS: Final = ["white", "black"]
 # A target per weekday of the ready-by time: {"fri": 100}.
 SET_DAY_TARGETS: Final = "day_targets"
+# The week plan (2.5.0b35): the level the low-price hours charge to (0: the target), a full charge every so
+# many days (Tesla asks for 100 % once a week), and how much a charge takes: "cheapest" (what is needed, and
+# more in the week's cheapest hours) or "fill" (every stay to the target).
+SET_LOW_PRICE_SOC: Final = "low_price_soc"
+SET_FULL_ENABLED: Final = "full_charge"
+SET_FULL_LEVEL: Final = "full_level"
+SET_FULL_DAYS: Final = "full_days"
+SET_AMOUNT: Final = "charge_amount"
+AMOUNT_CHEAPEST: Final = "cheapest"
+AMOUNT_FILL: Final = "fill"
+AMOUNT_OPTIONS: Final = [AMOUNT_CHEAPEST, AMOUNT_FILL]
 
 MODE_SMART: Final = "smart"
 MODE_CHARGE_NOW: Final = "charge_now"
@@ -402,6 +413,11 @@ DEFAULT_VEHICLE_SETTINGS: Final[dict[str, object]] = {
     SET_PAINT: "white",
     SET_SPOT: "auto",
     SET_DAY_TARGETS: {},
+    SET_LOW_PRICE_SOC: 0.0,
+    SET_FULL_ENABLED: False,
+    SET_FULL_LEVEL: 100.0,
+    SET_FULL_DAYS: 7,
+    SET_AMOUNT: AMOUNT_CHEAPEST,
 }
 
 # ----------------------------------------------------------------------

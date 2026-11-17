@@ -155,7 +155,7 @@ async def test_off_until_it_is_turned_on(hass: HomeAssistant, init_integration: 
     )
     await hass.services.async_call("switch", "turn_on", {"entity_id": switch}, blocking=True)
     assert insight.enabled
-    assert planner.vehicles[TESLA].insight_hold is None
+    assert planner.vehicles[TESLA].week_target is None
 
 
 async def test_the_cars_sensors_are_found_on_its_device(hass: HomeAssistant, init_integration: MockConfigEntry) -> None:
@@ -514,13 +514,14 @@ async def test_the_evening_which_car_and_the_hold(
     group = insight.tonight["groups"][0]
     assert (group["pick"], group["wait"], group["reason"]) == (None, True, "cheaper")
     assert notify.messages()[-1] == planner.text("insight_no_car")
-    floor = insight.tonight["cars"][TESLA]["floor_pct"]
-    assert tesla.insight_hold == floor
-    assert tesla.target == max(floor, tesla.settings["min_soc"]) < tesla.wanted_target
+    # The week plan steers: the car's stay gets the plan's target.
+    week = insight.week["cars"][TESLA]
+    assert week["steer"] and tesla.week_target == week["target"]
+    assert tesla.target == max(week["target"], tesla.settings["min_soc"])
     assert insight.data["ledger"][dt_util.as_local(now).date().isoformat()]["wait"] is True
     # The car's lowest level is never gone under, and a trip is never held back.
     tesla.settings["min_soc"] = 60
-    assert tesla.target == 60
+    assert tesla.target >= 60
     tesla.calendar_target = 90.0
     assert tesla.target == 90
     tesla.calendar_target = None
@@ -531,13 +532,15 @@ async def test_the_evening_which_car_and_the_hold(
     await insight._async_decide(now)
     group = insight.tonight["groups"][0]
     assert (group["pick"], group["wait"], group["reason"]) == (None, False, "enough")
-    assert tesla.insight_hold == insight.tonight["cars"][TESLA]["floor_pct"]
+    assert tesla.week_target == insight.week["cars"][TESLA]["target"]
     # Every night, as it chose before: the emptier car should have the charger, and it is not plugged in.
     planner.settings["insight_style"] = 10
     notify.calls.clear()
     await insight._async_decide(now, tell=True)
     group = insight.tonight["groups"][0]
-    assert (group["pick"], group["wait"]) == (TESLA, False) and tesla.insight_hold is None
+    assert (group["pick"], group["wait"]) == (TESLA, False)
+    # Every night: the week plan fills every stay as before.
+    assert tesla.week_target == insight.week["cars"][TESLA]["target"] >= tesla.current_soc
     # It says why: the car's level, and what a busy day of its takes.
     need = insight.tonight["cars"][TESLA]["p90"]
     assert need > 0 and tesla.current_soc is not None
@@ -763,6 +766,92 @@ async def test_the_days_prices_count_at_the_hours_the_car_is_home(
     assert car["now_price"] == 2.0 and car["later"] == [0.5, 0.5, 0.5]
     group = insight.tonight["groups"][0]
     assert (group["wait"], group["reason"]) == (True, "cheaper")
-    assert planner.vehicles[TESLA].insight_hold == car["floor_pct"]
+    assert planner.vehicles[TESLA].week_target == insight.week["cars"][TESLA]["target"]
     # The other car has no trips: it goes by the nights.
     assert insight.tonight["cars"][MERCEDES]["later"] is None
+
+
+async def test_the_week_plan_hour_by_hour_and_what_it_hands_on(
+    hass: HomeAssistant, init_integration: MockConfigEntry, now: datetime, hass_ws_client: WebSocketGenerator
+) -> None:
+    planner = init_integration.runtime_data
+    insight = insight_of(init_integration)
+    tesla, mercedes = planner.vehicles[TESLA], planner.vehicles[MERCEDES]
+    await planner.async_update_settings({"insight": True})
+    # The week plan steers by default.
+    assert planner.settings["insight_use"] is True
+    seed(insight, now)
+    insight._styles = (dt_util.now().date(), list(STYLES))
+    set_tesla(hass, soc=40, cable=True)
+    await planner.async_set_vehicle(MERCEDES, {"manual_soc": 90})
+    sunny_noons(hass, now)
+    await hass.async_block_till_done()
+    # The Mercedes is out only from 7 to 8: home at the cheap noons. The Tesla is not known yet: the nights.
+    trips_out(insight, now, MERCEDES, 7, 8)
+    await insight._async_hold(now)
+    week = insight.week
+    assert len(week["prices"]) == len(week["kinds"]) == 168
+    assert week["step"] == 6 and len(week["steps"]) == 11
+    assert all(len(step[TESLA]) == len(step[MERCEDES]) == 7 for step in week["steps"])
+    # Published prices, the forecast, and after that nothing known (no years of prices kept yet).
+    assert {"known", "forecast", "none"} <= set(week["kinds"])
+    for vid, vehicle in ((TESLA, tesla), (MERCEDES, mercedes)):
+        car = week["cars"][vid]
+        assert len(car["kwh"]) == len(car["home"]) == 168 and car["steer"]
+        assert all(car["home"][h] for h, kwh in enumerate(car["kwh"]) if kwh > 0)
+        assert vehicle.week_target == car["target"]
+        deadline = dt_util.parse_datetime(car["deadline"]) if car["deadline"] else None
+        assert vehicle.week_deadline == deadline
+    # Two cars at one charger never charge in the same hour.
+    assert not any(
+        a > 0 and b > 0 for a, b in zip(week["cars"][TESLA]["kwh"], week["cars"][MERCEDES]["kwh"], strict=True)
+    )
+    # The years' prices fill the hours after the forecast, lifted to this week's level.
+    today = dt_util.as_local(now).date()
+    insight.data["spot"] = {(today - timedelta(days=ago)).isoformat(): [1.0] * 24 for ago in range(1, 15)}
+    insight._rhythm = (None, insight._rhythm[1])
+    await insight._async_hold(now)
+    assert "pattern" in insight.week["kinds"] and "none" not in insight.week["kinds"]
+    assert insight.rhythm() is insight.rhythm()
+    # The panel gets all of it, the home screen the short of it.
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "ev_household_planner/insight"})
+    assert (await client.receive_json())["result"]["week"]["cars"][TESLA]["kwh"]
+    await client.send_json({"id": 2, "type": "ev_household_planner/state"})
+    brief = (await client.receive_json())["result"]["week"]
+    assert set(brief["cars"][MERCEDES]) >= {"charges", "target", "deadline", "stay", "short"}
+    # A full charge once a week: planned before a departure, and seen when the car is full.
+    await planner.async_set_vehicle(MERCEDES, {"full_charge": True, "full_level": 100, "full_days": 7})
+    assert insight.week["cars"][MERCEDES]["full_at"] is not None
+    await planner.async_set_vehicle(MERCEDES, {"manual_soc": 100})
+    assert insight.data["done"]["full"][MERCEDES] == today.isoformat()
+    insight.data["done"]["full"][MERCEDES] = "odd"
+    await insight.async_week(now)
+    # Low prices to their own level, and filling every stay instead of the cheapest hours.
+    await planner.async_set_vehicle(
+        TESLA, {"low_price_charging": True, "low_price_level": 0.6, "low_price_soc": 100, "charge_amount": "fill"}
+    )
+    assert insight.week["cars"][TESLA]["learning"] is False
+    # Not steering: the cars go by their own targets again.
+    await planner.async_update_settings({"insight_use": False})
+    assert tesla.week_target is None and tesla.week_deadline is None
+    await planner.async_update_settings({"insight_use": True})
+    assert tesla.week_target is not None
+    # A car that comes or goes: the week plan again within the minute.
+    insight._seen = ("someone else",)
+    local = dt_util.as_local(now)
+    insight._price_hour = (local.date(), local.hour)
+    insight.week = {}
+    with patch.object(insight, "_wants_backfill", return_value=False):
+        await insight.async_tick(now)
+    assert insight.week
+    # A week plan that fails never stops the charging: nothing is steered.
+    with patch.object(insight, "make_week", side_effect=RuntimeError("broken")):
+        await insight._async_hold(now)
+    assert insight.week == {} and insight.week_brief() == {} and tesla.week_target is None
+    planner.settings["insight_style"] = "odd"
+    assert insight.style_index() == 6
+    # Insight off: nothing is steered by it.
+    await insight._async_hold(now)
+    await planner.async_update_settings({"insight": False})
+    assert insight.week == {} and tesla.week_target is None and mercedes.week_target is None

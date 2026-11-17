@@ -241,6 +241,8 @@ SETTINGS_DEFAULTS: dict[str, Any] = {
     "insight_steps": 11,
     # Whether the afternoon departure (2.5.0b32) has been added to a household's own list.
     "afternoon_added": True,
+    # The week plan (2.5.0b35) steers the charging by default: switched on once for a household that had it off.
+    "weekplan_on": True,
     # The message centre: each kind of message's own choices, {kind: {on, cars, to, through, icon, color, live, at, days, plugged}}.
     "messages": {},
     # Holidays and special days (Hverdagsro's days): {day: {on, before, after, date}}, and the birthdays.
@@ -836,6 +838,9 @@ class Household(DataUpdateCoordinator[None]):
         if kept and not kept.get("afternoon_added"):
             self.settings["departures"] = with_afternoon(self.settings.get("departures"))
         self.settings["afternoon_added"] = True
+        if kept and not kept.get("weekplan_on"):
+            self.settings["insight_use"] = True
+        self.settings["weekplan_on"] = True
         self._adopt_car_calendars()
         self._adopt_25()
         self.notifier.set_services(self.notify_services)
@@ -3112,6 +3117,9 @@ class Household(DataUpdateCoordinator[None]):
             if vehicle.mode in (MODE_OFF, MODE_PAUSE, MODE_CHARGE_NOW):
                 vehicle.problem = False
         self.async_save()
+        if self.insight.enabled:
+            # The week plan goes by the car's targets and its own choices: made again with them.
+            await self.insight.async_week(dt_util.now())
         await self.async_recalculate(force=True)
 
     # ------------------------------------------------------------------

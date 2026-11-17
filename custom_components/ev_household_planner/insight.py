@@ -35,8 +35,23 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util, location as loc_util
 
-from .const import DOMAIN
+from .const import (
+    AMOUNT_FILL,
+    DOMAIN,
+    SET_AMOUNT,
+    SET_DAY_TARGETS,
+    SET_FULL_DAYS,
+    SET_FULL_ENABLED,
+    SET_FULL_LEVEL,
+    SET_LOW_PRICE_ENABLED,
+    SET_LOW_PRICE_LEVEL,
+    SET_LOW_PRICE_SOC,
+    SET_MIN_SOC,
+    SET_TARGET_SOC,
+    WEEKDAYS,
+)
 from .insight_model import (
+    DEFAULT_ERROR,
     DEFAULT_STYLE,
     RIPE_DAYS,
     STEP_DAYS,
@@ -54,6 +69,7 @@ from .insight_model import (
     score,
 )
 from .planner import PriceSlot
+from .weekplan import HOURS, PATTERN_ERROR, Hour, WeekCar, plan_week, stay_end, summary
 
 if TYPE_CHECKING:
     from .household import Household
@@ -83,7 +99,8 @@ INSIGHT_SETTINGS: dict[str, Any] = {
     SET_INSIGHT_WINDOW: False,
     SET_INSIGHT_FROM: "21:00",
     SET_INSIGHT_TO: "07:00",
-    SET_INSIGHT_USE: False,
+    # The week plan steers the charging (on by default since 2.5.0b35).
+    SET_INSIGHT_USE: True,
     SET_INSIGHT_LEVEL: 90,
     SET_INSIGHT_STYLE: DEFAULT_STYLE,
     # The names the household gave the trips it makes often: {car: [{"km": how far, "name": its name}]}.
@@ -257,6 +274,10 @@ class Insight:
         self.tonight: dict[str, Any] = {}
         # The careful steps fitted to the cars' own days, made again each day.
         self._styles: tuple[date | None, list[dict[str, Any]]] = (None, list(STYLES))
+        # The week plan, for the screens and the cars' targets; made each hour and when a car comes or goes.
+        self.week: dict[str, Any] = {}
+        self._rhythm: tuple[date | None, list[list[float | None]]] = (None, [[None] * 24 for _ in range(7)])
+        self._seen: tuple[Any, ...] | None = None
 
     @staticmethod
     def _empty() -> dict[str, Any]:
@@ -387,10 +408,22 @@ class Insight:
     # Every minute
 
     async def async_settings_changed(self, changes: Mapping[str, Any], now: datetime) -> None:
-        """A new choice of how careful: tonight follows it at once."""
+        """A new choice of how careful, or of letting the week plan steer: followed at once."""
         if self.enabled and SET_INSIGHT_STYLE in changes:
             await self._async_decide(now, again=True)
             self._changed()
+        elif self.enabled and changes.keys() & {SET_INSIGHT_USE, SET_INSIGHT_WINDOW, SET_INSIGHT_FROM, SET_INSIGHT_TO}:
+            await self._async_hold(now)
+        elif not self.enabled and SET_INSIGHT in changes:
+            # Insight turned off: nothing is steered by the week plan any more.
+            self.week = {}
+            for vehicle in self.household.vehicles.values():
+                vehicle.week_target = vehicle.week_deadline = None
+            await self.household.async_recalculate()
+
+    async def async_week(self, now: datetime) -> None:
+        """A car's own choices changed: the week plan again."""
+        await self._async_hold(now)
 
     async def async_tick(self, now: datetime) -> None:
         """Write down where the cars are and what they have used, and now and then the prices."""
@@ -400,6 +433,10 @@ class Insight:
             for vehicle in self.household.vehicles.values():
                 self._sample(vehicle, now)
             local = dt_util.as_local(now)
+            # A car that comes home, leaves or is plugged in: the week plan again (and each hour).
+            seen = tuple((v.vehicle_id, v.home, v.connected) for v in self.household.vehicles.values())
+            moved = self._seen is not None and seen != self._seen
+            self._seen = seen
             if self._price_hour != (local.date(), local.hour):
                 self._price_hour = (local.date(), local.hour)
                 self._prices(now)
@@ -408,6 +445,8 @@ class Insight:
                 self._changed()
             elif self._minute(SET_INSIGHT_NOTIFY_AT, "19:30") == (local.hour, local.minute):
                 await self._async_decide(now, tell=True)
+            elif moved:
+                await self._async_hold(now)
             if self._task is None and self._tried != (local.date(), local.hour) and self._wants_backfill():
                 self._tried = (local.date(), local.hour)
                 task = self.household.config_entry.async_create_background_task(
@@ -794,22 +833,243 @@ class Insight:
             await self._async_tell(now)
 
     async def _async_hold(self, now: datetime) -> None:
-        """With the plan following Insight: a night it waits, the cars charge no further than their floor."""
-        use = bool(self.household.settings.get(SET_INSIGHT_USE))
+        """The week plan, and its part for each car's stay handed on as a target and a time to be done by."""
+        try:
+            self.week = self.make_week(now)
+        except Exception:  # the week plan must never stop the charging
+            _LOGGER.exception("The week plan could not be made")
+            self.week = {}
+        use = bool(self.household.settings.get(SET_INSIGHT_USE)) and bool(self.week)
         changed = False
-        for group in self.tonight.get("groups") or []:
-            for vehicle_id in group["cars"]:
-                vehicle = self.household.vehicles.get(vehicle_id)
-                car = (self.tonight.get("cars") or {}).get(vehicle_id) or {}
-                # A night no car needs the charger, the plan holds them at their floor as well.
-                rests = group["wait"] or group.get("reason") == "enough"
-                hold = float(car["floor_pct"]) if use and rests and car.get("floor_pct") else None
-                if vehicle is not None and vehicle.insight_hold != hold:
-                    vehicle.insight_hold = hold
-                    changed = True
-                    self.household.events.add(now, "insight_hold", vehicle=vehicle.name, hold=hold)
+        for vehicle in self.household.vehicles.values():
+            car = ((self.week.get("cars") or {}) if use else {}).get(vehicle.vehicle_id) or {}
+            target = car.get("target") if car.get("steer") else None
+            deadline = dt_util.parse_datetime(car["deadline"]) if target is not None and car.get("deadline") else None
+            if vehicle.week_target != target or vehicle.week_deadline != deadline:
+                vehicle.week_target, vehicle.week_deadline = target, deadline
+                changed = True
+                self.household.events.add(
+                    now, "week_plan", vehicle=vehicle.name, target=target, deadline=car.get("deadline")
+                )
         if changed:
             await self.household.async_recalculate()
+
+    # ------------------------------------------------------------------
+    # The week plan
+
+    def rhythm(self) -> list[list[float | None]]:
+        """The mean price of each hour of each weekday (Monday first), over the prices kept."""
+        today = dt_util.now().date()
+        if self._rhythm[0] == today:
+            return self._rhythm[1]
+        prices = {**self.data["spot"], **self.data["prices"]}
+        sums = [[[0.0, 0] for _ in range(24)] for _ in range(7)]
+        for key, hours in prices.items():
+            try:
+                weekday = date.fromisoformat(key).weekday()
+            except ValueError:
+                continue
+            for hour, price in enumerate(hours[:24]):
+                if price is not None:
+                    sums[weekday][hour][0] += price
+                    sums[weekday][hour][1] += 1
+        out = [[round(total / count, 4) if count else None for total, count in row] for row in sums]
+        self._rhythm = (today, out)
+        return out
+
+    def week_hours(self, now: datetime) -> tuple[list[Hour], list[int]]:
+        """The coming week hour by hour: published prices, the forecast, then the usual price of that hour."""
+        local = dt_util.as_local(now)
+        first = local.replace(minute=0, second=0, microsecond=0)
+        known: dict[datetime, list[float]] = {}
+        guessed: dict[datetime, list[float]] = {}
+        for slot in self.household.price_slots(now):
+            start = dt_util.as_local(slot.start).replace(minute=0, second=0, microsecond=0)
+            (guessed if slot.forecast else known).setdefault(start, []).append(slot.price)
+        errors = forecast_errors(self.data["forecasts"], self.data["prices"]) or list(DEFAULT_ERROR)
+        rhythm = self.rhythm()
+        # The usual prices are the years' level: lifted or lowered to this week's from the hours known now.
+        ratios = []
+        for start, values in known.items():
+            usual = rhythm[start.weekday()][start.hour]
+            if usual and usual > 0.05:
+                ratios.append((sum(values) / len(values)) / usual)
+        scale = median(ratios) if len(ratios) >= 6 else 1.0
+        hours: list[Hour] = []
+        day_of: list[int] = []
+        for index in range(HOURS):
+            start = dt_util.as_local(first + timedelta(hours=index))
+            share = 1.0 if index else max(0.05, 1 - (local - first).total_seconds() / 3600)
+            ahead = (start.date() - local.date()).days
+            if start in known:
+                hour = Hour(start, round(sum(known[start]) / len(known[start]), 4), "known", 0.0, share)
+            elif start in guessed:
+                error = errors[min(max(ahead - 1, 0), len(errors) - 1)]
+                hour = Hour(start, round(sum(guessed[start]) / len(guessed[start]), 4), "forecast", error, share)
+            elif (usual := rhythm[start.weekday()][start.hour]) is not None:
+                hour = Hour(start, round(usual * scale, 4), "pattern", PATTERN_ERROR, share)
+            else:
+                hour = Hour(start, None, "none", PATTERN_ERROR, share)
+            hours.append(hour)
+            day_of.append(ahead)
+        return hours, day_of
+
+    def _home(self, vehicle: Vehicle, hours: Sequence[Hour], now: datetime, sure: float) -> list[bool]:
+        """Whether the car is expected home each hour: as it is now, then as it usually is on that weekday.
+
+        Until its hours at home are learned, the night's hours count (as before the week plan).
+        """
+        share = self.home_hours(vehicle.vehicle_id, now)
+        start, end = self.window
+
+        def usual(moment: datetime) -> bool:
+            if share is None:
+                hour = moment.hour
+                return start <= hour < end if start < end else hour >= start or hour < end
+            return share[moment.weekday()][moment.hour] >= sure - 1e-9
+
+        out = [usual(hour.start) for hour in hours]
+        if out:
+            out[0] = bool(vehicle.home if vehicle.home_entity is not None else True)
+        return out
+
+    def _week_car(
+        self, vehicle: Vehicle, now: datetime, style: Mapping[str, Any], hours: Sequence[Hour], day_of: Sequence[int]
+    ) -> WeekCar | None:
+        soc = vehicle.current_soc
+        capacity = vehicle.capacity
+        if soc is None or not capacity:
+            return None
+        settings = vehicle.settings
+        days = self.data["days"].get(vehicle.vehicle_id) or {}
+        base, slope = efficiency(days)
+        history = needs(days, base, slope)
+        today = dt_util.as_local(now).date()
+        outlook = CarOutlook(vehicle.vehicle_id, soc / 100 * capacity, capacity, capacity, history, today)
+        ripe = outlook.ripe
+        span = max(day_of) + 2 if day_of else 8
+        hard = [outlook.need(day, style["level"]) for day in range(span)]
+        typical = [outlook.need(day, style["rest"]) for day in range(span)]
+        known = self._known_need(vehicle, now)
+        if known and len(hard) > 1:
+            hard[1] = max(hard[1], known)
+        targets = settings.get(SET_DAY_TARGETS) if isinstance(settings.get(SET_DAY_TARGETS), Mapping) else {}
+        plain = number(settings.get(SET_TARGET_SOC)) or 80.0
+        if vehicle.target_entity and vehicle.target_from_car is not None and vehicle.own_step is None:
+            # The car's own limit is the target.
+            plain = vehicle.target_from_car
+        preferred = [
+            min(100.0, number(targets.get(WEEKDAYS[hour.start.weekday()])) or plain) / 100 * capacity for hour in hours
+        ]
+        low = None
+        if settings.get(SET_LOW_PRICE_ENABLED):
+            level = number(settings.get(SET_LOW_PRICE_SOC)) or 0.0
+            low = (number(settings.get(SET_LOW_PRICE_LEVEL)), (level or plain) / 100 * capacity)
+        full_level = full_due = None
+        if settings.get(SET_FULL_ENABLED):
+            full_level = min(100.0, number(settings.get(SET_FULL_LEVEL)) or 100.0)
+            if soc >= full_level - 1:
+                self.data["done"].setdefault("full", {})[vehicle.vehicle_id] = today.isoformat()
+            last = (self.data["done"].get("full") or {}).get(vehicle.vehicle_id)
+            every = max(1, int(number(settings.get(SET_FULL_DAYS)) or 7))
+            try:
+                due = date.fromisoformat(last) + timedelta(days=every) if last else today
+            except ValueError:
+                due = today
+            ahead = (due - today).days
+            if ahead < len(hours) // 24:
+                full_due = max(0, next((h for h, day in enumerate(day_of) if day >= ahead), len(hours)))
+        return WeekCar(
+            vehicle_id=vehicle.vehicle_id,
+            capacity=capacity,
+            soc=soc / 100 * capacity,
+            power=max(0.5, self.household.vehicle_power(vehicle)),
+            minimum=(number(settings.get(SET_MIN_SOC)) or 0.0) / 100 * capacity,
+            preferred=preferred,
+            hard=hard,
+            typical=typical,
+            reserve=style["reserve"] * capacity,
+            home=self._home(vehicle, hours, now, style["level"]),
+            low_price=low[0] if low else None,
+            low_level=low[1] if low else None,
+            full_level=full_level / 100 * capacity if full_level else None,
+            full_due=full_due,
+            # Until a car's days are known, every stay is filled as before.
+            fill=settings.get(SET_AMOUNT) == AMOUNT_FILL or not ripe,
+        )
+
+    def style_index(self) -> int:
+        value = number(self.household.settings.get(SET_INSIGHT_STYLE))
+        return int(value) if value is not None and 0 <= value < len(STYLES) else DEFAULT_STYLE
+
+    def make_week(self, now: datetime) -> dict[str, Any]:
+        """The week plan for every charger, at the household's step and (for its slider) at every step."""
+        hours, day_of = self.week_hours(now)
+        if not hours:
+            return {}
+        chosen = self.style_index()
+        styles = self.styles()
+        out: dict[str, Any] = {
+            "at": now.isoformat(),
+            "start": hours[0].start.isoformat(),
+            "step": chosen,
+            "prices": [hour.price for hour in hours],
+            "kinds": [hour.kind for hour in hours],
+            "groups": [],
+            "cars": {},
+            "steps": [],
+        }
+        for index, style in enumerate(styles):
+            steps: dict[str, Any] = {}
+            for group in self.groups():
+                cars = [car for vehicle in group if (car := self._week_car(vehicle, now, style, hours, day_of))]
+                if not cars:
+                    continue
+                weeks = plan_week(cars, hours, day_of, always=bool(style.get("every")))
+                for car in cars:
+                    week = weeks[car.vehicle_id]
+                    days = []
+                    for day in range(7):
+                        span = [h for h, d in enumerate(day_of) if d == day]
+                        days.append(
+                            {
+                                "kwh": round(sum(week.charge[h] for h in span), 1),
+                                "level": round(week.soc_typical[span[0] - 1] / car.capacity * 100, 1)
+                                if span and span[0] > 0
+                                else round(car.soc / car.capacity * 100, 1),
+                            }
+                        )
+                    steps[car.vehicle_id] = days
+                    if index != chosen:
+                        continue
+                    brief = summary(week, car, hours)
+                    vehicle = self.household.vehicles[car.vehicle_id]
+                    end = 0 if car.home[0] else next((h for h, home in enumerate(car.home) if home), None)
+                    leave = stay_end(car.home, end) if end is not None else None
+                    stay = range(end, leave if leave is not None else len(hours)) if end is not None else range(0)
+                    charged = [h for h in stay if week.charge[h] > 1e-6]
+                    target = round(week.soc_typical[stay[-1]] / car.capacity * 100, 1) if charged else None
+                    finish = leave if leave is not None else (charged[-1] + 1 if charged else None)
+                    brief.update(
+                        {
+                            "name": vehicle.name,
+                            "capacity": car.capacity,
+                            "soc": round(car.soc / car.capacity * 100, 1),
+                            "steer": True,
+                            # Nothing to charge in this stay: held where it is.
+                            "target": target if target is not None else round(car.soc / car.capacity * 100, 1),
+                            "deadline": hours[finish].start.isoformat()
+                            if finish is not None and finish < len(hours) and charged
+                            else None,
+                            "stay": [end, leave] if end is not None else None,
+                            "learning": car.fill and vehicle.settings.get(SET_AMOUNT) != AMOUNT_FILL,
+                        }
+                    )
+                    out["cars"][car.vehicle_id] = brief
+                if index == chosen:
+                    out["groups"].append([car.vehicle_id for car in cars])
+            out["steps"].append(steps)
+        return out
 
     async def _async_tell(self, now: datetime) -> None:
         """The evening's message: which car should have the charger, when it is not the one plugged in."""
@@ -1007,6 +1267,19 @@ class Insight:
             "window": list(self.window),
         }
 
+    def week_brief(self) -> dict[str, Any]:
+        """The week plan in short, for the home screen and the cars: each car's charges and its stay."""
+        week = self.week
+        if not week:
+            return {}
+        keep = ("charges", "target", "deadline", "stay", "steer", "short", "full_at", "cost", "soc", "learning")
+        return {
+            "at": week.get("at"),
+            "start": week.get("start"),
+            "groups": week.get("groups"),
+            "cars": {vid: {key: car.get(key) for key in keep} for vid, car in (week.get("cars") or {}).items()},
+        }
+
     def detail(self) -> dict[str, Any]:
         """What the panel draws: each car's days and week, the trips, and the ledger."""
         today = dt_util.now().date()
@@ -1057,6 +1330,8 @@ class Insight:
                 summary["cars"][vid] = {**car, "sources": {**car["sources"], "tracker": None}, "hide_map": True}
         return {
             **summary,
+            # The week plan: hour by hour for every car, and at every step of how careful.
+            "week": self.week,
             "detail": cars,
             # The night's price and the day's mean, for each of the days the panel draws (or simulates on).
             "price_days": price_days,

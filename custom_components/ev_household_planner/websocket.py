@@ -15,6 +15,7 @@ from homeassistant.util import dt as dt_util, slugify
 
 from .catalog import panel_info
 from .const import (
+    AMOUNT_OPTIONS,
     BODY_OPTIONS,
     CONF_SUPPLY_GUARD,
     CONF_SUPPLY_SHARE,
@@ -45,6 +46,7 @@ from .const import (
     SCHEDULE_DEFAULT,
     SCHEDULE_NONE,
     SET_AFTERNOON,
+    SET_AMOUNT,
     SET_BODY,
     SET_CALENDAR_KEYWORD,
     SET_CEILING,
@@ -66,6 +68,9 @@ from .const import (
     SET_EARLY_WITHIN,
     SET_EVENING,
     SET_FOLLOW_LEVEL,
+    SET_FULL_DAYS,
+    SET_FULL_ENABLED,
+    SET_FULL_LEVEL,
     SET_JOIN_ENABLED,
     SET_JOIN_WITHIN,
     SET_KEEP_ON,
@@ -73,6 +78,7 @@ from .const import (
     SET_LIVE,
     SET_LOW_PRICE_ENABLED,
     SET_LOW_PRICE_LEVEL,
+    SET_LOW_PRICE_SOC,
     SET_LOW_SOC_ENABLED,
     SET_LOW_SOC_LEVEL,
     SET_MANUAL_SOC,
@@ -208,6 +214,11 @@ VEHICLE_SCHEMA = vol.Schema(
         vol.Optional(SET_PAINT): vol.In(PAINT_OPTIONS),
         vol.Optional(SET_SPOT): vol.In(SPOT_OPTIONS),
         vol.Optional(SET_DAY_TARGETS): {vol.In(WEEKDAYS): vol.All(vol.Coerce(float), vol.Range(min=10, max=100))},
+        vol.Optional(SET_LOW_PRICE_SOC): vol.All(vol.Coerce(float), vol.Range(min=0, max=100)),
+        vol.Optional(SET_FULL_ENABLED): cv.boolean,
+        vol.Optional(SET_FULL_LEVEL): vol.All(vol.Coerce(float), vol.Range(min=50, max=100)),
+        vol.Optional(SET_FULL_DAYS): vol.All(vol.Coerce(int), vol.Range(min=1, max=90)),
+        vol.Optional(SET_AMOUNT): vol.In(AMOUNT_OPTIONS),
         vol.Optional(FORGET_RESUME): cv.boolean,
     }
 )
@@ -652,6 +663,8 @@ def panel_state(hass: HomeAssistant, household: Household) -> dict[str, Any]:
         "time_zone": str(hass.config.time_zone),
         # Tonight as Insight expects it (empty while it is off): which car gets the charger, or none.
         "insight": household.insight.tonight if household.insight.enabled else {},
+        # The week plan in short (empty while Insight is off): each car's coming charges and its stay at home.
+        "week": household.insight.week_brief() if household.insight.enabled else {},
         "prices": [
             {"start": s.start.isoformat(), "end": s.end.isoformat(), "price": s.price, "forecast": s.forecast}
             for s in slots
