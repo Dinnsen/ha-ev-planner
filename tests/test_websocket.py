@@ -179,6 +179,7 @@ async def test_guest_commands(
         "phones": None,
         "price_add": None,
         "update_widgets": None,
+        "weekplan_on": True,
         "places": {},
         "quiet_after": "digest",
         "insight_steps": 11,

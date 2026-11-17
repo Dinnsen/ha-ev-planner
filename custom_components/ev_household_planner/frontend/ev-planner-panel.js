@@ -397,7 +397,18 @@ const TEXT = {
     ceiling_fixed: "Fast pris",
     ceiling_relative: "Gennemsnit + %",
     rule_low_price: "Lad ved lav pris",
-    rule_low_price_hint: "Lad med det samme, når prisen er på eller under.",
+    rule_low_price_hint: "Lad, når prisen er på eller under, til det niveau, du vælger (0 % er målet).",
+    rule_low_price_to: "Til",
+    rule_full: "Fuld opladning",
+    rule_full_hint: "Til {level} hver {days}. dag, i ugens billigste timer lige før en afgang. Tesla anbefaler 100 % én gang om ugen.",
+    rule_full_level: "Niveau",
+    rule_full_days: "Hver",
+    unit_days: "dage",
+    rule_amount: "Hvor meget pr. ladning",
+    rule_amount_hint_cheapest: "Kun det nødvendige, og mere når timerne er ugens billigste.",
+    rule_amount_hint_fill: "Fyld op til målet, hver gang bilen er hjemme.",
+    amount_cheapest: "Altid billigst",
+    amount_fill: "Fyld op",
     rule_low_soc: "Lad ved lavt batteri",
     rule_low_soc_hint: "Lad med det samme under dette niveau.",
     rule_opp: "Opportunistisk",
@@ -1037,7 +1048,18 @@ const TEXT = {
     ceiling_fixed: "Fixed price",
     ceiling_relative: "Average + %",
     rule_low_price: "Charge at a low price",
-    rule_low_price_hint: "Charge right away when the price is at or below.",
+    rule_low_price_hint: "Charge when the price is at or below, to the level you choose (0 % is the target).",
+    rule_low_price_to: "To",
+    rule_full: "Full charge",
+    rule_full_hint: "To {level} every {days} days, in the week's cheapest hours just before a departure. Tesla advises 100 % once a week.",
+    rule_full_level: "Level",
+    rule_full_days: "Every",
+    unit_days: "days",
+    rule_amount: "How much a charge",
+    rule_amount_hint_cheapest: "Only what is needed, and more when the hours are the week's cheapest.",
+    rule_amount_hint_fill: "Fill to the target every time the car is home.",
+    amount_cheapest: "Always cheapest",
+    amount_fill: "Fill up",
     rule_low_soc: "Charge at a low battery",
     rule_low_soc_hint: "Charge right away below this level.",
     rule_opp: "Opportunistic",
@@ -1300,8 +1322,10 @@ Object.assign(TEXT.da, {
   home_today: "I dag",
   home_today_house: "Hele huset",
   home_today_cars: "Heraf biler",
-  home_tonight: "I nat",
-  home_tonight_none: "Ingen biler skal lade i nat.",
+  home_tonight: "Næste ladning",
+  home_tonight_none: "Ingen bil skal lade i ugen.",
+  next_charge: "Næste ladning",
+  next_charge_text: "{when} · {kwh}",
   home_tonight_total: "{kwh} for {cost} i alt",
   home_chargers: "Ladere",
   home_devices: "Målere",
@@ -1412,8 +1436,10 @@ Object.assign(TEXT.en, {
   home_today: "Today",
   home_today_house: "Whole house",
   home_today_cars: "Of which cars",
-  home_tonight: "Tonight",
-  home_tonight_none: "No car needs to charge tonight.",
+  home_tonight: "Next charge",
+  home_tonight_none: "No car needs to charge this week.",
+  next_charge: "Next charge",
+  next_charge_text: "{when} · {kwh}",
   home_tonight_total: "{kwh} for {cost} in all",
   home_chargers: "Chargers",
   home_devices: "Meters",
@@ -1922,21 +1948,21 @@ Object.assign(TEXT.da, {
   insight_title: "Indsigt",
   insight_off: "slået fra",
   insight_on: "logger og lærer",
-  insight_hint: "Logger bilernes dage, lærer rytmen og siger hver aften, hvilken bil der bør have laderen.",
+  insight_hint: "Logger bilernes dage, lærer rytmen og lægger en ugeplan for ladningen.",
   insight_log: "Log og læring",
   insight_log_hint: "Grundlaget for alt andet. Styrer ingenting.",
   insight_notify: "Besked om aftenens bil",
   insight_notify_hint: "Kun når den rigtige bil ikke allerede sidder i.",
   insight_window: "Skift ikke bil om natten",
   insight_window_hint: "I det tidsrum har den bil, der sidder i, laderen.",
-  insight_use: "Lad planen vente på et billigere tidspunkt",
-  insight_use_hint: "Kun når begge biler har nok til en svær dag. En tur i kalenderen holdes aldrig tilbage.",
+  insight_use: "Lad ugeplanen styre",
+  insight_use_hint: "Laderen følger ugeplanen: de billigste timer, bilen er hjemme, nat eller dag. En tur i kalenderen holdes aldrig tilbage.",
   insight_level: "Hav altid nok til",
   insight_level_80: "8 af 10 dage",
   insight_level_90: "9 af 10 dage",
   insight_level_95: "19 af 20 dage",
   insight_style: "Hvor forsigtig",
-  insight_style_hint: "Hvornår en bil skal have laderen. Se, hvad hvert valg ville have gjort, under Læring → Lært.",
+  insight_style_hint: "Reserven ved hver afgang, og hvor sikker planen skal være på, at bilen er hjemme. Se, hvad hvert valg ville have gjort, under Læring → Lært.",
   insight_style_0: "Modig",
   insight_style_1: "Ret modig",
   insight_style_2: "Lidt modig",
@@ -1947,7 +1973,7 @@ Object.assign(TEXT.da, {
   insight_style_7: "Anbefalet +",
   insight_style_8: "Forsigtig",
   insight_style_9: "Meget forsigtig",
-  insight_style_10: "Hver nat",
+  insight_style_10: "Fyld op",
   insight_reason_enough: "der er nok på batterierne til en svær dag i morgen",
   insight_tonight: "I aften",
   insight_pick: "{car} bør have laderen",
@@ -2078,21 +2104,21 @@ Object.assign(TEXT.en, {
   insight_title: "Insight",
   insight_off: "turned off",
   insight_on: "logging and learning",
-  insight_hint: "Logs the cars' days, learns their rhythm and says each evening which car should have the charger.",
+  insight_hint: "Logs the cars' days, learns their rhythm and makes a week plan for the charging.",
   insight_log: "Log and learn",
   insight_log_hint: "The base for everything else. Controls nothing.",
   insight_notify: "Message about tonight's car",
   insight_notify_hint: "Only when the right car is not already plugged in.",
   insight_window: "Do not swap cars at night",
   insight_window_hint: "In those hours the car that is plugged in has the charger.",
-  insight_use: "Let the plan wait for a cheaper time",
-  insight_use_hint: "Only when both cars have enough for a hard day. A trip in the calendar is never held back.",
+  insight_use: "Let the week plan steer",
+  insight_use_hint: "The charger follows the week plan: the cheapest hours the car is home, night or day. A trip in the calendar is never held back.",
   insight_level: "Always have enough for",
   insight_level_80: "8 of 10 days",
   insight_level_90: "9 of 10 days",
   insight_level_95: "19 of 20 days",
   insight_style: "How careful",
-  insight_style_hint: "When a car should have the charger. See what each choice would have done under Learning → Learned.",
+  insight_style_hint: "The reserve at each departure, and how sure the plan must be that the car is home. See what each choice would have done under Learning → Learned.",
   insight_style_0: "Bold",
   insight_style_1: "Quite bold",
   insight_style_2: "Fairly bold",
@@ -2103,7 +2129,7 @@ Object.assign(TEXT.en, {
   insight_style_7: "Recommended +",
   insight_style_8: "Careful",
   insight_style_9: "Very careful",
-  insight_style_10: "Every night",
+  insight_style_10: "Fill up",
   insight_reason_enough: "there is enough in the batteries for a hard day tomorrow",
   insight_tonight: "Tonight",
   insight_pick: "{car} should have the charger",
@@ -6468,6 +6494,21 @@ class EvPlannerPanel extends HTMLElement {
     return hasSegments(v.plan) && !["off", "paused"].includes(v.status) ? v.plan : null;
   }
 
+  // The car's coming charges in the week plan (Insight's), the one under way first; [] without it.
+  _weekCharges(v) {
+    const now = znow();
+    return (this._state.week?.cars?.[v.id]?.charges || []).filter((c) => ZD(c.end).getTime() > now);
+  }
+
+  // A charge's time as it is said: "fre 11–14", today's or tonight's as the hours alone.
+  _whenSpan(c) {
+    const a = ZD(c.start), b = ZD(c.end), now = ZD(znow());
+    const hh = (d) => String(d.getHours()).padStart(2, "0");
+    const same = a.toDateString() === now.toDateString() || (a - now < 12 * 3600e3 && a.getHours() < 7);
+    const day = new Intl.DateTimeFormat(this._locale, { weekday: "short" }).format(a).replace(".", "");
+    return `${same ? "" : `${day} `}${hh(a)}–${hh(b)}`;
+  }
+
   _carCardHtml(v) {
     const plan = this._livePlan(v);
     const settings = v.settings || {};
@@ -6495,7 +6536,8 @@ class EvPlannerPanel extends HTMLElement {
             <dl class="mini-facts">
               ${plan ? `<div><dt>${this._t("energy")}</dt><dd>${this._kwh(plan.energy)}</dd></div>` : ""}
               ${plan && plan.savings > 0.005 ? `<div><dt>${this._t("savings")}</dt><dd class="good">${this._money(plan.savings)}</dd></div>` : ""}
-              ${!plan && v.plan_error && TEXT.en[`vstatus_${v.plan_error}`] ? `<div class="wide"><dd class="soft">${esc(this._t(`vstatus_${v.plan_error}`))}</dd></div>` : ""}
+              ${!plan && this._weekCharges(v).length ? `<div class="wide"><dt>${this._t("next_charge")}</dt><dd>${esc(this._t("next_charge_text", { when: this._whenSpan(this._weekCharges(v)[0]), kwh: this._kwh(this._weekCharges(v)[0].kwh) }))}</dd></div>` : ""}
+              ${!plan && !this._weekCharges(v).length && v.plan_error && TEXT.en[`vstatus_${v.plan_error}`] ? `<div class="wide"><dd class="soft">${esc(this._t(`vstatus_${v.plan_error}`))}</dd></div>` : ""}
               ${this._cardLastHtml(v, plan)}
             </dl>
           </div>
@@ -6837,9 +6879,10 @@ class EvPlannerPanel extends HTMLElement {
   /* The car that charges next on a charger: the earliest plan still to come. */
   _chargerNext(c) {
     const now = znow();
+    // The week plan's next charge of each car that charges here, else the car's own plan.
     const plans = this._cars
-      .filter((v) => v.charger?.id === c.id && this._livePlan(v))
-      .map((v) => ({ name: v.name, start: v.plan.segments.find((seg) => ZD(seg.end).getTime() > now)?.start }))
+      .filter((v) => v.charger?.id === c.id && (this._livePlan(v) || this._weekCharges(v).length))
+      .map((v) => ({ name: v.name, start: this._livePlan(v) ? v.plan.segments.find((seg) => ZD(seg.end).getTime() > now)?.start : this._weekCharges(v)[0]?.start }))
       .filter((item) => item.start);
     const g = this._guest;
     if (g && g.charger?.id === c.id && hasSegments(g.plan) && g.status === "planned") {
@@ -8445,6 +8488,7 @@ class EvPlannerPanel extends HTMLElement {
       "opportunistic", "opportunistic_level", "follow_level", "keep_charger_on", "charge_on_late", "use_earliest_start", "earliest_start",
       "morning_time", "midday_time", "evening_time", "climate_temperature", "climate_minutes", "climate_auto", "climate_below", "climate_plugged_only",
       "join_period", "join_within", "continuous", "prefer_early", "early_within", "topup", "topup_level",
+      "low_price_soc", "full_charge", "full_level", "full_days", "charge_amount",
       "solar", "body", "paint", "spot", "target_step", "climate_entity",
     ].map((key) => s[key]);
   }
@@ -8514,8 +8558,35 @@ class EvPlannerPanel extends HTMLElement {
         hint: this._t("rule_low_price_hint"),
         off: !s.low_price_charging,
         control: `${s.low_price_charging ? this._valueHtml("low_price_level", s.low_price_level, { unit: price, step: 0.01, min: -5, max: 20, label: this._t("rule_low_price") }) : ""}${this._switchHtml("low_price_charging", s.low_price_charging, this._t("rule_low_price"))}`,
+        extra: s.low_price_charging ? `<div class="rule-under">${this._valueHtml("low_price_soc", s.low_price_soc ?? 0, { unit: "%", min: 0, max: 100, label: this._t("rule_low_price_to") })}</div>` : "",
       }),
     );
+    {
+      // How much a charge takes in the week plan: what is needed (and more in the cheapest hours), or every stay to the target.
+      const amount = s.charge_amount === "fill" ? "fill" : "cheapest";
+      groups.battery.push(
+        this._ruleRow({
+          icon: "charge",
+          title: this._t("rule_amount"),
+          hint: this._t(`rule_amount_hint_${amount}`),
+          extra: `<div class="rule-under"><div class="segmented opp" role="radiogroup" aria-label="${esc(this._t("rule_amount"))}">${["cheapest", "fill"]
+            .map((o) => `<button role="radio" data-act="amount" data-value="${o}" data-f="amount-${o}" aria-checked="${o === amount}" class="${o === amount ? "on" : ""}">${esc(this._t(`amount_${o}`))}</button>`)
+            .join("")}</div></div>`,
+        }),
+      );
+      groups.battery.push(
+        this._ruleRow({
+          icon: "boost",
+          title: this._t("rule_full"),
+          hint: this._t("rule_full_hint", { level: this._pct(s.full_level ?? 100), days: s.full_days ?? 7 }),
+          off: !s.full_charge,
+          control: this._switchHtml("full_charge", s.full_charge, this._t("rule_full")),
+          extra: s.full_charge
+            ? `<div class="rule-under">${this._valueHtml("full_level", s.full_level ?? 100, { unit: "%", min: 50, max: 100, label: this._t("rule_full_level") })}${this._valueHtml("full_days", s.full_days ?? 7, { unit: this._t("unit_days"), min: 1, max: 90, label: this._t("rule_full_days") })}</div>`
+            : "",
+        }),
+      );
+    }
     {
       // The steps the target moves in: the car's own limit's (as before), or EV Planner's own.
       const step = String(s.target_step || "auto");
@@ -9541,20 +9612,32 @@ class EvPlannerPanel extends HTMLElement {
 
   /* Tonight: every car's plan on one line of time, over the prices. */
   _tonightHtml(siteId = null) {
-    // Only the cars that will charge: not one that is turned off or paused, and not one that is not plugged in
-    // when Insight gives its charger to another car tonight (one charger, one car).
-    const picks = new Map();
-    for (const g of this._insight?.tonight?.groups || []) if (g.pick) for (const id of g.cars || []) picks.set(id, g.pick);
-    const will = (v) => !["off", "paused", "completed"].includes(v.status) && !(v.status === "unplugged" && picks.has(v.id) && picks.get(v.id) !== v.id);
-    const cars = this._cars.filter((v) => hasSegments(v.plan) && will(v) && (!siteId || (v.site ?? "home") === siteId));
+    // The next charges, from the week plan: the next day's, or else each car's next one. Without the week plan
+    // (Insight off), the cars' own plans that will charge.
+    const inSite = (v) => !siteId || (v.site ?? "home") === siteId;
     const head = `<div class="panel-head"><h2>${ICONS.plan}<span>${esc(this._t("home_tonight"))}</span></h2></div>`;
-    if (!cars.length) return `<section class="panel tonight">${head}<p class="hint">${esc(this._t("home_tonight_none"))}</p></section>`;
     const t0 = znow();
-    const ends = cars.map((v) => ZD(v.plan.segments.at(-1).end).getTime());
-    const t1 = Math.max(t0 + 8 * 3600e3, ...ends) + 1800e3;
-    const span = t1 - t0;
-    const x = (t) => ((clamp(t, t0, t1) - t0) / span) * 100;
-    const prices = (this._state.prices || []).filter((p) => ZD(p.end).getTime() > t0 && ZD(p.start).getTime() < t1);
+    let items;
+    if (this._state.week?.cars) {
+      const soon = this._cars.filter((v) => inSite(v) && this._weekCharges(v).some((c) => ZD(c.start).getTime() < t0 + 24 * 3600e3));
+      const take = (v) => (soon.length ? this._weekCharges(v).filter((c) => ZD(c.start).getTime() < t0 + 24 * 3600e3) : this._weekCharges(v).slice(0, 1));
+      items = (soon.length ? soon : this._cars.filter((v) => inSite(v) && this._weekCharges(v).length)).map((v) => {
+        const list = take(v);
+        return { v, segments: list.map((c) => ({ start: c.start, end: c.end })), cost: list.reduce((n, c) => n + (Number(c.cost) || 0), 0), energy: list.reduce((n, c) => n + (Number(c.kwh) || 0), 0) };
+      });
+    } else {
+      items = this._cars
+        .filter((v) => hasSegments(v.plan) && !["off", "paused", "completed"].includes(v.status) && inSite(v))
+        .map((v) => ({ v, segments: v.plan.segments, cost: Number(v.plan.cost) || 0, energy: Number(v.plan.energy) || 0 }));
+    }
+    if (!items.length) return `<section class="panel tonight">${head}<p class="hint">${esc(this._t("home_tonight_none"))}</p></section>`;
+    const ends = items.map((it) => ZD(it.segments.at(-1).end).getTime());
+    const first = Math.min(...items.map((it) => ZD(it.segments[0].start).getTime()));
+    const t1 = Math.max(Math.max(t0, first - 3 * 3600e3) + 8 * 3600e3, ...ends) + 1800e3;
+    const start = Math.max(t0, Math.min(first - 3 * 3600e3, t1 - 8 * 3600e3));
+    const span = t1 - start;
+    const x = (t) => ((clamp(t, start, t1) - start) / span) * 100;
+    const prices = (this._state.prices || []).filter((p) => ZD(p.end).getTime() > start && ZD(p.start).getTime() < t1);
     const values = prices.map((p) => p.price);
     const min = Math.min(...values);
     const max = Math.max(...values);
@@ -9566,16 +9649,16 @@ class EvPlannerPanel extends HTMLElement {
         return `<i style="left:${a.toFixed(2)}%;width:${Math.max(0.2, b - a - 0.25).toFixed(2)}%;height:${(25 + t * 75).toFixed(0)}%;background:${priceColor(t)};--d:${i * 25}ms" title="${esc(`${this._time(p.start)}: ${this._money(p.price)}`)}"></i>`;
       })
       .join("");
-    const rows = cars
-      .map((v, i) => {
-        const segs = v.plan.segments
+    const rows = items
+      .map((it, i) => {
+        const segs = it.segments
           .map((seg, k) => {
             const a = x(ZD(seg.start).getTime());
             const b = x(ZD(seg.end).getTime());
             return `<i style="left:${a.toFixed(2)}%;width:${Math.max(0.6, b - a).toFixed(2)}%;background:${this._carColor(i)};--d:${200 + k * 80}ms"></i>`;
           })
           .join("");
-        return `<div class="tn-row"><span class="tn-name"><em style="background:${this._carColor(i)}"></em><span>${esc(v.name)}</span></span><div class="tn-track">${segs}</div><span class="tn-cost">${this._money(v.plan.cost)}</span></div>`;
+        return `<div class="tn-row"><span class="tn-name"><em style="background:${this._carColor(i)}"></em><span>${esc(it.v.name)}</span></span><div class="tn-track">${segs}</div><span class="tn-cost">${this._money(it.cost)}</span></div>`;
       })
       .join("");
     // Room for about six labels: every 3 hours on a night, every 6, 12 or 24 over days (midnight as the day).
@@ -9583,15 +9666,15 @@ class EvPlannerPanel extends HTMLElement {
     const every = hours <= 18 ? 3 : hours <= 36 ? 6 : hours <= 72 ? 12 : 24;
     const dayName = new Intl.DateTimeFormat(this._locale, { weekday: "short" });
     const ticks = [];
-    for (let t = Math.ceil(t0 / 3600e3) * 3600e3; t < t1; t += 3600e3) {
+    for (let t = Math.ceil(start / 3600e3) * 3600e3; t < t1; t += 3600e3) {
       const date = ZD(t);
       const hour = date.getHours();
       if (hour % every !== 0 || x(t) > 96) continue;
       const label = hour === 0 && every >= 6 ? dayName.format(date).replace(".", "") : String(hour).padStart(2, "0");
       ticks.push(`<span style="left:${x(t).toFixed(2)}%">${esc(label)}</span>`);
     }
-    const energy = cars.reduce((sum, v) => sum + (Number(v.plan.energy) || 0), 0);
-    const cost = cars.reduce((sum, v) => sum + (Number(v.plan.cost) || 0), 0);
+    const energy = items.reduce((sum, it) => sum + it.energy, 0);
+    const cost = items.reduce((sum, it) => sum + it.cost, 0);
     return `<section class="panel tonight">${head}
       <div class="tn-chart"><div class="tn-prices">${bars}</div>${rows}<div class="tn-axis">${ticks.join("")}</div></div>
       <p class="hint">${esc(this._t("home_tonight_total", { kwh: this._kwh(energy), cost: this._money(cost) }))}</p></section>`;
@@ -11512,6 +11595,9 @@ class EvPlannerPanel extends HTMLElement {
         break;
       case "tstep":
         this._vchange({ target_step: button.dataset.value });
+        break;
+      case "amount":
+        this._vchange({ charge_amount: button.dataset.value });
         break;
       case "level":
         this._level = LEVELS.includes(button.dataset.level) ? button.dataset.level : "smart";

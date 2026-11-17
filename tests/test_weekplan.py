@@ -14,6 +14,7 @@ from custom_components.ev_household_planner.weekplan import (
     WeekCar,
     leaving,
     plan_week,
+    replay,
     stay_end,
     stays,
     summary,
@@ -223,3 +224,48 @@ def test_summary_for_the_screens() -> None:
     # A car with no capacity known shows no levels.
     empty = car("none", hours, at_work, capacity=0.0)
     assert summary(plan_week([empty], hours, day_of)["none"], empty, hours)["hard"] == []
+
+
+def test_replayed_over_days_gone_by() -> None:
+    first = datetime(2026, 9, 1, 12)
+    prices = {}
+    for day in range(40):
+        moment = first.date() + timedelta(days=day)
+        prices[moment.isoformat()] = [price(datetime(moment.year, moment.month, moment.day, h)) for h in range(24)]
+    home = [[not (wd < 5 and 7 <= h < 16) for h in range(24)] for wd in range(7)]
+    cars = [
+        {
+            "id": "a",
+            "capacity": 60.0,
+            "power": 10.0,
+            "minimum": 6.0,
+            "target": 48.0,
+            "used": {(first.date() + timedelta(days=d)).isoformat(): 8.0 + (d % 3) * 4 for d in range(40)},
+            "hard": [16.0] * 7,
+            "typical": [10.0] * 7,
+            "home": home,
+        },
+        {
+            "id": "b",
+            "capacity": 60.0,
+            "power": 10.0,
+            "minimum": 6.0,
+            "target": 48.0,
+            # One day longer than any battery: no failing of the plan.
+            "used": {(first.date() + timedelta(days=5)).isoformat(): 90.0},
+            "hard": [2.0] * 7,
+            "typical": [1.0] * 7,
+            "home": [[True] * 24 for _ in range(7)],
+        },
+    ]
+    result = replay(cars, prices, first, 28, {"level": 0.9, "reserve": 0.1, "rest": 0.5, "every": False})
+    assert result["days"] == 28 and result["per_week"] > 0
+    assert result["per"]["a"] > 0 and result["short"] == 0
+    assert 0 < result["morning"] <= 100
+    every = replay(cars, prices, first, 14, {"level": 0.9, "reserve": 0.1, "rest": 0.9, "every": True})
+    assert every["per_week"] >= result["per_week"] - 0.01
+    # Home an hour a night at a slow charger, and long days: it runs short.
+    away = [{**cars[0], "home": [[h == 1 for h in range(24)] for _ in range(7)], "target": 30.0, "power": 1.0}]
+    assert replay(away, prices, first, 7, {"level": 0.9, "reserve": 0.1, "rest": 0.5})["short"] > 0
+    # No prices at all: still planned, by the hours alone.
+    assert replay(cars[:1], {}, first, 3, {"level": 0.9, "reserve": 0.1, "rest": 0.5})["days"] == 3

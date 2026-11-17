@@ -680,6 +680,25 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     trips: [{ vehicle: a, start: "2026-10-10T07:00:00+02:00", end: "2026-10-10T07:40:00+02:00", from: "home", to: "work", km: 31.2, kwh: 5.1, temp: 8 }],
     ledger: { "2026-10-10": { cars: { [a]: outlook, [b]: outlook }, groups: [{ pick: a }] }, "2026-10-11": { cars: { [a]: outlook }, groups: [{ wait: true }] } },
   };
+  // The week plan from this hour: the Tesla charges tonight from 01 to 04, the Mercedes on Friday at noon.
+  const H = 168, flat = (v) => Array(H).fill(v), at4 = (from, to, kwh) => Array.from({ length: H }, (_, i) => (i >= from && i < to ? kwh : 0));
+  const weekCar = (charges, kwh, level) => ({ charges, kwh, why: kwh.map((v) => (v ? "need" : null)), hard: flat(level - 5), typical: flat(level), home: flat(true), leaves: [], short: [], full_at: null, cost: 14, target: level, deadline: null, stay: [0, null], steer: true, learning: false, soc: level });
+  const day = (charge) => Array.from({ length: 7 }, (_, n) => ({ kwh: n === charge ? 12 : 0, level: 60 }));
+  insight.week = {
+    at: "2026-11-10T21:00:00+01:00",
+    start: "2026-11-10T21:00:00+01:00",
+    step: 6,
+    prices: Array.from({ length: H }, (_, i) => 1 + ((i + 21) % 24 < 6 ? 0 : 0.5)),
+    kinds: Array.from({ length: H }, (_, i) => (i < 27 ? "known" : "forecast")),
+    groups: [[a, b]],
+    cars: {
+      [a]: weekCar([{ start: "2026-11-11T01:00:00+01:00", end: "2026-11-11T04:00:00+01:00", from: 4, to: 7, kwh: 12, cost: 14, price: 1.17, why: "need", level: 70, guess: false }], at4(4, 7, 4), 60),
+      [b]: weekCar([{ start: "2026-11-13T11:00:00+01:00", end: "2026-11-13T14:00:00+01:00", from: 62, to: 65, kwh: 12, cost: 12, price: 1, why: "cheap", level: 80, guess: true }], at4(62, 65, 4), 60),
+    },
+    steps: Array.from({ length: 11 }, () => ({ [a]: day(0), [b]: day(2) })),
+  };
+  // The week plan played over the last 90 days at each step.
+  insight.runs = Array.from({ length: 11 }, (_, k) => ({ per_week: 2 + k / 5, per: { [a]: 1 + k / 10, [b]: 1 + k / 10 }, short: k ? 0 : 1, short_days: k ? [] : [["2026-10-12", a]], charged: [["2026-10-12", a], ["2026-10-14", b]], morning: 70, days: 88 }));
   // An hour of driving and a night of charging in Home Assistant's own statistics, for the days before the log.
   const hour = (day, h) => `2026-11-${String(day).padStart(2, "0")}T${String(h).padStart(2, "0")}:00:00+01:00`;
   const statistics = {
@@ -710,12 +729,14 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     assert.match(await inside((root) => root.querySelector("#hero .hero").textContent), /Tesla/);
     assert.equal(await inside((root) => root.querySelectorAll("#hero svg clipPath").length), 2, "both cars are drawn by their sides");
     assert.ok(await inside((root) => root.querySelector("#hero #h-cab").getAttribute("d")), "the cable is drawn");
-    assert.match(await inside((root) => root.querySelector("#hero .hcue").textContent), /Both cars need tonight/);
+    // The car that charges next, from the week plan, and what to do about it.
+    assert.match(await inside((root) => root.querySelector("#hero .hero").textContent), /Tesla.*tonight/);
+    assert.match(await inside((root) => root.querySelector("#hero .hcue").textContent), /Tesla/);
+    assert.match(await inside((root) => root.querySelector("#hero").textContent), /Mercedes charges/);
     assert.equal(await inside((root) => root.querySelectorAll("#hero .hstep").length), 0, "no steps under the picture");
     assert.equal(await inside((root) => root.querySelectorAll(".tl-q").length), 3);
     assert.match(await inside((root) => root.querySelector(".tl-q b").textContent), /Tesla/);
-    // The week for the cars: seven evenings, each car's level, and a bolt on each car that will charge tonight: Insight's
-    // choice, and a car EV Planner charges (plugged in and on). The other car's plan is for when it is plugged in.
+    // The week for the cars: seven days from the week plan, each car's level, and a bolt on the car that charges tonight.
     assert.equal(await inside((root) => root.querySelectorAll("#wkp .wkp-col").length), 7);
     assert.equal(await inside((root) => root.querySelectorAll('#wkp .wkp-col[data-wkp="0"] .bat.chg').length), 1);
     assert.equal(await inside((root) => root.querySelectorAll("#tl-day .wkfact").length), 3, "both cars and the night's price, on one line");
@@ -811,7 +832,7 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     assert.equal(await inside((root) => root.querySelectorAll("#c9-week i").length), 7);
     assert.equal(await inside((root) => root.querySelector("#c9-name").textContent), "Recommended");
     await inside((root) => { const input = root.querySelector("#c9lv"); input.value = "10"; input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true })); });
-    assert.equal(await inside((root) => root.querySelector("#c9-name").textContent), "Every night");
+    assert.equal(await inside((root) => root.querySelector("#c9-name").textContent), "Fill up");
     assert.deepEqual((await calls("settings")).at(-1).settings, { insight_style: 10 });
     await tap("ev-planner-insight [data-c9q]");
     assert.equal(await inside((root) => root.querySelector("#tl-sheet").hidden), false);
@@ -874,5 +895,33 @@ test("A charge elsewhere is a grey line without kWh or price, and a charge over 
     // The car's sub-menu sits just above the tab bar on a phone.
     const [views, bar] = await page.evaluate(() => [".car-views", "nav.tabs"].map((s) => window.harness.panel.shadowRoot.querySelector(s).getBoundingClientRect().toJSON()));
     assert.ok(views.bottom <= bar.top && bar.top - views.bottom < 20, JSON.stringify([views, bar]));
+  });
+});
+
+test("the week plan's next charges on Home and on a car without a plan of its own", async () => {
+  const state = fixture("two-cars");
+  const [a, b] = state.vehicles.map((v) => v.id);
+  const charge = (start, end, kwh) => ({ start, end, kwh, cost: kwh, price: 1, why: "cheap", level: 80, guess: false, from: 0, to: 1 });
+  state.week = {
+    start: "2026-11-10T21:00:00+01:00",
+    groups: [[a, b]],
+    cars: {
+      [a]: { charges: [charge("2026-11-13T11:00:00+01:00", "2026-11-13T14:00:00+01:00", 20)], target: 60, steer: true },
+      [b]: { charges: [charge("2026-11-14T10:00:00+01:00", "2026-11-14T12:00:00+01:00", 8)], target: 60, steer: true },
+    },
+  };
+  await withPanel(state, { size: DESKTOP }, async ({ page, tap }) => {
+    await tap('.tabs button[data-tab="home"]');
+    const shown = await page.evaluate(() => {
+      const root = window.harness.panel.shadowRoot;
+      return { head: root.querySelector(".tonight h2").textContent, rows: root.querySelectorAll(".tonight .tn-row").length, total: root.querySelector(".tonight .hint").textContent };
+    });
+    // Nothing in the next day: each car's next charge, from the week plan.
+    assert.equal(shown.head, "Next charge");
+    assert.equal(shown.rows, 2);
+    assert.match(shown.total, /28/);
+    await tap('.tabs button[data-tab="cars"]');
+    const facts = await page.evaluate((id) => window.harness.panel.shadowRoot.querySelector(`.vcard[data-id="${id}"] .mini-facts`).textContent, a);
+    assert.match(facts, /Next charge.*11–14/);
   });
 });

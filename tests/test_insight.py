@@ -845,6 +845,16 @@ async def test_the_week_plan_hour_by_hour_and_what_it_hands_on(
     with patch.object(insight, "_wants_backfill", return_value=False):
         await insight.async_tick(now)
     assert insight.week
+    # «Have enough for»: the week plan over the days gone by at every step, once a day in the background.
+    await insight._async_runs(now)
+    runs = insight.detail()["runs"]
+    assert len(runs) == 11 and {"per_week", "short", "morning", "charged"} <= set(runs[0])
+    await insight._async_runs(now)
+    assert insight.detail()["runs"] is runs
+    insight._runs = (None, [])
+    insight.data["days"][TESLA] = {}
+    await insight._async_runs(now)
+    assert insight.detail()["runs"] == []
     # A week plan that fails never stops the charging: nothing is steered.
     with patch.object(insight, "make_week", side_effect=RuntimeError("broken")):
         await insight._async_hold(now)

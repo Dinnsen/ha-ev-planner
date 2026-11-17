@@ -66,10 +66,11 @@ from .insight_model import (
     home_share,
     needs,
     night_price,
+    quantile,
     score,
 )
 from .planner import PriceSlot
-from .weekplan import HOURS, PATTERN_ERROR, Hour, WeekCar, plan_week, stay_end, summary
+from .weekplan import HOURS, PATTERN_ERROR, Hour, WeekCar, plan_week, replay, stay_end, summary
 
 if TYPE_CHECKING:
     from .household import Household
@@ -278,6 +279,9 @@ class Insight:
         self.week: dict[str, Any] = {}
         self._rhythm: tuple[date | None, list[list[float | None]]] = (None, [[None] * 24 for _ in range(7)])
         self._seen: tuple[Any, ...] | None = None
+        # The week plan played over the last 90 days at every step, for «Have enough for»: made once a day.
+        self._runs: tuple[date | None, list[dict[str, Any]]] = (None, [])
+        self._running = False
 
     @staticmethod
     def _empty() -> dict[str, Any]:
@@ -442,6 +446,7 @@ class Insight:
                 self._prices(now)
                 self._prune(now)
                 await self._async_decide(now)
+                await self._async_runs(now)
                 self._changed()
             elif self._minute(SET_INSIGHT_NOTIFY_AT, "19:30") == (local.hour, local.minute):
                 await self._async_decide(now, tell=True)
@@ -1009,6 +1014,9 @@ class Insight:
             return {}
         chosen = self.style_index()
         styles = self.styles()
+        # The screens' days run from 06 to 06: a night belongs to the evening it starts.
+        base = (hours[0].start - timedelta(hours=6)).date()
+        evenings = [((hour.start - timedelta(hours=6)).date() - base).days for hour in hours]
         out: dict[str, Any] = {
             "at": now.isoformat(),
             "start": hours[0].start.isoformat(),
@@ -1030,7 +1038,7 @@ class Insight:
                     week = weeks[car.vehicle_id]
                     days = []
                     for day in range(7):
-                        span = [h for h, d in enumerate(day_of) if d == day]
+                        span = [h for h, d in enumerate(evenings) if d == day]
                         days.append(
                             {
                                 "kwh": round(sum(week.charge[h] for h in span), 1),
@@ -1075,17 +1083,22 @@ class Insight:
         """The evening's message: which car should have the charger, when it is not the one plugged in."""
         household = self.household
         for group in self.tonight.get("groups") or []:
-            if len(group["cars"]) < 2:
+            if len(group["cars"]) < 2 or group.get("reason") == "learning":
+                # Still learning the cars' days: nobody is told anything yet.
                 continue
             names = {vid: household.vehicles[vid].name for vid in group["cars"] if vid in household.vehicles}
-            pick = group.get("pick")
+            pick, wait, both = group.get("pick"), group["wait"], group["both"]
+            if self.week:
+                # The week plan decides: the car that charges the most before tomorrow's noon, or none.
+                pick = self.week_pick(list(names), now)
+                wait, both = pick is None, False
             if pick in names and household.vehicles[pick].connected is not True:
                 other = next((name for vid, name in names.items() if vid != pick), "")
                 # Why this car: its level, and what a busy day of its takes (the day it is kept for).
                 car = (self.tonight.get("cars") or {}).get(pick) or {}
                 soc = household.vehicles[pick].current_soc
                 need = number(car.get("p90"))
-                if group["both"]:
+                if both:
                     text = household.text("insight_plug_both", car=names[pick], other=other)
                 elif soc is not None and need is not None and need > 0:
                     text = household.text(
@@ -1093,7 +1106,7 @@ class Insight:
                     )
                 else:
                     text = household.text("insight_plug", car=names[pick], other=other)
-            elif group["wait"] and not any(household.vehicles[vid].connected for vid in names):
+            elif wait and not any(household.vehicles[vid].connected for vid in names):
                 text = household.text("insight_no_car")
             else:
                 continue
@@ -1115,6 +1128,21 @@ class Insight:
                 tag=f"{DOMAIN}_insight_ripe",
                 icon="mdi:chart-bell-curve",
             )
+
+    def week_pick(self, ids: Sequence[str], now: datetime) -> str | None:
+        """Of cars at one charger, the one the week plan charges the most in the next 18 hours (None: no car)."""
+        cars = self.week.get("cars") or {}
+        horizon = now + timedelta(hours=18)
+        best: tuple[float, str] | None = None
+        for vid in ids:
+            kwh = sum(
+                float(charge.get("kwh") or 0.0)
+                for charge in (cars.get(vid) or {}).get("charges") or []
+                if (start := dt_util.parse_datetime(str(charge.get("start")))) is not None and start < horizon
+            )
+            if kwh > 0.5 and (best is None or kwh > best[0]):
+                best = (kwh, vid)
+        return best[1] if best else None
 
     def scored(self) -> dict[str, Any]:
         """How the expectations have held against what the cars did."""
@@ -1267,6 +1295,61 @@ class Insight:
             "window": list(self.window),
         }
 
+    def replay_inputs(self, now: datetime) -> dict[str, Any] | None:
+        """What the week plan is played over: the cars at one charger, their days, their hours at home, the prices."""
+        groups = self.groups()
+        group = next((g for g in groups if len(g) > 1), groups[0] if groups else [])
+        today = dt_util.as_local(now).date()
+        start, end = self.window
+        cars = []
+        for vehicle in group:
+            days = self.data["days"].get(vehicle.vehicle_id) or {}
+            if len(days) < RIPE_DAYS or not vehicle.capacity:
+                return None
+            base, slope = efficiency(days)
+            share = self.home_hours(vehicle.vehicle_id, now) or [
+                [1.0 if (start <= h < end if start < end else h >= start or h < end) else 0.0 for h in range(24)]
+                for _ in range(7)
+            ]
+            target = number(vehicle.settings.get(SET_TARGET_SOC)) or 80.0
+            cars.append(
+                {
+                    "id": vehicle.vehicle_id,
+                    "capacity": vehicle.capacity,
+                    "power": max(0.5, self.household.vehicle_power(vehicle)),
+                    "minimum": (number(vehicle.settings.get(SET_MIN_SOC)) or 0.0) / 100 * vehicle.capacity,
+                    "target": target / 100 * vehicle.capacity,
+                    "used": {key: float(day.get("used") or 0.0) for key, day in days.items()},
+                    "history": needs(days, base, slope),
+                    "share": share,
+                }
+            )
+        if not cars:
+            return None
+        return {
+            "cars": cars,
+            "prices": {**self.data["spot"], **self.data["prices"]},
+            "styles": [dict(style) for style in self.styles()],
+            "today": today,
+            "first": datetime.combine(today - timedelta(days=STEP_DAYS - 1), datetime.min.time()) + timedelta(hours=12),
+            "days": STEP_DAYS - 2,
+        }
+
+    async def _async_runs(self, now: datetime) -> None:
+        """Once a day, in the background: the week plan over the last 90 days at every step."""
+        today = dt_util.as_local(now).date()
+        if self._runs[0] == today or self._running:
+            return
+        inputs = self.replay_inputs(now)
+        if inputs is None:
+            return
+        self._running = True
+        try:
+            runs = await self.hass.async_add_executor_job(replay_steps, inputs)
+        finally:
+            self._running = False
+        self._runs = (today, runs)
+
     def week_brief(self) -> dict[str, Any]:
         """The week plan in short, for the home screen and the cars: each car's charges and its stay."""
         week = self.week
@@ -1332,6 +1415,8 @@ class Insight:
             **summary,
             # The week plan: hour by hour for every car, and at every step of how careful.
             "week": self.week,
+            # The week plan played over the last 90 days at every step (empty until it has been, once a day).
+            "runs": self._runs[1],
             "detail": cars,
             # The night's price and the day's mean, for each of the days the panel draws (or simulates on).
             "price_days": price_days,
@@ -1351,3 +1436,21 @@ class Insight:
             "styles": self.styles(),
             "ledger": {day: self.data["ledger"][day] for day in sorted(self.data["ledger"])[-30:]},
         }
+
+
+def replay_steps(inputs: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """The week plan over the days gone by at each step: run in the background, it reads nothing else."""
+    out = []
+    today = inputs["today"]
+    for style in inputs["styles"]:
+        cars = [
+            {
+                **car,
+                "hard": [quantile(car["history"], wd, style["level"], today) or 0.0 for wd in range(7)],
+                "typical": [quantile(car["history"], wd, style["rest"], today) or 0.0 for wd in range(7)],
+                "home": [[share >= style["level"] - 1e-9 for share in row] for row in car["share"]],
+            }
+            for car in inputs["cars"]
+        ]
+        out.append(replay(cars, inputs["prices"], inputs["first"], inputs["days"], style))
+    return out

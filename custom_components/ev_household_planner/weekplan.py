@@ -465,3 +465,83 @@ def summary(week: CarWeek, car: WeekCar, hours: Sequence[Hour]) -> dict[str, Any
         "full_at": week.full_at,
         "cost": round(sum(c["cost"] for c in charges), 2),
     }
+
+
+def replay(
+    cars: Sequence[dict[str, Any]],
+    prices: dict[str, Sequence[float | None]],
+    first: datetime,
+    days: int,
+    style: dict[str, Any],
+    *,
+    horizon: int = 48,
+) -> dict[str, Any]:
+    """The week plan played over days gone by: each noon a plan for the next two days, the first day of it done.
+
+    ``cars``: each with its ``id``, ``capacity``, ``power``, ``minimum`` and ``target`` (kWh), what each day
+    took (``used``: {iso day: kWh}), what each weekday takes on a hard and a typical day (``hard``,
+    ``typical``: 7 values, Monday first) and when it is home (``home``: 7 by 24). What each day really took
+    is driven; a day the battery did not have that (and a full battery would have) is a short day.
+    """
+    soc = {car["id"]: car["target"] for car in cars}
+    charged: list[tuple[str, str]] = []
+    short: list[tuple[str, str]] = []
+    morning: list[float] = []
+    for offset in range(days):
+        start = first + timedelta(days=offset)
+        hours, day_of = [], []
+        for index in range(horizon):
+            moment = start + timedelta(hours=index)
+            row = prices.get(moment.date().isoformat()) or []
+            price = row[moment.hour] if moment.hour < len(row) else None
+            hours.append(Hour(moment, price, "known" if price is not None else "none"))
+            day_of.append((moment.date() - start.date()).days)
+        week_cars = []
+        for car in cars:
+            hard = [car["hard"][(start + timedelta(days=n)).weekday()] for n in range(4)]
+            typical = [car["typical"][(start + timedelta(days=n)).weekday()] for n in range(4)]
+            week_cars.append(
+                WeekCar(
+                    vehicle_id=car["id"],
+                    capacity=car["capacity"],
+                    soc=soc[car["id"]],
+                    power=car["power"],
+                    minimum=car["minimum"],
+                    preferred=[car["target"]] * horizon,
+                    hard=hard,
+                    typical=typical,
+                    reserve=style["reserve"] * car["capacity"],
+                    home=[bool(car["home"][h.start.weekday()][h.start.hour]) for h in hours],
+                    fill=bool(style.get("every")),
+                )
+            )
+        plan = plan_week(week_cars, hours, day_of, always=bool(style.get("every")))
+        for car, week_car in zip(cars, week_cars, strict=True):
+            week = plan[car["id"]]
+            level = soc[car["id"]]
+            leaves = {hour: day for hour, day, _need in week.leaves if hour < 24}
+            done = False
+            for hour in range(24):
+                if hour in leaves:
+                    day = (start + timedelta(days=leaves[hour])).date().isoformat()
+                    took = float(car["used"].get(day) or 0.0)
+                    morning.append(level / car["capacity"] * 100 if car["capacity"] else 0.0)
+                    if took > level - 0.05 * car["capacity"] and took <= car["target"] - 0.05 * car["capacity"]:
+                        short.append((day, car["id"]))
+                    level = max(0.0, level - took)
+                if week.charge[hour] > EPSILON:
+                    level = min(week_car.capacity, level + week.charge[hour])
+                    if not done:
+                        charged.append((start.date().isoformat(), car["id"]))
+                        done = True
+            soc[car["id"]] = level
+    weeks = max(days / 7, 1e-9)
+    return {
+        "per_week": round(len(charged) / weeks, 2),
+        "per": {car["id"]: round(sum(1 for _, vid in charged if vid == car["id"]) / weeks, 2) for car in cars},
+        "short": len(short),
+        "short_days": short,
+        "charged": charged,
+        "morning": round(sum(morning) / len(morning), 1) if morning else 0.0,
+        "days": days,
+    }
