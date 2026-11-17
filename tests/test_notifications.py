@@ -256,9 +256,6 @@ async def test_live_notification_while_charging_and_message_when_done(
 
     # Stops: the live notification ends, and a message says what was charged.
     hass.states.async_set(CHARGING, "off")
-    await hass.services.async_call(
-        "select", "select_option", {ATTR_ENTITY_ID: "select.tesla_mode", "option": "pause"}, blocking=True
-    )
     await settle(hass, freezer)
     assert {"message": "clear_notification", "data": {"tag": f"evp_live_{TESLA}"}} in notify.calls
     done = [c for c in notify.calls if c.get("data", {}).get("tag") == f"evp_done_{TESLA}"]
@@ -335,10 +332,8 @@ async def test_the_pause_message_goes_when_the_car_charges_again(
     hass.states.async_set(SOC, "55")
     await settle(hass, freezer)
 
+    # The car stops by itself: the message says so.
     hass.states.async_set(CHARGING, "off")
-    await hass.services.async_call(
-        "select", "select_option", {ATTR_ENTITY_ID: "select.tesla_mode", "option": "pause"}, blocking=True
-    )
     await settle(hass, freezer)
     done = [c for c in notify.calls if c.get("data", {}).get("tag") == f"evp_done_{TESLA}"]
     assert done and done[0]["message"].startswith("Paused at 55 % of 80 %")
@@ -460,3 +455,23 @@ def test_an_amount_in_kroner_ends_a_sentence_with_one_full_stop() -> None:
     danish = SimpleNamespace(_danish=True)
     text = Household._text(danish, "done", soc="80", energy="1,5", cost="3,26 kr.")
     assert text == "Ladet til 80 %: 1,5 kWh for 3,26 kr."
+
+
+async def test_no_pause_message_when_the_household_paused_the_car_itself(
+    hass: HomeAssistant, notify: NotifyCalls, household: MockConfigEntry, freezer: FrozenDateTimeFactory
+) -> None:
+    """Paused with the mode (the panel, the entity): they know, so «Paused at …» is not sent."""
+    await _switch(hass, "switch.tesla_notify_when_charged")
+    await hass.services.async_call(
+        "select", "select_option", {ATTR_ENTITY_ID: "select.tesla_mode", "option": "charge_now"}, blocking=True
+    )
+    hass.states.async_set(CHARGING, "on")
+    await settle(hass, freezer)
+    hass.states.async_set(SOC, "55")
+    await settle(hass, freezer)
+    await hass.services.async_call(
+        "select", "select_option", {ATTR_ENTITY_ID: "select.tesla_mode", "option": "pause"}, blocking=True
+    )
+    hass.states.async_set(CHARGING, "off")
+    await settle(hass, freezer)
+    assert not [c for c in notify.calls if c.get("data", {}).get("tag") == f"evp_done_{TESLA}"]

@@ -428,7 +428,7 @@ def nights_a_week(style: Mapping[str, Any], cars: Sequence[Mapping[str, Any]]) -
     for day in range(count - 1):
 
         def floor(i: int, ahead: int, day: int = day) -> float:
-            return min(cars[i]["full"], need(i, day + ahead, style["level"]) + style["reserve"] * cars[i]["cap"])
+            return float(min(cars[i]["full"], need(i, day + ahead, style["level"]) + style["reserve"] * cars[i]["cap"]))
 
         def reach(i: int, day: int = day) -> int:
             left = soc[i]

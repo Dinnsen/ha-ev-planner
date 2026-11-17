@@ -608,7 +608,7 @@ class VehicleSubentryFlow(ConfigSubentryFlow):
                     {"collapsed": False},
                 ),
                 # Kept here, not in the panel, so it is not turned on and off by a tap.
-                vol.Required(SECTION_PRIVACY): section(
+                vol.Optional(SECTION_PRIVACY): section(
                     vol.Schema({vol.Optional(CONF_HIDE_MAP, default=bool(values.get(CONF_HIDE_MAP, False))): bool}),
                     {"collapsed": True},
                 ),

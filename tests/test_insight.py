@@ -25,6 +25,7 @@ from custom_components.ev_household_planner.insight import (
     spot_hours,
     tariff_hours,
 )
+from custom_components.ev_household_planner.insight_model import STYLES
 from custom_components.ev_household_planner.planner import PriceSlot
 
 from .conftest import MERCEDES, PRICE_ENTITY, SOC, TESLA, NotifyCalls, set_tesla
@@ -732,6 +733,8 @@ async def test_the_days_prices_count_at_the_hours_the_car_is_home(
     insight = insight_of(init_integration)
     await planner.async_update_settings({"insight": True, "insight_use": True})
     seed(insight, now)
+    # The fixed steps, not the ones fitted to the seeded days: this is about the hours the car is home.
+    insight._styles = (dt_util.now().date(), list(STYLES))
     set_tesla(hass, soc=50, cable=True)
     await planner.async_set_vehicle(MERCEDES, {"manual_soc": 100})
     sunny_noons(hass, now)
