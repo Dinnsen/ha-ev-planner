@@ -676,7 +676,10 @@ function boot(host, root) {
       const soc = hours.map((x) => (x.h < hNow ? c.socH.get(x.h) ?? null : x.h === hNow ? lvl : null));
       const exp = [], hard = []; let a = lvl, b = lvl;
       for (const x of hours) { if (x.h < hNow || lvl == null) { exp.push(null); hard.push(null); continue; } if (x.hod === 7 && x.h > hNow) { const w = c.week[mod(new Date(t0 + x.day * DAY + DAY / 2).getDay() + 6, 7)] || {}; a -= ((w.p50 || 0) / c.cap) * 100; b -= ((w.p90 || 0) / c.cap) * 100; } exp.push(clamp(a, 0, 100)); hard.push(clamp(b, 0, 100)); }
-      const plan = ((c.live.plan || {}).segments || []).map((s) => ({ h: (s.start - t0) / 3600000, len: Math.max(0.25, (s.end - s.start) / 3600000) })).filter((s) => s.h + s.len > NOWH && s.h < H1);
+      // EV Planner's plan only counts when it will charge the car: plugged in and on (planned or charging). A car that is
+      // off, paused or not plugged in keeps a plan for when it is, and that is not tonight.
+      const live = ["planned", "charging"].includes(c.live.status);
+      const plan = (live ? (c.live.plan || {}).segments || [] : []).map((s) => ({ h: (s.start - t0) / 3600000, len: Math.max(0.25, (s.end - s.start) / 3600000) })).filter((s) => s.h + s.len > NOWH && s.h < H1);
       cars[id] = { id, name: c.name, cap: c.cap, soc, exp, hard, level: lvl, min: Number((c.live || {}).min_soc) || 0, plan, trips: trips.filter((t) => t.car === id && t.d >= N - 21).map((t) => ({ ...t, h: (t.d - N) * 24 + t.dep / 60 })), charges: charges.filter((x) => x.car === id && x.h >= H0) };
     }
     TL = { hours, cars, H0, H1, now: NOWH, kn, errors };

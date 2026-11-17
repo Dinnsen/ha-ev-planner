@@ -714,10 +714,10 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     assert.equal(await inside((root) => root.querySelectorAll("#hero .hstep").length), 0, "no steps under the picture");
     assert.equal(await inside((root) => root.querySelectorAll(".tl-q").length), 3);
     assert.match(await inside((root) => root.querySelector(".tl-q b").textContent), /Tesla/);
-    // The week for the cars: seven evenings, each car's level, and a bolt on each car the plan charges tonight
-    // (both here, as the graph and the plan show).
+    // The week for the cars: seven evenings, each car's level, and a bolt on each car that will charge tonight: Insight's
+    // choice, and a car EV Planner charges (plugged in and on). The other car's plan is for when it is plugged in.
     assert.equal(await inside((root) => root.querySelectorAll("#wkp .wkp-col").length), 7);
-    assert.equal(await inside((root) => root.querySelectorAll('#wkp .wkp-col[data-wkp="0"] .bat.chg').length), 2);
+    assert.equal(await inside((root) => root.querySelectorAll('#wkp .wkp-col[data-wkp="0"] .bat.chg').length), 1);
     assert.equal(await inside((root) => root.querySelectorAll("#tl-day .wkfact").length), 3, "both cars and the night's price, on one line");
     await tap('ev-planner-insight #wkp [data-wkp="2"]');
     assert.ok(await inside((root) => root.querySelector('#wkp [data-wkp="2"]').classList.contains("on")));

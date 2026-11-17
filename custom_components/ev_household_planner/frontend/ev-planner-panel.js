@@ -6463,8 +6463,13 @@ class EvPlannerPanel extends HTMLElement {
     return `<div class="page stack">${setup}${list}</div>`;
   }
 
+  // A car turned off or paused keeps a plan for when it is on again; it is not shown as charging.
+  _livePlan(v) {
+    return hasSegments(v.plan) && !["off", "paused"].includes(v.status) ? v.plan : null;
+  }
+
   _carCardHtml(v) {
-    const plan = hasSegments(v.plan) ? v.plan : null;
+    const plan = this._livePlan(v);
     const settings = v.settings || {};
     const tone = this._statusTone(v);
     return `<article class="vcard tone-${tone}" data-id="${esc(v.id)}">
@@ -6833,7 +6838,7 @@ class EvPlannerPanel extends HTMLElement {
   _chargerNext(c) {
     const now = znow();
     const plans = this._cars
-      .filter((v) => v.charger?.id === c.id && hasSegments(v.plan))
+      .filter((v) => v.charger?.id === c.id && this._livePlan(v))
       .map((v) => ({ name: v.name, start: v.plan.segments.find((seg) => ZD(seg.end).getTime() > now)?.start }))
       .filter((item) => item.start);
     const g = this._guest;
@@ -7661,7 +7666,8 @@ class EvPlannerPanel extends HTMLElement {
         preview: true,
       };
     }
-    return { plan: hasSegments(v.plan) ? { ...v.plan, preview: false } : null, deadline: v.deadline, error: null, preview: false };
+    const live = this._livePlan(v);
+    return { plan: live ? { ...live, preview: false } : null, deadline: v.deadline, error: null, preview: false };
   }
 
   _renderCarLive(v) {
@@ -9535,7 +9541,12 @@ class EvPlannerPanel extends HTMLElement {
 
   /* Tonight: every car's plan on one line of time, over the prices. */
   _tonightHtml(siteId = null) {
-    const cars = this._cars.filter((v) => hasSegments(v.plan) && (!siteId || (v.site ?? "home") === siteId));
+    // Only the cars that will charge: not one that is turned off or paused, and not one that is not plugged in
+    // when Insight gives its charger to another car tonight (one charger, one car).
+    const picks = new Map();
+    for (const g of this._insight?.tonight?.groups || []) if (g.pick) for (const id of g.cars || []) picks.set(id, g.pick);
+    const will = (v) => !["off", "paused", "completed"].includes(v.status) && !(v.status === "unplugged" && picks.has(v.id) && picks.get(v.id) !== v.id);
+    const cars = this._cars.filter((v) => hasSegments(v.plan) && will(v) && (!siteId || (v.site ?? "home") === siteId));
     const head = `<div class="panel-head"><h2>${ICONS.plan}<span>${esc(this._t("home_tonight"))}</span></h2></div>`;
     if (!cars.length) return `<section class="panel tonight">${head}<p class="hint">${esc(this._t("home_tonight_none"))}</p></section>`;
     const t0 = znow();
