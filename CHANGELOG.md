@@ -2,6 +2,12 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [Unreleased]
+
+### Fixed
+
+- The fix in 2.5.0b37 for the first minute after a restart was not enough: a car whose state came in while the week plan was still being read could be started on its plain target for a few seconds. Nothing is now sent to a car or charger before the calendars and the week plan are read.
+
 ## [2.5.0b37] - 2026-11-18
 
 ### Added

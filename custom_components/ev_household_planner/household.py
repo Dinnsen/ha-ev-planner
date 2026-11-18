@@ -690,7 +690,6 @@ class Household(DataUpdateCoordinator[None]):
     @callback
     def _async_started(self, _hass: HomeAssistant | None = None) -> None:
         """Once Home Assistant runs: check the price sensor, read calendars, and start acting."""
-        self._started = True
         self._check_price_entity()
         self._check_chargers()
         for supply in self.supplies.values():
@@ -698,11 +697,14 @@ class Household(DataUpdateCoordinator[None]):
         self.config_entry.async_create_task(self.hass, self._async_after_start(), f"{DOMAIN} start")
 
     async def _async_after_start(self) -> None:
-        await self._async_refresh_calendars()
-        if self.insight.enabled:
-            # The week plan's targets before the first command: a car is not started on the
-            # plain target for the minute until the week plan is read again (as after a reload).
-            await self.insight.async_start(dt_util.now())
+        # Nothing is sent to a car or charger until the calendars and the week plan are read: a car
+        # changing state meanwhile is planned, not started on its plain target for a moment.
+        try:
+            await self._async_refresh_calendars()
+            if self.insight.enabled:
+                await self.insight.async_start(dt_util.now())
+        finally:
+            self._started = True
         await self.async_recalculate()
 
     async def async_shutdown(self) -> None:

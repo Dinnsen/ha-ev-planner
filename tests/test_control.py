@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta
 
 from freezegun.api import FrozenDateTimeFactory
@@ -10,7 +11,9 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.util import dt as dt_util
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
+
+from custom_components.ev_household_planner.household import Household
 
 from .conftest import (
     CABLE,
@@ -71,6 +74,44 @@ async def test_car_starts_and_stops_with_the_plan(
     await settle(hass, freezer)
     assert switches.calls[-1] == ("turn_off", CHARGE_SWITCH)
     assert hass.states.get("sensor.tesla_status").state == "completed"
+
+
+async def test_nothing_is_sent_before_the_start_has_read_the_calendars_and_the_week_plan(
+    hass: HomeAssistant,
+    now: datetime,
+    switches: SwitchCalls,
+    mock_config_entry: MockConfigEntry,
+    freezer: FrozenDateTimeFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    gate = asyncio.Event()
+    read = Household._async_refresh_calendars
+
+    async def slow(self: Household) -> None:
+        await gate.wait()
+        await read(self)
+
+    monkeypatch.setattr(Household, "_async_refresh_calendars", slow)
+    set_prices(hass, now, NIGHT)
+    # The car charges by itself as Home Assistant starts: the plan says wait, so it is paused, but only
+    # once what the start reads is in.
+    set_tesla(hass, switch=True)
+    mock_config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    for _ in range(3):
+        freezer.tick(timedelta(seconds=2))
+        async_fire_time_changed(hass, dt_util.now())
+        hass.states.async_set(SOC, "51", {"unit_of_measurement": "%"})
+        for _ in range(20):
+            await asyncio.sleep(0)
+    assert switches.calls == []
+
+    gate.set()
+    await hass.async_block_till_done()
+    await settle(hass, freezer)
+    assert switches.calls == [("turn_off", CHARGE_SWITCH)]
+    await hass.config_entries.async_unload(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
 
 
 async def test_plugging_in_pauses_a_car_that_starts_by_itself(
