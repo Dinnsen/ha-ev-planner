@@ -10105,8 +10105,9 @@ class EvPlannerPanel extends HTMLElement {
       const y = ch - (k / lines) * ch;
       bars += `<line class="hb-grid" x1="0" x2="${cw}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}"/>`;
       const value = this._num(step * k, step < 1 ? 1 : 0);
-      ticks.push(`<span style="top:${(((y + 6) / (ch + 8)) * 100).toFixed(2)}%">${esc(k === lines ? `${value} kWh` : value)}</span>`);
+      ticks.push(`<span style="top:${(((y + 6) / (ch + 8)) * 100).toFixed(2)}%">${esc(value)}</span>`);
     }
+    ticks.push('<span class="unit">kWh</span>');
     buckets.forEach(([a], i) => {
       const x = i * bw + gap / 2;
       const w = Math.max(1, bw - gap);
@@ -13058,9 +13059,12 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 .hb-axis { position: relative; height: 18px; margin-top: 4px; }
 .hb-axis span { position: absolute; transform: translateX(-50%); font-size: 11.5px; color: var(--evp-soft); white-space: nowrap; }
 .hist-chart .hb-grid { stroke: var(--evp-line); stroke-width: 1; }
-.hist-chart-wrap { position: relative; }
-.hb-y { position: absolute; inset: 0; pointer-events: none; }
-.hb-y span { position: absolute; left: 0; transform: translateY(-50%); padding: 0 6px 0 0; font-size: 11px; line-height: 1; color: var(--evp-soft); background: var(--evp-card); font-variant-numeric: tabular-nums; }
+/* The values in a gutter of their own at the left, the bars and the days beside it. */
+.hist-chart-wrap { position: relative; padding-left: 34px; }
+.hist-chart-wrap + .hb-axis { margin-left: 34px; }
+.hb-y { position: absolute; top: 0; bottom: 0; left: 0; width: 30px; pointer-events: none; }
+.hb-y span { position: absolute; right: 0; transform: translateY(-50%); font-size: 11px; line-height: 1; color: var(--evp-soft); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hb-y span.unit { top: calc(100% - 7px); font-size: 10px; }
 .hist-chart .hb-bar { transform-box: fill-box; transform-origin: bottom; animation: grow .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: var(--d); }
 .hist-chart .hb-bar.house { fill: color-mix(in srgb, var(--evp-ink) 13%, transparent); }
 
