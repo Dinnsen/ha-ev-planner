@@ -3332,6 +3332,9 @@ class Household(DataUpdateCoordinator[None]):
         )
         self.events.add(now, "trip", vehicle=vehicle.name, preset=kind, deadline=at, target=target)
         self.async_save()
+        if self.insight.enabled:
+            # The trip is a need the week plan goes by: made again with it, not at the next hour.
+            await self.insight.async_week(now)
         await self.async_recalculate(force=True)
         return at
 

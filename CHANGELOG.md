@@ -2,6 +2,12 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [Unreleased]
+
+### Fixed
+
+- Setting or clearing a one-off departure made the car's plan again at once, but the week plan in Learning only at the next hour: for up to an hour Learning and the car page could disagree. The week plan is now made again at once too.
+
 ## [2.5.0b40] - 2026-11-18
 
 ### Changed

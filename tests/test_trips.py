@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant, ServiceCall
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.ev_household_planner.const import SET_INSIGHT
 from custom_components.ev_household_planner.household import climate_temperature, read_trip
 from custom_components.ev_household_planner.prices import PriceSlot
 from custom_components.ev_household_planner.rules import cheap_ceiling, trip_deadline
@@ -303,3 +304,23 @@ async def test_your_own_departure_is_set_with_its_target(
     assert at is not None and at.hour == 17 and at.date() == (dt_now(hass) + timedelta(days=1)).date()
     assert tesla.trip is not None and tesla.trip["target"] == 90
     assert tesla.deadline == at
+
+
+async def test_a_trip_makes_the_week_plan_again_at_once(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+    freezer: FrozenDateTimeFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    household = init_integration.runtime_data
+    household.settings[SET_INSIGHT] = True
+    made: list[datetime] = []
+
+    async def week(now: datetime) -> None:
+        made.append(now)
+
+    monkeypatch.setattr(household.insight, "async_week", week)
+    await household.async_set_trip(TESLA, "morning", target=100)
+    await household.async_set_trip(TESLA, None)
+    await settle(hass, freezer)
+    assert len(made) == 2
