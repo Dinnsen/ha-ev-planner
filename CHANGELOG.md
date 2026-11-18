@@ -2,7 +2,11 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
-## [Unreleased]
+## [2.5.0b40] - 2026-11-18
+
+### Changed
+
+- **The cars' week names a night by the day it ends**: the charge on Saturday 04–06 is under Saturday, as the text and the timeline have it (it was under Friday, the evening the night starts). "Now" is tonight.
 
 ### Fixed
 

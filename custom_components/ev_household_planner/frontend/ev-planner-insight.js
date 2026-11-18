@@ -710,7 +710,8 @@ function boot(host, root) {
         const charged = own ? span.filter((i) => ids.some((id) => (((WK.cars || {})[id] || {}).kwh || [])[i] > 0.05)) : [];
         const home = span.filter((i) => ids.some((id) => (((WK.cars || {})[id] || {}).home || [])[i]));
         const best = charged.length ? charged : [...(home.length ? home : span)].sort((x, y) => prices[x] - prices[y]).slice(0, 3);
-        nights.push({ n, wd: new Date(t0 + (b0 + n) * DAY + DAY / 2).getDay(), price: best.length ? mean(best.map((i) => prices[i])) : null, at: best.length ? wkS + Math.min(...best) : null, fc: best.some((i) => (WK.kinds || [])[i] !== "known") });
+        // A night is named by the day it ends (the charge on Saturday 04–06 is Saturday's), like the text and the timeline.
+        nights.push({ n, wd: new Date(t0 + (b0 + n + 1) * DAY + DAY / 2).getDay(), price: best.length ? mean(best.map((i) => prices[i])) : null, at: best.length ? wkS + Math.min(...best) : null, fc: best.some((i) => (WK.kinds || [])[i] !== "known") });
       }
       const shown = nights.map((x) => x.price).filter((v) => v != null);
       nights.forEach((x) => { x.tier = tierAt(x.price, shown); });
@@ -1063,7 +1064,7 @@ function boot(host, root) {
     const top = Math.max(0.01, ...priced.map((n) => n.price));
     const bolt = '<svg viewBox="0 0 10 14" aria-hidden="true"><path d="M6 0L0 8h4l-1 6 7-9H6Z"/></svg>';
     el.innerHTML = `<div class="wkp-lab"><u></u><u class="unit">${esc(IN.unit || "")}</u>${P.cars.map((id) => `<u><s style="background:${CARS[id].col}"></s>${esc(CARS[id].name)}</u>`).join("")}</div>
-      ${P.nights.map((n) => `<button class="wkp-col${tlS.day === n.n ? " on" : ""}" data-wkp="${n.n}" aria-pressed="${tlS.day === n.n}" aria-label="${n.n === 0 ? tr("i nat", "tonight") : WDL[n.wd]}"><b class="${n.n === 0 ? "now" : ""}">${n.n === 0 ? tr("nu", "now") : WD[n.wd]}</b><div class="pb">${n.price == null ? "" : `<span class="${tierOf(n.price)}${n.n === best ? " best" : ""}${n.fc ? " fc" : ""}" style="height:${Math.max(5, Math.round((n.price / top) * 18))}px"></span>`}</div>${P.cars.map((id) => { const c = P.cells[id][n.n]; return c.level == null ? '<div class="bat none"></div>' : `<div class="bat${c.charge ? " chg" : ""}" style="--c:${CARS[id].col};--l:${clamp(c.level, 0, 100).toFixed(0)}%" title="${esc(CARS[id].name)}: ${c.level.toFixed(0)} %${c.charge ? ` · ${c.full ? tr("lader til målet", "charges to the target") : tr(`lader ca. ${nf(c.add)} %`, `charges about ${nf(c.add)} %`)}` : ""}">${c.charge ? bolt : ""}</div>`; }).join("")}</button>`).join("")}`;
+      ${P.nights.map((n) => `<button class="wkp-col${tlS.day === n.n ? " on" : ""}" data-wkp="${n.n}" aria-pressed="${tlS.day === n.n}" aria-label="${n.n === 0 ? tr("i nat", "tonight") : tr(`natten til ${WDL[n.wd]}`, `the night to ${WDL[n.wd]}`)}"><b class="${n.n === 0 ? "now" : ""}">${n.n === 0 ? tr("nu", "now") : WD[n.wd]}</b><div class="pb">${n.price == null ? "" : `<span class="${tierOf(n.price)}${n.n === best ? " best" : ""}${n.fc ? " fc" : ""}" style="height:${Math.max(5, Math.round((n.price / top) * 18))}px"></span>`}</div>${P.cars.map((id) => { const c = P.cells[id][n.n]; return c.level == null ? '<div class="bat none"></div>' : `<div class="bat${c.charge ? " chg" : ""}" style="--c:${CARS[id].col};--l:${clamp(c.level, 0, 100).toFixed(0)}%" title="${esc(CARS[id].name)}: ${c.level.toFixed(0)} %${c.charge ? ` · ${c.full ? tr("lader til målet", "charges to the target") : tr(`lader ca. ${nf(c.add)} %`, `charges about ${nf(c.add)} %`)}` : ""}">${c.charge ? bolt : ""}</div>`; }).join("")}</button>`).join("")}`;
   }
   // A night's price against the nights around it: cheap, ordinary or dear.
   // A day's price against the week's other days: cheap, ordinary or dear.
@@ -1119,7 +1120,7 @@ function boot(host, root) {
     });
     const npv = np ?? (d === 0 ? tn.price : null), tierP = tierOf(npv), tierN = { lo: tr("billig", "cheap"), mid: tr("almindelig", "ordinary"), hi: tr("dyr", "dear") }[tierP] || "";
     const atT = wk && wk.at != null ? `${tr("kl.", "at")} ${pad(mod(wk.at, 24))}` : "";
-    facts.push([d === 0 ? tr("Billigst", "Cheapest") : `${WD[dayDate(d).getDay()]}, ${tr("billigst", "cheapest")}`, money(npv), `${tierP ? `<s class="tier ${tierP}"></s>${tierN}` : ""}${atT ? ` · ${atT}` : ""}${npv == null ? "" : wk && wk.fc ? ` · ${tr("prognose", "forecast")}` : ""}${chance != null ? ` · ${clamp(chance, 1, 99)} % ${tr("for billigere end i dag", "cheaper than today")}` : ""}`]);
+    facts.push([d === 0 ? tr("Billigst", "Cheapest") : `${WD[dayDate(d + 1).getDay()]}, ${tr("billigst", "cheapest")}`, money(npv), `${tierP ? `<s class="tier ${tierP}"></s>${tierN}` : ""}${atT ? ` · ${atT}` : ""}${npv == null ? "" : wk && wk.fc ? ` · ${tr("prognose", "forecast")}` : ""}${chance != null ? ` · ${clamp(chance, 1, 99)} % ${tr("for billigere end i dag", "cheaper than today")}` : ""}`]);
     $("#tl-day").innerHTML = `<div class="wkfacts" style="--n:${facts.length}">${facts.map(([a, v, c]) => `<div class="wkfact"><small>${a}</small><b>${v}</b><i>${c}</i></div>`).join("")}</div>`;
     // Three answers.
     const all = charges.filter((c) => c.h >= TL.H0 && c.price != null), kwh = sum(all, (c) => c.kwh), cost = sum(all, (c) => c.kwh * c.price);

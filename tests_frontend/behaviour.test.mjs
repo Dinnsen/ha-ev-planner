@@ -775,6 +775,10 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     assert.match(await inside((root) => root.querySelector(".tl-q b").textContent), /Tesla/);
     // The week for the cars: seven days from the week plan, each car's level, and a bolt on the car that charges tonight.
     assert.equal(await inside((root) => root.querySelectorAll("#wkp .wkp-col").length), 7);
+    // A night is named by the day it ends: Tuesday evening's is now, Wednesday evening's is Thursday's.
+    const names = await inside((root) => [...root.querySelectorAll("#wkp .wkp-col b")].map((b) => b.textContent));
+    assert.match(names[0], /^(now|nu)$/);
+    assert.match(names[1], /^(Thu|tor)$/);
     assert.equal(await inside((root) => root.querySelectorAll('#wkp .wkp-col[data-wkp="0"] .bat.chg').length), 1);
     assert.equal(await inside((root) => root.querySelectorAll("#tl-day .wkfact").length), 3, "both cars and the night's price, on one line");
     await tap('ev-planner-insight #wkp [data-wkp="2"]');
