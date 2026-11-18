@@ -835,6 +835,9 @@ class Household(DataUpdateCoordinator[None]):
                 supply.load_actuators(place.get("actuators"))
                 self.solars[site_id].load(place.get("solar"))
         self.solar.load(stored.get("solar"))
+        # The day the evening status went out: a restart soon after it does not send it again.
+        sent = stored.get("evening_sent")
+        self._evening_sent = sent if isinstance(sent, str) else None
         self.settings = {**SETTINGS_DEFAULTS, **(stored.get("settings") or {})}
         # How careful had six steps before 2.5.0b32 and has eleven: an old step n is 2n now (once).
         kept = stored.get("settings") or {}
@@ -955,6 +958,7 @@ class Household(DataUpdateCoordinator[None]):
             "images": self.images,
             "image_originals": self.originals,
             "layout": self.layout,
+            "evening_sent": self._evening_sent,
         }
 
     # ------------------------------------------------------------------
@@ -2889,8 +2893,10 @@ class Household(DataUpdateCoordinator[None]):
         ):
             # Started long after the time (a restart): not today.
             self._evening_sent = today
+            self.async_save()
             return
         self._evening_sent = today
+        self.async_save()
         days = rule.get("days")
         if isinstance(days, list) and now.weekday() not in days:
             return

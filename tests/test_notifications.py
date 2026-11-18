@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.const import ATTR_ENTITY_ID
@@ -552,6 +553,14 @@ async def test_the_evening_status_goes_at_its_time_also_when_the_car_is_plugged_
     await planner._async_evening(evening.replace(minute=40))
     assert len([c for c in notify.calls if c.get("data", {}).get("tag") == f"evp_evening_{TESLA}"]) == 1
     assert tesla.connected is True
+    # A restart soon after: the day it went out is kept, so it does not go out again.
+    stored = planner.stored_data()
+    assert stored["evening_sent"] == evening.date().isoformat()
+    planner._evening_sent = None
+    with patch.object(planner._store, "async_load", AsyncMock(return_value=stored)):
+        await planner._async_load()
+    await planner._async_evening(evening.replace(minute=50))
+    assert len([c for c in notify.calls if c.get("data", {}).get("tag") == f"evp_evening_{TESLA}"]) == 1
 
 
 async def test_the_evening_status_follows_the_week_plan(

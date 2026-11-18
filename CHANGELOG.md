@@ -2,6 +2,12 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [Unreleased]
+
+### Fixed
+
+- **The evening status once an evening, also over a restart**: a restart within half an hour of its time sent it again to every car. The day it went out is kept on disk now.
+
 ## [2.5.0b42] - 2026-11-18
 
 ### Changed
