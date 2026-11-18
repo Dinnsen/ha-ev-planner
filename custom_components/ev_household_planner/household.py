@@ -699,6 +699,10 @@ class Household(DataUpdateCoordinator[None]):
 
     async def _async_after_start(self) -> None:
         await self._async_refresh_calendars()
+        if self.insight.enabled:
+            # The week plan's targets before the first command: a car is not started on the
+            # plain target for the minute until the week plan is read again (as after a reload).
+            await self.insight.async_week(dt_util.now())
         await self.async_recalculate()
 
     async def async_shutdown(self) -> None:

@@ -8,6 +8,10 @@ All notable changes to EV Planner. The version is the one in `custom_components/
 
 - **The cars' week shows the battery's scale**: quiet lines at 0, 50 and 100 % under the cars' levels, with their labels kept at the left edge while the timeline scrolls.
 
+### Fixed
+
+- After a restart or a reload, a car steered by the week plan could be started on its plain target for a minute before the week plan was read again (and charge at an expensive hour). The week plan is now read before the first command.
+
 ## [2.5.0b36] - 2026-11-17
 
 ### Added
