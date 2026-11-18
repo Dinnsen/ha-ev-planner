@@ -103,6 +103,26 @@ test("the steps of the target move at once when another is chosen", async () => 
   });
 });
 
+test("Holiday waits for its day home: the picker is not drawn away while the car's state comes in", async () => {
+  const state = fixture("two-cars");
+  const car = state.vehicles.find((v) => v.id === "tesla_model_y");
+  car.climate = { entity: "climate.tesla", on: false, inside: 18, outside: 4 };
+  await withPanel(state, { size: PHONE }, async ({ tap, read, page, push }) => {
+    await tap('.tabs button[data-tab="cars"]');
+    await tap('[data-act="open-car"][data-id="tesla_model_y"]');
+    await page.evaluate(() => { const sel = window.harness.panel.shadowRoot.querySelector("[data-trip-select]"); sel.value = "holiday"; sel.dispatchEvent(new Event("change", { bubbles: true })); });
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector("[data-trip-date]"));
+    assert.ok(await read('[data-act="trip-date"]'), "the chip waits for the day home");
+    await page.evaluate(() => { window.__date = window.harness.panel.shadowRoot.querySelector("[data-trip-date]"); window.__date.blur(); });
+    // New temperatures from the car, the picker not in focus (as on a phone while it is open).
+    for (const inside of [19, 20, 21]) {
+      await push({ ...state, vehicles: state.vehicles.map((v) => (v.id === "tesla_model_y" ? { ...v, climate: { ...v.climate, inside } } : v)) });
+      await page.waitForTimeout(150);
+    }
+    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector("[data-trip-date]") === window.__date), true);
+  });
+});
+
 test("a picture has nothing on it, and tapping it opens where it is changed", async () => {
   await withPanel("two-cars", { size: PHONE }, async ({ tap, touch, read, page }) => {
     await tap('.tabs button[data-tab="cars"]');

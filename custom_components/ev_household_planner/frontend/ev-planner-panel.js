@@ -7711,7 +7711,9 @@ class EvPlannerPanel extends HTMLElement {
     );
     this._patch(
       root.querySelector(".go-box"),
-      JSON.stringify([v.trip, v.deadline, this._state.settings?.departures, this._weekSummary(s), this._tripPick, v.climate, s.climate_temperature, this._busy, lang]),
+      // Only what the box shows: a car's temperatures change all the time, and drawing the box again
+      // closes the date picker of a holiday's day home on a phone while it is being picked.
+      JSON.stringify([v.trip, this._state.settings?.departures, this._tripPick, Boolean(v.climate), v.climate?.on === true, s.climate_temperature, lang]),
       this._goHtml(v, s),
     );
     const weekSum = root.querySelector(".week-sum");
@@ -7850,6 +7852,8 @@ class EvPlannerPanel extends HTMLElement {
     this._tripPick = kind || "";
     this._renderCarPage({ live: false });
     if (kind === "holiday" && !date) {
+      // Nothing is set yet: the chip says what it waits for, and the picker opens.
+      this._renderCarLive(v);
       this._openTripDate();
       return;
     }

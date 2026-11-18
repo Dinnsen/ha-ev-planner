@@ -2,10 +2,11 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
-## [Unreleased]
+## [2.5.0b41] - 2026-11-18
 
 ### Fixed
 
+- **Holiday's day home could not be picked on an iPhone**: the departure box was drawn again each time the car's temperatures came in, which closed the date picker before a day was picked. It is now drawn again only when what it shows changes.
 - **Holiday waits for its day home, and says so**: picking Holiday set nothing until a day home was picked, while the ready-by chip still showed the departure before it. The date picker now opens at once, and until a day is picked the chip says "Pick the day home" (a tap opens the picker).
 - Setting or clearing a one-off departure made the car's plan again at once, but the week plan in Learning only at the next hour: for up to an hour Learning and the car page could disagree. The week plan is now made again at once too.
 
