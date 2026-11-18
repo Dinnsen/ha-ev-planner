@@ -2,7 +2,7 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
-## [Unreleased]
+## [2.5.0b38] - 2026-11-18
 
 ### Fixed
 
