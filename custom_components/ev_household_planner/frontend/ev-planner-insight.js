@@ -217,6 +217,9 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } th, td { text
 .wkfact b { font: 600 17px/1.2 "Space Grotesk", Inter, sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wkfact i { font-style: normal; font-size: 11.5px; line-height: 1.3; color: var(--soft); }
 .tl-wrap { position: relative; min-width: 0; }
+.tl-soc { stroke: var(--ink); stroke-opacity: .14; stroke-width: 1; stroke-dasharray: 2 4; } .tl-soc.mid { stroke-opacity: .09; }
+.tl-y { position: absolute; left: 0; top: 0; pointer-events: none; }
+.tl-y span { position: absolute; left: 6px; padding: 0 4px; border-radius: 6px; background: color-mix(in srgb, var(--well) 80%, transparent); font: 500 9.5px Inter, sans-serif; color: var(--soft); white-space: nowrap; line-height: 14px; }
 .tl-ctl { position: absolute; right: 8px; top: 24px; display: grid; gap: 6px; }
 .tl-ctl button { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: 600 16px/1 Inter, system-ui, sans-serif; cursor: pointer; padding: 0; box-shadow: var(--shadow); }
 .tl-ctl button[data-tlnow] { font-size: 10.5px; } .tl-ctl button:disabled { opacity: .35; cursor: default; }
@@ -733,7 +736,7 @@ function boot(host, root) {
     <section class="card tl-card">
       <div class="row"><h2>${tr("Ugen for bilerne", "The cars' week")}</h2></div>
       <div class="wkp" id="wkp"></div>
-      <div class="tl-wrap"><div class="tl-scroll" id="tl-scroll"><div id="tl"></div></div><div class="tl-ctl"><button data-tlz="1" aria-label="${tr("Zoom ind", "Zoom in")}">+</button><button data-tlz="-1" aria-label="${tr("Zoom ud", "Zoom out")}">−</button><button data-tlnow aria-label="${tr("Til nu", "To now")}">${tr("nu", "now")}</button></div></div>
+      <div class="tl-wrap"><div class="tl-scroll" id="tl-scroll"><div id="tl"></div></div><div class="tl-y" id="tl-y" aria-hidden="true"></div><div class="tl-ctl"><button data-tlz="1" aria-label="${tr("Zoom ind", "Zoom in")}">+</button><button data-tlz="-1" aria-label="${tr("Zoom ud", "Zoom out")}">−</button><button data-tlnow aria-label="${tr("Til nu", "To now")}">${tr("nu", "now")}</button></div></div>
       <div class="legend" id="tl-legend"></div>
       <div class="tl-day" id="tl-day"></div>
       <p class="small">${tr("Øverst de næste syv dage fra ugeplanen: hvad hvert batteri forventes at stå på, og hvilken dag en bil lader (felt med lyn), nat eller dag. Tallet under dagen er prisen på de timer, der lades i, ellers dagens billigste. Herunder tre uger bagud og en uge frem.", "At the top the coming seven days from the week plan: where each battery is expected to be, and the day a car charges (a field with a bolt), night or day. The figure under the day is the price of the hours it charges in, else the day's cheapest. Below, three weeks back and a week ahead.")}</p>
@@ -1079,6 +1082,8 @@ function boot(host, root) {
     const known = TL.hours.filter((x) => x.price != null && x.h < kn), fut = TL.hours.filter((x) => x.price != null && x.h >= kn - 1);
     if (fut.length > 2) g += `<path class="tl-band" d="${path(fut, (x) => py(x.price * (1 + 1.3 * sig(x.h))))}${[...fut].reverse().map((x) => `L${X(x.h).toFixed(1)} ${py(x.price * (1 - 1.3 * sig(x.h))).toFixed(1)}`).join("")}Z"/>`;
     g += `<path class="tl-p" d="${path(known, (x) => py(x.price))}"/>${fut.length > 1 ? `<path class="tl-pf" d="${path(fut, (x) => py(x.price))}"/>` : ""}`;
+    // The battery's scale, quietly: empty, half and full.
+    for (const v of [0, 50, 100]) g += `<line class="tl-soc${v === 50 ? " mid" : ""}" x1="0" x2="${W}" y1="${by(v)}" y2="${by(v)}"/>`;
     // Each car in its own colour: the level as it was, as it is expected (a typical day and a hard one), its trips and its charging.
     ids.forEach((id, k) => {
       const car = TL.cars[id], col = CARS[id].col;
@@ -1094,6 +1099,8 @@ function boot(host, root) {
     });
     g += `<line x1="${X(TL.now)}" x2="${X(TL.now)}" y1="0" y2="${Ht}" class="tl-now"/><text x="${X(TL.now) + 5}" y="${Ht - 4}" class="tl-t now">${tr("nu", "now")}</text>`;
     const sc = $("#tl-scroll"), keep = sc.dataset.zoom === String(tlS.z) && tlS.left != null ? tlS.left : null;
+    // Its labels stay at the left edge while the timeline scrolls.
+    $("#tl-y").innerHTML = [100, 50, 0].map((v) => `<span style="top:${by(v) - 7}px">${v} %</span>`).join("");
     $("#tl").innerHTML = `<svg width="${W}" height="${Ht}" style="width:${W}px;height:${Ht}px;max-width:none" viewBox="0 0 ${W} ${Ht}" role="img" aria-label="${tr("Tidslinje", "Timeline")}">${g}</svg>`;
     const go = (h) => { sc.scrollLeft = clamp(X(h) - sc.clientWidth * 0.5, 0, W); };
     if (keep == null) { sc.dataset.zoom = String(tlS.z); if (sc.clientWidth) { go(tlS.at ?? TL.now); tlS.left = sc.scrollLeft; } } else sc.scrollLeft = keep;

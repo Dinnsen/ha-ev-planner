@@ -2,6 +2,12 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [Unreleased]
+
+### Added
+
+- **The cars' week shows the battery's scale**: quiet lines at 0, 50 and 100 % under the cars' levels, with their labels kept at the left edge while the timeline scrolls.
+
 ## [2.5.0b36] - 2026-11-17
 
 ### Added
