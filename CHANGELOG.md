@@ -2,6 +2,12 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [Unreleased]
+
+### Fixed
+
+- A car the week plan held where it was (nothing to charge in its stay) got a target a few hundredths above its level, and a planned quarter of an hour of charging that would never happen: the car page showed a charge tonight while Learning said none, and the car showed "Charged" with a plan. The week plan now holds the level rounded down, and no charge is planned for a car that is within 0.15 % of its target (as it already counted as full).
+
 ## [2.5.0b39] - 2026-11-18
 
 ### Changed

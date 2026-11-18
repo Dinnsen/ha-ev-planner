@@ -66,6 +66,8 @@ def test_charge_need_estimated_and_from_the_speed() -> None:
     ("args", "key"),
     [
         ((80, 80, 77, 11, None), "limit_not_above_soc"),
+        # A few hundredths below the target is there: no block of charging for it.
+        ((71.663, 71.7, 77, 11, None), "limit_not_above_soc"),
         ((20, 80, 0, 11, None), "invalid_input"),
         ((20, 80, 77, 0, None), "invalid_input"),
         ((20, 80, 77, 11, 0), "invalid_input"),

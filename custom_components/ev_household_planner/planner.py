@@ -11,6 +11,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from math import ceil
 
+# How close to the target counts as there (percent of the battery): a car this close is full, and
+# no charge is planned for it (many cars never show the last decimal).
+FULL_WITHIN = 0.15
+
 # Costs closer than this are treated as equal, so a later window never
 # replaces an earlier one only because of floating point noise.
 EPSILON = 1e-9
@@ -139,7 +143,7 @@ def charge_need(
         speed = estimated_speed(battery_kwh, charger_kw)
     if battery_kwh <= 0 or charger_kw <= 0 or speed <= 0 or not 0 <= soc <= 100 or not 0 <= limit <= 100:
         raise PlanError("invalid_input")
-    if limit <= soc:
+    if limit <= soc + FULL_WITHIN:
         raise PlanError("limit_not_above_soc")
 
     exact = charging_hours(soc, limit, speed, curve)

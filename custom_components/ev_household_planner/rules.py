@@ -28,6 +28,7 @@ from typing import Any
 
 from .planner import (
     EPSILON,
+    FULL_WITHIN,
     MODE_CONTINUOUS,
     MODE_SPLIT,
     ChargeNeed,
@@ -76,10 +77,6 @@ FALLBACK_KEEP = timedelta(minutes=15)
 WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 SCHEDULE_DEFAULT = "default"
 SCHEDULE_NONE = "none"
-
-
-# How close to the target counts as there (percent of the battery).
-FULL_WITHIN = 0.15
 
 
 @dataclass(frozen=True, slots=True)

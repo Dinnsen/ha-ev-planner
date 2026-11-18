@@ -24,6 +24,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from datetime import date, datetime, timedelta
 import itertools
 import logging
+from math import floor
 import re
 from statistics import median
 from typing import TYPE_CHECKING, Any
@@ -1175,8 +1176,9 @@ class Insight:
                             "capacity": car.capacity,
                             "soc": round(car.soc / car.capacity * 100, 1),
                             "steer": True,
-                            # Nothing to charge in this stay: held where it is.
-                            "target": target if target is not None else round(car.soc / car.capacity * 100, 1),
+                            # Nothing to charge in this stay: held where it is (rounded down, so the
+                            # hold is not a charge of a few hundredths of a percent).
+                            "target": target if target is not None else floor(car.soc / car.capacity * 1000) / 10,
                             "deadline": hours[finish].start.isoformat()
                             if finish is not None and finish < len(hours) and charged
                             else None,
