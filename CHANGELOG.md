@@ -6,6 +6,7 @@ All notable changes to EV Planner. The version is the one in `custom_components/
 
 ### Fixed
 
+- **Holiday waits for its day home, and says so**: picking Holiday set nothing until a day home was picked, while the ready-by chip still showed the departure before it. The date picker now opens at once, and until a day is picked the chip says "Pick the day home" (a tap opens the picker).
 - Setting or clearing a one-off departure made the car's plan again at once, but the week plan in Learning only at the next hour: for up to an hour Learning and the car page could disagree. The week plan is now made again at once too.
 
 ## [2.5.0b40] - 2026-11-18

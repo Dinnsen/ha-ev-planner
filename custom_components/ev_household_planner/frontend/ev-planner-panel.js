@@ -1681,6 +1681,7 @@ Object.assign(TEXT.da, {
   trip_holiday: "Ferie",
   trip_week: "Ugeplan",
   trip_home_day: "Hjem igen",
+  trip_pick_day: "Vælg dagen hjem",
   trip_ready: "{when}, én gang – derefter ugeplanen igen.",
   trip_cheap_weekend: "Lader kun, når prisen højst er 10 % over den laveste kendte. Klar mandag morgen.",
   trip_cheap_holiday: "Lader kun i de 10 % billigste timer frem til hjemkomsten.",
@@ -1780,6 +1781,7 @@ Object.assign(TEXT.en, {
   trip_holiday: "Holiday",
   trip_week: "Week plan",
   trip_home_day: "Home again",
+  trip_pick_day: "Pick the day home",
   trip_ready: "{when}, once – then the week plan again.",
   trip_cheap_weekend: "Charges only when the price is at most 10 % above the lowest known. Ready Monday morning.",
   trip_cheap_holiday: "Charges only in the cheapest 10 % of the hours until you are home.",
@@ -7762,7 +7764,7 @@ class EvPlannerPanel extends HTMLElement {
     }
     this._patch(root.querySelector(".car-notes"), JSON.stringify([v.problem, v.control_error, v.control_retry, v.car_limit, v.target, v.resumes, this._state.price_issue, this._state.supply, v.supply_amps, v.connected, v.plan_forecast, v.plan_other_cost, shown.plan?.cost, v.settings?.known_prices, shown.plan && [shown.plan.limited, shown.plan.min_only, shown.plan.short, shown.plan.opportunistic, shown.plan.ceiling], shown.deadline, this._lang]), this._notesHtml(v, shown.plan ? { ...shown.plan, deadline: shown.deadline } : null, { compact: true }));
     const glance = root.querySelector(".car-page .glance");
-    if (glance) this._patch(glance, JSON.stringify([shown.deadline, shown.preview, shown.plan?.end_soc, v.target, v.calendar?.start, v.trip, this._lang]), this._glanceHtml(v, shown));
+    if (glance) this._patch(glance, JSON.stringify([shown.deadline, shown.preview, shown.plan?.end_soc, v.target, v.calendar?.start, v.trip, this._tripPick, this._lang]), this._glanceHtml(v, shown));
     this._renderTimeline(shown.plan, { deadline: shown.deadline, ceiling: s.price_ceiling_enabled || shown.plan?.opportunistic ? ceiling : null, actual: this._chargedPeriods(v) });
     root.querySelector(".ceiling-key")?.toggleAttribute("hidden", !(s.price_ceiling_enabled || shown.plan?.opportunistic));
     const note = root.querySelector(".car-page .ceil-note");
@@ -7822,6 +7824,10 @@ class EvPlannerPanel extends HTMLElement {
 
   /* At a glance, as chips: ready by, to what, for how much, and when it charges. */
   _glanceHtml(v, shown) {
+    // Holiday picked, its day home not yet: nothing is set until it is, and the chip says so.
+    if (this._tripPick === "holiday" && v.trip?.kind !== "holiday") {
+      return `<button class="g-chip g-next g-wait" data-act="trip-date">${ICONS.history}<b>${esc(this._t("trip_pick_day"))}</b>${ICONS.back}</button>`;
+    }
     const plan = shown.plan;
     const target = plan && isNum(plan.end_soc) ? plan.end_soc : v.target;
     const ready = this._readyText(shown.deadline);
@@ -7843,8 +7849,24 @@ class EvPlannerPanel extends HTMLElement {
     this.shadowRoot.activeElement?.blur?.();
     this._tripPick = kind || "";
     this._renderCarPage({ live: false });
-    if (kind === "holiday" && !date) return;
+    if (kind === "holiday" && !date) {
+      this._openTripDate();
+      return;
+    }
     await this._run("trip", "ev_household_planner/vehicle_trip", { vehicle_id: v.id, kind: kind || null, date: date || null });
+  }
+
+  /* The holiday's day home: the picker opened (where the browser lets it), else the box in focus. */
+  _openTripDate() {
+    const input = this.shadowRoot.querySelector("[data-trip-date]");
+    if (!input) return;
+    input.focus({ preventScroll: true });
+    input.scrollIntoView?.({ block: "nearest" });
+    try {
+      input.showPicker?.();
+    } catch (_err) {
+      // Not from here (an older browser, or not straight after the tap): the box has the focus.
+    }
   }
 
   /* Where the next ready-by time comes from: the calendar, a preset or the week plan. */
@@ -11688,6 +11710,9 @@ class EvPlannerPanel extends HTMLElement {
       case "photo":
         this._pickPhoto(id);
         break;
+      case "trip-date":
+        this._openTripDate();
+        break;
       case "photo-look":
         if (button.dataset.kind === "charger") {
           this._setTab("settings");
@@ -12387,6 +12412,7 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .g-chip b { font-weight: 600; }
 .g-next { border: 0; color: var(--evp-ink); font: inherit; font-size: 14px; cursor: pointer; background: color-mix(in srgb, var(--evp-a) 14%, transparent); }
 .g-next em { font-style: normal; font-size: 12px; color: var(--evp-soft); }
+.g-chip.g-next.g-wait { background: color-mix(in srgb, var(--evp-sand) 55%, transparent); }
 .g-chip.g-next svg:last-child { width: 12px; height: 12px; stroke: var(--evp-soft); transform: rotate(180deg); }
 .g-chip svg { width: 16px; height: 16px; fill: none; stroke: var(--evp-a); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .go-row { display: flex; gap: 8px; align-items: stretch; margin-top: 14px; }

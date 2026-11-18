@@ -11,8 +11,8 @@ from homeassistant.core import HomeAssistant, ServiceCall
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ev_household_planner.const import SET_INSIGHT
 from custom_components.ev_household_planner.household import climate_temperature, read_trip
+from custom_components.ev_household_planner.insight import SET_INSIGHT
 from custom_components.ev_household_planner.prices import PriceSlot
 from custom_components.ev_household_planner.rules import cheap_ceiling, trip_deadline
 
