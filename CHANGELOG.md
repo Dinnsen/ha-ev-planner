@@ -2,6 +2,14 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [Unreleased]
+
+### Changed
+
+- **The battery's handle moves the day's own target**: when the week plan gives the day of the next ready-by time its own target, the handle changes that one (it changed the usual target, and the day's target won, so the handle seemed to jump back). The target says it comes from the week plan.
+- **A car limit EV Planner can only read**: the warning that the car stops at its own limit offers to set the target to that limit in one tap.
+- **History's chart has values on its lines**: the scale is in round numbers (0, 20, 40, 60 kWh), each line labelled.
+
 ## [2.5.0b41] - 2026-11-18
 
 ### Fixed

@@ -237,6 +237,7 @@ const TEXT = {
     day_target: "Mål denne dag",
     day_target_usual: "Som normalt",
     note_car_limit: "Bilens egen ladegrænse er {limit}: den stopper der, selv om målet er {target}.",
+    note_car_limit_use: "Sæt målet til {limit}",
     note_no_resume: "{name} starter ikke igen efter en pause, så den lader i ét stræk.",
     note_forecast_do: "Brug kendte priser",
     basis_forecast: "Prisprognose",
@@ -472,6 +473,7 @@ const TEXT = {
     charge: "Opladning",
     now_level: "Nu",
     target: "Mål",
+    target_from_week: "Ugeplan · {day}",
     add_energy: "{kwh} i batteriet",
     charger: "Ladeeffekt",
     custom: "Andet",
@@ -893,6 +895,7 @@ const TEXT = {
     day_target: "Target this day",
     day_target_usual: "As usual",
     note_car_limit: "The car's own charge limit is {limit}: it stops there, even though the target is {target}.",
+    note_car_limit_use: "Set the target to {limit}",
     note_no_resume: "{name} does not charge again after a pause, so it charges in one go.",
     note_forecast_do: "Use known prices",
     basis_forecast: "Price forecast",
@@ -1125,6 +1128,7 @@ const TEXT = {
     charge: "Charging",
     now_level: "Now",
     target: "Target",
+    target_from_week: "Week plan · {day}",
     add_energy: "{kwh} into the battery",
     charger: "Charger power",
     custom: "Other",
@@ -6639,7 +6643,9 @@ class EvPlannerPanel extends HTMLElement {
       notes.push(["bad", text]);
     }
     if (isNum(v.car_limit) && isNum(v.target) && Number(v.car_limit) + 0.5 < Number(v.target)) {
-      notes.push(["warn", this._t("note_car_limit", { limit: this._pct(v.car_limit), target: this._pct(v.target) })]);
+      // A limit EV Planner can only read: the target can follow it in one tap (a limit it sets, it raises itself).
+      const readOnly = !Array.isArray(v.target_steps) && v.target_editable !== false;
+      notes.push(["warn", this._t("note_car_limit", { limit: this._pct(v.car_limit), target: this._pct(v.target) }), ...(readOnly ? ["target-to-limit", this._t("note_car_limit_use", { limit: this._pct(v.car_limit) })] : [])]);
     }
     if (!compact && v.resumes === false) notes.push(["info", this._t("note_no_resume", { name: v.name }), "forget-resume"]);
     if (!compact && this._state.price_issue) notes.push(["warn", this._t(`price_issue_${this._state.price_issue}`)]);
@@ -7405,9 +7411,12 @@ class EvPlannerPanel extends HTMLElement {
     const draft = this._vdraftId === v.id ? this._vdraft : {};
     const manual = v.soc_source !== "sensor";
     const soc = manual ? draft.manual_soc ?? v.soc ?? s.manual_soc : v.soc;
+    // The day of the next ready-by time has its own target in the week plan: the handle moves that one.
+    const day = this._dayTargetDay(v);
+    const dayDraft = day ? draft.day_targets?.[day] : undefined;
     return {
       soc: isNum(soc) ? Number(soc) : null,
-      limit: Number(draft.target_soc ?? v.target ?? s.target_soc ?? 80),
+      limit: Number(dayDraft ?? (day ? undefined : draft.target_soc) ?? v.target ?? s.target_soc ?? 80),
       capacity: Number(v.capacity) || 0,
       min: Number(s.min_soc) || 0,
       nowKey: "manual_soc",
@@ -7415,9 +7424,24 @@ class EvPlannerPanel extends HTMLElement {
       targetSteps: Array.isArray(v.target_steps) ? v.target_steps.map(Number) : null,
       canNow: manual,
       canTarget: v.target_editable !== false,
-      set: (changes, opts) => this._vchange(changes, opts),
+      day,
+      set: (changes, opts) => {
+        if (day && "target_soc" in changes) {
+          const { target_soc: value, ...rest } = changes;
+          changes = { ...rest, day_targets: { ...(s.day_targets || {}), ...(draft.day_targets || {}), [day]: value } };
+        }
+        this._vchange(changes, opts);
+      },
       commit: () => this._vcommit(),
     };
+  }
+
+  /* The weekday whose own target in the week plan is the car's target now, or null. */
+  _dayTargetDay(v) {
+    if (!isNum(v?.day_target) || !v.deadline || v.calendar?.start === v.deadline) return null;
+    if (v.trip && v.trip.at === v.deadline) return null;
+    const day = WEEKDAYS[(ZD(v.deadline).getDay() + 6) % 7];
+    return isNum(this._vs(v).day_targets?.[day]) ? day : null;
   }
 
   _batteryHtml() {
@@ -7474,7 +7498,9 @@ class EvPlannerPanel extends HTMLElement {
       minMark.title = this._t("min_mark", { pct: this._pct(model.min) });
     }
     root.querySelector(".now-label").innerHTML = known ? `${this._t("now_level")} <b>${Math.round(soc)} %</b>` : `<b class="bad-text">${this._t("soc_missing")}</b>`;
-    root.querySelector(".target-label").innerHTML = `${this._t("target")} <b>${Math.round(limit)} %</b>`;
+    root.querySelector(".target-label").innerHTML = model.day
+      ? `<small class="from-week">${esc(this._t("target_from_week", { day: this._t(`day_${model.day}`) }))}</small> ${this._t("target")} <b>${Math.round(limit)} %</b>`
+      : `${this._t("target")} <b>${Math.round(limit)} %</b>`;
     const gain = known ? (model.capacity * Math.max(0, limit - soc)) / 100 : 0;
     root.querySelector(".gain").textContent = gain > 0 ? `+${this._t("add_energy", { kwh: this._kwh(gain) })}` : "";
     const hint = root.querySelector(".battery-hint");
@@ -10060,7 +10086,13 @@ class EvPlannerPanel extends HTMLElement {
     }
     // The chart: one bar per bucket, the cars stacked, the rest of the house behind them.
     const totals = buckets.map((_, i) => Object.values(grid[i]).reduce((a, b) => a + b, 0));
-    const peak = Math.max(0.1, ...totals, ...(houseRows || []));
+    // The scale in round numbers, so the lines can say what they are: 0, 20, 40, 60 kWh.
+    const most = Math.max(0.1, ...totals, ...(houseRows || []));
+    const raw = most / 4;
+    const mag = 10 ** Math.floor(Math.log10(raw));
+    const step = [1, 2, 2.5, 5, 10].map((f) => f * mag).find((v) => v >= raw) || 10 * mag;
+    const lines = Math.max(1, Math.ceil(most / step - 1e-9));
+    const peak = step * lines;
     const n = buckets.length;
     const cw = 600;
     const ch = 180;
@@ -10068,7 +10100,13 @@ class EvPlannerPanel extends HTMLElement {
     const bw = cw / n;
     let bars = "";
     const axis = [];
-    for (const f of [0.25, 0.5, 0.75, 1]) bars += `<line class="hb-grid" x1="0" x2="${cw}" y1="${(ch - f * ch).toFixed(1)}" y2="${(ch - f * ch).toFixed(1)}"/>`;
+    const ticks = [];
+    for (let k = 1; k <= lines; k += 1) {
+      const y = ch - (k / lines) * ch;
+      bars += `<line class="hb-grid" x1="0" x2="${cw}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}"/>`;
+      const value = this._num(step * k, step < 1 ? 1 : 0);
+      ticks.push(`<span style="top:${(((y + 6) / (ch + 8)) * 100).toFixed(2)}%">${esc(k === lines ? `${value} kWh` : value)}</span>`);
+    }
     buckets.forEach(([a], i) => {
       const x = i * bw + gap / 2;
       const w = Math.max(1, bw - gap);
@@ -10087,7 +10125,7 @@ class EvPlannerPanel extends HTMLElement {
       const every = n > 24 ? 5 : n > 12 ? 3 : 1;
       if (i % every === 0) axis.push(`<span style="left:${(((x + w / 2) / cw) * 100).toFixed(2)}%">${esc(this._bucketLabel(period, a))}</span>`);
     });
-    const chart = `<svg class="hist-chart" viewBox="0 -6 ${cw} ${ch + 8}" preserveAspectRatio="none" role="img" aria-label="${esc(this._periodTitle(period, start, end))}">${bars}</svg><div class="hb-axis">${axis.join("")}</div>
+    const chart = `<div class="hist-chart-wrap"><svg class="hist-chart" viewBox="0 -6 ${cw} ${ch + 8}" preserveAspectRatio="none" role="img" aria-label="${esc(this._periodTitle(period, start, end))}">${bars}</svg><div class="hb-y" aria-hidden="true">${ticks.join("")}</div></div><div class="hb-axis">${axis.join("")}</div>
       <div class="home-legend">${houseRows ? `<span><i style="background:var(--evp-line)"></i>${esc(this._t("hist_house"))}</span>` : ""}${series.map((s) => `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join("")}</div>`;
     // A year: every day as a square, coloured by how much was charged.
     let calendar = "";
@@ -11689,6 +11727,12 @@ class EvPlannerPanel extends HTMLElement {
       case "forecast-prices":
         this._run("prices", "ev_household_planner/vehicle_set", { vehicle_id: id, settings: { known_prices: act === "known-prices" } });
         break;
+      case "target-to-limit": {
+        const car = this._cars.find((c) => c.id === id);
+        const model = car && car.id === this._currentCar?.id ? this._batteryModel() : null;
+        if (model && isNum(car.car_limit)) model.set({ target_soc: Math.round(Number(car.car_limit)) });
+        break;
+      }
       case "forget-resume":
         this._run("forget", "ev_household_planner/vehicle_set", { vehicle_id: id, settings: { forget_resume: true } });
         break;
@@ -12664,6 +12708,8 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 .battery-legend { display: flex; justify-content: space-between; gap: 10px; margin-top: 10px; font-size: 14px; color: var(--evp-soft); font-variant-numeric: tabular-nums; }
 .battery-legend b { color: var(--evp-ink); }
 .battery-legend .gain { color: var(--evp-ink); font-weight: 500; text-align: center; }
+.battery-legend .target-label { text-align: right; }
+.target-label .from-week { display: block; font-size: 11px; font-weight: 500; color: var(--evp-soft); line-height: 1.2; }
 .battery-hint { margin-top: 4px; font-size: 13px; }
 
 /* ---------- buttons */
@@ -13012,6 +13058,9 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 .hb-axis { position: relative; height: 18px; margin-top: 4px; }
 .hb-axis span { position: absolute; transform: translateX(-50%); font-size: 11.5px; color: var(--evp-soft); white-space: nowrap; }
 .hist-chart .hb-grid { stroke: var(--evp-line); stroke-width: 1; }
+.hist-chart-wrap { position: relative; }
+.hb-y { position: absolute; inset: 0; pointer-events: none; }
+.hb-y span { position: absolute; left: 0; transform: translateY(-50%); padding: 0 6px 0 0; font-size: 11px; line-height: 1; color: var(--evp-soft); background: var(--evp-card); font-variant-numeric: tabular-nums; }
 .hist-chart .hb-bar { transform-box: fill-box; transform-origin: bottom; animation: grow .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: var(--d); }
 .hist-chart .hb-bar.house { fill: color-mix(in srgb, var(--evp-ink) 13%, transparent); }
 

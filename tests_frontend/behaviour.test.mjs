@@ -87,6 +87,30 @@ test("a mode button stores the mode at once", async () => {
   });
 });
 
+test("the battery's handle moves the week plan's own target of the day, and says so", async () => {
+  const state = fixture("two-cars");
+  const car = state.vehicles.find((v) => v.id === "tesla_model_y");
+  const day = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][new Date(car.deadline).getDay()];
+  car.settings = { ...car.settings, day_targets: { [day]: 100 } };
+  car.day_target = 100;
+  car.target = 100;
+  car.car_limit = 80;
+  car.target_steps = null;
+  await withPanel(state, { size: PHONE }, async ({ tap, read, page, waitForCall, calls }) => {
+    await tap('.tabs button[data-tab="cars"]');
+    await tap('[data-act="open-car"][data-id="tesla_model_y"]');
+    assert.match(await read(".target-label"), /(Week plan|Ugeplan)/);
+    await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".handle.target").focus());
+    await page.keyboard.press("ArrowLeft");
+    await waitForCall("vehicle_set");
+    const sent = (await calls("vehicle_set")).at(-1).settings;
+    assert.equal(sent.target_soc, undefined, "the usual target is left alone");
+    assert.ok(sent.day_targets[day] < 100, "the day's own target moves");
+    // The car's own limit only read: the warning offers to follow it.
+    assert.ok(await read('[data-act="target-to-limit"]'));
+  });
+});
+
 test("the steps of the target move at once when another is chosen", async () => {
   await withPanel("two-cars", { size: PHONE }, async ({ tap, read, waitForCall, calls }) => {
     await tap('.tabs button[data-tab="cars"]');
