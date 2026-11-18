@@ -10,7 +10,8 @@ All notable changes to EV Planner. The version is the one in `custom_components/
 
 ### Fixed
 
-- After a restart or a reload, a car steered by the week plan could be started on its plain target for a minute before the week plan was read again (and charge at an expensive hour). The week plan is now read before the first command.
+- After a restart or a reload, a car steered by the week plan could be started on its plain target for a minute before the week plan was read again (and charge at an expensive hour). The week plan is now made before the first command, with the cars' hours at home read first.
+- A car whose charge level arrived a minute after it stopped (as a Tesla's does) was told "Charged to …" twice. The late rise is counted in the charge, and the message is sent once.
 
 ## [2.5.0b36] - 2026-11-17
 

@@ -702,7 +702,7 @@ class Household(DataUpdateCoordinator[None]):
         if self.insight.enabled:
             # The week plan's targets before the first command: a car is not started on the
             # plain target for the minute until the week plan is read again (as after a reload).
-            await self.insight.async_week(dt_util.now())
+            await self.insight.async_start(dt_util.now())
         await self.async_recalculate()
 
     async def async_shutdown(self) -> None:
@@ -1371,7 +1371,12 @@ class Household(DataUpdateCoordinator[None]):
         kwh = vehicle.soc_energy(previous, new, speed, power)
         if kwh > 0:
             vehicle.last_rise = now
-            vehicle.start_session(now, vehicle.decision.reason)
+            session = vehicle.session
+            if not (vehicle.charging is False and session is not None and not session.charging):
+                # A rise the car reports after its own sensor said it stopped is the end of that
+                # charge, reported late: counted, but the charge is not taken up again (and not
+                # reported as done a second time).
+                vehicle.start_session(now, vehicle.decision.reason)
             # A car that reports its power has its energy counted by that, every minute.
             if not self._power_counted(vehicle, now):
                 vehicle.add_energy(now, kwh, current_price(self.vehicle_prices(vehicle, now), now), "soc")

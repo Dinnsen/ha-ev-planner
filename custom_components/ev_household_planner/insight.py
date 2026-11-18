@@ -439,6 +439,18 @@ class Insight:
         """A car's own choices changed: the week plan again."""
         await self._async_hold(now)
 
+    async def async_start(self, now: datetime) -> None:
+        """Started (or reloaded): the week plan before the first command, with the cars' hours at home read first.
+
+        Without them the plan goes by the night's hours for a minute, and can hand a car another target.
+        """
+        try:
+            await self._async_home_history(now)
+        except Exception:  # the recorder may not be ready: the next hour reads it
+            _LOGGER.debug("The cars' hours at home could not be read at start", exc_info=True)
+            self._home_read = None
+        await self._async_hold(now)
+
     async def async_tick(self, now: datetime) -> None:
         """Write down where the cars are and what they have used, and now and then the prices."""
         if not self.enabled:

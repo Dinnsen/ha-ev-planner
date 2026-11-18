@@ -288,6 +288,36 @@ async def test_live_notification_while_charging_and_message_when_done(
         assert float(per_kwh.state) == pytest.approx(history[0]["cost"] / history[0]["energy"], abs=0.001)
 
 
+async def test_a_level_reported_after_the_stop_is_not_a_second_done_message(
+    hass: HomeAssistant, notify: NotifyCalls, household: MockConfigEntry, freezer: FrozenDateTimeFactory
+) -> None:
+    await _switch(hass, "switch.tesla_notify_when_charged")
+    await hass.services.async_call(
+        "select", "select_option", {ATTR_ENTITY_ID: "select.tesla_mode", "option": "charge_now"}, blocking=True
+    )
+    hass.states.async_set(CHARGING, "on")
+    await settle(hass, freezer)
+    hass.states.async_set(SOC, "60")
+    await settle(hass, freezer)
+    hass.states.async_set(CHARGING, "off")
+    await settle(hass, freezer)
+    tesla = household.runtime_data.vehicles[TESLA]
+    energy = tesla.session.energy
+
+    # The car's cloud reports the last rise a minute after its charging sensor said it stopped.
+    await move(hass, freezer, dt_util.now() + timedelta(minutes=1))
+    hass.states.async_set(SOC, "61")
+    await settle(hass, freezer)
+    await move(hass, freezer, dt_util.now() + timedelta(minutes=1))
+
+    done = [c for c in notify.calls if c.get("data", {}).get("tag") == f"evp_done_{TESLA}"]
+    assert len(done) == 1
+    assert not tesla.session.charging
+    assert len(tesla.session.periods) == 1
+    # The late rise is still counted.
+    assert tesla.session.energy > energy
+
+
 async def test_notification_actions_set_the_mode(
     hass: HomeAssistant, household: MockConfigEntry, freezer: FrozenDateTimeFactory
 ) -> None:
