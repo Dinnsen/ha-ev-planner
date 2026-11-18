@@ -103,6 +103,42 @@ test("the steps of the target move at once when another is chosen", async () => 
   });
 });
 
+test("a picture has nothing on it, and tapping it opens where it is changed", async () => {
+  await withPanel("two-cars", { size: PHONE }, async ({ tap, touch, read, page }) => {
+    await tap('.tabs button[data-tab="cars"]');
+    await tap('[data-act="open-car"][data-id="tesla_model_y"]');
+    const onPicture = await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".car-head .photo button").length);
+    assert.equal(onPicture, 1, "only the picture itself");
+    await tap('.car-head [data-act="photo-look"]');
+    // The car's Rules, with Look open and the picture's buttons in it.
+    assert.equal(await read('[data-act="car-view"][data-view="rules"]', "aria-selected"), "true");
+    assert.ok(await read('.sheet [data-photo="tesla_model_y"] [data-act="photo"]'), "the picture is changed in the sheet");
+
+    await touch('header [data-act="sheet-close"]');
+    await touch('[data-act="back"]');
+    await tap('.tabs button[data-tab="home"]');
+    const charger = await page.evaluate(() => window.harness.panel.shadowRoot.querySelector('.chargers [data-act="photo-look"]')?.dataset.id || null);
+    assert.ok(charger, "the Home tab lists a charger with its picture");
+    await tap(`.chargers [data-act="photo-look"][data-id="${charger}"]`);
+    assert.equal(await page.evaluate(() => window.harness.panel._tab), "settings");
+    assert.ok(await read(`.sheet [data-photo="${charger}"] [data-act="photo"]`), "a charger's picture is changed in Settings › Look");
+  });
+});
+
+test("the house shows a car only when it is known to be there", async () => {
+  await withPanel("two-cars", { size: PHONE }, async ({ page }) => {
+    const here = (v) => page.evaluate((car) => window.harness.panel._carIsHere(car), v);
+    const charger = { id: "garage", name: "Garage" };
+    assert.equal(await here({ home: true, connected: false, charger }), true, "home, not plugged in");
+    assert.equal(await here({ home: false, connected: true, charging: true, charger }), false, "charging on the road");
+    assert.equal(await here({ home: true, connected: true, charging: true, elsewhere: true, charger }), false, "at another charger");
+    // Without a location: only when it is plugged in at a charger here that says a car is.
+    assert.equal(await here({ home: null, connected: false, charger }), false);
+    assert.equal(await here({ home: null, connected: true, charger }), true);
+    assert.equal(await here({ home: null, connected: true, charger_unsure: true, charger }), false);
+  });
+});
+
 test("changing a rule shows the plan it would give, then stores it", async () => {
   await withPanel("two-cars", { size: PHONE }, async ({ page, tap, read, calls, waitForCall, state }) => {
     await tap('.tabs button[data-tab="cars"]');

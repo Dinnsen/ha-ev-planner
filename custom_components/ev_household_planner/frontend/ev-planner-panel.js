@@ -492,7 +492,10 @@ const TEXT = {
     photo_change: "Skift billede",
     photo_remove: "Fjern billede",
     photo_saved: "Billedet er gemt",
-    photo_saved_cut: "Baggrunden er fjernet – pilen på billedet fortryder",
+    photo_saved_cut: "Baggrunden er fjernet",
+    photo_title: "Billede",
+    photo_undo_short: "Fortryd",
+    charger_photos: "Ladernes billeder",
     photo_cut: "Fjern baggrunden",
     photo_cutting: "Fjerner baggrunden …",
     photo_no_background: "Billedet har ikke en ensfarvet baggrund, der kan fjernes",
@@ -1142,7 +1145,10 @@ const TEXT = {
     photo_change: "Change photo",
     photo_remove: "Remove photo",
     photo_saved: "The photo is saved",
-    photo_saved_cut: "The background is removed – the arrow on the photo undoes it",
+    photo_saved_cut: "The background is removed",
+    photo_title: "Picture",
+    photo_undo_short: "Undo",
+    charger_photos: "The chargers' pictures",
     photo_cut: "Remove the background",
     photo_cutting: "Removing the background …",
     photo_no_background: "The photo has no plain background to remove",
@@ -6704,21 +6710,42 @@ class EvPlannerPanel extends HTMLElement {
     </section>`;
   }
 
-  /* A car's or charger's picture; tapping it picks a new photo, the small cross removes it,
-     the wand cuts a plain background away and the arrow undoes that. */
-  _photoHtml(id, image, fallback, { small = false, wide = false, original = null } = {}) {
+  /* A car's or charger's picture, and nothing on it: tapping it opens where it is changed
+     (a car's Rules › Look, a charger's in Settings › Look). */
+  _photoHtml(id, image, fallback, { small = false, wide = false, kind = "car" } = {}) {
     const busy = this._busy === `photo:${id}`;
     const label = this._t(image ? "photo_change" : "photo_add");
-    const button = (act, icon, text) =>
-      `<button class="photo-${act}" data-act="photo-${act}" data-id="${esc(id)}" aria-label="${text}" title="${text}" ${busy ? "disabled" : ""}>${icon}</button>`;
     return `<span class="photo ${small ? "small" : ""} ${wide ? "wide" : ""} ${image ? "has" : ""} ${busy ? "busy" : ""}">
-      <button class="photo-pick" data-act="photo" data-id="${esc(id)}" data-f="photo-${esc(id)}" aria-label="${label}" title="${label}" ${busy ? "disabled" : ""}>
-        ${image ? `<img src="${esc(image)}" alt="" loading="lazy">` : fallback}<i class="cam">${ICONS.camera}</i>
+      <button class="photo-pick" data-act="photo-look" data-kind="${kind}" data-id="${esc(id)}" data-f="photo-${esc(id)}" aria-label="${label}" title="${label}">
+        ${image ? `<img src="${esc(image)}" alt="" loading="lazy">` : fallback}
       </button>
-      ${image ? button("del", ICONS.close, this._t("photo_remove")) : ""}
-      ${image && !small && !original ? button("cut", ICONS.wand, this._t("photo_cut")) : ""}
-      ${original ? button("undo", ICONS.undo, this._t("photo_undo")) : ""}
     </span>`;
+  }
+
+  /* Where a picture is changed: the picture, and buttons beside it to pick another, cut a plain
+     background away (or undo that) and remove it. */
+  _photoEditHtml(id, image, fallback, original) {
+    const busy = this._busy === `photo:${id}`;
+    const off = busy ? " disabled" : "";
+    const button = (act, icon, text, extra = "") =>
+      `<button class="btn ghost small${extra}" data-act="${act}" data-id="${esc(id)}" data-f="${act}-${esc(id)}"${off}>${icon}<span>${esc(text)}</span></button>`;
+    return `<div class="photo-edit${busy ? " busy" : ""}" data-photo="${esc(id)}">
+      <span class="photo-thumb${image ? " has" : ""}">${image ? `<img src="${esc(image)}" alt="" loading="lazy">` : fallback}</span>
+      <div class="photo-btns">
+        ${button("photo", ICONS.camera, this._t(image ? "photo_change" : "photo_add"))}
+        ${image && !original ? button("photo-cut", ICONS.wand, this._t("photo_cut")) : ""}
+        ${original ? button("photo-undo", ICONS.undo, this._t("photo_undo_short")) : ""}
+        ${image ? button("photo-del", ICONS.close, this._t("photo_remove"), " danger") : ""}
+      </div>
+    </div>`;
+  }
+
+  /* Whether a car is drawn at the place: known to be there, or (where it is not known) plugged in
+     at a charger there that says a car is. A car on the road, or charging at another charger, is not. */
+  _carIsHere(v) {
+    if (v.elsewhere || v.home === false) return false;
+    if (v.home === true) return true;
+    return v.connected === true && !v.charger_unsure && Boolean(v.charger);
   }
 
   _photoOf(id) {
@@ -6832,7 +6859,7 @@ class EvPlannerPanel extends HTMLElement {
           const plugged = this._chargerWho(c);
           const model = c.model?.startsWith("generic_") ? this._t(`model_${c.model}`) : c.model_title;
           const details = [this._chargerSite(c), model, isNum(c.power) ? `${this._num(c.power)} kW` : "", plugged].filter(Boolean).join(" · ");
-          return `<li class="ctl-${esc(c.control || "released")}">${this._photoHtml(c.id, c.image, chargerArt(c.style), { small: true, original: c.image_original })}
+          return `<li class="ctl-${esc(c.control || "released")}">${this._photoHtml(c.id, c.image, chargerArt(c.style), { small: true, kind: "charger" })}
             <button class="ch-open" data-act="open-charger" data-id="${esc(c.id)}" data-f="ch-${esc(c.id)}" aria-label="${esc(this._t("open_charger", { name: c.name }))}"><strong><i aria-hidden="true"></i>${esc(c.name)}</strong><span>${esc(details)}</span></button>
             <b>${esc(text)}</b></li>`;
         })
@@ -6907,7 +6934,7 @@ class EvPlannerPanel extends HTMLElement {
     return `<div class="page stack charger-page" data-id="${esc(c.id)}">
       <header class="car-head">
         <button class="icon back" data-act="back" data-f="back" aria-label="${this._t("back_to")}">${ICONS.back}</button>
-        ${this._photoHtml(c.id, c.image, chargerArt(c.style), { wide: true, original: c.image_original })}
+        ${this._photoHtml(c.id, c.image, chargerArt(c.style), { wide: true, kind: "charger" })}
         <div class="car-title"><h1>${esc(c.name)}</h1><span>${esc(details)}</span></div>
         <span class="pill ${tone}">${esc(this._chargerStateText(c))}</span>
       </header>
@@ -7653,7 +7680,7 @@ class EvPlannerPanel extends HTMLElement {
       root.querySelector(".car-head"),
       JSON.stringify([v.name, v.status, sub, tone, lang, v.image, this._busy === `photo:${v.id}`]),
       `<button class="icon back" data-act="back" data-f="back" aria-label="${this._t("back_label")}">${ICONS.back}</button>
-       ${this._photoHtml(v.id, v.image, ICONS.car, { wide: true, original: v.image_original })}
+       ${this._photoHtml(v.id, v.image, ICONS.car, { wide: true })}
        <div class="car-title"><h1>${esc(v.name)}</h1><span>${esc(sub)}</span></div>
        <span class="pill ${tone}">${esc(this._statusText(v))}</span>`,
     );
@@ -8654,6 +8681,14 @@ class EvPlannerPanel extends HTMLElement {
       const seg = (act, values, current, label) => `<div class="segmented opp" role="radiogroup" aria-label="${label}">${values.map(
         (value) => `<button role="radio" data-act="${act}" data-value="${value}" data-f="${act}-${value}" aria-checked="${value === current}" class="${value === current ? "on" : ""}">${this._t(`${act}_${value}`)}</button>`,
       ).join("")}</div>`;
+      if (v) groups.look.push(
+        this._ruleRow({
+          icon: "camera",
+          title: this._t("photo_title"),
+          control: "",
+          extra: `<div class="rule-under">${this._photoEditHtml(v.id, v.image, ICONS.car, v.image_original)}</div>`,
+        }),
+      );
       groups.look.push(
         this._ruleRow({
           icon: "car",
@@ -8854,7 +8889,7 @@ class EvPlannerPanel extends HTMLElement {
     const body = !open || open.key === "notify" ? "" : open.rows.join("");
     this._patch(
       root.querySelector(".car-page .sheet-slot"),
-      JSON.stringify([this._sheet, this._ruleValues(s), v.target_steps, s.reminder, s.reminder_time, s.reminder_soc, s.reminder_price_enabled, s.reminder_price, s.reminder_days, s.reminder_repeat, s.reminder_horizon, s.notify_targets, s.live_notification, s.notify_done, s.notify_plug, s.notify_receipt, s.notify_away, this._state.config?.notify, this._currency, lang]),
+      JSON.stringify([this._sheet, this._ruleValues(s), v.image, v.image_original, this._busy, v.target_steps, s.reminder, s.reminder_time, s.reminder_soc, s.reminder_price_enabled, s.reminder_price, s.reminder_days, s.reminder_repeat, s.reminder_horizon, s.notify_targets, s.live_notification, s.notify_done, s.notify_plug, s.notify_receipt, s.notify_away, this._state.config?.notify, this._currency, lang]),
       open
         ? `<div class="scrim in-page" data-act="sheet-close"></div>
           <div class="sheet in-page${open.wide ? " wide" : ""}" role="dialog" aria-modal="true" aria-label="${esc(open.title)}">
@@ -9487,7 +9522,7 @@ class EvPlannerPanel extends HTMLElement {
     const power = (kw) => (Math.abs(kw) < 1 ? `${Math.round(Math.abs(kw) * 1000)} W` : `${this._num(Math.abs(kw), 1)} kW`);
     // The picture is of one place: the chargers and cars that are there.
     const chargers = this._chargers.filter((c) => (c.site ?? "home") === place.id).slice(0, 2);
-    const cars = this._cars.filter((v) => v.home !== false && (v.site ?? "home") === place.id).slice(0, 2);
+    const cars = this._cars.filter((v) => this._carIsHere(v) && (v.site ?? "home") === place.id).slice(0, 2);
     const carKw = (v) => {
       if (!v.charging) return 0;
       const amps = supply?.cars_now?.[v.id] ?? solar?.cars?.[v.id]?.amps;
@@ -10896,7 +10931,10 @@ class EvPlannerPanel extends HTMLElement {
       title: this._t("prof_look"),
       summary: this._t(`look_${now}`),
       body: `<div class="inline-values"><span>${this._t("look_pick")}${this._helpButton("look", this._t("prof_look"))}</span></div>${this._helpBubble("look", this._t("look_hint"))}
-        <div class="look-grid">${cards}</div>`,
+        <div class="look-grid">${cards}</div>
+        ${this._chargers.length ? `<h3>${this._t("charger_photos")}</h3>${this._chargers
+          .map((c) => this._ruleRow({ icon: "charger", title: c.name, control: "", extra: `<div class="rule-under">${this._photoEditHtml(c.id, c.image, chargerArt(c.style), c.image_original)}</div>` }))
+          .join("")}` : ""}`,
     };
   }
 
@@ -11650,6 +11688,23 @@ class EvPlannerPanel extends HTMLElement {
       case "photo":
         this._pickPhoto(id);
         break;
+      case "photo-look":
+        if (button.dataset.kind === "charger") {
+          this._setTab("settings");
+          this._sheet = "look";
+          this._render();
+          const row = [...this.shadowRoot.querySelectorAll("[data-photo]")].find((el) => el.dataset.photo === id);
+          row?.scrollIntoView?.({ block: "center" });
+          row?.querySelector("button")?.focus({ preventScroll: true });
+        } else {
+          if (id !== this._carId) this._openCar(id, { render: false });
+          this._carView = "rules";
+          this._sheet = "look";
+          this._lastView = null;
+          this._render();
+          [...this.shadowRoot.querySelectorAll("[data-photo]")].find((el) => el.dataset.photo === id)?.querySelector("button")?.focus({ preventScroll: true });
+        }
+        break;
       case "photo-del":
         this._removePhoto(id);
         break;
@@ -12089,25 +12144,19 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .photo-pick img { width: 100%; height: 100%; object-fit: contain; padding: 3px; box-sizing: border-box; display: block; filter: drop-shadow(0 2px 3px rgba(0,0,0,.18)); }
 .photo.has .photo-pick { background: var(--evp-photo-bg); }
 .photo.wide .photo-pick { width: 84px; height: 56px; }
-.photo-cut { position: absolute; bottom: -6px; right: -6px; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid var(--evp-line); background: var(--evp-card, var(--card-background-color, #fff)); color: var(--evp-a); cursor: pointer; display: grid; place-items: center; opacity: 0; transition: opacity .15s; }
-.photo-cut svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.photo:hover .photo-cut, .photo:focus-within .photo-cut { opacity: 1; }
-.photo-undo { position: absolute; bottom: -6px; left: -6px; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid var(--evp-line); background: var(--evp-card, var(--card-background-color, #fff)); color: var(--evp-a); cursor: pointer; display: grid; place-items: center; opacity: 0; transition: opacity .15s; }
-.photo-undo svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.photo:hover .photo-undo, .photo:focus-within .photo-undo { opacity: 1; }
-@media (hover: none) { .photo-cut, .photo-undo { opacity: 1; } }
 .photo-pick > svg { width: 60%; height: 60%; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .photo-pick > svg.art { width: 80%; height: 80%; stroke-width: 2.6; }
 .photo-pick > svg.art .glass { fill: color-mix(in srgb, var(--evp-a) 18%, transparent); }
 .photo-pick > svg.art .led { stroke: var(--evp-a); fill: var(--evp-a); }
-.photo-pick .cam { position: absolute; right: 2px; bottom: 2px; width: 18px; height: 18px; border-radius: 6px; display: grid; place-items: center; background: var(--evp-card, var(--card-background-color, #fff)); color: var(--evp-ink); opacity: 0; transition: opacity .15s; }
-.photo-pick .cam svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.photo-pick:hover .cam, .photo-pick:focus-visible .cam, .photo:not(.has) .cam { opacity: 1; }
 .photo.busy .photo-pick { animation: seg 1.2s ease-in-out infinite; }
-.photo-del { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; padding: 0; border-radius: 50%; border: 1px solid var(--evp-line); background: var(--evp-card, var(--card-background-color, #fff)); color: var(--evp-soft); cursor: pointer; display: grid; place-items: center; opacity: 0; transition: opacity .15s; }
-.photo-del svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
-.photo:hover .photo-del, .photo:focus-within .photo-del { opacity: 1; }
-@media (hover: none) { .photo-del { opacity: 1; } .photo-pick .cam { opacity: 1; } }
+.photo-edit { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.photo-thumb { width: 96px; height: 64px; flex: none; border-radius: 14px; border: 1px solid var(--evp-line); background: color-mix(in srgb, var(--evp-ink) 4%, transparent); color: var(--evp-soft); display: grid; place-items: center; overflow: hidden; }
+.photo-thumb.has { background: var(--evp-photo-bg); }
+.photo-thumb img { width: 100%; height: 100%; object-fit: contain; padding: 4px; box-sizing: border-box; filter: drop-shadow(0 2px 3px rgba(0,0,0,.18)); }
+.photo-thumb > svg { width: 60%; height: 60%; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.photo-thumb > svg.art { width: 80%; height: 80%; stroke-width: 2.6; }
+.photo-edit.busy .photo-thumb { animation: seg 1.2s ease-in-out infinite; }
+.photo-btns { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
 .tag-now { display: inline-flex; align-items: center; gap: 2px; margin-right: 6px; font-style: normal; font-size: 12px; color: var(--evp-a); }
 .notify-to { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--evp-line); }
 .notify-to > span { font-size: 14px; font-weight: 600; }

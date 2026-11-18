@@ -2,6 +2,16 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [Unreleased]
+
+### Changed
+
+- **Pictures are changed under Look**: a car's or charger's picture has nothing on it any more. A car's picture is changed in its Rules › Look, and a charger's in Settings › Look (new or another picture, the background cut away or back, removed). Tapping a picture opens the place it is changed.
+
+### Fixed
+
+- The house showed a car at home, and charging, while it was on the road or charging elsewhere when its location was not known. A car is drawn only when it is known to be there; without a location, when it is plugged in at a charger there that says a car is.
+
 ## [2.5.0b38] - 2026-11-18
 
 ### Fixed
