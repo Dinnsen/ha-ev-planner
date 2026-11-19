@@ -1879,6 +1879,10 @@ class Household(DataUpdateCoordinator[None]):
             )
             if force or not active or not charging_in_plan:
                 self.plan_one(vehicle, now, blocked, stable=not force)
+            else:
+                # The plan is kept, but the ready-by time is read again: after a restart it is not known
+                # yet, and without it a trip's target gave way to the week plan's and stopped the charge.
+                vehicle.deadline = vehicle.next_deadline(now)
             if charger_id and vehicle.plan is not None and vehicle.connected is True:
                 taken.setdefault(charger_id, []).extend(vehicle.plan.segments)
         # On a shared supply the plugged-in cars are planned together, under the limit: each place its own.

@@ -139,3 +139,34 @@ async def test_settings_and_what_was_learned_survive_a_restart(
         assert settings[key] == value, key
     assert household.supply.forecast.samples == {"02c": [9.5]}
     assert household.supply.limit == 23
+
+
+async def test_a_trip_charging_through_a_restart_keeps_its_target(
+    hass: HomeAssistant, now: datetime, freezer: FrozenDateTimeFactory, switches: SwitchCalls
+) -> None:
+    """After a restart the kept plan is charged on to the trip's target, not paused at the week plan's."""
+    set_prices(hass, now, NIGHT)
+    set_tesla(hass)
+    entry = await _setup(hass, freezer, entry_with(charger_sub(), vehicle_sub(TESLA, "Tesla", tesla_data())))
+    household = entry.runtime_data
+    tesla = household.vehicles[TESLA]
+    assert tesla.plan is not None and tesla.plan.start is not None and tesla.plan.end is not None
+    await move(hass, freezer, tesla.plan.start + timedelta(minutes=20, seconds=30))
+    hass.states.async_set(CHARGING, "on")
+    await settle(hass, freezer)
+    assert tesla.decision.control == "charge"
+    soc = tesla.current_soc
+    assert soc is not None
+    trip_at = tesla.plan.end + timedelta(hours=3)
+
+    # Just started again: the stored plan is kept, the ready-by time is not known yet, and the week plan
+    # would hold the car where it is; the trip asks for 100 %.
+    tesla.settings["trip"] = {"kind": "morning", "at": trip_at.isoformat(), "target": 100.0}
+    tesla.week_target, tesla.week_deadline = soc, trip_at + timedelta(hours=12)
+    tesla.plan_restored, tesla.last_sent, tesla.deadline = True, "charge", None
+    await household.async_recalculate()
+
+    assert tesla.deadline == trip_at
+    assert tesla.target == 100.0
+    assert tesla.decision.control == "charge"
+    assert ("turn_off", CHARGE_SWITCH) not in switches.calls[-2:]

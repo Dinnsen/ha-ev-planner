@@ -6,6 +6,7 @@ All notable changes to EV Planner. The version is the one in `custom_components/
 
 ### Fixed
 
+- **A restart does not stop a charge for a trip**: after a restart the plan the car was charging in is kept, but its ready-by time was not read again, so a trip's target gave way to the week plan's lower one and the charger was paused for a few minutes. The ready-by time is read again with the kept plan.
 - **The evening status once an evening, also over a restart**: a restart within half an hour of its time sent it again to every car. The day it went out is kept on disk now.
 
 ## [2.5.0b42] - 2026-11-18
