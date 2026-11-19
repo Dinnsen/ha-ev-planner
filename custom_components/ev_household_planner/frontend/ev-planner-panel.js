@@ -76,6 +76,9 @@ const TEXT = {
     prof_look: "Udseende",
     prof_days: "Højtider og mærkedage",
     prof_support: "Supportfil",
+    prof_houseday: "Husets døgn",
+    preview_tag: "Preview",
+    houseday_loading: "Henter Husets døgn …",
     look_frisk: "Frisk",
     look_hverdag: "Hverdag",
     look_studio: "Theme Studio",
@@ -735,6 +738,9 @@ const TEXT = {
     prof_look: "Look",
     prof_days: "Holidays and special days",
     prof_support: "Support file",
+    prof_houseday: "The house's day",
+    preview_tag: "Preview",
+    houseday_loading: "Fetching the house's day …",
     look_frisk: "Frisk",
     look_hverdag: "Hverdag",
     look_studio: "Theme Studio",
@@ -6094,12 +6100,12 @@ class EvPlannerPanel extends HTMLElement {
     // The profile menu: the settings, the messages, the look and the holidays.
     const prof = this.shadowRoot.querySelector(".prof"), profMenu = this.shadowRoot.querySelector(".prof-menu");
     if (prof && profMenu) {
-      const items = () => [["settings", null, "settings"], ["notifications", "notifications", "bell"], ["look", "look", "car"], ["days", "days", "calendar"], ["support", "support", "download"]];
+      const items = () => [["settings", null, "settings"], ["notifications", "notifications", "bell"], ["look", "look", "car"], ["days", "days", "calendar"], ["houseday", null, "sun"], ["support", "support", "download"]];
       const close = () => { profMenu.hidden = true; prof.setAttribute("aria-expanded", "false"); };
       prof.addEventListener("click", (ev) => {
         ev.stopPropagation();
         if (!profMenu.hidden) { close(); return; }
-        profMenu.innerHTML = items().map(([key, , icon]) => `<button role="menuitem" data-prof="${key}">${ICONS[icon] || ""}<span>${esc(this._t(`prof_${key}`))}</span></button>`).join("");
+        profMenu.innerHTML = items().map(([key, , icon]) => `<button role="menuitem" data-prof="${key}">${ICONS[icon] || ""}<span>${esc(this._t(`prof_${key}`))}</span>${key === "houseday" ? `<em class="prev">${esc(this._t("preview_tag"))}</em>` : ""}</button>`).join("");
         profMenu.hidden = false;
         prof.setAttribute("aria-expanded", "true");
         profMenu.querySelector("button")?.focus();
@@ -6108,6 +6114,7 @@ class EvPlannerPanel extends HTMLElement {
         const item = ev.target.closest("[data-prof]");
         if (!item) return;
         close();
+        if (item.dataset.prof === "houseday") { this._openHouseDay(); return; }
         const sheet = items().find(([key]) => key === item.dataset.prof)?.[1] || null;
         this._setTab("settings");
         if (sheet) { this._sheet = sheet; this._render(); this.shadowRoot.querySelector('[data-f="sheet-close"]')?.focus(); }
@@ -10829,6 +10836,42 @@ class EvPlannerPanel extends HTMLElement {
     if (this._insTab) { this._insEl.tab = this._insTab; this._insTab = null; }
   }
 
+  /* The profile menu → The house's day (a preview): simulated days of a house with sun, a battery and a heat
+     pump, one for each season. A page of its own over the panel, fetched when first opened. */
+  _openHouseDay() {
+    const root = this.shadowRoot.querySelector(".sheet-root");
+    if (!root) return;
+    const opener = this.shadowRoot.querySelector(".prof");
+    const layer = document.createElement("div");
+    layer.className = "hd-layer";
+    layer.dataset.noswipe = "";
+    layer.setAttribute("role", "dialog");
+    layer.setAttribute("aria-modal", "true");
+    layer.setAttribute("aria-label", this._t("prof_houseday"));
+    layer.innerHTML = `<p class="hd-wait">${esc(this._t("houseday_loading"))}</p>`;
+    root.replaceChildren(layer);
+    const close = () => {
+      if (layer.parentNode) layer.remove();
+      opener?.focus?.();
+    };
+    layer.addEventListener("evp-close", close);
+    layer.addEventListener("keydown", (ev) => { if (ev.key === "Escape") { ev.stopPropagation(); close(); } });
+    if (!this._hdWait) {
+      const url = new URL(import.meta.url);
+      this._hdWait = import(`${new URL("./ev-planner-houseday.js", url).href}${url.search}`).catch((err) => { this._hdWait = null; throw err; });
+    }
+    this._hdWait.then(
+      () => {
+        if (!layer.isConnected) return;
+        const page = document.createElement("ev-planner-houseday");
+        page.options = { lang: this._lang, money: (value, digits) => this._money(value, digits) };
+        layer.replaceChildren(page);
+        page.shadowRoot?.querySelector('[data-act="close"]')?.focus();
+      },
+      () => { if (layer.isConnected) layer.innerHTML = `<p class="hd-wait">${esc(this._t("err_unknown", { detail: "ev-planner-houseday.js" }))}</p>`; },
+    );
+  }
+
   /* Settings → Messages: the message centre is a module of its own, fetched when first opened, and kept across
      this panel's renders so a field being typed in is not drawn over. */
   _messagesMount() {
@@ -12065,6 +12108,10 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .prof { width: 34px; height: 34px; border-radius: 50%; border: 0; cursor: pointer; display: grid; place-items: center; font: 600 14px/1 inherit; background: var(--evp-accent); color: #fff; }
 .prof:focus-visible { outline: 2px solid var(--evp-accent); outline-offset: 2px; }
 .prof-menu { position: absolute; right: 0; top: calc(100% + 8px); z-index: 20; min-width: 220px; display: grid; gap: 2px; padding: 6px; border-radius: 14px; background: linear-gradient(var(--evp-card), var(--evp-card)), color-mix(in srgb, var(--evp-bg) 90%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border: 1px solid var(--evp-line); box-shadow: 0 12px 32px rgba(0,0,0,.18); }
+.prof-menu .prev { margin-left: auto; font-style: normal; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; background: color-mix(in srgb, var(--evp-accent, #14B47C) 16%, transparent); color: var(--evp-accent, #14B47C); }
+.hd-layer { position: fixed; inset: 0; z-index: 30; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; color-scheme: dark; color: #eef3f0;
+  background: radial-gradient(120% 40% at 50% 0%, #13201b 0%, #070b0a 60%) fixed, #070b0a; padding-top: env(safe-area-inset-top, 0px); animation: fade .2s; }
+.hd-wait { margin: 0; padding: 32px 16px; text-align: center; color: #a7b5ad; }
 .prof-menu button { display: flex; align-items: center; gap: 10px; border: 0; background: transparent; color: var(--evp-ink); padding: 10px 12px; border-radius: 10px; cursor: pointer; font: inherit; text-align: left; }
 .prof-menu button:hover, .prof-menu button:focus-visible { background: var(--evp-well, color-mix(in srgb, var(--evp-ink) 6%, transparent)); outline: none; }
 .prof-menu svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }

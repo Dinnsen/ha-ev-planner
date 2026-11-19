@@ -1046,3 +1046,43 @@ test("the house on Home has the light of now: dark before the sun is known in a 
     assert.equal(await look(), false);
   });
 });
+
+test("the house's day opens from the profile menu, each season its own day, and closes again", async () => {
+  await withPanel("two-cars", { size: PHONE, lang: "da" }, async ({ page, tap, read }) => {
+    await tap(".prof");
+    assert.ok(await read('[data-prof="houseday"] .prev'), "it is marked as a preview");
+    await tap('[data-prof="houseday"]');
+    const inside = (selector, attribute = null) =>
+      page.evaluate(([s, a]) => {
+        const el = window.harness.panel.shadowRoot.querySelector("ev-planner-houseday")?.shadowRoot?.querySelector(s);
+        return el ? (a ? el.getAttribute(a) : el.textContent.trim()) : null;
+      }, [selector, attribute]);
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector("ev-planner-houseday")?.shadowRoot?.querySelector(".hour-card"), null, { timeout: 5000 });
+    assert.equal(await read(".hd-layer", "role"), "dialog");
+    assert.equal(await inside("h1"), "Husets døgn");
+    // The page fits the phone: nothing sideways.
+    assert.ok(await page.evaluate(() => { const l = window.harness.panel.shadowRoot.querySelector(".hd-layer"); return l.scrollWidth <= l.clientWidth; }), "no sideways scroll");
+    const heights = [];
+    for (const season of ["winter", "spring", "summer", "autumn"]) {
+      await page.locator(`ev-planner-panel ev-planner-houseday [data-season="${season}"]`).click();
+      assert.equal(await inside(`[data-season="${season}"]`, "aria-pressed"), "true");
+      assert.ok((await inside(".headline")).length > 10, `${season} has its headline`);
+      const moments = await page.evaluate(() => window.harness.panel.shadowRoot.querySelector("ev-planner-houseday").shadowRoot.querySelectorAll(".moment").length);
+      assert.ok(moments >= 3 && moments <= 4, `${season} has its moments`);
+      // Moving through the day: the hour card keeps its size.
+      for (const index of [0, moments - 1]) {
+        await page.locator(`ev-planner-panel ev-planner-houseday [data-moment="${index}"]`).click();
+        heights.push(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector("ev-planner-houseday").shadowRoot.querySelector(".hour-card").getBoundingClientRect().height));
+      }
+    }
+    assert.equal(new Set(heights).size, 1, "the hour card is always the same size");
+    await page.keyboard.press("Escape");
+    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".hd-layer")), null, "Escape closes it");
+
+    await tap(".prof");
+    await tap('[data-prof="houseday"]');
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector("ev-planner-houseday")?.shadowRoot?.querySelector('[data-act="close"]'));
+    await page.locator('ev-planner-panel ev-planner-houseday [data-act="close"]').click();
+    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".hd-layer")), null, "the close button closes it");
+  });
+});

@@ -4,6 +4,10 @@ All notable changes to EV Planner. The version is the one in `custom_components/
 
 ## [Unreleased]
 
+### Added
+
+- **Husets døgn (a preview)**: the profile menu opens a day of a house with solar panels, a home battery, a heat pump and two cars, drawn as a flower with a petal an hour. There is a simulated day for each season (winter, spring, summer, autumn): drag round the flower or play the day, and the hour is shown as a scene with the power running in the wires, the day's money, its moments, where the power came from and went, and the day in a few words. Example data, not the household's own.
+
 ### Fixed
 
 - **A restart does not stop a charge for a trip**: after a restart the plan the car was charging in is kept, but its ready-by time was not read again, so a trip's target gave way to the week plan's lower one and the charger was paused for a few minutes. The ready-by time is read again with the kept plan.
