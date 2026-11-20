@@ -3280,6 +3280,10 @@ class Household(DataUpdateCoordinator[None]):
             climate = vehicle.calendar_climate
             return True, (float(climate) if not isinstance(climate, bool) else None)
         trip = vehicle.trip
+        if trip is not None and departure == trip["at"] and trip.get("climate") not in (None, False):
+            # The one-off departure asks for it (the quick menu's Klar kl.).
+            climate = trip["climate"]
+            return True, (float(climate) if not isinstance(climate, bool) else None)
         days = vehicle.settings.get(SET_DAY_CLIMATE)
         # The week plan's day asks for the climate, at its temperature.
         wanted = to_float(days.get(WEEKDAYS[departure.weekday()])) if isinstance(days, Mapping) else None
@@ -3324,8 +3328,12 @@ class Household(DataUpdateCoordinator[None]):
         day: date | None = None,
         target: float | None = None,
         at_time: str | None = None,
+        climate: float | bool | None = None,
     ) -> datetime | None:
-        """A one-off ready-by time from a preset, before the week plan; ``kind`` None: back to the week plan."""
+        """A one-off ready-by time from a preset, before the week plan; ``kind`` None: back to the week plan.
+
+        ``climate``: the car's climate is started before it (True, or at that temperature).
+        """
         vehicle = self.vehicles.get(vehicle_id)
         if vehicle is None:
             raise ServiceValidationError(translation_domain=DOMAIN, translation_key="car_not_found")
@@ -3360,7 +3368,13 @@ class Household(DataUpdateCoordinator[None]):
         vehicle.settings[SET_TRIP] = (
             None
             if at is None
-            else {"kind": kind, "at": at.isoformat(), "target": target, "day": day.isoformat() if day else None}
+            else {
+                "kind": kind,
+                "at": at.isoformat(),
+                "target": target,
+                "day": day.isoformat() if day else None,
+                "climate": climate if climate not in (None, False) else None,
+            }
         )
         self.events.add(now, "trip", vehicle=vehicle.name, preset=kind, deadline=at, target=target)
         self.async_save()

@@ -334,3 +334,28 @@ async def test_a_trip_makes_the_week_plan_again_at_once(
     await household.async_set_trip(TESLA, None)
     await settle(hass, freezer)
     assert len(made) == 2
+
+
+async def test_a_one_off_departure_can_ask_for_the_climate(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    household = init_integration.runtime_data
+    tesla = household.vehicles[TESLA]
+    started: list[tuple[bool, float | None]] = []
+
+    async def climate(vehicle: Any, on: bool, temperature: float | None = None) -> None:
+        started.append((on, temperature))
+
+    household._async_climate = climate
+    tesla.config["climate_entity"] = "switch.tesla_climate"
+    tomorrow = dt_util.now().date() + timedelta(days=1)
+    at = await household.async_set_trip(TESLA, "once", day=tomorrow, at_time="09:30", climate=20.5)
+    assert at is not None and tesla.trip["climate"] == 20.5
+    assert household._climate_wanted(tesla, at) == (True, 20.5)
+    tesla.deadline = at
+    await household._async_auto_climate(tesla, at - timedelta(minutes=10))
+    assert started == [(True, 20.5)]
+    # Without it, a one-off departure keeps the climate as before (off unless the automatic climate asks).
+    at = await household.async_set_trip(TESLA, "once", day=tomorrow, at_time="10:30")
+    assert tesla.trip["climate"] is None
+    assert household._climate_wanted(tesla, at) == (False, None)

@@ -20,7 +20,6 @@ const TEXT = {
     x_theme_auto: "Auto",
     x_theme_light: "Lys",
     x_theme_dark: "Mørk",
-    x_rib_aria: "Prisen time for time det næste døgn",
     x_arc_now: "nu {price}",
     x_charges: "lader {when}",
     x_waits: "venter til {day} nat",
@@ -137,6 +136,10 @@ const TEXT = {
     x_clim_for_dep: "Til afgang",
     x_which_day: "Hvilken dag",
     x_save_ready: "Klar {when}{pct}",
+    x_tip_charges: "{car} lader",
+    x_tip_charging: "lader",
+    x_ready_clim: "Klima til afgang",
+    x_ready_clim_sub: "{temp}° når I kører · {car}",
     x_ready_note: "Skal bruge {kwh} til {when}.",
     x_has_enough: "Bilen har nok.",
     x_back_to_plan: "Tilbage til planen",
@@ -897,7 +900,6 @@ const TEXT = {
     x_theme_auto: "Auto",
     x_theme_light: "Light",
     x_theme_dark: "Dark",
-    x_rib_aria: "The price hour by hour the next day",
     x_arc_now: "now {price}",
     x_charges: "charges {when}",
     x_waits: "waits until {day} night",
@@ -1014,6 +1016,10 @@ const TEXT = {
     x_clim_for_dep: "For departure",
     x_which_day: "Which day",
     x_save_ready: "Ready {when}{pct}",
+    x_tip_charges: "{car} charges",
+    x_tip_charging: "charging",
+    x_ready_clim: "Climate for the departure",
+    x_ready_clim_sub: "{temp}° when you leave · {car}",
     x_ready_note: "Needs {kwh} by {when}.",
     x_has_enough: "The car has enough.",
     x_back_to_plan: "Back to the plan",
@@ -6594,10 +6600,11 @@ class EvPlannerPanel extends HTMLElement {
       if (this._quick) this._closeQuick();
       else {
         this._xInsightClose?.();
-        this._quick = { tab: "now", pick: null, to: {}, opener: fab };
+        this._quick = { tab: "now", pick: this._currentCar && this._tab === "cars" ? [this._currentCar.id] : null, to: {}, opener: fab };
         this._renderQuick();
       }
     });
+    this._xScrubBind();
     // PC or phone: where the tabs live changes with the width.
     if (typeof matchMedia === "function" && !this._xWide) {
       this._xWide = matchMedia("(min-width: 701px)");
@@ -7025,11 +7032,13 @@ class EvPlannerPanel extends HTMLElement {
 
   /* A car's next charge: the week plan's (Insight's) when it steers, else the car's own plan. */
   _nextCharge(v) {
-    const week = this._weekCharges(v)[0];
+    // A one-off departure (Klar kl.) or a calendar trip: the car's own plan, which follows it – the week plan
+    // does not know it (it charged the car after the departure).
+    const own = (v.trip && v.trip.at === v.deadline) || (v.calendar && v.calendar.start === v.deadline);
+    const week = own ? null : this._weekCharges(v)[0];
     if (week && this._state.settings?.insight_use) return { start: week.start, end: week.end, kwh: week.kwh, cost: week.cost, soc: week.soc };
     const plan = this._livePlan(v);
-    if (!plan) return null;
-    const seg = plan.segments.find((g) => ZD(g.end).getTime() > znow());
+    const seg = plan && hasSegments(plan) ? plan.segments.find((g) => ZD(g.end).getTime() > znow()) : null;
     return seg ? { start: seg.start, end: plan.segments[plan.segments.length - 1].end, kwh: plan.energy, cost: plan.cost, soc: plan.end_soc } : null;
   }
 
@@ -13236,9 +13245,9 @@ Object.assign(EvPlannerPanel.prototype, {
       if (nav.parentNode !== app) app.insertBefore(nav, fab || null);
       nav.classList.remove("docked");
     }
-    // The quick menu's button: on Huset and the cars' overview.
+    // The quick menu's button: on every page (not while Look's editor is open).
     if (fab) {
-      const show = !this._embed && this._cars.length && ((this._tab === "home" && !this._currentCharger) || (this._tab === "cars" && !this._currentCar && !this._currentCharger));
+      const show = !this._embed && this._cars.length && !(this._tab === "settings" && this._sheet === "look");
       fab.hidden = !show;
       fab.classList.toggle("open", !!this._quick);
       fab.innerHTML = this._quick ? xi(XD.close, { w: 26, sw: 2.6 }) : xi(XD.now, { w: 28, fill: true });
@@ -13268,17 +13277,6 @@ Object.assign(EvPlannerPanel.prototype, {
   /* The small top of the other pages: the page's name, a line, a slice of the house with the cars, and the prices. */
   _xSmallTop({ title, line = "", back = null, pic = true }) {
     const night = this._xNight();
-    const hours = this._hourPrices();
-    const known = hours.filter((h) => h.p !== null);
-    const lo = known.length ? Math.min(...known.map((h) => h.p)) : 0;
-    const hi = known.length ? Math.max(...known.map((h) => h.p)) : 1;
-    const dots = known.length
-      ? hours.map((h, k) => {
-          if (h.p === null) return "<i></i>";
-          const car = this._chargeAt(h.at, h.at + 3600e3);
-          return `<i class="${X_TIER(h.p, lo, hi)}${k === 0 ? " now" : ""}${car >= 0 ? " chg" : ""}"${car >= 0 ? ` style="--car:${this._carColor(car)}"` : ""}></i>`;
-        }).join("")
-      : "";
     const backBtn = back ? `<button class="x-round" data-act="${back}" data-f="x-back" aria-label="${esc(this._t("back_label"))}">${xi(XD.back, { sw: 2.4 })}</button>` : "";
     return `<header class="x-top small ${night ? "night" : "day"}" style="background:${this._xSky("small")}" aria-label="${esc(title)}">
       <div class="x-sky">${this._xStars([[10, 30], [38, 18], [59, 44], [72, 22], [88, 50]])}</div>
@@ -13286,7 +13284,6 @@ Object.assign(EvPlannerPanel.prototype, {
         <div class="x-dock"></div>
         ${pic && this._homeShown ? '<div class="x-pic mini-slot" aria-hidden="true"></div>' : ""}
         <div class="x-title">${backBtn}<div><h1>${esc(title)}</h1>${line ? `<span class="x-num x-line">${line.split("\n").map((l) => `<span>${esc(l)}</span>`).join("")}</span>` : ""}</div></div>
-        ${dots ? `<div class="x-rib" role="img" aria-label="${esc(this._t("x_rib_aria"))}">${dots}</div>` : ""}
       </div>
       <div class="x-tabs x-in"></div>
     </header>`;
@@ -13443,6 +13440,65 @@ Object.assign(EvPlannerPanel.prototype, {
 
   _xDayShort(iso) {
     return new Intl.DateTimeFormat(this._locale, { weekday: "short" }).format(ZD(iso)).replace(".", "");
+  },
+
+  /* Press and hold on a chart, or drag along it: the value under the finger, in a bubble over a line.
+     A chart is an element with data-scrub="key"; this._scrubs[key](fraction) gives { x, html } or null. */
+  _xScrubBind() {
+    if (this._scrubBound) return;
+    this._scrubBound = true;
+    const root = this.shadowRoot;
+    let el = null, pointer = null;
+    const clear = (host) => {
+      if (!host) return;
+      host.classList.remove("scrubbing");
+      host.querySelector(":scope > .x-tip")?.remove();
+      host.querySelector(":scope > .x-guide")?.remove();
+    };
+    const show = (ev) => {
+      const spec = this._scrubs?.[el.dataset.scrub];
+      const r = el.getBoundingClientRect();
+      if (!spec || !r.width) return;
+      const hit = spec(clamp((ev.clientX - r.left) / r.width, 0, 0.9999));
+      if (!hit) return;
+      let tip = el.querySelector(":scope > .x-tip");
+      let guide = el.querySelector(":scope > .x-guide");
+      if (!tip) {
+        tip = Object.assign(document.createElement("div"), { className: "x-tip x-num" });
+        tip.setAttribute("role", "status");
+        guide = Object.assign(document.createElement("i"), { className: "x-guide" });
+        el.append(guide, tip);
+      }
+      const x = clamp(hit.x * 100, 0, 100);
+      guide.style.left = `${x}%`;
+      tip.style.left = `${clamp(x, 16, 84)}%`;
+      tip.innerHTML = hit.html;
+      el.classList.add("scrubbing");
+    };
+    root.addEventListener("pointerdown", (ev) => {
+      const target = ev.composedPath().find((n) => n?.dataset?.scrub);
+      if (!target) return;
+      clearTimeout(this._scrubOff);
+      if (this._scrubHost && this._scrubHost !== target) clear(this._scrubHost);
+      el = this._scrubHost = target;
+      pointer = ev.pointerId;
+      show(ev);
+    });
+    root.addEventListener("pointermove", (ev) => { if (el && ev.pointerId === pointer && el.isConnected) show(ev); });
+    const up = (ev) => {
+      if (!el || ev.pointerId !== pointer) return;
+      const host = el;
+      el = null;
+      this._scrubOff = setTimeout(() => clear(host), 1800);
+    };
+    root.addEventListener("pointerup", up);
+    root.addEventListener("pointercancel", up);
+  },
+
+  /* A chart's bubble: the time, the price, and what charges or how full the cars are. */
+  _xTipHtml(at, price, extra = []) {
+    const when = `${this._xDayShort(at).toLowerCase()} ${this._time(at)}`;
+    return `<b>${esc(when)}</b><span>${price !== null && price !== undefined ? esc(this._money(price)) : "–"}</span>${extra.map(([color, text]) => `<span class="x-tip-x"><i style="background:${color}"></i>${esc(text)}</span>`).join("")}`;
   },
 
   /* I dag: the house hour by hour (and the sun), the cars' part of it, and what it cost. */
@@ -13603,6 +13659,12 @@ Object.assign(EvPlannerPanel.prototype, {
       return `<i class="x-bar" style="height:${Math.max(4, (h.p / top) * 46).toFixed(1)}px;${car >= 0 ? `background:${this._carColor(car)};` : ""}animation-delay:${n * 25}ms"></i>`;
     }).join("");
     const ticks = hours.map((h) => `<span>${h.hour % 3 === 0 ? pad(h.hour) : ""}</span>`).join("");
+    (this._scrubs ||= {}).tonight = (f) => {
+      const k = Math.floor(f * hours.length), h = hours[k];
+      if (!h) return null;
+      const car = charging(h);
+      return { x: (k + 0.5) / hours.length, html: this._xTipHtml(h.at, h.p, car >= 0 ? [[this._carColor(car), this._t("x_tip_charges", { car: this._cars[car].name.split(" ")[0] })]] : []) };
+    };
     const steered = (v) => this._steered(v);
     const blocks = here.map((v, i) => {
       const c = this._nextCharge(v);
@@ -13643,7 +13705,7 @@ Object.assign(EvPlannerPanel.prototype, {
       ${here.length ? `<div class="x-tpic tn-pic" role="img" aria-label="${esc(this._t("x_cars_tonight"))}"></div>
       <div class="x-tn-cars${here.length > 1 ? "" : " one"}">${blocks}</div>` : `<p class="x-note x-away">${esc(this._t("x_none_home"))}</p>`}
       ${swap}
-      ${hours.some((h) => h.p !== null) ? `<div class="x-well x-strip"><div class="x-row x-soft"><span>${esc(this._t("x_next_day_prices"))}</span><span class="x-num">${best ? esc(this._t("x_cheap_at", { from: pad(best.from), to: pad(best.to) })) : ""}</span></div><div class="x-bars20">${bars}</div><div class="x-ticks20 x-num">${ticks}</div></div>` : ""}
+      ${hours.some((h) => h.p !== null) ? `<div class="x-well x-strip" data-scrub="tonight"><div class="x-row x-soft"><span>${esc(this._t("x_next_day_prices"))}</span><span class="x-num">${best ? esc(this._t("x_cheap_at", { from: pad(best.from), to: pad(best.to) })) : ""}</span></div><div class="x-bars20">${bars}</div><div class="x-ticks20 x-num">${ticks}</div></div>` : ""}
     </section>`;
   },
 
@@ -13711,6 +13773,7 @@ Object.assign(EvPlannerPanel.prototype, {
     const BY = (l) => 150 - (clamp(l, 0, 100) / 100) * 78;
     const price = prices.map(([t, p], i) => `${i ? "L" : "M"}${X(t).toFixed(1)} ${PY(p).toFixed(1)}`).join(" ");
     const full = this._insight?.week;
+    const levels = [];
     const lines = cars.slice(0, 4).map((v, i) => {
       const color = this._carColor(i);
       const deps = this._xDeps(v);
@@ -13733,10 +13796,21 @@ Object.assign(EvPlannerPanel.prototype, {
       const line = pts.map(([t, l], k) => `${k ? "L" : "M"}${X(t).toFixed(1)} ${BY(l).toFixed(1)}`).join(" ");
       const fills = charges.map((c) => `M${X(ZD(c.start).getTime()).toFixed(1)} 72 H${X(ZD(c.end).getTime()).toFixed(1)} V150 H${X(ZD(c.start).getTime()).toFixed(1)} Z`).join(" ");
       const levelAt = (t) => { let l = pts[0]?.[1] ?? 0; for (const [pt, pl] of pts) { if (pt <= t) l = pl; } return l; };
+      levels.push([v, color, levelAt, charges]);
       const pins = deps.filter((d) => d.at !== null && d.at > znow()).map((d) => { const x = X(d.at), y = BY(levelAt(d.at)); return `M${(x - 3.5).toFixed(1)} ${y.toFixed(1)} a3.5 3.5 0 1 0 7 0 a3.5 3.5 0 1 0 -7 0`; }).join(" ");
       return `<path d="${fills}" fill="${color}" fill-opacity=".2"/><path d="${line}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/><path d="${pins}" fill="var(--x-well)" stroke="${color}" stroke-width="2"/>`;
     }).join("");
     const nowX = X(znow());
+    (this._scrubs ||= {}).week = (f) => {
+      const at = Math.floor((t0 + f * span) / 3600e3) * 3600e3;
+      const p = prices.filter(([t]) => t >= at && t < at + 3600e3);
+      const price = p.length ? p.reduce((a, [, q]) => a + q, 0) / p.length : null;
+      const extra = levels.map(([v, color, levelAt, charges]) => {
+        const on = charges.some((c) => ZD(c.start).getTime() < at + 3600e3 && ZD(c.end).getTime() > at);
+        return [color, `${v.name.split(" ")[0]} ${this._pct(levelAt(at + 1800e3))}${on ? ` · ${this._t("x_tip_charging")}` : ""}`];
+      });
+      return { x: (at + 1800e3 - t0) / span, html: this._xTipHtml(at, price, extra) };
+    };
     const sel = this._xSel && cars.some((v) => v.id === this._xSel.car) ? this._xSel : null;
     const days = Array.from({ length: 7 }, (_, k) => new Date(today.getFullYear(), today.getMonth(), today.getDate() + k));
     const head = days.map((d, k) => `<span class="${k === 0 ? "today" : sel && sel.k === k ? "sel" : ""}"><b>${esc(this._xWd(d))}</b><small class="x-num">${d.getDate()}</small></span>`).join("");
@@ -13760,7 +13834,7 @@ Object.assign(EvPlannerPanel.prototype, {
         <span class="x-legend"><span><i class="line"></i>${esc(this._t("x_price"))}</span>${legend}</span></div>
       ${help}
       <div class="x-days">${head}</div>
-      <div class="x-graph">
+      <div class="x-graph" data-scrub="week">
         <div class="x-cols">${cols}</div>
         <svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
           <line x1="0" y1="72" x2="${W}" y2="72" stroke="var(--x-line2)" stroke-dasharray="2 4" vector-effect="non-scaling-stroke"/>
@@ -14053,7 +14127,7 @@ Object.assign(EvPlannerPanel.prototype, {
     const plan = shown.plan;
     const charging = (h) => plan && hasSegments(plan) && plan.segments.some((s) => ZD(s.start).getTime() < h.at + 3600e3 && ZD(s.end).getTime() > h.at);
     const PW = 326, PH = 132;
-    const bars = hours.map((h, k) => (h.p === null ? "<i></i>" : `<i class="x-bar" style="height:${Math.max(6, (Math.max(0, h.p) / top) * PH).toFixed(1)}px;background:${charging(h) ? "var(--x-acc)" : X_TIER_COLOR[X_TIER(h.p, lo, hi)]};opacity:${charging(h) ? 0.95 : 0.42};animation-delay:${k * 12}ms"></i>`)).join("");
+    const bars = hours.map((h, k) => (h.p === null ? "<i></i>" : `<i class="x-bar" style="height:${Math.max(6, (Math.max(0, h.p) / top) * PH).toFixed(1)}px;background:${charging(h) ? "var(--car)" : X_TIER_COLOR[X_TIER(h.p, lo, hi)]};opacity:${charging(h) ? 1 : 0.3};animation-delay:${k * 12}ms"></i>`)).join("");
     const X = (t) => clamp(((t - from) / (48 * 3600e3)) * PW, 0, PW);
     const Y = (l) => PH - 6 - (clamp(l, 0, 100) / 100) * (PH - 16);
     const points = this._socForecast(v, shown);
@@ -14064,8 +14138,30 @@ Object.assign(EvPlannerPanel.prototype, {
     const ticks = Array.from({ length: 8 }, (_, k) => `<span>${String(ZD(from + k * 6 * 3600e3).getHours()).padStart(2, "0")}</span>`).join("");
     const paid = hours.filter((h) => h.p !== null && charging(h));
     const pay = paid.length ? paid.reduce((t, h) => t + h.p, 0) / paid.length : null;
-    return `<div class="x-pchart">
+    // The charge windows: the plan's periods joined where one ends as the next begins, as bands over the bars.
+    const wins = [];
+    for (const seg of plan && hasSegments(plan) ? plan.segments : []) {
+      const a = Math.max(from, ZD(seg.start).getTime()), b = Math.min(from + 48 * 3600e3, ZD(seg.end).getTime());
+      if (b <= a) continue;
+      const last = wins.at(-1);
+      if (last && a - last[1] <= 60e3) last[1] = b;
+      else wins.push([a, b]);
+    }
+    const color = this._carColor(Math.max(0, this._cars.indexOf(v)));
+    const bands = wins.map(([a, b]) => `<span class="x-cwin" style="left:${((X(a) / PW) * 100).toFixed(2)}%;width:${(((X(b) - X(a)) / PW) * 100).toFixed(2)}%;--car:${color}"><b class="x-num">${esc(`${this._time(a)}–${this._time(b)}`)}</b></span>`).join("");
+    const levelAt = (t) => { let l = points?.[0]?.[1] ?? null; for (const [pt, pl] of points || []) { if (pt <= t) l = pl; } return l; };
+    (this._scrubs ||= {}).car = (f) => {
+      const k = Math.floor(f * 48), h = hours[k];
+      if (!h) return null;
+      const lvl = levelAt(h.at + 3600e3);
+      const extra = [];
+      if (charging(h)) extra.push([color, this._t("x_tip_charging")]);
+      if (lvl !== null) extra.push(["var(--x-acc)", `${this._t("x_battery")} ${this._pct(lvl)}`]);
+      return { x: (k + 0.5) / 48, html: this._xTipHtml(h.at, h.p, extra) };
+    };
+    return `<div class="x-pchart" data-scrub="car" style="--car:${color}">
         <div class="x-pbars">${bars}</div>
+        ${bands ? `<div class="x-cwins">${bands}</div>` : ""}
         <svg width="100%" height="${PH}" viewBox="0 0 ${PW} ${PH}" preserveAspectRatio="none" aria-hidden="true">
           ${level ? `<path d="${level}" fill="none" stroke="var(--x-acc)" stroke-width="2.6" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>` : ""}
           ${depX !== null ? `<line x1="${depX.toFixed(1)}" y1="0" x2="${depX.toFixed(1)}" y2="${PH}" stroke="var(--x-warn-ink)" stroke-width="1.5" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>` : ""}
@@ -14277,9 +14373,15 @@ Object.assign(EvPlannerPanel.prototype, {
       const seg2 = (key, label, cur, attr) => `<button data-q="${attr}" data-v="${key}" class="${cur === key ? "on" : ""}" aria-pressed="${cur === key}">${label}</button>`;
       panel = `<div class="x-qpanel">
         <div class="x-seg n2" role="group" aria-label="${esc(this._t("x_which_day"))}">${seg2("today", esc(`${this._t("today")} · ${this._xDayShort(today).toLowerCase()}`), day, "day")}${seg2("tomorrow", esc(`${this._t("tomorrow")} · ${this._xDayShort(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)).toLowerCase()}`), day, "day")}</div>
-        <div class="x-qtimes" role="group" aria-label="${esc(this._t("q_ready"))}">${opts.map((h) => { const t = `${String(h).padStart(2, "0")}:00`; return `<button data-q="time" data-v="${t}" class="${time === t ? "on" : ""}" aria-pressed="${time === t}">${esc(this._hhmm(t))}</button>`; }).join("")}<label class="x-qother${opts.every((h) => `${String(h).padStart(2, "0")}:00` !== time) ? " on" : ""}"><input type="time" step="900" data-q="time-in" value="${esc(time)}" aria-label="${esc(this._t("sched_other_short"))}"></label></div>
+        <div class="x-qtimes" role="group" aria-label="${esc(this._t("q_ready"))}">${opts.map((h) => { const t = `${String(h).padStart(2, "0")}:00`; return `<button data-q="time" data-v="${t}" class="${time === t ? "on" : ""}" aria-pressed="${time === t}">${esc(this._hhmm(t))}</button>`; }).join("")}${(() => { const own = opts.every((h) => `${String(h).padStart(2, "0")}:00` !== time); return `<label class="x-qother${own ? " on" : ""}"><input type="time" step="900" data-q="time-in" value="${esc(time)}" aria-label="${esc(this._t("sched_other_short"))}">${own ? "" : `<span>${esc(this._t("sched_other_short"))}</span>`}</label>`; })()}</div>
         <div class="x-seg n2" role="group" aria-label="${esc(this._t("x_target"))}">${seg2("auto", `${XSPARK} ${esc(this._t("x_auto_pct", { pct: isNum(v0.target) ? `≈${Math.round(v0.target)} %` : "" }))}`, mode, "mode")}${seg2("fast", esc(mode === "fast" ? this._t("x_fast_pct", { pct: `${pct} %` }) : this._t("x_fast")), mode, "mode")}</div>
         ${mode === "fast" ? `<div class="x-qpct"><button class="x-sq" data-q="pct" data-d="-5" aria-label="${esc(this._t("x_less"))}">−</button><div class="x-qpbar"><i style="width:${pct}%"></i><i class="now" style="left:calc(${clamp(Number(v0.soc) || 0, 0, 100)}% - 1px)"></i></div><button class="x-sq" data-q="pct" data-d="5" aria-label="${esc(this._t("x_more"))}">+</button></div>` : ""}
+        ${(() => {
+          const able = cars.filter((v) => v.climate);
+          if (!able.length) return "";
+          const t = Number(this._vs(able[0]).climate_temperature) || 21;
+          return `<button class="x-qrow x-qclimrow${q.clim ? " on" : ""}" data-q="ready-clim" aria-pressed="${!!q.clim}"><span class="x-qic">${`<svg class="xi" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="${XD.fan}"/></svg>`}</span><span><b>${esc(this._t("x_ready_clim"))}</b><small class="x-num">${esc(this._t("x_ready_clim_sub", { temp: this._num(t, 1), car: able.length < cars.length ? able.map((v) => v.name.split(" ")[0]).join(" · ") : "" }).replace(/ · $/, ""))}</small></span><span class="x-sw${q.clim ? " on" : ""}"><i></i></span></button>`;
+        })()}
         <button class="x-save" data-q="save"${late ? " disabled" : ""}>${xi(XD.check, { w: 18, sw: 2.6 })}${esc(this._t("x_save_ready", { when, pct: mode === "fast" ? ` · ${pct} %` : "" }))}</button>
         <span class="x-qnote x-num">${esc(late ? this._t("x_time_gone") : need > 0.05 ? this._t("x_ready_note", { kwh: this._kwh(need), when }) : this._t("x_has_enough"))}</span>
       </div>`;
@@ -14409,6 +14511,9 @@ Object.assign(EvPlannerPanel.prototype, {
       case "pct":
         q.pct = clamp((q.pct || 90) + Number(el.dataset.d), 50, 100);
         break;
+      case "ready-clim":
+        q.clim = !q.clim;
+        break;
       case "save": {
         const today = ZD();
         const base = (q.day || "tomorrow") === "today" ? today : new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
@@ -14416,7 +14521,10 @@ Object.assign(EvPlannerPanel.prototype, {
         const opts = (q.day || "tomorrow") === "today" ? [1, 2, 3, 4].map((n) => (today.getHours() + n) % 24) : [6, 7, 8, 9];
         const time = q.time || `${String(opts[1]).padStart(2, "0")}:00`;
         const target = (q.mode || "auto") === "fast" ? q.pct || 90 : null;
-        for (const v of cars) this._run("trip", "ev_household_planner/vehicle_trip", { vehicle_id: v.id, kind: "once", date: iso, time, target });
+        for (const v of cars) {
+          const climate = q.clim && v.climate ? Number(this._vs(v).climate_temperature) || 21 : null;
+          this._run("trip", "ev_household_planner/vehicle_trip", { vehicle_id: v.id, kind: "once", date: iso, time, target, climate });
+        }
         say(this._t("x_saved_ready", { car: cars.length > 1 ? this._t("q_both") : cars[0].name.split(" ")[0], when: `${this._xDayShort(base).toLowerCase()} ${this._hhmm(time)}` }));
         break;
       }
@@ -16097,22 +16205,18 @@ button.x-pill { cursor: pointer; }
 .x-top.big:has(.cscene.editing) { overflow: visible; z-index: 6; }
 
 /* The small top (the other pages) */
-.x-top.small { height: calc(176px + var(--evp-safe-top)); }
+.x-top.small { height: calc(164px + var(--evp-safe-top)); }
 .x-top.small > .x-in { height: 100%; }
 .x-title { position: relative; z-index: 3; display: flex; align-items: flex-start; gap: 10px; padding: 4px 4px 0; width: min(60%, 300px); }
 .x-title > div { min-width: 0; }
 .x-line span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .x-title h1 { margin: 0; font-size: 32px; line-height: 1.05; font-weight: 800; }
 .x-title .x-num { display: block; margin-top: 3px; font-size: 12.5px; line-height: 1.35; opacity: .82; white-space: pre-line; }
-.x-pic { position: absolute; right: -6px; top: calc(52px + var(--evp-safe-top)); bottom: 18px; width: 64%; z-index: 1; -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 30%); mask-image: linear-gradient(90deg, transparent 0, #000 30%); }
+/* The house runs up to the screen's top edge, under the status bar and the profile. */
+.x-pic { position: absolute; right: -6px; top: 0; bottom: 0; width: 66%; z-index: 1; -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 30%); mask-image: linear-gradient(90deg, transparent 0, #000 30%); }
 .x-pic .cscene { background: transparent !important; height: 100%; border-radius: 0; }
 .x-pic .cscene .cs-pic, .x-pic .cscene .cs-pic > svg { width: 100%; height: 100%; }
 .x-pic .cs-label, .x-pic .cs-edit, .x-pic button, .x-pic .cs-tools { display: none !important; }
-.x-rib { position: absolute; left: 14px; right: 14px; bottom: 0; height: 18px; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); align-items: center; z-index: 2; }
-.x-rib i { justify-self: center; width: 5px; height: 5px; border-radius: 50%; }
-.x-rib i.lo { background: #3ee08f; } .x-rib i.mid { background: #f5b94a; } .x-rib i.hi { background: #ff7a6b; }
-.x-rib i.now { width: 10px; height: 10px; box-shadow: 0 0 0 2px rgba(255,255,255,.9); }
-.x-rib i.chg { width: 7px; height: 7px; box-shadow: 0 0 0 2px var(--car), 0 0 8px var(--car); }
 .x-top .x-tabs:empty { display: none; }
 .x-top > .x-tabs { height: auto !important; }
 
@@ -16669,8 +16773,7 @@ button.x-card { font: inherit; text-align: left; cursor: pointer; width: 100%; }
   .x-title { width: min(48%, 520px); padding-top: 18px; }
   .x-title h1 { font-size: clamp(32px, 3.6vw, 42px); }
   .x-title .x-num { font-size: 14px; }
-  .x-pic { right: 0; top: 14px; bottom: 56px; width: min(54%, 600px); -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 22%, #000 92%, transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 22%, #000 92%, transparent 100%); }
-  .x-rib { left: 28px; right: auto; width: min(44%, 420px); bottom: 72px; height: 16px; }
+  .x-pic { right: 0; top: 0; bottom: 56px; width: min(54%, 600px); -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 22%, #000 92%, transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 22%, #000 92%, transparent 100%); }
   /* A car's top: the brand and the tabs as on the other pages, the car big in the middle. */
   .x-top.xcar, .x-top.look { height: 440px; }
   .x-top.xcar .x-dock, .x-top.look .x-dock { display: flex; }
@@ -16715,6 +16818,32 @@ button.x-card { font: inherit; text-align: left; cursor: pointer; width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   .x-star, .x-spin, .x-bar, .x-bars20 i { animation: none !important; }
 }
+/* ---------- 2.5.0b50: press and hold on a chart, the car's charge windows, the quick menu's climate. */
+[data-scrub] { position: relative; touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; cursor: crosshair; }
+.x-guide { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--x-ink); opacity: .55; border-radius: 2px; pointer-events: none; z-index: 5; }
+.x-tip { position: absolute; top: 4px; transform: translateX(-50%); z-index: 6; pointer-events: none; display: flex; flex-direction: column; gap: 1px; padding: 7px 11px; border-radius: 12px; background: var(--x-on, #fff); color: var(--x-on-ink, #0b1020); font-size: 12px; line-height: 1.3; white-space: nowrap; box-shadow: 0 8px 22px rgba(0,0,0,.35); animation: x-tip-in .15s ease-out; }
+.x-tip b { font-size: 12.5px; }
+.x-tip > span:first-of-type { font-weight: 700; font-size: 14px; }
+.x-tip-x { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; opacity: .85; }
+.x-tip-x i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+@keyframes x-tip-in { from { opacity: 0; transform: translate(-50%, 4px); } }
+.x-strip[data-scrub] .x-tip { top: auto; bottom: calc(100% - 18px); }
+.scrubbing .x-bar { transition: opacity .15s; }
+.x-cwins { position: absolute; left: 0; right: 0; top: 0; bottom: 18px; pointer-events: none; }
+.x-cwin { position: absolute; top: 0; bottom: 0; border-radius: 8px 8px 0 0; background: linear-gradient(180deg, color-mix(in srgb, var(--car) 26%, transparent), color-mix(in srgb, var(--car) 6%, transparent)); box-shadow: inset 0 2px 0 var(--car); }
+/* The label at the window's start, under the departure's tag. */
+.x-cwin b { position: absolute; top: 24px; left: 3px; white-space: nowrap; z-index: 2; box-shadow: 0 2px 8px rgba(0,0,0,.25); font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--car); color: #06140e; }
+.x-pchart .x-bar { position: relative; z-index: 1; }
+.x-cwins { z-index: 2; }
+.x-qother { position: relative; }
+.x-qother > span { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+.x-qother:not(.on) input { color: transparent; }
+.x-qclimrow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; margin-top: 2px; }
+.x-qclimrow > span:nth-child(2) { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.x-qclimrow .x-qic { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; background: rgba(90,170,255,.16); color: #7cc0ff; }
+.x-qclimrow.on .x-qic { background: rgba(90,170,255,.3); }
+.x-week .x-head { flex-wrap: wrap; row-gap: 6px; }
+.x-week .x-head h2 { white-space: nowrap; }
 `;
 
 if (!customElements.get("ev-planner-panel")) customElements.define("ev-planner-panel", EvPlannerPanel);

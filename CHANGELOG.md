@@ -2,6 +2,22 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b50] - 2026-11-20
+
+### Added
+
+- **Press and hold on a chart** (tonight's prices, the cars' week, a car's prices): the hour, the price and what charges or how full the cars are, in a bubble; drag along the chart to move it.
+- **A car's prices show its charge windows**: a band over the hours it charges, in the car's colour, with the times.
+- **Klar kl. can start the climate for the departure** (the quick menu): the one-off departure carries the climate, as a week day's departure does.
+
+### Changed
+
+- **The quick button is on every page**; on a car's page it opens with that car.
+- **The home-screen app runs up under the status bar and the camera**, also on iOS 26, where the page was given a viewport one status bar too short.
+- **The small top**: no price dots; the house runs up to the screen's top edge.
+- **The cars' week**: its title stays on one line.
+- **Tonight with a one-off departure** follows the car's own plan: the week plan does not know the departure and showed a charge after it.
+
 ## [2.5.0b49] - 2026-11-20
 
 ### Changed
