@@ -2,6 +2,19 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b44] - 2026-11-20
+
+### Added
+
+- **Huset is the front page, with a big top**: as in Middagsro and Hverdagsro. The sky of now (day, dusk, night, with stars), the date and week, a greeting, one line of what happens next, a pill when Insight steers (it opens Læring) and the holiday or special day when there is one. Under it the animated house as before, with its labels and Tilpas, and over the house the price arc: the next 24 hours as beads, now on the left, the cheapest hours marked, and the hours a car charges ringed in its colour.
+- **A small top on the other pages**: the same sky, the page's name, the cars' levels, the price now and the cheapest hour, the next day's prices as a row of dots, and a slice of the house with the cars and their chargers (the whole house when no car is home).
+- **I dag** shows what the cars' charges cost too.
+
+### Changed
+
+- **The Home tab is called Huset** (House in English).
+- **A tap on the tab you are on goes to the top of the page.**
+
 ## [2.5.0b43] - 2026-11-19
 
 ### Added

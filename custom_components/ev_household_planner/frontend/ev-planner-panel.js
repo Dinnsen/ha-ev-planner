@@ -5,7 +5,25 @@
 const TEXT = {
   da: {
     tab_cars: "Biler",
-    tab_home: "Hjem",
+    tab_home: "Huset",
+    greet_night: "God nat",
+    greet_morning: "God morgen",
+    greet_late_morning: "God formiddag",
+    greet_afternoon: "God eftermiddag",
+    greet_evening: "God aften",
+    hero_week: "uge {n}",
+    hero_insight: "Insight styrer",
+    hero_learning: "Insight lærer",
+    hero_charging: "{car} lader nu.",
+    hero_next: "{car} lader {day} kl. {time}.",
+    hero_sun: "Solen giver mere, end huset bruger.",
+    hero_battery: "Batteriet giver strøm til huset.",
+    hero_calm: "Ingen ladning planlagt lige nu.",
+    arc_now: "nu {price}",
+    arc_cheap: "billigst {from}–{to} · {price}",
+    arc_aria: "Prisen det næste døgn. Billigst kl. {from}–{to}.",
+    mini_now: "Nu {price}",
+    mini_cheap: "billigst kl. {from}",
     home_title: "Hjemmet nu",
     home_grid: "Elnettet",
     home_house: "Huset",
@@ -667,7 +685,25 @@ const TEXT = {
   },
   en: {
     tab_cars: "Cars",
-    tab_home: "Home",
+    tab_home: "House",
+    greet_night: "Good night",
+    greet_morning: "Good morning",
+    greet_late_morning: "Good morning",
+    greet_afternoon: "Good afternoon",
+    greet_evening: "Good evening",
+    hero_week: "week {n}",
+    hero_insight: "Insight steers",
+    hero_learning: "Insight is learning",
+    hero_charging: "{car} is charging now.",
+    hero_next: "{car} charges {day} at {time}.",
+    hero_sun: "The sun gives more than the house uses.",
+    hero_battery: "The battery powers the house.",
+    hero_calm: "No charging planned right now.",
+    arc_now: "now {price}",
+    arc_cheap: "cheapest {from}–{to} · {price}",
+    arc_aria: "The price the next day. Cheapest {from}–{to}.",
+    mini_now: "Now {price}",
+    mini_cheap: "cheapest at {from}",
     home_title: "The home now",
     home_grid: "Grid",
     home_house: "House",
@@ -1656,6 +1692,35 @@ function dayNow(settings, now = new Date()) {
   }
   return null;
 }
+/* The ISO week of a date on the household's clock. */
+function isoWeek(d) {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
+  return Math.ceil(((t - new Date(Date.UTC(t.getUTCFullYear(), 0, 1))) / 86400000 + 1) / 7);
+}
+/* The small top's picture: the same house, cut down to the cars and their chargers. */
+function miniFit() {
+  const svg = this.el.querySelector(".cs-pic > svg");
+  if (!svg || !svg.isConnected) return;
+  let box = null;
+  const cars = svg.querySelectorAll(".cs-car").length;
+  for (const part of svg.querySelectorAll(cars ? ".cs-car, .cs-charger" : ".cs-world")) {
+    let b;
+    try { b = part.getBBox(); } catch { continue; }
+    if (!b || !b.width) continue;
+    box = box ? { x: Math.min(box.x, b.x), y: Math.min(box.y, b.y), x2: Math.max(box.x2, b.x + b.width), y2: Math.max(box.y2, b.y + b.height) } : { x: b.x, y: b.y, x2: b.x + b.width, y2: b.y + b.height };
+  }
+  if (!box) return;
+  let w = Math.max(cars ? 300 : 0, box.x2 - box.x + 60), h = box.y2 - box.y + 50;
+  if (w / h < 1.6) w = h * 1.6; else h = w / 1.6;
+  const cx = (box.x + box.x2) / 2, cy = (box.y + box.y2) / 2;
+  const view = [cx - w / 2, cy - h / 2 - 6, w, h].map((v) => Math.round(v));
+  if (this.view && this.view.join() === view.join()) return;
+  this.view = view;
+  for (const s of this.el.querySelectorAll(".cs-pic > svg")) s.setAttribute("viewBox", view.join(" "));
+}
+const SPARK = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1 L7.2 4.8 L11 6 L7.2 7.2 L6 11 L4.8 7.2 L1 6 L4.8 4.8 Z" fill="currentColor" stroke="none"/></svg>';
+const CHEVRON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 const TAB_KEY = "ev-planner-tab";
 const CAR_KEY = "ev-planner-car";
 const LEVEL_KEY = "ev-planner-level";
@@ -6378,6 +6443,9 @@ class EvPlannerPanel extends HTMLElement {
     else if (car) content.innerHTML = this._carPageHtml(car);
     else if (this._currentCharger) content.innerHTML = this._chargerPageHtml(this._currentCharger);
     else content.innerHTML = this._overviewHtml();
+    const mini = this._tab !== "home" && this._tab !== "settings" && !car && !this._currentCharger && this._homeShown;
+    if (mini && !content.querySelector(".mini-hero")) content.insertAdjacentHTML("afterbegin", this._miniHeroHtml(this._t(`tab_${this._tab}`)));
+    if (mini) this._mountMini();
     if (this._tab === "home" && !this._currentCharger) this._mountScene();
     if (this._tab === "history" || this._tab === "past") this._afterHistory();
     if (this._tab === "settings") this._messagesMount();
@@ -6416,6 +6484,7 @@ class EvPlannerPanel extends HTMLElement {
         // The Cars tab from a car page goes back to the overview.
         if (button.dataset.tab === "cars" && this._tab === "cars" && this._carId) this._openCar(null);
         else if (button.dataset.tab === "home" && this._tab === "home" && this._chargerId) this._openCharger(null);
+        else if (button.dataset.tab === this._tab) this.shadowRoot.querySelector(".content")?.scrollTo({ top: 0, behavior: "smooth" });
         else this._setTab(button.dataset.tab);
       }),
     );
@@ -9622,6 +9691,8 @@ class EvPlannerPanel extends HTMLElement {
     }
     const light = this._sceneLight();
     const model = {
+      // Drawn on the top's sky: no ground or stars of its own.
+      bare: true,
       // The decorations of the holiday or special day now, as Hverdagsro has them.
       season: dayNow(this._state.settings),
       house: this._houseOf(place),
@@ -9669,6 +9740,147 @@ class EvPlannerPanel extends HTMLElement {
 
   // ------------------------------------------------------------------ the Home tab
 
+  /* ---------------------------------------------------------------- the tops: the sky, the words, the prices */
+
+  /* The sky behind the tops, from day to night with the sun, fading into the page. */
+  _skyCss() {
+    const k = Math.round(this._sceneLight() * 100);
+    const mix = (day, night) => `color-mix(in srgb, ${night} ${k}%, ${day})`;
+    return `linear-gradient(180deg, ${mix("#5fa7ec", "#060a20")} 0%, ${mix("#9fcdf5", "#121a45")} 34%, ${mix("#dceaf7", "#232a5c")} 62%, var(--evp-bg) 100%)`;
+  }
+
+  /* The coming hours' prices, an hour at a time (the mean of its quarters), from the hour now. */
+  _hourPrices(n = 24) {
+    const from = Math.floor(znow() / 3600e3) * 3600e3;
+    const slots = (this._state.prices || []).map((p) => [ZD(p.start).getTime(), Number(p.price), !!p.forecast]).filter(([, p]) => Number.isFinite(p));
+    return Array.from({ length: n }, (_, k) => {
+      const a = from + k * 3600e3, b = a + 3600e3;
+      const inside = slots.filter(([t]) => t >= a && t < b);
+      return { at: a, hour: new Date(a).getHours(), p: inside.length ? inside.reduce((t, [, p]) => t + p, 0) / inside.length : null, fc: inside.some(([, , f]) => f) };
+    });
+  }
+
+  /* The car that charges in an hour, by its place in the list; -1 for none. */
+  _chargeAt(a, b) {
+    return this._cars.findIndex((v) => hasSegments(v.plan) && v.plan.segments.some((s) => ZD(s.start).getTime() < b && ZD(s.end).getTime() > a));
+  }
+
+  _cheapest(hours, len = 4) {
+    let best = -1, sum = Infinity;
+    for (let k = 0; k + len <= hours.length; k += 1) {
+      const w = hours.slice(k, k + len);
+      if (w.some((h) => h.p === null)) continue;
+      const t = w.reduce((x, h) => x + h.p, 0);
+      if (t < sum) { sum = t; best = k; }
+    }
+    return best < 0 ? null : { k: best, avg: sum / len, from: hours[best].hour, to: (hours[best].hour + len) % 24 };
+  }
+
+  /* The price arc over the house: the next 24 hours as beads, now on the left; the hours a car charges ring in its colour. */
+  _arcHtml() {
+    const hours = this._hourPrices();
+    const known = hours.filter((h) => h.p !== null);
+    if (known.length < 6) return "";
+    const lo = Math.min(...known.map((h) => h.p)), hi = Math.max(...known.map((h) => h.p));
+    const tier = (p) => (p <= lo + (hi - lo) * 0.3 ? "lo" : p <= lo + (hi - lo) * 0.66 ? "mid" : "hi");
+    const at = (k) => { const a = Math.PI * (1 - k / 23); return [50 + 46 * Math.cos(a), 100 - 100 * Math.sin(a), a]; };
+    const pad = (h) => String(h).padStart(2, "0");
+    const best = this._cheapest(hours);
+    const lab = (k, text, cls, out) => {
+      const [x, y, a] = at(k);
+      const side = cls === "cheap" ? (x < 30 ? " left" : x > 70 ? " right" : "") : "";
+      const dx = side ? 0 : Math.cos(a) * out;
+      return `<span class="lab ${cls}${side}" style="left:calc(${x.toFixed(2)}% + ${dx.toFixed(1)}px);top:calc(${y.toFixed(2)}% - ${(Math.sin(a) * out).toFixed(1)}px)">${esc(text)}</span>`;
+    };
+    const beads = hours.map((h, k) => {
+      if (h.p === null) return "";
+      const [x, y] = at(k);
+      const car = this._chargeAt(h.at, h.at + 3600e3);
+      return `<i class="bead ${tier(h.p)}${k === 0 ? " now" : ""}${car >= 0 ? " chg" : ""}${h.fc ? " fc" : ""}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%${car >= 0 ? `;--car:${this._carColor(car)}` : ""}" title="${esc(`${pad(h.hour)}:00 · ${this._money(h.p)}`)}"></i>`;
+    }).join("");
+    let labels = hours[0].p !== null ? `<span class="lab now">${esc(this._t("arc_now", { price: this._money(hours[0].p) }))}</span>` : "";
+    hours.forEach((h, k) => { if (k > 1 && h.hour % 6 === 0 && (!best || Math.abs(k - (best.k + 1.5)) > 3.5)) labels += lab(k, pad(h.hour), "hour", 16); });
+    if (best) labels += lab(best.k + 1.5, this._t("arc_cheap", { from: pad(best.from), to: pad(best.to), price: this._money(best.avg) }), "cheap", 30);
+    const aria = best ? this._t("arc_aria", { from: pad(best.from), to: pad(best.to) }) : "";
+    return `<div class="hero-arc" role="img" aria-label="${esc(aria)}">${beads}${labels}</div>`;
+  }
+
+  /* One line under the greeting: what happens next. */
+  _heroLine() {
+    const now = znow();
+    const charging = this._cars.find((v) => v.charging);
+    if (charging) return this._t("hero_charging", { car: charging.name });
+    const next = this._cars
+      .filter((v) => hasSegments(v.plan))
+      .map((v) => [v, v.plan.segments[0].start])
+      .filter(([, t]) => ZD(t).getTime() > now && ZD(t).getTime() < now + 24 * 3600e3)
+      .sort((a, b) => ZD(a[1]).getTime() - ZD(b[1]).getTime())[0];
+    const h = this._state.home || {};
+    const solar = this._state.solar || {};
+    if (isNum(h.solar_kw) && isNum(h.house_kw) && Number(h.solar_kw) > Number(h.house_kw) + 0.1) return this._t("hero_sun");
+    if (next) return this._t("hero_next", { car: next[0].name, day: this._day(next[1]).toLowerCase(), time: this._time(next[1]) });
+    if (isNum(solar.battery?.kw) && Number(solar.battery.kw) < -0.05) return this._t("hero_battery");
+    return this._t("hero_calm");
+  }
+
+  /* Huset's top: the sky of now, the date, a greeting, one line, Insight, and the house under the price arc. */
+  _heroHtml(places) {
+    const now = ZD();
+    const hour = now.getHours();
+    const greet = this._t(hour < 5 ? "greet_night" : hour < 10 ? "greet_morning" : hour < 12 ? "greet_late_morning" : hour < 18 ? "greet_afternoon" : hour < 23 ? "greet_evening" : "greet_night");
+    const over = `${new Intl.DateTimeFormat(this._locale, { weekday: "long", day: "numeric", month: "long" }).format(now)} · ${this._t("hero_week", { n: isoWeek(now) })}`;
+    const s = this._state.settings || {};
+    const night = this._sceneLight() > 0.5;
+    const pills = [];
+    if (s.insight) pills.push(`<button class="hero-pill ins${s.insight_use ? " on" : ""}" data-act="hero-insight" data-f="hero-insight">${SPARK}<span>${esc(this._t(s.insight_use ? "hero_insight" : "hero_learning"))}</span>${CHEVRON}</button>`);
+    const day = dayNow(s, now);
+    if (day) pills.push(`<span class="hero-pill fest">${esc(this._t(`day_${day}`))}</span>`);
+    const stars = night ? `<div class="hero-stars" aria-hidden="true">${[[6, 9], [16, 17], [30, 6], [43, 15], [55, 7], [67, 13], [77, 5], [90, 16], [23, 27], [61, 25], [86, 31], [4, 36], [48, 33]].map(([x, y], i) => `<i style="left:${x}%;top:${y}%;--d:${(i * 0.37).toFixed(2)}s"></i>`).join("")}</div>` : "";
+    return `<section class="ev-top ${night ? "night" : "day"}" style="background:${this._skyCss()}">${stars}
+      <div class="hero-words"><span class="hero-over">${esc(over)}</span><h1>${esc(greet)}</h1><p>${esc(this._heroLine())}</p>${pills.length ? `<div class="hero-pills">${pills.join("")}</div>` : ""}</div>
+      ${places}
+      <div class="hero-stage">${this._arcHtml()}<div class="scene-slot" role="img" aria-label="${esc(this._t("home_title"))}"></div></div>
+    </section>`;
+  }
+
+  /* The other pages' top: the same sky, the page's name, the cars and the price, and a slice of the house with the cars. */
+  _miniHeroHtml(title) {
+    const night = this._sceneLight() > 0.5;
+    const cars = this._cars.filter((v) => isNum(v.soc)).slice(0, 3).map((v) => `${v.name} ${this._pct(v.soc)}`).join(" · ");
+    const hours = this._hourPrices();
+    const best = this._cheapest(hours, 3);
+    const pad = (h) => String(h).padStart(2, "0");
+    const price = this._priceNow();
+    const line = [price !== null ? this._t("mini_now", { price: this._money(price) }) : "", best ? this._t("mini_cheap", { from: `${pad(best.from)}${this._lang === "da" ? ".00" : ":00"}` }) : ""].filter(Boolean).join(" · ");
+    const known = hours.filter((h) => h.p !== null);
+    const lo = known.length ? Math.min(...known.map((h) => h.p)) : 0, hi = known.length ? Math.max(...known.map((h) => h.p)) : 1;
+    const dots = hours.map((h, k) => {
+      if (h.p === null) return "<i></i>";
+      const t = (h.p - lo) / (hi - lo || 1);
+      const car = this._chargeAt(h.at, h.at + 3600e3);
+      return `<i class="${t < 0.3 ? "lo" : t < 0.66 ? "mid" : "hi"}${k === 0 ? " now" : ""}${car >= 0 ? " chg" : ""}"${car >= 0 ? ` style="--car:${this._carColor(car)}"` : ""}></i>`;
+    }).join("");
+    return `<section class="mini-hero ${night ? "night" : "day"}" style="background:${this._skyCss()}">
+      <div class="mini-words"><h1>${esc(title)}</h1>${cars ? `<p>${esc(cars)}</p>` : ""}${line ? `<p>${esc(line)}</p>` : ""}</div>
+      <div class="mini-slot" aria-hidden="true"></div>
+      <div class="mini-rib" aria-hidden="true">${dots}</div>
+    </section>`;
+  }
+
+  /* The small top's slice of the house: a second drawing of it, without labels, cut down to the cars. */
+  _mountMini() {
+    const slot = this.shadowRoot.querySelector(".mini-slot");
+    if (!slot || !this._homeShown) return;
+    if (!this._mini) {
+      this._mini = new ClayScene();
+      this._mini.t = (key, vars) => this._t(key, vars);
+      this._mini._fit = miniFit;
+    }
+    slot.appendChild(this._mini.el);
+    this._mini.update({ ...this._sceneModel(), labels: [], canEdit: false });
+    requestAnimationFrame(() => this._mini && this._mini._fit());
+  }
+
   _homeHtml() {
     const supply = this._state.supply;
     const sites = this._state.sites || [];
@@ -9677,7 +9889,7 @@ class EvPlannerPanel extends HTMLElement {
     const places = sites.length > 1
       ? `<div class="chips places" role="group" aria-label="${esc(this._t("places"))}">${sites.map((site) => `<button data-act="place" data-id="${esc(site.id)}" data-f="place-${esc(site.id)}" class="${site.id === place.id ? "on" : ""}" aria-pressed="${site.id === place.id}">${esc(site.name || this._t("place_home"))}</button>`).join("")}</div>`
       : "";
-    const scene = `<section class="panel home-flow">${places}<div class="scene-slot" role="img" aria-label="${esc(this._t("home_title"))}"></div>`;
+    const hero = this._heroHtml(places);
     const now = this._homeNowHtml();
     // With more than one place, everything below the picture is the chosen place's: its cars,
     // its chargers and its supply (the summer house's charger is not under the home).
@@ -9689,7 +9901,7 @@ class EvPlannerPanel extends HTMLElement {
     if (place.home || !only) {
       if (supply) shared = this._supplyHtml(supply);
     } else if (place.supply) shared = this._supplyHtml(place.supply, place);
-    return `<div class="home-page">${scene}${now}</section>${tonight}${shared}${today}${chargers}</div>`;
+    return `${hero}<div class="home-page">${now ? `<section class="panel home-now">${now}</section>` : ""}${tonight}${shared}${today}${chargers}</div>`;
   }
 
   /* Live numbers under the house: only those the home has. */
@@ -9846,7 +10058,10 @@ class EvPlannerPanel extends HTMLElement {
     const costs = data.rows.map((r) => r.cost).filter(isNum);
     const cost = costs.length ? costs.reduce((a, b) => a + Number(b), 0) : null;
     const [start, end] = this._histRange("day", 0);
-    const cars = this._sessionsIn(start, end).filter((e) => !e.elsewhere).reduce((sum, e) => sum + (Number(e.energy) || 0), 0);
+    const carSessions = this._sessionsIn(start, end).filter((e) => !e.elsewhere);
+    const cars = carSessions.reduce((sum, e) => sum + (Number(e.energy) || 0), 0);
+    const carCosts = carSessions.map((e) => e.cost).filter(isNum);
+    const carCost = carCosts.length ? carCosts.reduce((a, b) => a + Number(b), 0) : null;
     const share = kwh > 0 ? Math.min(100, (cars / kwh) * 100) : 0;
     const peak = Math.max(0.01, ...data.rows.map((r) => Number(r.kwh) || 0));
     const hours = Array.from({ length: 24 }, (_, h) => {
@@ -9857,7 +10072,7 @@ class EvPlannerPanel extends HTMLElement {
     return `<dl class="today-nums">
         <div><dt>${esc(this._t("home_today_house"))}</dt><dd data-count="${kwh.toFixed(2)}" data-unit="kwh">${this._kwh(kwh)}</dd></div>
         ${cost !== null ? `<div><dt>${esc(this._t("hist_cost"))}</dt><dd>${this._money(cost)}</dd></div>` : ""}
-        <div><dt>${esc(this._t("home_today_cars"))}</dt><dd>${this._kwh(cars)} · ${this._pct(share)}</dd></div>
+        <div><dt>${esc(this._t("home_today_cars"))}</dt><dd>${this._kwh(cars)} · ${this._pct(share)}${carCost !== null ? ` · ${this._money(carCost)}` : ""}</dd></div>
       </dl>
       <div class="share-bar"><i style="width:${share.toFixed(1)}%"></i></div>
       <div class="hour-bars" aria-hidden="true">${hours}</div>`;
@@ -11709,6 +11924,9 @@ class EvPlannerPanel extends HTMLElement {
         if (!button.dataset.site || button.dataset.site === "home") this._saveSettings({ house: button.dataset.house });
         else this._saveSettings({ houses: { ...(this._state.settings?.houses || {}), [button.dataset.site]: button.dataset.house } });
         break;
+      case "hero-insight":
+        this._setTab("history");
+        break;
       case "place":
         this.shadowRoot.activeElement?.blur();
         this._place = id;
@@ -13048,6 +13266,65 @@ input[type="range"] { width: 100%; accent-color: var(--evp-a); }
 @keyframes tile-in { from { opacity: 0; transform: translateY(8px); } }
 .dial .ceil-ring { fill: none; stroke: var(--evp-ink); stroke-opacity: .55; stroke-width: 1.4; stroke-dasharray: 3 4; }
 .ceil-note { color: var(--evp-soft); font-size: 13px; margin: 6px 0 0; text-align: center; }
+
+/* ---------- 2.5: the tops. Huset has the big one, the other pages a small one, as in Middagsro and Hverdagsro. */
+.ev-top { position: relative; margin: -20px -20px 0; padding: 18px 20px 4px; overflow: hidden; color: #0f1a2a; isolation: isolate; }
+.ev-top.night { color: #fff; }
+.hero-words { position: relative; z-index: 2; display: grid; gap: 4px; max-width: 980px; margin: 0 auto; }
+.hero-over { font-size: 11.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; opacity: .78; }
+.ev-top h1 { margin: 0; font-size: clamp(34px, 9vw, 52px); line-height: 1.02; font-weight: 800; letter-spacing: -.02em; }
+.hero-words p { margin: 2px 0 0; font-size: 15px; line-height: 1.35; opacity: .9; }
+.hero-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.hero-pill { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; border-radius: 999px; font: 700 12.5px/1 inherit; color: inherit; border: 1px solid rgba(255,255,255,.18); background: rgba(16,20,32,.32); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.ev-top.day .hero-pill { background: rgba(255,255,255,.6); border-color: rgba(15,26,42,.12); }
+.hero-pill svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+button.hero-pill { cursor: pointer; }
+button.hero-pill:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.hero-pill.ins.on { color: #e3d9ff; box-shadow: 0 0 0 1px rgba(195,181,255,.35), 0 0 18px rgba(140,110,255,.35); }
+.ev-top.day .hero-pill.ins.on { color: #4b32c4; }
+.hero-pill.fest { color: #ffe3a3; }
+.ev-top.day .hero-pill.fest { color: #8a4b00; }
+.ev-top > .chips.places { position: relative; z-index: 2; max-width: 980px; margin: 10px auto 0; }
+.hero-stage { position: relative; max-width: 980px; margin: 0 auto; padding-top: 70px; }
+.hero-stage .cscene { background: transparent !important; margin: 0 auto; max-width: 860px; border-radius: 0; }
+.hero-arc { position: absolute; left: 2%; right: 2%; top: 6px; height: 60%; pointer-events: none; z-index: 1; }
+.hero-arc .bead { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; }
+.bead.lo { background: #3ee08f; box-shadow: 0 0 10px rgba(62,224,143,.55); }
+.bead.mid { background: #f5b94a; box-shadow: 0 0 10px rgba(245,185,74,.55); }
+.bead.hi { background: #ff7a6b; box-shadow: 0 0 10px rgba(255,122,107,.55); }
+.bead.fc { opacity: .55; }
+.hero-arc .bead.chg { width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; box-shadow: 0 0 0 3px var(--car), 0 0 14px var(--car); }
+.hero-arc .bead.now { width: 12px; height: 12px; margin: -6px 0 0 -6px; box-shadow: 0 0 0 3px currentColor; }
+.hero-arc .lab { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font-size: 10.5px; font-weight: 600; opacity: .78; }
+.hero-arc .lab.cheap.left { transform: translate(-12px, -50%); }
+.hero-arc .lab.cheap.right { transform: translate(calc(-100% + 12px), -50%); }
+.hero-arc .lab.now { left: 0; bottom: 0; transform: translateY(-14px); font-size: 11px; font-weight: 700; opacity: 1; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,.16); }
+.ev-top.day .hero-arc .lab.now { background: rgba(255,255,255,.7); }
+.hero-arc .lab.cheap { opacity: 1; font-weight: 700; color: #062b1c; padding: 4px 10px; border-radius: 999px; background: #7ff0b7; box-shadow: 0 4px 14px rgba(0,0,0,.3); z-index: 2; }
+.hero-stars i { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #fff; animation: twinkle 3.2s ease-in-out infinite; animation-delay: var(--d); }
+@keyframes twinkle { 0%, 100% { opacity: .9; } 50% { opacity: .3; } }
+.home-now { padding: 4px 12px 12px; }
+.mini-hero { position: relative; margin: -20px -20px 16px; height: 156px; overflow: hidden; color: #fff; isolation: isolate; }
+.mini-hero.day { color: #0f1a2a; }
+.mini-words { position: absolute; left: 20px; top: 24px; width: min(44%, 280px); z-index: 2; display: grid; gap: 3px; }
+.mini-words h1 { margin: 0 0 2px; font-size: 30px; line-height: 1; font-weight: 800; letter-spacing: -.02em; }
+.mini-words p { margin: 0; font-size: 12.5px; line-height: 1.35; opacity: .85; }
+.mini-slot { position: absolute; right: 0; top: 0; bottom: 16px; width: 64%; max-width: 560px; -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 34%); mask-image: linear-gradient(90deg, transparent 0, #000 34%); }
+.mini-slot .cscene { background: transparent !important; height: 100%; border-radius: 0; }
+.mini-slot .cscene .cs-pic, .mini-slot .cscene .cs-pic > svg { width: 100%; height: 100%; }
+.mini-slot .cs-label, .mini-slot .cs-edit, .mini-slot button { display: none !important; }
+.mini-rib { position: absolute; left: 20px; right: 20px; bottom: 5px; height: 12px; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); align-items: center; }
+.mini-rib i { justify-self: center; width: 5px; height: 5px; border-radius: 50%; }
+.mini-rib i.lo { background: #3ee08f; } .mini-rib i.mid { background: #f5b94a; } .mini-rib i.hi { background: #ff7a6b; }
+.mini-rib i.now { width: 8px; height: 8px; box-shadow: 0 0 0 2px currentColor; }
+.mini-rib i.chg { box-shadow: 0 0 0 2px var(--car), 0 0 8px var(--car); }
+@media (max-width: 860px) {
+  .ev-top { margin: -14px -12px 0; padding: 16px 16px 4px; }
+  .hero-stage { padding-top: 76px; }
+  .mini-hero { margin: -14px -12px 14px; }
+  .mini-words { left: 16px; }
+  .mini-rib { left: 16px; right: 16px; }
+}
 
 /* ---------- 2.3: the Home tab */
 .home-page { display: grid; gap: 14px; max-width: 1180px; margin: 0 auto; grid-template-columns: minmax(0, 1fr); align-items: start; }

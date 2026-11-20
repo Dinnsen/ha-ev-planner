@@ -1086,3 +1086,24 @@ test("the house's day opens from the profile menu, each season its own day, and 
     assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".hd-layer")), null, "the close button closes it");
   });
 });
+
+test("Huset has the big top: the date, a greeting, the price arc over the house; the other pages a small top", async () => {
+  await withPanel("two-cars", { size: PHONE, lang: "da" }, async ({ page, tap, read }) => {
+    await tap('.tabs button[data-tab="home"]');
+    assert.equal(await read('.tabs button[data-tab="home"] span'), "Huset");
+    assert.ok(await read(".ev-top .hero-over"), "the date is over the greeting");
+    assert.match(await read(".ev-top h1"), /^God /);
+    assert.ok(await read(".ev-top .hero-words p"), "one line under the greeting");
+    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".hero-arc .bead").length >= 6), "the price arc has its beads");
+    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".ev-top .scene-slot .cscene")), "the house is drawn in the top");
+    assert.ok(await page.evaluate(() => !window.harness.panel.shadowRoot.querySelector(".mini-hero")), "no small top on Huset");
+    await tap('.tabs button[data-tab="cars"]');
+    assert.equal(await read(".mini-hero h1"), "Biler");
+    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".mini-slot .cscene")), "a slice of the house in the small top");
+    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".mini-rib i").length), 24, "the next day's prices as dots");
+    // A tap on the tab you are on goes to the top.
+    await page.evaluate(() => { window.harness.panel.shadowRoot.querySelector(".content").scrollTop = 300; });
+    await tap('.tabs button[data-tab="cars"]');
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector(".content").scrollTop === 0, null, { timeout: 3000 });
+  });
+});
