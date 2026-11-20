@@ -95,6 +95,21 @@ const TEXT = {
     prof_days: "Højtider og mærkedage",
     prof_support: "Supportfil",
     prof_houseday: "Husets døgn",
+    tn_title: "I aften",
+    tn_night: "nattens pris",
+    tn_head: "{car} lader {when}.",
+    tn_head_plug: "Sæt {car} i laderen: den lader {when}.",
+    tn_head_none: "Ingen bil skal lade det næste døgn.",
+    tn_other: "{car} lader {when}.",
+    tn_other_none: "{car} skal ikke lade lige nu.",
+    tn_reach: "Så har den {pct}.",
+    tn_swap: "Ingen kabelskift kl. {from}–{to}",
+    tn_swap_hint: "Én lader, flere biler: i tidsrummet beholder den bil, der sidder i, laderen. Ændres under Indstillinger › Læring.",
+    tn_prices: "Det næste døgns priser",
+    tn_open: "Åbn {car}",
+    wk_title: "Bilernes uge",
+    wk_hint: "Klar kl. og mål for hver dag. Tryk på en dag for at ændre den på bilens side.",
+    wk_none: "fri",
     preview_tag: "Preview",
     houseday_loading: "Henter Husets døgn …",
     look_frisk: "Frisk",
@@ -775,6 +790,21 @@ const TEXT = {
     prof_days: "Holidays and special days",
     prof_support: "Support file",
     prof_houseday: "The house's day",
+    tn_title: "Tonight",
+    tn_night: "the night's price",
+    tn_head: "{car} charges {when}.",
+    tn_head_plug: "Plug in {car}: it charges {when}.",
+    tn_head_none: "No car needs to charge in the next day.",
+    tn_other: "{car} charges {when}.",
+    tn_other_none: "{car} need not charge now.",
+    tn_reach: "Then it has {pct}.",
+    tn_swap: "No cable swap {from}–{to}",
+    tn_swap_hint: "One charger, more cars: in those hours the car that is plugged in keeps the charger. Changed under Settings › Learning.",
+    tn_prices: "The next day's prices",
+    tn_open: "Open {car}",
+    wk_title: "The cars' week",
+    wk_hint: "Ready-by time and target for each day. Tap a day to change it on the car's page.",
+    wk_none: "free",
     preview_tag: "Preview",
     houseday_loading: "Fetching the house's day …",
     look_frisk: "Frisk",
@@ -5892,6 +5922,7 @@ class EvPlannerPanel extends HTMLElement {
     if (id !== this._carId) {
       this._carView = "now";
       this._sheet = null;
+      this._openWeek = false;
     }
     this._carId = id;
     if (id) this._chargerId = null;
@@ -6446,6 +6477,7 @@ class EvPlannerPanel extends HTMLElement {
     const mini = this._tab !== "home" && this._tab !== "settings" && !car && !this._currentCharger && this._homeShown;
     if (mini && !content.querySelector(".mini-hero")) content.insertAdjacentHTML("afterbegin", this._miniHeroHtml(this._t(`tab_${this._tab}`)));
     if (mini) this._mountMini();
+    if (this._tab === "cars" && !car) this._paintTonight();
     if (this._tab === "home" && !this._currentCharger) this._mountScene();
     if (this._tab === "history" || this._tab === "past") this._afterHistory();
     if (this._tab === "settings") this._messagesMount();
@@ -6568,6 +6600,137 @@ class EvPlannerPanel extends HTMLElement {
       <a class="btn primary" href="/config/integrations/integration/ev_household_planner" target="_top">${ICONS.plus}<span>${this._t("open_integration")}</span></a></section>`;
   }
 
+  /* ---------------------------------------------------------------- Cars: tonight, as in Learning, and the cars' week */
+
+  /* A car's next charge: the week plan's (Insight's) when it steers, else the car's own plan. */
+  _nextCharge(v) {
+    const week = this._weekCharges(v)[0];
+    if (week && this._state.settings?.insight_use) return { start: week.start, end: week.end, kwh: week.kwh, cost: week.cost, soc: week.soc };
+    const plan = this._livePlan(v);
+    if (!plan) return null;
+    const seg = plan.segments.find((g) => ZD(g.end).getTime() > znow());
+    return seg ? { start: seg.start, end: plan.segments[plan.segments.length - 1].end, kwh: plan.energy, cost: plan.cost, soc: plan.end_soc } : null;
+  }
+
+  /* Tonight's picture, drawn by Learning's own module in a shadow of its own (its styles stay its own). */
+  _insightModule() {
+    if (this._insMod || this._insModWait) return this._insMod;
+    const url = new URL(import.meta.url);
+    this._insModWait = import(`${new URL("./ev-planner-insight.js", url).href}${url.search}`)
+      .then((m) => { this._insMod = m; if (this._tab === "cars") this._render(); })
+      .catch(() => { this._insModWait = null; });
+    return null;
+  }
+
+  _paintTonight() {
+    const host = this.shadowRoot.querySelector(".tn-pic");
+    if (!host) return;
+    const m = this._insightModule();
+    if (!m?.heroPicture) return;
+    const cars = this._tonightCars();
+    const key = JSON.stringify([cars.map((v) => [v.id, v.settings?.body, v.settings?.paint, Math.round(Number(v.soc) || 0)]), this._tonightTwo(cars), dayNow(this._state.settings), this.hasAttribute("dark")]);
+    if (host.shadowRoot && host.dataset.key === key) return;
+    const root = host.shadowRoot || host.attachShadow({ mode: "open" });
+    host.dataset.key = key;
+    const insightCars = this._state.insight?.tonight?.cars || {};
+    const svg = m.heroPicture({
+      cars: cars.map((v, i) => ({ body: ClayScene.BODIES.includes(v.settings?.body) ? v.settings.body : "sedan", paint: v.settings?.paint === "black" ? "black" : "white", level: isNum(v.soc) ? Number(v.soc) : 0, floor: insightCars[v.id]?.floor_pct ?? null, color: this._carColor(i) })),
+      season: dayNow(this._state.settings),
+      still: true,
+      two: this._tonightTwo(cars),
+    });
+    if (this.hasAttribute("dark")) host.setAttribute("dark", ""); else host.removeAttribute("dark");
+    root.innerHTML = `<style>${m.INSIGHT_CSS || ""} :host { display: block; background: transparent; } svg { display: block; width: 100%; height: auto; }</style>${svg}`;
+  }
+
+  /* The cars in tonight's picture: those at home, two at most. */
+  _tonightCars() {
+    const home = this._cars.filter((v) => v.home !== false && (v.site ?? "home") === "home");
+    return (home.length ? home : this._cars).slice(0, 2);
+  }
+
+  _tonightTwo(cars) {
+    return cars.length > 1 && this._chargers.filter((c) => (c.site ?? "home") === "home").length > 1;
+  }
+
+  _tonightCardHtml() {
+    const cars = this._tonightCars();
+    if (!cars.length) return "";
+    const now = znow();
+    const pad = (h) => String(h).padStart(2, "0");
+    const next = cars.map((v) => [v, this._nextCharge(v)]).filter(([, c]) => c && ZD(c.start).getTime() < now + 24 * 3600e3).sort((a, b) => ZD(a[1].start).getTime() - ZD(b[1].start).getTime());
+    let head = this._t("tn_head_none"), sub = "";
+    if (next.length) {
+      const [v, c] = next[0];
+      const plugged = v.connected === true || v.charging;
+      head = this._t(plugged ? "tn_head" : "tn_head_plug", { car: v.name, when: this._whenSpan(c) });
+      if (isNum(c.soc)) sub = this._t("tn_reach", { pct: this._pct(c.soc) });
+      for (const w of cars.filter((x) => x !== v)) {
+        const own = this._nextCharge(w);
+        sub += ` ${own ? this._t("tn_other", { car: w.name, when: this._whenSpan(own) }) : this._t("tn_other_none", { car: w.name })}`;
+      }
+    }
+    // The night's price: what the first charge pays an hour, or tonight's cheapest four hours.
+    const hours = this._hourPrices(20);
+    const charging = (h) => this._chargeAt(h.at, h.at + 3600e3);
+    const paid = hours.filter((h) => h.p !== null && charging(h) >= 0);
+    const best = this._cheapest(hours);
+    const nightPrice = paid.length ? paid.reduce((t, h) => t + h.p, 0) / paid.length : best ? best.avg : null;
+    const top = Math.max(0.01, ...hours.map((h) => h.p || 0));
+    const bars = hours.map((h) => {
+      if (h.p === null) return "<i></i>";
+      const car = charging(h);
+      return `<i style="height:${Math.max(8, (h.p / top) * 100).toFixed(1)}%${car >= 0 ? `;background:${this._carColor(car)};opacity:1` : ""}"></i>`;
+    }).join("");
+    const ticks = hours.map((h) => `<span>${h.hour % 3 === 0 ? pad(h.hour) : ""}</span>`).join("");
+    const blocks = cars.map((v, i) => {
+      const c = this._nextCharge(v);
+      const note = c ? `${this._whenSpan(c)}${isNum(c.cost) ? ` · ${this._money(c.cost, 0)}` : ""}` : this._carSubline(v);
+      return `<button class="tn-car${cars.length > 1 && i === 1 ? " r" : ""}" data-act="open-car" data-id="${esc(v.id)}" data-f="tn-${esc(v.id)}" style="--car:${this._carColor(i)}" aria-label="${esc(this._t("tn_open", { car: v.name }))}">
+        <span class="tn-name"><b>${esc(v.name)}</b>${CHEVRON}</span><b class="tn-soc">${isNum(v.soc) ? this._pct(v.soc) : "–"}</b><small class="${c ? "on" : ""}">${esc(note)}</small></button>`;
+    }).join("");
+    const s = this._state.settings || {};
+    const one = this._chargers.filter((c) => (c.site ?? "home") === "home").length === 1;
+    const swap = one && cars.length > 1 && s.insight && s.insight_window
+      ? `<p class="tn-swap" title="${esc(this._t("tn_swap_hint"))}">${ICONS.car}<span>${esc(this._t("tn_swap", { from: this._hhmm(s.insight_from || "21:00"), to: this._hhmm(s.insight_to || "07:00") }))}</span></p>` : "";
+    const today = ZD();
+    return `<section class="panel tn-card">
+      <div class="tn-top"><span class="tn-badge"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3a9 9 0 1 0 7 14.5A8 8 0 0 1 14 3Z"/></svg></span>
+        <div class="tn-when"><b>${esc(this._t("tn_title"))}</b><small>${esc(new Intl.DateTimeFormat(this._locale, { weekday: "long", day: "numeric", month: "numeric" }).format(today))}</small></div>
+        ${nightPrice !== null ? `<div class="tn-price"><b>${esc(this._money(nightPrice))}</b><small>${esc(this._t("tn_night"))}</small></div>` : ""}</div>
+      <h2 class="tn-head">${esc(head)}</h2>${sub ? `<p class="tn-sub">${esc(sub.trim())}</p>` : ""}
+      <div class="tn-pic" role="img" aria-label="${esc(head)}"></div>
+      <div class="tn-cars${cars.length > 1 ? "" : " one"}">${blocks}</div>${swap}
+      ${hours.some((h) => h.p !== null) ? `<div class="tn-rib"><div class="tn-rib-head"><span>${esc(this._t("tn_prices"))}</span>${best ? `<span>${esc(this._t("arc_cheap", { from: pad(best.from), to: pad(best.to), price: this._money(best.avg) }))}</span>` : ""}</div><div class="tn-bars" aria-hidden="true">${bars}</div><div class="tn-ticks" aria-hidden="true">${ticks}</div></div>` : ""}
+    </section>`;
+  }
+
+  /* The cars' week: each car's ready-by time and target for the next seven days; a day opens on the car's page. */
+  _weekCardHtml() {
+    const cars = this._cars;
+    if (!cars.length) return "";
+    const start = (ZD().getDay() + 6) % 7;
+    const days = Array.from({ length: 7 }, (_, k) => WEEKDAYS[(start + k) % 7]);
+    const head = days.map((d, k) => `<span class="${k === 0 ? "today" : ""}">${esc(this._t(`day_${d}`))}</span>`).join("");
+    const rows = cars.map((v, i) => {
+      const s = this._vs(v);
+      const off = s.use_ready_by === false;
+      const schedule = s.schedule || {}, targets = s.day_targets || {}, climates = s.day_climate || {};
+      const usual = this._hhmm(s.ready_by || "07:00");
+      const cells = days.map((d) => {
+        const value = off ? "none" : schedule[d] || "default";
+        const none = value === "none";
+        const time = value === "default" ? usual : none ? "" : this._hhmm(value);
+        const pct = none ? this._t("wk_none") : isNum(targets[d]) ? `${Math.round(targets[d])}` : `${Math.round(Number(s.target_soc) || 80)}`;
+        return `<button class="wk-cell${none ? " none" : ""}${value !== "default" && !none ? " own" : ""}" data-act="week-day" data-id="${esc(v.id)}" data-day="${d}" aria-label="${esc(`${v.name}, ${this._weekdayName(d)}: ${none ? this._t("no_deadline") : `${time}, ${pct} %`}`)}">
+          <small>${esc(time)}</small><b>${esc(pct)}</b>${isNum(climates[d]) && v.climate ? `<i class="wk-clim">${ICONS.climate}</i>` : ""}</button>`;
+      }).join("");
+      return `<div class="wk-row"><button class="wk-name" data-act="open-car" data-id="${esc(v.id)}" style="--car:${this._carColor(i)}"><em></em><span>${esc(v.name)}</span>${CHEVRON}</button><div class="wk-cells">${cells}</div></div>`;
+    }).join("");
+    return `<section class="panel wk-card" title="${esc(this._t("wk_hint"))}"><div class="panel-head"><h2>${ICONS.calendar}<span>${esc(this._t("wk_title"))}</span></h2></div>
+      <div class="wk-head" aria-hidden="true">${head}</div>${rows}</section>`;
+  }
+
   _overviewHtml() {
     const cars = this._cars;
     const setup = this._setupHtml();
@@ -6577,7 +6740,7 @@ class EvPlannerPanel extends HTMLElement {
         ? ""
         : `<section class="empty panel">${MARK}<h2>${this._t("no_cars_title")}</h2><p>${this._t("no_cars_text")}</p>
           <a class="btn primary" href="/config/integrations/integration/ev_household_planner" target="_top">${ICONS.plus}<span>${this._t("add_car")}</span></a></section>`;
-    return `<div class="page stack">${setup}${list}</div>`;
+    return `<div class="page stack">${setup}${cars.length ? `${this._tonightCardHtml()}${this._weekCardHtml()}` : ""}${list}</div>`;
   }
 
   // A car turned off or paused keeps a plan for when it is on again; it is not shown as charging.
@@ -7748,7 +7911,7 @@ class EvPlannerPanel extends HTMLElement {
           ${this._modesHtml(v, { large: true })}
           ${this._batteryHtml()}
           <div class="go-box"></div>
-          <details class="more week-more">
+          <details class="more week-more"${this._openWeek ? " open" : ""}>
             <summary>${ICONS.calendar}<span>${this._t("schedule")}</span><small class="week-sum"></small></summary>
             <div class="schedule-box"></div>
           </details>
@@ -11645,6 +11808,16 @@ class EvPlannerPanel extends HTMLElement {
       case "open-car":
         this._openCar(id);
         break;
+      case "week-day": {
+        const day = button.dataset.day;
+        this._openCar(id, { render: false });
+        this._schedDay = day;
+        this._openWeek = true;
+        this._syncPath();
+        this._render();
+        this.shadowRoot.querySelector(".week-more")?.scrollIntoView({ block: "start" });
+        break;
+      }
       case "back":
         this._back();
         break;
@@ -13325,6 +13498,57 @@ button.hero-pill:focus-visible { outline: 2px solid currentColor; outline-offset
   .mini-words { left: 16px; }
   .mini-rib { left: 16px; right: 16px; }
 }
+
+/* ---------- 2.5: Cars. Tonight, as in Learning, and the cars' week. */
+.tn-card { display: grid; gap: 12px; background: linear-gradient(170deg, color-mix(in srgb, #2a3164 55%, var(--evp-card)) 0%, var(--evp-card) 60%); }
+.tn-top { display: flex; align-items: center; gap: 12px; }
+.tn-badge { width: 40px; height: 40px; border-radius: 13px; display: grid; place-items: center; background: #2a3164; color: #ffd98a; flex: none; }
+.tn-badge svg { width: 20px; height: 20px; fill: currentColor; }
+.tn-when { display: grid; flex: 1; min-width: 0; }
+.tn-when b { font-size: 17px; }
+.tn-when small { color: var(--evp-soft); font-size: 12px; }
+.tn-price { display: grid; justify-items: end; padding: 6px 10px; border-radius: 14px; background: color-mix(in srgb, #3ee08f 14%, transparent); }
+.tn-price b { font-size: 15px; color: color-mix(in srgb, #1aa866 60%, var(--evp-ink)); }
+.tn-price small { font-size: 10.5px; color: var(--evp-soft); }
+.tn-head { margin: 0; font-size: 22px; line-height: 1.22; font-weight: 700; text-wrap: balance; }
+.tn-sub { margin: -4px 0 0; font-size: 13px; color: var(--evp-soft); }
+.tn-pic { min-height: 90px; margin: 0 -6px; }
+.tn-cars { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tn-cars.one { grid-template-columns: minmax(0, 260px); justify-content: center; }
+.tn-car { display: grid; gap: 4px; justify-items: start; text-align: left; padding: 12px; border-radius: 18px; cursor: pointer; font: inherit; color: var(--evp-ink); border: 1px solid var(--evp-line); border-top: 3px solid var(--car); background: color-mix(in srgb, var(--evp-ink) 4%, transparent); min-width: 0; }
+.tn-car.r { justify-items: end; text-align: right; }
+.tn-car:hover { background: color-mix(in srgb, var(--evp-ink) 7%, transparent); }
+.tn-car:focus-visible { outline: 2px solid var(--evp-accent); outline-offset: 2px; }
+.tn-name { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; font-size: 13px; }
+.tn-name b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tn-name svg, .wk-name svg { width: 16px; height: 16px; flex: none; fill: none; stroke: var(--evp-soft); stroke-width: 2.4; stroke-linecap: round; }
+.tn-soc { font-size: 28px; line-height: 1; font-variant-numeric: tabular-nums; }
+.tn-car small { font-size: 12px; color: var(--evp-soft); }
+.tn-car small.on { color: color-mix(in srgb, #1aa866 70%, var(--evp-ink)); font-weight: 600; }
+.tn-swap { display: flex; align-items: center; gap: 8px; margin: 0; padding: 9px 12px; border-radius: 14px; font-size: 12.5px; color: var(--evp-soft); background: color-mix(in srgb, var(--evp-ink) 4%, transparent); }
+.tn-swap svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.tn-rib { display: grid; gap: 6px; padding: 12px; border-radius: 16px; background: color-mix(in srgb, var(--evp-ink) 4%, transparent); }
+.tn-rib-head { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--evp-soft); }
+.tn-bars { height: 46px; display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 3px; align-items: end; }
+.tn-bars i { border-radius: 4px; background: var(--evp-ink); opacity: .28; }
+.tn-ticks { display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 3px; font-size: 9.5px; color: var(--evp-soft); text-align: center; }
+.wk-card { display: grid; gap: 10px; }
+.wk-card .hint { margin: -4px 0 0; }
+.wk-head, .wk-cells { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.wk-head span { text-align: center; font-size: 11.5px; font-weight: 600; color: var(--evp-soft); padding: 3px 0; border-radius: 8px; }
+.wk-head span.today { color: var(--evp-bg); background: var(--evp-ink); }
+.wk-row { display: grid; gap: 6px; }
+.wk-name { justify-self: start; display: inline-flex; align-items: center; gap: 7px; border: 0; background: transparent; padding: 2px 0; font: 600 13px/1.2 inherit; color: var(--evp-ink); cursor: pointer; }
+.wk-name em { width: 8px; height: 8px; border-radius: 50%; background: var(--car); }
+.wk-cell { position: relative; display: grid; justify-items: center; align-content: center; gap: 2px; height: 58px; padding: 0; border-radius: 12px; cursor: pointer; font: inherit; color: var(--evp-ink); border: 1px solid var(--evp-line); background: color-mix(in srgb, var(--evp-ink) 4%, transparent); }
+.wk-cell small { font-size: 10px; color: var(--evp-soft); font-variant-numeric: tabular-nums; }
+.wk-cell b { font-size: 14px; font-variant-numeric: tabular-nums; }
+.wk-cell.own { border-color: color-mix(in srgb, var(--evp-accent) 55%, var(--evp-line)); }
+.wk-cell.none { background: transparent; }
+.wk-cell.none b { font-size: 12px; font-weight: 600; color: var(--evp-soft); }
+.wk-clim { position: absolute; top: 3px; right: 4px; display: block; }
+.wk-clim svg { width: 11px; height: 11px; fill: none; stroke: #6db4f2; stroke-width: 2.2; }
+.wk-cell:focus-visible, .wk-name:focus-visible { outline: 2px solid var(--evp-accent); outline-offset: 2px; }
 
 /* ---------- 2.3: the Home tab */
 .home-page { display: grid; gap: 14px; max-width: 1180px; margin: 0 auto; grid-template-columns: minmax(0, 1fr); align-items: start; }

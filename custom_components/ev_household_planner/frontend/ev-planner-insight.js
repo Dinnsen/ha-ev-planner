@@ -1731,13 +1731,22 @@ class EvPlannerInsight extends HTMLElement {
 
 if (!customElements.get("ev-planner-insight")) customElements.define("ev-planner-insight", EvPlannerInsight);
 
-/* For the themes page only: tonight's picture as the Overview draws it, for given cars and a day. */
-export function heroPicture({ cars, season = null, still = false }) {
+/* Tonight's picture as the Overview draws it, for given cars and a day: for the themes page and the Cars page. */
+export function heroPicture({ cars, season = null, still = false, two = false }) {
   const W = 400, G = 112, one = cars.length === 1, deco = heroDecor(season, one);
   const drawn = cars.map((c, k) => sideCar(c.body, c.paint, { scale: 31, level: c.level, floor: c.floor, color: c.color, flip: k === 1, anim: !still, snow: deco && (season === "xmas" || season === "jul") }));
   const xs = drawn.map((d, k) => (k === 0 ? 4 : W - 4 - d.width)), ports = drawn.map((d, k) => [xs[k] + d.port[0], G + d.port[1]]);
   const stars = [[30, 14], [74, 30], [120, 10], [160, 26], [246, 12], [292, 32], [336, 12], [372, 28]].map(([sx, sy], n) => `<circle class="hstar${still ? "" : " hglow"}" style="animation-delay:${n * 0.3}s" cx="${sx}" cy="${sy}" r="1.3"/>`).join("");
   const [px, py] = ports[0];
+  // Two chargers side by side, a cable to each car; what the holiday puts on the charger sits on the first.
+  if (two && cars.length > 1) {
+    const post = (x) => `<rect class="hpost" x="${x}" y="58" width="20" height="${G - 58}" rx="6"/><rect class="hscreen${still ? "" : " hglow"}" x="${x + 4}" y="63" width="12" height="9" rx="3"/>`;
+    const [a, b] = ports;
+    return `<svg viewBox="0 0 ${W} 122" role="img" aria-label="Biler og ladere i aften">${stars}${deco.moon ? '<path class="hmoon" d="M206 8a10 10 0 1 0 8 15a8 8 0 0 1-8-15Z"/>' : ""}${deco.sky}
+    <line class="hground" x1="2" x2="${W - 2}" y1="${G + 1.5}" y2="${G + 1.5}"/>${drawn.map((d, k) => `<g transform="translate(${xs[k]} ${G})">${d.svg}</g>`).join("")}
+    ${post(166)}${post(214)}<g transform="translate(-24 0)">${deco.front}</g>
+    <path class="hcab" d="M172 100 C 162 ${G + 6}, ${a[0] + 12} ${G + 4}, ${a[0] + 4} ${a[1]}"/><path class="hcab" d="M228 100 C 238 ${G + 6}, ${b[0] - 12} ${G + 4}, ${b[0] - 4} ${b[1]}"/></svg>`;
+  }
   return `<svg viewBox="0 0 ${W} 122" role="img" aria-label="Biler og lader i aften">${stars}${deco.moon ? '<path class="hmoon" d="M206 8a10 10 0 1 0 8 15a8 8 0 0 1-8-15Z"/>' : ""}${deco.sky}
     <line class="hground" x1="2" x2="${W - 2}" y1="${G + 1.5}" y2="${G + 1.5}"/>${drawn.map((d, k) => `<g transform="translate(${xs[k]} ${G})">${d.svg}</g>`).join("")}
     <rect class="hpost" x="190" y="58" width="20" height="${G - 58}" rx="6"/><rect class="hscreen${still ? "" : " hglow"}" x="194" y="63" width="12" height="9" rx="3"/>${deco.front}

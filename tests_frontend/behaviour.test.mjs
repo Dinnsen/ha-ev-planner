@@ -1107,3 +1107,21 @@ test("Huset has the big top: the date, a greeting, the price arc over the house;
     await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector(".content").scrollTop === 0, null, { timeout: 3000 });
   });
 });
+
+test("Cars opens with tonight as in Learning and the cars' week; a day opens the car's week plan at that day", async () => {
+  await withPanel("two-cars", { size: PHONE, lang: "da" }, async ({ page, tap, read }) => {
+    await tap('.tabs button[data-tab="cars"]');
+    assert.equal(await read(".tn-card .tn-when b"), "I aften");
+    assert.ok((await read(".tn-card .tn-head")).length > 5, "tonight says who charges");
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector(".tn-pic")?.shadowRoot?.querySelector("svg"), null, { timeout: 8000 });
+    const blocks = await page.evaluate(() => [...window.harness.panel.shadowRoot.querySelectorAll(".tn-car")].map((b) => b.dataset.id));
+    assert.ok(blocks.length >= 1, "a block for each car at home");
+    const order = await page.evaluate(() => [...window.harness.panel.shadowRoot.querySelectorAll(".page > section, .page > div")].map((el) => el.className));
+    assert.ok(order.findIndex((c) => c.includes("tn-card")) < order.findIndex((c) => c.includes("wk-card")), "the week is under tonight");
+    const cell = await page.evaluate(() => { const c = window.harness.panel.shadowRoot.querySelectorAll(".wk-cell")[3]; return { id: c.dataset.id, day: c.dataset.day }; });
+    await tap(`.wk-cell[data-id="${cell.id}"][data-day="${cell.day}"]`);
+    assert.equal(await page.evaluate(() => window.harness.panel._carId), cell.id);
+    assert.equal(await read(".week-more", "open"), "", "the week plan is open");
+    assert.equal(await read(`.schedule-box .day[data-day="${cell.day}"]`, "aria-pressed"), "true", "at the day that was tapped");
+  });
+});

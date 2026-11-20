@@ -2,6 +2,13 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b45] - 2026-11-20
+
+### Added
+
+- **Tonight on Cars**: the Cars page opens with tonight as Learning draws it: who charges when (or which car to plug in), what the car then has, the cars by the charger filled to their level, with the holiday's decorations, and the night's price. Two chargers are drawn as two, each with its cable to its car. Each car is a block to tap for its own page. With one charger and two cars the hours with no cable swap are shown (Settings › Learning). The next day's prices are under it, the hours a car charges in its colour.
+- **The cars' week**: under tonight, each car's ready-by time and target for the next seven days (the week plan), with a mark for the climate. A day opens the car's page with the week plan open at that day.
+
 ## [2.5.0b44] - 2026-11-20
 
 ### Added
