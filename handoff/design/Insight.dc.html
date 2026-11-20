@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<title>EV Planner – Insight styrer</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&amp;family=Inter:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#0d1014}
+a{color:#c3b5ff;text-decoration:none}a:hover{color:#ddd3ff}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:focus-visible,a:focus-visible{outline:2px solid #eef2f5;outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.disp{font-family:'Bricolage Grotesque',Inter,sans-serif;letter-spacing:-.02em}
+@keyframes up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+@keyframes glow{0%,100%{box-shadow:0 0 0 0 rgba(140,110,255,.5)}50%{box-shadow:0 0 0 8px rgba(140,110,255,0)}}
+.sheet{animation:up .32s cubic-bezier(.2,.9,.3,1.1)}
+.glow{animation:glow 2.6s ease-in-out infinite}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #0d1014; color: #eef2f5; font-family: Inter, -apple-system, 'Segoe UI', sans-serif; position: relative; overflow: hidden">
+  <div style="position: absolute; inset: 0 0 auto 0; height: 300px; background: linear-gradient(180deg, #060a20 0%, #121a45 60%, #0d1014 100%)" aria-hidden="true"></div>
+  <div style="position: absolute; inset: 0; background: rgba(6,8,14,.55)" aria-hidden="true"></div>
+
+  <section class="sheet" role="dialog" aria-label="Insight" style="position: absolute; left: 0; right: 0; bottom: 0; top: 52px; border-radius: 30px 30px 0 0; background: linear-gradient(180deg, #1c1838 0%, #151826 34%, #13161d 100%); border-top: 1px solid rgba(195,181,255,.25); padding: 10px 18px 22px; display: flex; flex-direction: column; gap: 14px">
+    <i style="align-self: center; width: 40px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.22)"></i>
+
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span class="{{glowClass}}" style="{{badge}}">
+        <svg width="24" height="24" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1 L7.2 4.8 L11 6 L7.2 7.2 L6 11 L4.8 7.2 L1 6 L4.8 4.8 Z" fill="#fff"></path></svg>
+      </span>
+      <div style="flex: 1; display: flex; flex-direction: column">
+        <b class="disp" style="font-size: 24px; font-weight: 800">Insight</b>
+        <small style="{{statusStyle}}">{{status}}</small>
+      </div>
+      <button onClick="{{toggle}}" aria-pressed="{{on}}" aria-label="Insight styrer" style="{{track}}"><i style="{{knob}}"></i></button>
+      <a href="Main.dc.html" aria-label="Luk" style="width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.07); color: #c2cad3">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+      </a>
+    </div>
+
+    <div style="{{body}}">
+      <small style="font-size: 11px; font-weight: 700; letter-spacing: .1em; color: #a99cf0">DET HAR DEN LÆRT · 34 DAGE</small>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center">
+          <div style="width: 74px; height: 74px; border-radius: 50%; background: conic-gradient(#b49cff 0 86%, rgba(255,255,255,.08) 86% 100%); display: grid; place-items: center">
+            <div style="width: 58px; height: 58px; border-radius: 50%; background: #171a26; display: grid; place-items: center"><b class="num disp" style="font-size: 19px">86 %</b></div>
+          </div>
+          <small style="font-size: 11.5px; line-height: 1.3; color: #c2cad3">kender jeres kørsel</small>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center">
+          <div style="height: 74px; display: flex; align-items: flex-end; gap: 8px">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 3px"><b class="num" style="font-size: 12px">9</b><i style="width: 20px; height: 26px; border-radius: 6px 6px 3px 3px; background: #6fe8c4"></i></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 3px"><b class="num" style="font-size: 12px">21</b><i style="width: 20px; height: 56px; border-radius: 6px 6px 3px 3px; background: #ff9a7a"></i></div>
+          </div>
+          <small style="font-size: 11.5px; line-height: 1.3; color: #c2cad3">kWh: typisk · svær dag</small>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center">
+          <div style="width: 40px; height: 74px; border-radius: 10px; border: 2px solid rgba(255,255,255,.25); position: relative; overflow: hidden">
+            <i style="position: absolute; left: 0; right: 0; bottom: 0; height: 15%; background: #f5b94a"></i>
+            <i style="position: absolute; left: 0; right: 0; bottom: 15%; height: 35%; background: #ff9a7a; opacity: .8"></i>
+          </div>
+          <small style="font-size: 11.5px; line-height: 1.3; color: #c2cad3">svær dag + 15 % reserve</small>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 18px; background: rgba(255,255,255,.04)">
+        <div style="display: flex; justify-content: space-between; font-size: 11.5px; color: #c2cad3"><b style="font-weight: 600">Typisk kørsel pr. ugedag</b><span style="color: #8f99a5">højere søjle = flere kWh</span></div>
+        <div style="display: grid; grid-template-columns: 70px repeat(7, minmax(0, 1fr)); gap: 4px; align-items: end; font-size: 10px; color: #8f99a5; text-align: center">
+          <span></span><span>M</span><span>T</span><span>O</span><span>T</span><span>F</span><span>L</span><span>S</span>
+        </div>
+        <sc-for list="{{week}}" as="r" hint-placeholder-count="2">
+          <div style="display: grid; grid-template-columns: 70px repeat(7, minmax(0, 1fr)); gap: 4px; align-items: end; height: 34px">
+            <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; align-self: center"><i style="{{r.dot}}"></i>{{r.name}}</span>
+            <sc-for list="{{r.bars}}" as="b" hint-placeholder-count="7">
+              <i style="{{b.style}}" title="{{b.title}}"></i>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+
+      <small style="font-size: 11px; font-weight: 700; letter-spacing: .1em; color: #a99cf0; margin-top: 2px">DET GØR DEN I NAT</small>
+      <div style="position: relative; height: 92px; border-radius: 18px; background: rgba(255,255,255,.04); padding: 10px 12px; box-sizing: border-box">
+        <div style="position: absolute; left: 12px; right: 12px; top: 10px; height: 54px; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 2px; align-items: end">
+          <sc-for list="{{night}}" as="h" hint-placeholder-count="12">
+            <i style="{{h}}"></i>
+          </sc-for>
+        </div>
+        <div style="position: absolute; left: 12px; right: 12px; top: 10px; height: 54px">
+          <span style="position: absolute; left: 41.2%; width: 33.6%; top: -3px; bottom: -3px; border-radius: 8px; border: 2px solid #2fd3a3; box-shadow: 0 0 14px rgba(47,211,163,.35)"></span>
+        </div>
+        <div class="num" style="position: absolute; left: 12px; right: 12px; bottom: 8px; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 2px; font-size: 10px; color: #8f99a5; text-align: center"><span>21</span><span></span><span></span><span>00</span><span></span><span>02</span><span></span><span></span><span></span><span>06</span><span></span><span>08</span></div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px">
+        <div style="display: flex; align-items: center; gap: 8px"><i style="width: 8px; height: 8px; border-radius: 50%; background: #2fd3a3"></i><b>Tesla</b><span class="num" style="color: #c2cad3; flex: 1">02–06 → 90 % til lør. 09.00</span><span style="font-size: 11px; font-weight: 700; color: #0d1014; background: #eef2f5; padding: 2px 7px; border-radius: 999px">fast</span></div>
+        <div style="display: flex; align-items: center; gap: 8px"><i style="width: 8px; height: 8px; border-radius: 50%; background: #a3abff"></i><b>Mercedes</b><span class="num" style="color: #c2cad3; flex: 1">46 % rækker · venter en nat</span><span style="font-size: 11px; font-weight: 700; color: #d9ceff; background: rgba(140,110,255,.22); padding: 2px 7px; border-radius: 999px">✦ ≈50 %</span></div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 18px; background: linear-gradient(120deg, rgba(47,211,163,.16), rgba(110,74,255,.16))">
+        <div style="display: flex; flex-direction: column">
+          <b class="num disp" style="font-size: 30px; line-height: 1">214 kr.</b>
+          <small style="font-size: 12px; color: #c2cad3">sparet de sidste 30 dage</small>
+        </div>
+        <svg width="120" height="40" viewBox="0 0 120 40" aria-hidden="true" style="margin-left: auto"><path d="M0 34 L12 30 L24 31 L36 24 L48 25 L60 18 L72 19 L84 12 L96 13 L108 6 L120 4" fill="none" stroke="#6fe8c4" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      </div>
+    </div>
+
+    <div style="margin-top: auto; display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 16px; background: rgba(255,255,255,.05); font-size: 12.5px; line-height: 1.45; color: #c2cad3">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true" style="flex: none; margin-top: 2px"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v6M12 7.5h.01"></path></svg>
+      <span>{{foot}}</span>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+const USE = { tesla: [6, 7, 6, 8, 11, 18, 4], merc: [9, 8, 9, 9, 10, 5, 14] };
+const NIGHT = [2.55, 2.30, 2.10, 1.87, 1.73, 1.61, 1.56, 1.57, 1.71, 2.21, 2.93, 3.12];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { on: true };
+  }
+  renderVals() {
+    const on = this.state.on;
+    const lo = Math.min(...NIGHT), hi = Math.max(...NIGHT);
+    const tier = (p) => (p <= lo + (hi - lo) * 0.3 ? '#3ee08f' : p <= lo + (hi - lo) * 0.66 ? '#f5b94a' : '#ff7a6b');
+    return {
+      on,
+      toggle: () => this.setState({ on: !on }),
+      glowClass: on ? 'glow' : '',
+      badge: `width: 46px; height: 46px; border-radius: 15px; display: grid; place-items: center; background: ${on ? 'linear-gradient(145deg, #19b6a5, #6e4aff)' : '#2a2f3a'}`,
+      status: on ? 'styrer opladningen' : 'slået fra · lærer stadig',
+      statusStyle: `font-size: 13px; font-weight: 600; color: ${on ? '#c3b5ff' : '#a3adb8'}`,
+      track: `flex: none; width: 56px; height: 32px; border-radius: 16px; border: 0; position: relative; background: ${on ? '#8c6eff' : '#3a414d'}`,
+      knob: `position: absolute; top: 3px; left: ${on ? 27 : 3}px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.35); transition: left .2s`,
+      body: `display: flex; flex-direction: column; gap: 12px; opacity: ${on ? 1 : 0.42}; filter: ${on ? 'none' : 'saturate(.2)'}; transition: opacity .25s`,
+      week: [['Tesla', '#2fd3a3', USE.tesla], ['Mercedes', '#a3abff', USE.merc]].map(([name, color, v]) => ({
+        name,
+        dot: `width: 8px; height: 8px; border-radius: 50%; background: ${color}`,
+        bars: v.map((k, i) => ({ title: `${['man', 'tir', 'ons', 'tor', 'fre', 'lør', 'søn'][i]}: ${k} kWh`, style: `height: ${Math.round(6 + (k / 18) * 28)}px; border-radius: 4px; background: ${color}; opacity: ${0.35 + (k / 18) * 0.65}` })),
+      })),
+      night: NIGHT.map((p, i) => `height: ${Math.round(10 + ((p - lo) / (hi - lo)) * 40)}px; border-radius: 4px; background: ${tier(p)}; opacity: ${i >= 5 && i < 9 ? 1 : 0.45}`),
+      foot: on ? 'Slår du Insight fra, lader bilerne efter ugeplanens faste mål (80 %). Den bliver ved med at lære, så du kan slå den til igen.' : 'Bilerne lader nu efter ugeplanens faste mål (80 %). Insight lærer videre i baggrunden.',
+    };
+  }
+}
+</script>
+</body>
+</html>

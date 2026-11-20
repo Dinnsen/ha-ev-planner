@@ -153,6 +153,7 @@ from .const import (
     SUBENTRY_VEHICLE,
     TARGET_STEP_AUTO,
     TARGET_STEPS,
+    TRIP_ONCE,
     UNPLUG_CONFIRM,
     VERIFY_BACKOFF,
     VERIFY_DELAY,
@@ -3316,7 +3317,13 @@ class Household(DataUpdateCoordinator[None]):
         self.async_update_listeners()
 
     async def async_set_trip(
-        self, vehicle_id: str, kind: str | None, *, day: date | None = None, target: float | None = None
+        self,
+        vehicle_id: str,
+        kind: str | None,
+        *,
+        day: date | None = None,
+        target: float | None = None,
+        at_time: str | None = None,
     ) -> datetime | None:
         """A one-off ready-by time from a preset, before the week plan; ``kind`` None: back to the week plan."""
         vehicle = self.vehicles.get(vehicle_id)
@@ -3324,7 +3331,14 @@ class Household(DataUpdateCoordinator[None]):
             raise ServiceValidationError(translation_domain=DOMAIN, translation_key="car_not_found")
         now = dt_util.now()
         at = None
-        if kind is not None:
+        if kind == TRIP_ONCE:
+            # One departure moved: that day, at its own time.
+            moment = parse_hhmm(at_time) if at_time else None
+            if day is not None and moment is not None:
+                at = dt_util.as_local(datetime.combine(day, moment, tzinfo=dt_util.get_default_time_zone()))
+            if at is None or at <= now:
+                raise ServiceValidationError(translation_domain=DOMAIN, translation_key="invalid_trip")
+        elif kind is not None:
             departure = find_departure(self.settings.get("departures"), kind)
             if departure is not None:
                 at = departure_deadline(departure, now, day)

@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<title>EV Planner – Toppen og bilbilleder</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&amp;family=Inter:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#0d1014}
+a{color:#6fe8c4;text-decoration:none}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:focus-visible,a:focus-visible{outline:2px solid #eef2f5;outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.disp{font-family:'Bricolage Grotesque',Inter,sans-serif;letter-spacing:-.02em}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.pop{animation:rise .22s ease-out}
+.row::-webkit-scrollbar{display:none}
+</style>
+</helmet>
+<div style="width: 390px; height: 1520px; box-sizing: border-box; background: #0d1014; color: #eef2f5; font-family: Inter, -apple-system, 'Segoe UI', sans-serif; display: flex; flex-direction: column; gap: 16px; overflow: hidden">
+
+  <header style="{{sky}}" aria-label="Sådan ser toppen ud">
+    <div style="position: absolute; left: 12px; right: 16px; top: 12px; display: flex; align-items: center; gap: 8px; z-index: 2">
+      <a href="Menu.dc.html" aria-label="Tilbage" style="width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: rgba(255,255,255,.12)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+      </a>
+      <b class="disp" style="{{titleStyle}}">Look</b>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; padding: 3px; border-radius: 999px; background: rgba(0,0,0,.25)" role="group" aria-label="Dag eller nat">
+        <button onClick="{{setDay}}" aria-pressed="{{isDay}}" style="{{dayStyle}}">Dag</button>
+        <button onClick="{{setNight}}" aria-pressed="{{isNight}}" style="{{nightStyle}}">Nat</button>
+      </div>
+    </div>
+    <img src="{{houseImg}}" alt="Det valgte hus" style="position: absolute; left: 50%; bottom: 18px; height: 196px; width: auto; max-width: 350px; transform: translateX(-50%)">
+    <span style="position: absolute; left: 16px; bottom: 14px; font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; color: #fff; background: rgba(0,0,0,.35)">{{houseName}}</span>
+  </header>
+
+  <section style="margin: 0 16px; display: flex; flex-direction: column; gap: 10px" aria-label="Udseende">
+    <h2 class="disp" style="margin: 0; font-size: 19px; font-weight: 700">Udseende</h2>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+      <sc-for list="{{looks}}" as="l" hint-placeholder-count="3">
+        <button onClick="{{l.pick}}" aria-pressed="{{l.on}}" style="{{l.style}}"><span style="{{l.swatch}}"></span><b style="font-size: 12.5px">{{l.name}}</b></button>
+      </sc-for>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 14px; background: #161a21">
+      <sc-for list="{{themes}}" as="t" hint-placeholder-count="3">
+        <button onClick="{{t.pick}}" aria-pressed="{{t.on}}" style="{{t.style}}">{{t.label}}</button>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 10px" aria-label="Huset i toppen">
+    <h2 class="disp" style="margin: 0 16px; font-size: 19px; font-weight: 700">Toppen · huset</h2>
+    <div class="row" style="display: flex; gap: 10px; overflow-x: auto; padding: 0 16px 4px; scrollbar-width: none">
+      <sc-for list="{{houses}}" as="h" hint-placeholder-count="10">
+        <button onClick="{{h.pick}}" aria-pressed="{{h.on}}" style="{{h.style}}">
+          <img src="{{h.img}}" alt="" style="width: 100%; height: 66px; object-fit: contain">
+          <small style="font-size: 12px; font-weight: 600">{{h.name}}</small>
+        </button>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="margin: 0 16px; display: flex; flex-direction: column; gap: 10px" aria-label="Bilerne">
+    <h2 class="disp" style="margin: 0; font-size: 19px; font-weight: 700">Toppen · bilerne</h2>
+    <sc-for list="{{cars}}" as="c" hint-placeholder-count="2">
+      <div style="padding: 14px; border-radius: 22px; background: #161a21; border: 1px solid rgba(255,255,255,.07); display: flex; flex-direction: column; gap: 10px">
+        <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700"><i style="{{c.dot}}"></i>{{c.name}}</span>
+        <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px">
+          <sc-for list="{{c.bodies}}" as="b" hint-placeholder-count="6">
+            <button onClick="{{b.pick}}" aria-pressed="{{b.on}}" aria-label="{{b.name}}" style="{{b.style}}">
+              <sc-if value="{{b.isPhoto}}" hint-placeholder-val="{{ false }}">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>
+              </sc-if>
+              <sc-if value="{{b.isBody}}" hint-placeholder-val="{{ true }}">
+                <img src="{{b.img}}" alt="" style="width: 100%; height: 34px; object-fit: contain">
+              </sc-if>
+              <small style="font-size: 9.5px; font-weight: 600">{{b.short}}</small>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+  </section>
+
+  <section style="margin: 0 16px; padding: 16px; border-radius: 24px; background: linear-gradient(170deg, #1b2142, #161a21 60%); border: 1px solid rgba(255,255,255,.07); display: flex; flex-direction: column; gap: 12px; position: relative" aria-label="Eget foto">
+    <div style="display: flex; align-items: center; gap: 8px">
+      <div style="flex: 1; display: flex; flex-direction: column"><h2 class="disp" style="margin: 0; font-size: 19px; font-weight: 700">Bilens eget billede</h2><small style="font-size: 12px; color: #a3adb8">Kun på bilens egen side · vælges der</small></div>
+      <button onClick="{{toggleHelp}}" aria-label="Sådan virker det" aria-expanded="{{help}}" style="width: 26px; height: 26px; border-radius: 50%; border: 1px solid rgba(255,255,255,.14); background: transparent; font-size: 12px; font-weight: 700; color: #c2cad3">?</button>
+    </div>
+    <sc-if value="{{help}}" hint-placeholder-val="{{ false }}">
+      <div class="pop" style="position: absolute; right: 16px; top: 52px; width: 270px; z-index: 5; padding: 14px; border-radius: 16px; background: #232936; border: 1px solid rgba(255,255,255,.1); box-shadow: 0 16px 40px rgba(0,0,0,.45); font-size: 12.5px; line-height: 1.5; color: #d5dbe2; display: flex; flex-direction: column; gap: 8px">
+        <span>Bilen bliver fritlagt og tegnet om i appens ler-stil: bløde former, samme lys som huset og bilens egen farve.</span>
+        <span>Det sker i browseren. Billedet sendes ingen steder hen.</span>
+        <span>Toppen og Biler bruger altid tegningen af biltypen – fotos bliver aldrig gode nok i de små størrelser.</span>
+      </div>
+    </sc-if>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 14px; background: #14181e" role="group" aria-label="Visning">
+      <sc-for list="{{styles}}" as="s" hint-placeholder-count="3">
+        <button onClick="{{s.pick}}" aria-pressed="{{s.on}}" style="{{s.style}}">{{s.label}}</button>
+      </sc-for>
+    </div>
+    <div style="position: relative; height: 210px; border-radius: 18px; overflow: hidden; background: radial-gradient(110% 80% at 50% 80%, rgba(47,211,163,.2), rgba(47,211,163,0) 50%), linear-gradient(180deg, #0b1030, #1a2150 70%, #10131b)">
+      <sc-if value="{{showPhoto}}" hint-placeholder-val="{{ false }}">
+        <div style="position: absolute; inset: 14px; border-radius: 14px; border: 2px dashed rgba(255,255,255,.25); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #c2cad3; text-align: center">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>
+          <b style="font-size: 14px">Dit foto af bilen</b>
+          <small style="font-size: 12px; color: #a3adb8">skråt forfra, i dagslys, hele bilen med</small>
+        </div>
+      </sc-if>
+      <sc-if value="{{showClay}}" hint-placeholder-val="{{ true }}">
+        <img src="/_blob/60ac1070c3828e96e6b3f3851ef51385" alt="Teslaen tegnet i ler-stil i sin egen farve" style="{{clayStyle}}">
+      </sc-if>
+      <span style="{{verdictStyle}}">{{verdict}}</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px">
+      <small style="font-size: 12px; color: #a3adb8; flex: 1">Farven fra fotoet</small>
+      <sc-for list="{{swatches}}" as="w" hint-placeholder-count="5">
+        <button onClick="{{w.pick}}" aria-pressed="{{w.on}}" aria-label="{{w.name}}" style="{{w.style}}"></button>
+      </sc-for>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+      <button style="height: 46px; border-radius: 14px; border: 1px solid rgba(255,255,255,.14); background: transparent; font-size: 14px; font-weight: 600">Nyt foto</button>
+      <button style="height: 46px; border-radius: 14px; border: 0; background: linear-gradient(135deg, #19b6a5, #6e4aff); color: #fff; font-size: 14px; font-weight: 700">Brug billedet</button>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"photo":{"editor":"enum","options":["Godt foto","For mørkt","Bilen er skåret over"],"default":"Godt foto","section":"Demo"},"$preview":{"width":390,"height":1520}}'>
+const HOUSES = [
+  ['classic', 'Klassisk', '/_blob/1a53c7db06b486d1f71b05fba8f829d8'], ['angle', 'Vinkelhus', '/_blob/afdf04f9fd5b5cc1f87aabfe0e7a8dcb'],
+  ['funkis', 'Funkis', '/_blob/51fcb228abbcedb5c3d94b46c6294834'], ['storey', 'Halvandet plan', '/_blob/172172d8a2db7c76079c11933c96a19f'],
+  ['long', 'Længehus', '/_blob/ac7ea428bcd4e53755d001f13fcbdf2e'], ['tee', 'T-hus', '/_blob/f9a27003f00d2897021dfc8f46488335'],
+  ['aitch', 'H-hus', '/_blob/58535e81465322bfc75cef69ef3e790b'], ['hipped', 'Valmet', '/_blob/774693c5ed27b34d89d8ee08b1b9a4bc'],
+  ['cabin', 'Træsommerhus', '/_blob/d4029c9dd97064884f5b0f67853ea556'], ['terrace', 'Rækkehus', '/_blob/0ad124d87ed33eccf0c3e7f1c7741724'],
+];
+const SCENE = {
+  dag: { classic: '/_blob/55864d21f077b797d8e3fce3c4fb0c4e', angle: '/_blob/86e332ad29e205f92d4a10303adf66d3', funkis: '/_blob/66337474190438f17daa0c54c3990667', storey: '/_blob/cea08d9f666885114c46c7c1c3f778ba' },
+  nat: { classic: '/_blob/3aab3176099449b4b63a45823550eb38', angle: '/_blob/c5de3a83cbe7e4ce54880a368482d315', funkis: '/_blob/5ad78f2f444c22c7aa727ca37a4d4561', storey: '/_blob/b134ff2a617400ce8433836d8fc49748' },
+};
+const BODIES = [
+  ['sedan', 'Sedan', '/_blob/60ac1070c3828e96e6b3f3851ef51385'], ['suv', 'SUV', '/_blob/ff903fd86061963fd14f5bb3a36e1685'],
+  ['estate', 'Station', '/_blob/a19d9446e19b6305b3404d0d795a7efc'], ['mini', 'Mini', '/_blob/5db3af6c21ec55e10f8d6da8e5ea88d5'],
+  ['van', 'Varebil', '/_blob/28da776d5c1d4b58d7110d57f809f853'],
+];
+const TINT = {
+  hvid: { name: 'Hvid', sw: '#f2f4f7', f: 'none' },
+  rod: { name: 'Rød', sw: '#d6453d', f: 'sepia(1) saturate(5.5) hue-rotate(-38deg) brightness(.82)' },
+  bla: { name: 'Blå', sw: '#3c6fd8', f: 'sepia(1) saturate(4) hue-rotate(180deg) brightness(.8)' },
+  gra: { name: 'Grå', sw: '#7c838d', f: 'grayscale(1) brightness(.72) contrast(1.05)' },
+  gron: { name: 'Grøn', sw: '#3f8f6a', f: 'sepia(1) saturate(2.6) hue-rotate(95deg) brightness(.78)' },
+};
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { house: 'classic', night: true, body: { tesla: 'sedan', merc: 'suv' }, look: 'evp', theme: 'auto', view: 'clay', tint: 'rod', help: false };
+  }
+  renderVals() {
+    const s = this.state;
+    const photo = this.props.photo ?? 'Godt foto';
+    const scene = SCENE[s.night ? 'nat' : 'dag'][s.house];
+    const thumb = HOUSES.find((h) => h[0] === s.house);
+    const seg = (on) => `height: 30px; padding: 0 12px; border: 0; border-radius: 999px; font-size: 12.5px; font-weight: 700; background: ${on ? '#fff' : 'transparent'}; color: ${on ? '#0d1014' : '#fff'}`;
+    const segDark = (on) => `height: 38px; border: 0; border-radius: 11px; font-size: 13px; font-weight: 700; background: ${on ? '#eef2f5' : 'transparent'}; color: ${on ? '#0d1014' : '#a3adb8'}`;
+    const houses = HOUSES.map(([k, name, img]) => ({
+      name, img, on: s.house === k,
+      style: `flex: none; width: 118px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 8px; border-radius: 18px; border: 1.5px solid ${s.house === k ? '#6fe8c4' : 'rgba(255,255,255,.07)'}; background: ${s.house === k ? 'rgba(47,211,163,.12)' : '#161a21'}; color: ${s.house === k ? '#fff' : '#c2cad3'}`,
+      pick: () => this.setState({ house: k }),
+    }));
+    const cars = [['tesla', 'Tesla Model 3', '#2fd3a3'], ['merc', 'Mercedes EQB', '#a3abff']].map(([id, name, color]) => ({
+      name,
+      dot: `width: 9px; height: 9px; border-radius: 50%; background: ${color}`,
+      bodies: BODIES.map(([k, short, img]) => {
+        const on = s.body[id] === k;
+        return {
+          short, img, name: k === 'photo' ? 'Eget foto' : short, on,
+          isPhoto: k === 'photo', isBody: k !== 'photo',
+          style: `display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; height: 62px; padding: 4px 2px; border-radius: 14px; border: 1.5px solid ${on ? color : 'rgba(255,255,255,.07)'}; background: ${on ? color + '22' : '#1d222b'}; color: ${on ? '#fff' : '#a3adb8'}`,
+          pick: () => this.setState({ body: { ...s.body, [id]: k } }),
+        };
+      }),
+    }));
+    const styles = [['photo', 'Foto'], ['clay', 'Tegnet'], ['type', 'Kun farve']].map(([k, label]) => ({ label, on: s.view === k, style: segDark(s.view === k), pick: () => this.setState({ view: k }) }));
+    const t = TINT[s.tint];
+    const bad = photo !== 'Godt foto';
+    const verdict = s.view === 'photo' ? 'Originalen' : bad ? (photo === 'For mørkt' ? 'For mørkt – prøv i dagslys' : 'Bilen er skåret over – tag hele bilen') : s.view === 'clay' ? 'Passer godt' : 'Sedan i bilens farve';
+    const vColor = s.view === 'photo' ? 'rgba(255,255,255,.14)' : bad ? '#f5b94a' : '#3ee08f';
+    const clayFilter = s.view === 'type' ? t.f : `${t.f === 'none' ? '' : t.f} contrast(1.04)`.trim();
+    return {
+      sky: `position: relative; height: 290px; flex: none; overflow: hidden; background: ${s.night ? 'linear-gradient(180deg, #060a20 0%, #121a45 45%, #232a5c 75%, #0d1014 100%)' : 'linear-gradient(180deg, #5fa7ec 0%, #9fcdf5 40%, #dceaf7 72%, #0d1014 100%)'}`,
+      titleStyle: `flex: 1; font-size: 22px; font-weight: 800; color: ${s.night ? '#fff' : '#0f1a2a'}`,
+      isDay: !s.night, isNight: s.night,
+      dayStyle: seg(!s.night), nightStyle: seg(s.night),
+      setDay: () => this.setState({ night: false }), setNight: () => this.setState({ night: true }),
+      houseImg: scene || thumb[2],
+      houseName: thumb[1] + (scene ? '' : ' · uden biler i forhåndsvisningen'),
+      houses, cars, styles,
+      showPhoto: s.view === 'photo', showClay: s.view !== 'photo',
+      clayStyle: `position: absolute; left: 50%; top: 14px; height: 180px; width: auto; transform: translateX(-50%); filter: ${clayFilter || 'none'}${bad && s.view === 'clay' ? ' brightness(.45)' : ''}; ${bad && photo !== 'For mørkt' && s.view === 'clay' ? 'clip-path: inset(0 30% 0 0);' : ''}`,
+      verdict,
+      verdictStyle: `position: absolute; left: 12px; bottom: 12px; font-size: 12px; font-weight: 700; padding: 5px 11px; border-radius: 999px; color: ${s.view === 'photo' ? '#fff' : '#0d1014'}; background: ${vColor}`,
+      swatches: Object.entries(TINT).map(([k, v]) => ({ name: v.name, on: s.tint === k, style: `width: 28px; height: 28px; border-radius: 50%; border: 2px solid ${s.tint === k ? '#fff' : 'rgba(255,255,255,.15)'}; background: ${v.sw}; box-shadow: ${s.tint === k ? '0 0 0 3px rgba(255,255,255,.18)' : 'none'}`, pick: () => this.setState({ tint: k }) })),
+      looks: [['evp', 'EV Planner', 'linear-gradient(135deg, #0d1014 50%, #2fd3a3 50%)'], ['frisk', 'Frisk', 'linear-gradient(135deg, #f4f7f5 50%, #19b6a5 50%)'], ['studio', 'Theme Studio', 'linear-gradient(135deg, #1b1530 50%, #6e4aff 50%)']].map(([k, name, sw]) => ({ name, on: s.look === k, swatch: `width: 34px; height: 34px; border-radius: 12px; background: ${sw}; border: 1px solid rgba(255,255,255,.15)`, style: `display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 6px; border-radius: 18px; border: 1.5px solid ${s.look === k ? '#6fe8c4' : 'rgba(255,255,255,.07)'}; background: ${s.look === k ? 'rgba(47,211,163,.12)' : '#161a21'}; color: #e6ebf0`, pick: () => this.setState({ look: k }) })),
+      themes: [['auto', 'Auto'], ['light', 'Lys'], ['dark', 'Mørk']].map(([k, label]) => ({ label, on: s.theme === k, style: segDark(s.theme === k), pick: () => this.setState({ theme: k }) })),
+      help: s.help,
+      toggleHelp: () => this.setState({ help: !s.help }),
+    };
+  }
+}
+</script>
+</body>
+</html>

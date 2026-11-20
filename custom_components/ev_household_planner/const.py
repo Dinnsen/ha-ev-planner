@@ -266,6 +266,8 @@ TRIP_MIDDAY: Final = "midday"
 TRIP_EVENING: Final = "evening"
 TRIP_WEEKEND: Final = "weekend"
 TRIP_HOLIDAY: Final = "holiday"
+# One departure moved, from the week plan's editor (2.5.0b48): that day only, at its own time.
+TRIP_ONCE: Final = "once"
 TRIP_KINDS: Final = (
     TRIP_MORNING,
     TRIP_MIDDAY,

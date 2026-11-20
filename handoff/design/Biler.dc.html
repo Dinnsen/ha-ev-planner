@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<title>EV Planner – Biler</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&amp;family=Inter:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#0d1014}
+a{color:#2fd3a3;text-decoration:none}a:hover{color:#6fe8c4}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #eef2f5;outline-offset:2px}
+input[type=time]{font:inherit;color-scheme:dark}
+.num{font-variant-numeric:tabular-nums}
+.disp{font-family:'Bricolage Grotesque',Inter,sans-serif;letter-spacing:-.02em}
+.glass{background:rgba(16,20,32,.55);-webkit-backdrop-filter:blur(16px) saturate(1.3);backdrop-filter:blur(16px) saturate(1.3);border:1px solid rgba(255,255,255,.13)}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes grow{from{transform:scaleY(.2)}to{transform:none}}
+.pop{animation:rise .22s ease-out}
+.bar{transform-origin:bottom;animation:grow .5s ease-out both}
+</style>
+</helmet>
+<div style="width: 390px; height: 2300px; box-sizing: border-box; background: #0d1014; color: #eef2f5; font-family: Inter, -apple-system, 'Segoe UI', sans-serif; display: flex; flex-direction: column; gap: 14px; overflow: hidden; position: relative">
+
+  <header style="position: relative; height: 168px; flex: none; overflow: hidden; background: linear-gradient(180deg, #060a20 0%, #121a45 50%, #232a5c 86%, #1a1f3a 100%)" aria-label="Biler">
+    <i style="position: absolute; left: 40px; top: 30px; width: 2px; height: 2px; border-radius: 50%; background: #fff; opacity: .8"></i>
+    <i style="position: absolute; left: 150px; top: 18px; width: 3px; height: 3px; border-radius: 50%; background: #fff; opacity: .6"></i>
+    <i style="position: absolute; left: 230px; top: 44px; width: 2px; height: 2px; border-radius: 50%; background: #fff; opacity: .7"></i>
+    <img src="{{headerHouse}}" alt="Indkørslen med bilerne" style="position: absolute; right: -6px; bottom: 6px; height: 150px; width: auto">
+    <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 18px; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); align-items: center; padding: 0 14px; box-sizing: border-box" role="img" aria-label="Prisen det næste døgn">
+      <sc-for list="{{ribbon}}" as="r" hint-placeholder-count="24"><i style="{{r}}"></i></sc-for>
+    </div>
+    <div style="position: absolute; left: 16px; right: 16px; top: 14px; display: flex; align-items: center; justify-content: space-between">
+      <div style="display: flex; align-items: center; gap: 8px">
+        <svg width="24" height="24" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="11" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="4"></circle><path d="M14 3 A11 11 0 0 1 25 14" fill="none" stroke="#2fd3a3" stroke-width="4" stroke-linecap="round"></path><path d="M15 8 L10 15 H14 L13 20 L18 13 H14 Z" fill="#7ed957"></path></svg>
+        <span class="disp" style="font-size: 15px; font-weight: 700; color: rgba(255,255,255,.8)">EV Planner</span>
+      </div>
+      <a href="Menu.dc.html" aria-label="Profil og indstillinger" style="width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px; color: #fff; background: linear-gradient(145deg, #19b6a5, #6e4aff)">C</a>
+    </div>
+    <div style="position: absolute; left: 20px; top: 62px; width: 170px; display: flex; flex-direction: column; gap: 3px">
+      <h1 class="disp" style="margin: 0; font-size: 32px; font-weight: 800; color: #fff">Biler</h1>
+      <span class="num" style="font-size: 12.5px; line-height: 1.35; color: rgba(255,255,255,.82); white-space: pre-line">{{headerLine}}</span>
+    </div>
+  </header>
+
+  <section style="margin: 0 16px; border-radius: 26px; background: linear-gradient(170deg, #1b2142 0%, #171b2a 46%, #161a21 100%); border: 1px solid rgba(255,255,255,.07); padding: 18px; display: flex; flex-direction: column; gap: 14px; position: relative" aria-label="I nat">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <span style="width: 40px; height: 40px; border-radius: 13px; display: grid; place-items: center; background: #2a3164; color: #ffd98a">
+          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3a9 9 0 1 0 7 14.5A8 8 0 0 1 14 3Z" fill="currentColor"></path></svg>
+        </span>
+        <div style="display: flex; flex-direction: column">
+          <b style="font-size: 17px">I aften</b>
+          <small style="font-size: 12px; color: #a3adb8">{{night.when}}</small>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px">
+        <span style="display: flex; flex-direction: column; align-items: flex-end; padding: 6px 10px; border-radius: 14px; background: rgba(62,224,143,.12)"><b class="num" style="font-size: 15px; color: #7ff0b7">{{night.price}}</b><small style="font-size: 10.5px; color: #a3adb8">en billig nat</small></span>
+        <button onClick="{{toggleWhy}}" aria-label="Hvorfor sådan?" aria-expanded="{{why.open}}" style="width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.04); font-size: 14px; font-weight: 700; color: #c2cad3">?</button>
+      </div>
+    </div>
+
+    <sc-if value="{{why.open}}" hint-placeholder-val="{{ false }}">
+      <div class="pop" style="position: absolute; right: 16px; top: 62px; width: 270px; z-index: 5; padding: 14px; border-radius: 16px; background: #232936; border: 1px solid rgba(255,255,255,.1); box-shadow: 0 16px 40px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: 10px; font-size: 12.5px; line-height: 1.45; color: #d5dbe2">
+        <sc-for list="{{why.lines}}" as="w" hint-placeholder-count="2">
+          <div style="display: flex; gap: 8px"><i style="{{w.dot}}"></i><span>{{w.text}}</span></div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{issue.on}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; gap: 12px; padding: 12px 14px; border-radius: 16px; background: rgba(245,185,74,.12); border: 1px solid rgba(245,185,74,.35)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f5b94a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 1px"><path d="M12 3 2 20h20L12 3z"></path><path d="M12 10v4"></path><path d="M12 17h.01"></path></svg>
+        <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+          <b style="font-size: 14px; color: #ffd27a">{{issue.title}}</b>
+          <span style="font-size: 12.5px; line-height: 1.4; color: #e2d6c0">{{issue.text}}</span>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap">
+            <button style="height: 32px; padding: 0 12px; border-radius: 999px; border: 0; background: #f5b94a; color: #1d1300; font-size: 12.5px; font-weight: 700">{{issue.a}}</button>
+            <button style="height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid rgba(245,185,74,.45); background: transparent; color: #ffd27a; font-size: 12.5px; font-weight: 600">{{issue.b}}</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h2 class="disp" style="margin: 0; font-size: 23px; line-height: 1.2; font-weight: 700; color: #fff">{{night.a}}<span style="color: #6fe8c4">{{night.b}}</span>{{night.c}}</h2>
+      <p style="margin: 0; font-size: 13px; line-height: 1.4; color: #a3adb8">{{night.sub}}</p>
+    </div>
+
+    <img src="{{night.pic}}" alt="{{night.picAlt}}" style="width: calc(100% + 12px); margin: 0 -6px; height: auto; display: block">
+
+    <div style="{{night.rowStyle}}">
+      <sc-for list="{{night.cars}}" as="c" hint-placeholder-count="2">
+        <a href="Bil.dc.html" aria-label="{{c.aria}}" style="{{c.style}}">
+          <span style="display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%">
+            <b style="font-size: 13px; color: #e6ebf0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{c.name}}</b>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a3adb8" stroke-width="2.4" stroke-linecap="round" aria-hidden="true" style="flex: none"><path d="M9 6l6 6-6 6"></path></svg>
+          </span>
+          <b class="num disp" style="font-size: 30px; line-height: 1; color: #fff">{{c.soc}} %</b>
+          <small class="num" style="{{c.noteStyle}}">{{c.note}}</small>
+          <small style="{{c.tagStyle}}">{{c.tag}}</small>
+        </a>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{night.swap.on}}" hint-placeholder-val="{{ true }}">
+      <button onClick="{{toggleSwapHelp}}" aria-expanded="{{swapHelp}}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.03); text-align: left">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c3b5ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"></path></svg>
+        <span style="flex: 1; font-size: 12.5px; color: #d5dbe2">{{night.swap.text}}</span>
+        <span style="font-size: 12px; font-weight: 700; color: #a3adb8">?</span>
+      </button>
+    </sc-if>
+    <sc-if value="{{swapHelp}}" hint-placeholder-val="{{ false }}">
+      <p class="pop" style="margin: -6px 0 0; padding: 10px 12px; border-radius: 12px; background: #232936; font-size: 12px; line-height: 1.45; color: #d5dbe2">Én lader, to biler: i tidsrummet beholder den bil, der sidder i, laderen, så ingen skal ud og flytte kablet om natten. Tidsrummet ændres under Indstillinger › Laderne.</p>
+    </sc-if>
+
+    <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 16px; background: rgba(255,255,255,.04)">
+      <div style="display: flex; justify-content: space-between; font-size: 12px; color: #a3adb8"><span>Det næste døgns priser</span><span class="num">{{night.ribbon}}</span></div>
+      <div style="height: 46px; display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 3px; align-items: end">
+        <sc-for list="{{night.bars}}" as="b" hint-placeholder-count="20">
+          <i class="bar" style="{{b}}"></i>
+        </sc-for>
+      </div>
+      <div class="num" style="display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 3px; font-size: 9.5px; color: #7d8794; text-align: center">
+        <sc-for list="{{night.ticks}}" as="t" hint-placeholder-count="20"><span>{{t}}</span></sc-for>
+      </div>
+    </div>
+  </section>
+
+  <section style="margin: 0 16px; border-radius: 26px; background: #161a21; border: 1px solid rgba(255,255,255,.07); padding: 18px 16px; display: flex; flex-direction: column; gap: 12px; position: relative" aria-label="Bilernes uge">
+    <div style="display: flex; align-items: center; justify-content: space-between">
+      <div style="display: flex; align-items: center; gap: 8px">
+        <h2 class="disp" style="margin: 0; font-size: 19px; font-weight: 700">Bilernes uge</h2>
+        <button onClick="{{toggleWeekHelp}}" aria-label="Om bilernes uge" aria-expanded="{{weekHelp}}" style="width: 26px; height: 26px; border-radius: 50%; border: 1px solid rgba(255,255,255,.14); background: transparent; font-size: 12px; font-weight: 700; color: #c2cad3">?</button>
+      </div>
+      <div style="display: flex; gap: 10px; font-size: 11.5px; color: #a3adb8">
+        <span style="display: inline-flex; align-items: center; gap: 5px"><i style="width: 12px; height: 2px; border-radius: 1px; background: #eef2f5"></i>Pris</span>
+        <sc-for list="{{legend}}" as="l" hint-placeholder-count="2">
+          <span style="display: inline-flex; align-items: center; gap: 5px"><i style="{{l.swatch}}"></i>{{l.name}}</span>
+        </sc-for>
+      </div>
+    </div>
+    <sc-if value="{{weekHelp}}" hint-placeholder-val="{{ false }}">
+      <div class="pop" style="position: absolute; left: 16px; top: 56px; width: 270px; z-index: 6; padding: 14px; border-radius: 16px; background: #232936; border: 1px solid rgba(255,255,255,.1); box-shadow: 0 16px 40px rgba(0,0,0,.45); font-size: 12.5px; line-height: 1.5; color: #d5dbe2; display: flex; flex-direction: column; gap: 8px">
+        <span>Kurven er prisen, linjerne er batteriet, felterne er ladninger.</span>
+        <span>Under kurven er ugeplanen: én afgang pr. bil pr. dag. Tryk på en dag for at ændre den.</span>
+        <span><b style="color: #c3b5ff">✦</b> = Insight vælger målet. Et tal = fast mål. Snefnug = klima til afgang.</span>
+      </div>
+    </sc-if>
+
+    <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); text-align: center">
+      <sc-for list="{{days}}" as="d" hint-placeholder-count="7">
+        <span style="{{d.headStyle}}"><b style="font-size: 11.5px">{{d.short}}</b><small class="num" style="font-size: 10px; opacity: .75">{{d.num}}</small></span>
+      </sc-for>
+    </div>
+    <div style="position: relative; height: 156px; border-radius: 14px; overflow: hidden; background: #12161c">
+      <div style="position: absolute; inset: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr))">
+        <sc-for list="{{days}}" as="d" hint-placeholder-count="7"><i style="{{d.colStyle}}"></i></sc-for>
+      </div>
+      <svg width="100%" height="156" viewBox="0 0 326 156" preserveAspectRatio="none" style="position: absolute; inset: 0" aria-hidden="true">
+        <line x1="0" y1="72" x2="326" y2="72" stroke="rgba(255,255,255,.06)" stroke-dasharray="2 4"></line>
+        <line x1="0" y1="111" x2="326" y2="111" stroke="rgba(255,255,255,.06)" stroke-dasharray="2 4"></line>
+        <path d="{{g.fill0}}" fill="{{g.c0}}" fill-opacity=".2"></path>
+        <path d="{{g.fill1}}" fill="{{g.c1}}" fill-opacity=".2"></path>
+        <path d="{{g.price}}" fill="none" stroke="#eef2f5" stroke-width="1.4" stroke-linejoin="round" opacity=".85"></path>
+        <path d="{{g.line0}}" fill="none" stroke="{{g.c0}}" stroke-width="2.2" stroke-linejoin="round"></path>
+        <path d="{{g.line1}}" fill="none" stroke="{{g.c1}}" stroke-width="2.2" stroke-linejoin="round"></path>
+        <path d="{{g.pins0}}" fill="#12161c" stroke="{{g.c0}}" stroke-width="2"></path>
+        <path d="{{g.pins1}}" fill="#12161c" stroke="{{g.c1}}" stroke-width="2"></path>
+        <line x1="{{g.nowX}}" y1="0" x2="{{g.nowX}}" y2="156" stroke="#fff" stroke-width="1.5"></line>
+      </svg>
+      <span class="num" style="{{g.nowTag}}">nu</span>
+      <span style="position: absolute; left: 6px; top: 75px; font-size: 9.5px; color: #7d8794">100 %</span>
+      <span style="position: absolute; left: 6px; top: 140px; font-size: 9.5px; color: #7d8794">0 %</span>
+    </div>
+
+    <sc-for list="{{grid}}" as="row" hint-placeholder-count="2">
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <a href="Bil.dc.html" style="display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: #d5dbe2"><i style="{{row.dot}}"></i>{{row.name}}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></a>
+        <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px">
+          <sc-for list="{{row.cells}}" as="cell" hint-placeholder-count="7">
+            <button onClick="{{cell.pick}}" aria-label="{{cell.aria}}" aria-pressed="{{cell.on}}" style="{{cell.style}}">
+              <small class="num" style="font-size: 10px; color: #8f99a5">{{cell.time}}</small>
+              <b class="num" style="{{cell.pctStyle}}">{{cell.pct}}</b>
+              <span style="display: flex; gap: 3px; align-items: center; height: 10px">
+                <i style="{{cell.bolt}}"></i>
+                <sc-if value="{{cell.clim}}" hint-placeholder-val="{{ false }}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#8ab8ff" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 2v20M4 6l16 12M20 6 4 18"></path></svg></sc-if>
+              </span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+
+    <button onClick="{{toggleWeekend}}" aria-pressed="{{weekend.on}}" style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px; border-radius: 14px; border: 1px solid rgba(255,255,255,.08); background: #1b2028; text-align: left">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c2cad3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
+      <span style="flex: 1; font-size: 13px; color: #d5dbe2">Weekend og helligdage</span>
+      <span style="{{weekend.tagStyle}}">{{weekend.tag}}</span>
+    </button>
+
+    <sc-if value="{{ed.open}}" hint-placeholder-val="{{ true }}">
+      <div class="pop" style="display: flex; flex-direction: column; gap: 14px; padding: 16px; border-radius: 20px; background: #1d222b; border: 1px solid rgba(255,255,255,.08)">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+          <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700"><i style="{{ed.dot}}"></i>{{ed.title}}</span>
+          <button onClick="{{closeEd}}" aria-label="Luk" style="width: 32px; height: 32px; border-radius: 50%; border: 0; background: rgba(255,255,255,.06); color: #c2cad3; font-size: 16px">×</button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <small style="font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #8f99a5">Klar kl.</small>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 14px; background: #14181e">
+            <button onClick="{{ed.setNone}}" aria-pressed="{{ed.isNone}}" style="{{ed.noneStyle}}">Ingen</button>
+            <button onClick="{{ed.setStd}}" aria-pressed="{{ed.isStd}}" style="{{ed.stdStyle}}">{{ed.stdLabel}}</button>
+            <button onClick="{{ed.setOther}}" aria-pressed="{{ed.isOther}}" style="{{ed.otherStyle}}">{{ed.otherLabel}}</button>
+          </div>
+          <sc-if value="{{ed.isOther}}" hint-placeholder-val="{{ false }}">
+            <div class="pop" style="display: flex; align-items: center; gap: 10px">
+              <label style="flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 44px; padding: 0 12px; border-radius: 12px; background: #14181e; font-size: 13px; color: #c2cad3">Tidspunkt<input type="time" value="{{ed.timeVal}}" onChange="{{ed.onTime}}" step="900" style="background: transparent; border: 0; color: #fff; font-size: 16px; font-weight: 700"></label>
+              <button onClick="{{ed.makeStd}}" aria-pressed="{{ed.madeStd}}" style="{{ed.makeStdStyle}}">Gør til standard</button>
+            </div>
+          </sc-if>
+        </div>
+        <sc-if value="{{ed.hasDep}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <small style="font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #8f99a5">Mål</small>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 14px; background: #14181e">
+              <button onClick="{{ed.setAuto}}" aria-pressed="{{ed.isAuto}}" style="{{ed.autoStyle}}">✦ {{ed.autoLabel}}</button>
+              <button onClick="{{ed.setFast}}" aria-pressed="{{ed.isFast}}" style="{{ed.fastStyle}}">Fast mål</button>
+            </div>
+            <sc-if value="{{ed.isFast}}" hint-placeholder-val="{{ true }}">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 6px 6px 14px; border-radius: 14px; background: #14181e">
+                <span style="font-size: 13px; color: #c2cad3">Klar med</span>
+                <div style="display: flex; align-items: center; gap: 6px">
+                  <button onClick="{{ed.minus}}" aria-label="Mindre" style="width: 40px; height: 40px; border-radius: 12px; border: 0; background: #262c36; font-size: 18px">−</button>
+                  <b class="num disp" style="min-width: 64px; text-align: center; font-size: 22px">{{ed.pct}} %</b>
+                  <button onClick="{{ed.plus}}" aria-label="Mere" style="width: 40px; height: 40px; border-radius: 12px; border: 0; background: #262c36; font-size: 18px">+</button>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <small style="font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #8f99a5">Gælder</small>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 14px; background: #14181e">
+              <button onClick="{{ed.setOnce}}" aria-pressed="{{ed.once}}" style="{{ed.onceStyle}}">{{ed.onceLabel}}</button>
+              <button onClick="{{ed.setEvery}}" aria-pressed="{{ed.every}}" style="{{ed.everyStyle}}">{{ed.everyLabel}}</button>
+            </div>
+          </div>
+          <button onClick="{{ed.toggleClim}}" aria-pressed="{{ed.clim}}" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; border: 0; background: #14181e; text-align: left">
+            <span style="{{ed.climIcon}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 2v20M4 6l16 12M20 6 4 18"></path></svg></span>
+            <span style="flex: 1; display: flex; flex-direction: column"><b style="font-size: 14px">Klima til afgang</b><small class="num" style="font-size: 12px; color: #a3adb8">{{ed.climSub}}</small></span>
+            <span style="{{ed.climTrack}}"><i style="{{ed.climKnob}}"></i></span>
+          </button>
+        </sc-if>
+        <div style="display: flex; gap: 10px; align-items: flex-start; padding: 12px; border-radius: 14px; background: rgba(47,211,163,.08)">
+          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style="flex: none; margin-top: 1px"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" fill="#7ed957"></path></svg>
+          <span class="num" style="font-size: 12.5px; line-height: 1.45; color: #cfe9de">{{ed.result}}</span>
+        </div>
+      </div>
+    </sc-if>
+  </section>
+
+  <div style="margin-top: auto; position: relative; padding: 0 16px 18px">
+    <a href="Quick.dc.html" aria-label="Quick-menu" style="position: absolute; right: 20px; bottom: 96px; width: 60px; height: 60px; border-radius: 21px; display: grid; place-items: center; color: #fff; background: linear-gradient(145deg, #19b6a5, #6e4aff); box-shadow: 0 10px 28px rgba(110,74,255,.45), 0 2px 6px rgba(0,0,0,.25)">
+      <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" fill="currentColor"></path></svg>
+    </a>
+    <nav class="glass" aria-label="Menu" style="height: 66px; border-radius: 24px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: center; padding: 0 6px">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+        <a href="{{t.href}}" aria-current="{{t.current}}" style="{{t.style}}">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>{{t.label}}</a>
+      </sc-for>
+    </nav>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"cars":{"editor":"enum","options":["2 biler","1 bil"],"default":"2 biler","section":"Demo"},"chargers":{"editor":"enum","options":["1 lader","2 ladere"],"default":"1 lader","section":"Demo"},"fest":{"editor":"enum","options":["Ingen","Jul","Nytår","Fastelavn","Påske","Valentinsdag","Grundlovsdag","Sankt Hans","Halloween","Fødselsdag","Årsdag","Bryllupsdag"],"default":"Ingen","section":"Demo"},"insight":{"editor":"boolean","default":true,"section":"Demo"},"problem":{"editor":"enum","options":["Ingen","Laderen svarer ikke","Planen når ikke målet"],"default":"Ingen","section":"Demo"},"$preview":{"width":390,"height":2300}}'>
+const HOUSE_IMG = {
+  dag: {
+    2: { classic: '/_blob/55864d21f077b797d8e3fce3c4fb0c4e', angle: '/_blob/86e332ad29e205f92d4a10303adf66d3', funkis: '/_blob/66337474190438f17daa0c54c3990667', storey: '/_blob/cea08d9f666885114c46c7c1c3f778ba' },
+    1: { classic: '/_blob/7f9d19fea5634f24d0a0b6574d2b2314', angle: '/_blob/904c259b3f2d99fd1cd26d623bd5e666', funkis: '/_blob/10daa8872ddf43e7e443e6c9a14d32cb', storey: '/_blob/366074bbf53a8bc0a84047040a70d2c5' },
+  },
+  nat: {
+    2: { classic: '/_blob/3aab3176099449b4b63a45823550eb38', angle: '/_blob/c5de3a83cbe7e4ce54880a368482d315', funkis: '/_blob/5ad78f2f444c22c7aa727ca37a4d4561', storey: '/_blob/b134ff2a617400ce8433836d8fc49748' },
+    1: { classic: '/_blob/7b28ce02feec2fbf2839221537b8ff75', angle: '/_blob/9b4a5f7124996e32ee97e8cb4918453d', funkis: '/_blob/6c01c7be4e25db0be550f144784d6f24', storey: '/_blob/44e3a5080d0bb6922d40af3cddc4b023' },
+  },
+};
+const FEST_IMG = {
+  aarsdag: { dag: '/_blob/0202da6267a0b265ce35603490a4639c', nat: '/_blob/8ccd78c219de667b1f50348a5bee185a' },
+  bryllup: { dag: '/_blob/c1d7da2269caf2b154f1d15a81eedf4a', nat: '/_blob/778a8e2ddfd0413a82046fd6ae49eadc' },
+  easter: { dag: '/_blob/febb5b007052aa0627363aea304b6f4c', nat: '/_blob/02e0a67eee6709747b528e1f08ba1e21' },
+  fastelavn: { dag: '/_blob/a199e74a2a8bd76d1233e48b3b78a7b5', nat: '/_blob/7b23b3466eec99d5a92a6462b16c6df0' },
+  flagday: { dag: '/_blob/ee36048b3786467fb2811e04f253479b', nat: '/_blob/2076be793b89ab52fe32a8f2c3c84cd9' },
+  fodselsdag: { dag: '/_blob/f31c70c01507a81cf53d9f469cd255cf', nat: '/_blob/836200d37700157cee9993e4b3677911' },
+  halloween: { dag: '/_blob/731a7515c75ba069fec0937d7048c84f', nat: '/_blob/b573271712aad3f69008a1f99e98d557' },
+  newyear: { dag: '/_blob/f7d5f8f6a7e9545dfbb9cac9e0d39b4b', nat: '/_blob/0eaeb4d7d0d4159626d940dacf5376eb' },
+  sankthans: { dag: '/_blob/e73ac88422daa429862e325a47de71e8', nat: '/_blob/8594b476c6df9da1d3e67affa7d38de5' },
+  valentin: { dag: '/_blob/b33ae5699df053737cf7be4ee15010fc', nat: '/_blob/5ffdb84d849dea5e3ff366c97e022fbf' },
+  xmas: { dag: '/_blob/d1023542a9df0a1e260b50634c8ae1bf', nat: '/_blob/2c300e406df0a6a46fba5fe39dae4518' },
+};
+const TONIGHT_IMG = {
+  none: { 1: '/_blob/7514368963958dda1935eed443ddff81', 2: '/_blob/d92b4ed20d4766ef0552232b6259434a', '2c': '/_blob/a77371796827e304a871232eb4266fab' },
+  aarsdag: { 1: '/_blob/79e114a90760c9a94cc04b94a7848c40', 2: '/_blob/2bec9ae173a3bab5dc5d095fc9ae3707', '2c': '/_blob/0cf4838ceccc8931c44258b916d8e677' },
+  bryllup: { 1: '/_blob/7d94f9dc87007dc13b57bf50ac743d48', 2: '/_blob/4d4f7b2cde9697087a6d4eac970bc7c5', '2c': '/_blob/2b71bd3f35d05b63c2d0f3788d9692fb' },
+  easter: { 1: '/_blob/f3dfc596db7b047419d2f93719fbbd2e', 2: '/_blob/4acec1c2fbb8fe0b63cd9f75c6f6386e', '2c': '/_blob/ccb6355a28a7bf1eecba573061b52395' },
+  fastelavn: { 1: '/_blob/67d383be1de5370ddabc56adcf396be0', 2: '/_blob/c9734588b5fe50c65afb228db924fc89', '2c': '/_blob/d32693e765a9e45671a50c9cc572c713' },
+  flagday: { 1: '/_blob/bd4d72b5bc0d402fae29a2d5ccc7b7d6', 2: '/_blob/96d3d70978acb80163a7b1834fdf5d18', '2c': '/_blob/68f3e2e1218fca0e4b620fdb7f68a147' },
+  fodselsdag: { 1: '/_blob/b18cfeab5fcad193878bb27265dcad24', 2: '/_blob/89b703117335608d4ba7312a5f24bb8c', '2c': '/_blob/b474f0e72e669a8e415a9f273931275f' },
+  halloween: { 1: '/_blob/ad4abb2bbea6129106281c5fdd9e30cd', 2: '/_blob/e4f3534d18f39814f56fc831645301d6', '2c': '/_blob/48de9842ba2de72022c89da7874503ea' },
+  newyear: { 1: '/_blob/3117c12de7919039e8776d478697a5cb', 2: '/_blob/0475a1778350f296da98df38aec127d9', '2c': '/_blob/b76cdff894acd4334d4876bd8e3299ef' },
+  sankthans: { 1: '/_blob/d83e5a83f39db80e1ebed4d38004fb1d', 2: '/_blob/47e16db60dd90e61c1916bfab6366035', '2c': '/_blob/4285dff260ceffc6038c9d0c08afdbde' },
+  valentin: { 1: '/_blob/87bb2fd84c6312408bba2bd725009e66', 2: '/_blob/40891e83180fd41c858ea69c7777d856', '2c': '/_blob/3edfdb7ead875d2d5977247e694f875c' },
+  xmas: { 1: '/_blob/ef0ab4edac18edebda6000dcf5cabffe', 2: '/_blob/7364c8d4d52e58c5cc87e906cc70a1c2', '2c': '/_blob/55f1bbbe3d00ef02031e81eb0ed91aa2' },
+};
+const FEST = { 'Ingen': 'none', 'Jul': 'xmas', 'Nytår': 'newyear', 'Fastelavn': 'fastelavn', 'Påske': 'easter', 'Valentinsdag': 'valentin', 'Grundlovsdag': 'flagday', 'Sankt Hans': 'sankthans', 'Halloween': 'halloween', 'Fødselsdag': 'fodselsdag', 'Årsdag': 'aarsdag', 'Bryllupsdag': 'bryllup' };
+const DAYS = [
+  { short: 'Fre', long: 'fredag', num: '20' }, { short: 'Lør', long: 'lørdag', num: '21' }, { short: 'Søn', long: 'søndag', num: '22' },
+  { short: 'Man', long: 'mandag', num: '23' }, { short: 'Tir', long: 'tirsdag', num: '24' }, { short: 'Ons', long: 'onsdag', num: '25' }, { short: 'Tor', long: 'torsdag', num: '26' },
+];
+const CARS = {
+  tesla: { name: 'Tesla Model 3', short: 'Tesla', color: '#2fd3a3', cap: 60, kw: 11, soc: 18, std: 7 },
+  merc: { name: 'Mercedes EQB', short: 'Mercedes', color: '#a3abff', cap: 66.5, kw: 11, soc: 46, std: 7.5 },
+};
+const PAT = [1.95, 1.80, 1.68, 1.62, 1.64, 1.78, 2.30, 3.05, 3.25, 2.80, 2.45, 2.25, 2.15, 2.12, 2.25, 2.55, 3.10, 3.60, 3.45, 3.05, 2.75, 2.55, 2.30, 2.10];
+const DAYF = [1.0, 0.96, 0.92, 1.04, 1.02, 0.98, 1.0, 1.0];
+const price = (h) => { const d = Math.max(0, Math.min(7, Math.floor(h / 24))); return PAT[((Math.floor(h) % 24) + 24) % 24] * DAYF[d]; };
+const USE = { tesla: { trip: 45, day: 18 }, merc: { trip: 40, day: 14 } };
+const LEARN = { tesla: 55, merc: 50 };
+const T0 = 21 + 40 / 60;
+const pad = (n) => String(n).padStart(2, '0');
+const hm = (h) => { h = ((h % 24) + 24) % 24; let H = Math.floor(h); let M = Math.round((h - H) * 60); if (M === 60) { H = (H + 1) % 24; M = 0; } return pad(H) + '.' + pad(M); };
+const hh = (h) => pad(((Math.floor(h) % 24) + 24) % 24);
+const hc = (h) => (h % 1 ? hm(h) : hh(h));
+const kr = (v) => v.toFixed(2).replace('.', ',') + ' kr.';
+const n1 = (v) => (Math.round(v * 10) / 10).toFixed(1).replace('.', ',');
+const dayWord = (h) => { const d = Math.floor(h / 24); return d === 0 ? 'i dag' : d === 1 ? 'i morgen' : DAYS[d].short.toLowerCase() + '.'; };
+const D = {
+  house: 'M3 11 12 4l9 7M5 10v10h14V10M10 20v-5h4v5',
+  car: 'M5 17h14v-5l-2-5H7l-2 5v5zM5 12h14M8 19v-2M16 19v-2',
+  guest: 'M10 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM3 20c1-4 4-6 7-6s6 2 7 6M19 8v6M16 11h6',
+  bulb: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z',
+  history: 'M3 12a9 9 0 1 0 3-6.7M3 4v4h4M12 7v5l3 2',
+};
+const basePlan = () => ({
+  tesla: { 1: { t: 9, m: 'fast', p: 90, once: true, clim: true }, 3: { t: 7, m: 'auto', std: true, clim: true }, 4: { t: 7, m: 'auto', std: true, clim: true }, 5: { t: 7, m: 'auto', std: true, clim: true }, 6: { t: 7, m: 'auto', std: true, clim: true } },
+  merc: { 2: { t: 14, m: 'fast', p: 100, once: true, trip: true }, 3: { t: 7.5, m: 'auto', std: true }, 4: { t: 7.5, m: 'auto', std: true }, 5: { t: 7.5, m: 'auto', std: true }, 6: { t: 7.5, m: 'auto', std: true } },
+});
+
+function simulate(plan, ids, insight, problem, weekendFree, shared) {
+  const deps = [];
+  ids.forEach((c) => {
+    for (let day = 0; day < 7; day += 1) {
+      let d = plan[c][day];
+      if (!d && !weekendFree && (day === 1 || day === 2)) d = { t: CARS[c].std, m: 'auto', weekend: true };
+      if (d) deps.push({ c, day, at: day * 24 + d.t, d });
+    }
+  });
+  deps.sort((a, b) => a.at - b.at);
+  const level = {}, free = {}, keys = {}, out = {};
+  ids.forEach((c) => { level[c] = CARS[c].soc; free[c] = T0; keys[c] = [[T0, CARS[c].soc]]; out[c] = { charges: [], days: {} }; });
+  const busy = [];
+  for (const x of deps) {
+    if (x.at <= T0) continue;
+    const car = CARS[x.c];
+    const target = x.d.m === 'fast' ? x.d.p : insight ? LEARN[x.c] : 80;
+    const L = level[x.c];
+    let charge = null;
+    if (target > L + 0.5) {
+      const ws = Math.max(free[x.c], x.day * 24 - 3, T0);
+      const we = x.day * 24 + Math.min(x.d.t, 8);
+      const kwh = ((target - L) / 100) * car.cap;
+      let hrs = Math.ceil((kwh / car.kw) * 2) / 2;
+      if (problem === 'plan' && x.d.trip) hrs = Math.min(hrs, 2.75);
+      let best = null;
+      for (let s = Math.ceil(ws * 2) / 2; s + hrs <= we + 1e-6; s += 0.5) {
+        if (shared && busy.some((b) => s < b[1] && s + hrs > b[0])) continue;
+        let cost = 0;
+        for (let h = s; h < s + hrs - 1e-6; h += 0.25) cost += price(h) * 0.25;
+        if (!best || cost < best.cost - 1e-9) best = { s, cost };
+      }
+      if (best) {
+        const got = Math.min(kwh, hrs * car.kw);
+        const reach = Math.min(100, L + (got / car.cap) * 100);
+        const avg = best.cost / hrs;
+        charge = { s: best.s, e: best.s + hrs, kwh: got, cost: avg * got, avg, reach: Math.round(reach), target, car: x.c, dep: x };
+        busy.push([best.s, best.s + hrs]);
+        keys[x.c].push([best.s, L], [best.s + hrs, reach]);
+        level[x.c] = reach;
+        out[x.c].charges.push(charge);
+      }
+    }
+    const arrive = level[x.c];
+    const use = x.d.trip || x.d.once ? USE[x.c].trip : USE[x.c].day;
+    const after = Math.max(6, arrive - use);
+    const back = x.at + 9;
+    keys[x.c].push([x.at, arrive], [back, after]);
+    level[x.c] = after;
+    free[x.c] = back;
+    out[x.c].days[x.day] = { target, arrive: Math.round(arrive), charge, d: x.d, at: x.at };
+  }
+  ids.forEach((c) => { keys[c].push([168, level[c]]); keys[c].sort((a, b) => a[0] - b[0]); out[c].keys = keys[c]; });
+  return out;
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { plan: basePlan(), sel: { car: 'tesla', day: 1 }, edOpen: true, other: false, why: false, weekHelp: false, swapHelp: false, weekendFree: true, std: { tesla: 7, merc: 7.5 } };
+  }
+
+  edit(fn) {
+    const plan = JSON.parse(JSON.stringify(this.state.plan));
+    fn(plan);
+    this.setState({ plan });
+  }
+
+  renderVals() {
+    const two = (this.props.cars ?? '2 biler') === '2 biler';
+    const twoChargers = two && (this.props.chargers ?? '1 lader') === '2 ladere';
+    const fest = FEST[this.props.fest ?? 'Ingen'] || 'none';
+    const insight = this.props.insight ?? true;
+    const pn = this.props.problem ?? 'Ingen';
+    const problem = pn === 'Laderen svarer ikke' ? 'charger' : pn === 'Planen når ikke målet' ? 'plan' : null;
+    const ids = two ? ['tesla', 'merc'] : ['tesla'];
+    const { plan, sel, weekendFree } = this.state;
+    const sim = simulate(plan, ids, insight, problem, weekendFree, !twoChargers);
+    const now = T0;
+    const nextDep = (c) => Object.values(sim[c].days).filter((x) => x.at > now).sort((a, b) => a.at - b.at)[0] || null;
+    const tonightCh = ids.map((c) => sim[c].charges.find((ch) => ch.s >= now - 0.01 && ch.s < now + 24)).filter(Boolean);
+    const byCar = (c) => tonightCh.find((ch) => ch.car === c);
+    const depWord = (dd) => (dd.d.trip ? `${DAYS[Math.floor(dd.at / 24)].long}ens tur` : `${DAYS[Math.floor(dd.at / 24)].long} kl. ${hm(dd.at)}`);
+
+    // Tonight, as in Learning: who charges, the cars by the charger, the next day's prices.
+    let A = '', B = '', C = '', sub = '';
+    if (tonightCh.length) {
+      const f = tonightCh[0];
+      A = `${CARS[f.car].short} lader `; B = `${hc(f.s)}–${hc(f.e)}`; C = ` til ${depWord(f.dep)}.`;
+      sub = `Så har den ${f.reach} %. `;
+      const rest = ids.filter((c) => c !== f.car);
+      if (rest.length) { const r = rest[0]; const nx = sim[r].charges.find((ch) => ch.s >= now + 24); const own = byCar(r); sub += own ? `${CARS[r].short} lader ${hc(own.s)}–${hc(own.e)}.` : nx ? `${CARS[r].short} lader natten til ${DAYS[Math.floor(nx.s / 24)].long}.` : `${CARS[r].short} har nok.`; }
+    } else { A = 'Ingen ladning i nat.'; sub = 'Bilerne har nok til næste afgang.'; }
+    const nightP = tonightCh.length ? tonightCh[0].avg : 1.62;
+    const cars = ids.map((c, i) => {
+      const car = CARS[c];
+      const ch = byCar(c);
+      const nd = nextDep(c);
+      const right = two && i === 1;
+      const later = sim[c].charges.find((x) => x.s >= now + 24);
+      const down = problem === 'charger' && c === 'tesla';
+      const auto = nd && nd.d.m === 'auto';
+      const note = down ? 'laderen svarer ikke' : ch ? `lader ${hc(ch.s)}–${hc(ch.e)} · ${Math.round(ch.cost)} kr.` : later ? `lader ${DAYS[Math.floor(later.s / 24)].short.toLowerCase()}. nat` : 'har nok';
+      const tag = nd ? `${auto ? (insight ? '✦ ' : '') : ''}${problem === 'plan' && c === 'merc' && nd.d.trip ? 92 : nd.target} % · ${dayWord(nd.at)} ${hm(nd.at)}` : 'ingen afgang';
+      return {
+        name: car.name, soc: String(car.soc), note, tag,
+        aria: `Åbn ${car.name}`,
+        noteStyle: `font-size: 12px; color: ${down ? '#ffd27a' : ch ? '#7ff0b7' : '#a3adb8'}`,
+        tagStyle: `font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; color: ${auto && insight ? '#d9ceff' : '#d5dbe2'}; background: ${auto && insight ? 'rgba(140,110,255,.18)' : 'rgba(255,255,255,.07)'}`,
+        style: `flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; align-items: ${right ? 'flex-end' : 'flex-start'}; padding: 12px; border-radius: 18px; border: 1px solid rgba(255,255,255,.1); border-top: 3px solid ${car.color}; background: rgba(255,255,255,.04); color: inherit; text-align: ${right ? 'right' : 'left'}`,
+      };
+    });
+    const from = Math.floor(now);
+    const bars20 = [];
+    for (let n = 0; n < 20; n += 1) bars20.push({ h: from + n, p: price(from + n) });
+    const ptop = Math.max(...bars20.map((b) => b.p));
+    const charging = (h) => tonightCh.find((ch) => h + 0.5 > ch.s && h + 0.5 < ch.e);
+    const issue = { on: false };
+    if (problem === 'charger') Object.assign(issue, { on: true, title: 'Laderen svarer ikke', text: 'Siden kl. 18.12. Tesla lader stadig til 90 %, for bilens egen grænse følger målet – men ikke i de billige timer.', a: 'Prøv igen', b: 'Se laderen' });
+    if (problem === 'plan' && two) Object.assign(issue, { on: true, title: 'Mercedes når 92 % – ikke 100 %', text: 'Til søndag kl. 14 er der kun billige timer nok til 92 %.', a: 'Lad også søn. 08–09 · +6 kr.', b: '92 % er fint' });
+    const night = {
+      when: 'fredag 20/11', price: kr(nightP), a: A, b: B, c: C, sub,
+      pic: TONIGHT_IMG[fest][!two ? 1 : twoChargers ? '2c' : 2],
+      picAlt: two ? (twoChargers ? 'To biler, hver ved sin lader' : 'To biler ved én lader') : 'Bilen ved laderen',
+      rowStyle: `display: flex; gap: 10px; ${two ? '' : 'max-width: 220px; align-self: center; width: 100%'}`,
+      cars,
+      swap: { on: two && !twoChargers, text: 'Ingen kabelskift kl. 22–07 · Tesla har laderen' },
+      ribbon: tonightCh.length ? `lader kl. ${hh(tonightCh[0].s)}–${hh(tonightCh[0].e)} · ${kr(nightP)}` : 'billigst kl. 02–06',
+      bars: bars20.map((b, n) => `height: ${Math.max(4, (b.p / ptop) * 46).toFixed(1)}px; border-radius: 4px; background: ${charging(b.h) ? '#2fd3a3' : 'rgba(238,242,245,.28)'}; animation-delay: ${n * 25}ms`),
+      ticks: bars20.map((b) => (b.h % 3 === 0 ? hh(b.h) : '')),
+    };
+    const whyLines = ids.map((c) => {
+      const ch = byCar(c), nd = nextDep(c), car = CARS[c];
+      const t = ch ? `${car.short} skal have ${ch.target} % ${depWord(ch.dep)}. Timerne ${hh(ch.s)}–${hh(ch.e)} er nattens billigste.` : nd ? `${car.short} har ${car.soc} %, nok til ${depWord(nd)}${nd.d.m === 'auto' && insight ? ' (Insight: en svær dag + reserve)' : ''}.` : `${car.short} har ingen afgang i ugen.`;
+      return { text: t, dot: `flex: none; width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: ${car.color}` };
+    });
+
+    // The cars' week, the plan under it.
+    const W = 326;
+    const X = (t) => (t / 168) * W;
+    const PY = (p) => 58 - ((p - 1.4) / (3.9 - 1.4)) * 50;
+    const BY = (l) => 150 - (l / 100) * 78;
+    let pricePath = '';
+    for (let h = 0; h <= 168; h += 1) pricePath += `${h ? 'L' : 'M'}${X(h).toFixed(1)} ${PY(price(Math.min(h, 167))).toFixed(1)} `;
+    const bline = (c) => (sim[c] ? sim[c].keys.map((k, i) => `${i ? 'L' : 'M'}${X(k[0]).toFixed(1)} ${BY(k[1]).toFixed(1)}`).join(' ') : '');
+    const fills = (c) => (sim[c] ? sim[c].charges.map((ch) => `M${X(ch.s).toFixed(1)} 72 H${X(ch.e).toFixed(1)} V150 H${X(ch.s).toFixed(1)} Z`).join(' ') : '');
+    const pins = (c) => (sim[c] ? Object.values(sim[c].days).map((dd) => { const x = X(dd.at), y = BY(dd.arrive); return `M${(x - 3.5).toFixed(1)} ${y.toFixed(1)} a3.5 3.5 0 1 0 7 0 a3.5 3.5 0 1 0 -7 0`; }).join(' ') : '');
+    const g = {
+      price: pricePath, c0: CARS.tesla.color, c1: CARS.merc.color,
+      line0: bline('tesla'), line1: two ? bline('merc') : '', fill0: fills('tesla'), fill1: two ? fills('merc') : '', pins0: pins('tesla'), pins1: two ? pins('merc') : '',
+      nowX: X(now).toFixed(1),
+      nowTag: `position: absolute; left: ${((X(now) / W) * 100).toFixed(1)}%; bottom: 4px; transform: translateX(-50%); font-size: 9.5px; font-weight: 700; color: #0d1014; background: #fff; padding: 1px 5px; border-radius: 999px`,
+    };
+    const days = DAYS.map((d, i) => ({
+      short: d.short, num: d.num,
+      headStyle: `display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 4px 0; border-radius: 10px; color: ${i === 0 ? '#0d1014' : i === sel.day ? '#fff' : '#a3adb8'}; background: ${i === 0 ? '#eef2f5' : 'transparent'}`,
+      colStyle: `background: ${i === sel.day ? 'rgba(255,255,255,.08)' : i === 1 || i === 2 ? 'rgba(255,255,255,.025)' : 'transparent'}; border-right: 1px solid rgba(255,255,255,.035)`,
+    }));
+    const grid = ids.map((c) => ({
+      name: CARS[c].name,
+      dot: `width: 8px; height: 8px; border-radius: 50%; background: ${CARS[c].color}`,
+      cells: DAYS.map((d, i) => {
+        const dd = sim[c].days[i];
+        const pdef = plan[c][i];
+        const past = i === 0;
+        const on = sel.car === c && sel.day === i && this.state.edOpen;
+        const trip = pdef && pdef.trip;
+        const short = problem === 'plan' && trip && two;
+        const auto = dd && dd.d.m === 'auto';
+        let pct = '–';
+        if (dd) pct = auto ? (insight ? '✦' + dd.target : String(dd.target)) : String(short ? 92 : dd.target);
+        else if ((i === 1 || i === 2) && !pdef && weekendFree) pct = 'fri';
+        const color = !dd ? '#6b7480' : short || trip ? '#ffd27a' : auto && insight ? '#c3b5ff' : '#eef2f5';
+        return {
+          time: dd ? hm(dd.d.t) : past ? 'kørt' : ' ', pct, on, clim: !!(pdef && pdef.clim),
+          aria: `${CARS[c].short} ${d.long}: ${dd ? hm(dd.d.t) + ', ' + dd.target + ' %' : 'ingen afgang'}`,
+          pctStyle: `font-size: ${pct.length > 3 ? 12.5 : 14}px; font-weight: 700; color: ${color}`,
+          bolt: `width: 12px; height: 3px; border-radius: 2px; background: ${dd && dd.charge ? CARS[c].color : 'transparent'}`,
+          style: `display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; height: 62px; padding: 0; border-radius: 12px; border: 1.5px solid ${on ? '#eef2f5' : trip ? 'rgba(255,210,122,.45)' : 'rgba(255,255,255,.06)'}; background: ${on ? '#2a303a' : past ? 'transparent' : dd ? '#1d222b' : 'rgba(255,255,255,.02)'}; opacity: ${past ? 0.45 : 1}`,
+          pick: () => this.setState({ sel: { car: c, day: i }, edOpen: true, other: !!(pdef && !pdef.std && pdef.t !== this.state.std[c]) }),
+        };
+      }),
+    }));
+    const legend = ids.map((c) => ({ name: CARS[c].short, swatch: `width: 12px; height: 3px; border-radius: 2px; background: ${CARS[c].color}` }));
+
+    // The chosen day: ready by (none, the car's standard time, or another), the target, how often, and the climate.
+    const selCar = ids.includes(sel.car) ? sel.car : 'tesla';
+    const sd = sel.day;
+    const pdef = plan[selCar][sd];
+    const sdd = sim[selCar].days[sd];
+    const std = this.state.std[selCar];
+    const setDep = (fn) => this.edit((p) => { p[selCar][sd] = { ...(p[selCar][sd] || { t: std, m: 'auto', std: true }) }; fn(p[selCar][sd]); });
+    const seg = (on) => `height: 40px; border: 0; border-radius: 11px; font-size: 13px; font-weight: 700; background: ${on ? '#eef2f5' : 'transparent'}; color: ${on ? '#0d1014' : '#a3adb8'}`;
+    const isOther = !!pdef && (this.state.other || (!pdef.std && pdef.t !== std));
+    const isStd = !!pdef && !isOther;
+    const sch = sdd && sdd.charge;
+    let result = 'Ingen afgang: bilen lader kun, hvis prisen er helt i bund.';
+    if (pdef && sdd) result = sch ? `Lader ${hm(sch.s)}–${hm(sch.e)} ${DAYS[Math.floor(sch.s / 24)].short.toLowerCase()}. · ${n1(sch.kwh)} kWh · ${kr(sch.cost)} → ${sch.reach} % kl. ${hm(sdd.at)}${pdef.clim ? ` · klima fra kl. ${hm(sdd.at - 0.25)}` : ''}` : `Har ${sdd.arrive} % kl. ${hm(sdd.at)} uden at lade.`;
+    else if (pdef && sd === 0) result = 'Fredagens afgang er kørt.';
+    const ed = {
+      open: this.state.edOpen !== false,
+      dot: `width: 10px; height: 10px; border-radius: 50%; background: ${CARS[selCar].color}`,
+      title: `${CARS[selCar].short} · ${DAYS[sd].long} ${DAYS[sd].num}/11`,
+      isNone: !pdef, isStd, isOther,
+      noneStyle: seg(!pdef), stdStyle: seg(isStd), otherStyle: seg(isOther),
+      stdLabel: `Standard ${hm(std)}`,
+      otherLabel: isOther ? hm(pdef.t) : 'Andet …',
+      setNone: () => { this.edit((p) => { delete p[selCar][sd]; }); this.setState({ other: false }); },
+      setStd: () => { setDep((d) => { d.t = std; d.std = true; }); this.setState({ other: false }); },
+      setOther: () => { setDep((d) => { d.std = false; if (d.t === std) d.t = std + 1; }); this.setState({ other: true }); },
+      timeVal: pdef ? `${pad(Math.floor(pdef.t))}:${pad(Math.round((pdef.t % 1) * 60))}` : '08:00',
+      onTime: (e) => { const v = String((e && e.target && e.target.value) || ''); const m = v.match(/^(\d{1,2}):(\d{2})/); if (m) setDep((d) => { d.t = Number(m[1]) + Number(m[2]) / 60; d.std = false; }); },
+      madeStd: !!pdef && pdef.t === std,
+      makeStd: () => { if (!pdef) return; const t = pdef.t; this.setState({ std: { ...this.state.std, [selCar]: t }, other: false }); this.edit((p) => { Object.values(p[selCar]).forEach((d) => { if (d.std) d.t = t; }); p[selCar][sd] = { ...p[selCar][sd], t, std: true }; }); },
+      makeStdStyle: `flex: none; height: 44px; padding: 0 12px; border-radius: 12px; font-size: 12.5px; font-weight: 700; border: 1px solid rgba(255,255,255,.14); background: transparent; color: #d5dbe2`,
+      hasDep: !!pdef,
+      isAuto: !!pdef && pdef.m === 'auto', isFast: !!pdef && pdef.m === 'fast',
+      autoLabel: insight ? `Auto · ≈${LEARN[selCar]} %` : 'Auto · 80 %',
+      autoStyle: seg(!!pdef && pdef.m === 'auto'), fastStyle: seg(!!pdef && pdef.m === 'fast'),
+      setAuto: () => setDep((d) => { d.m = 'auto'; }),
+      setFast: () => setDep((d) => { d.m = 'fast'; d.p = d.p || (sdd ? sdd.target : 80); }),
+      pct: pdef && pdef.p ? pdef.p : 80,
+      minus: () => setDep((d) => { d.p = Math.max(50, (d.p || 80) - 5); }),
+      plus: () => setDep((d) => { d.p = Math.min(100, (d.p || 80) + 5); }),
+      once: !!pdef && !!pdef.once, every: !!pdef && !pdef.once,
+      onceLabel: `Kun ${DAYS[sd].short.toLowerCase()}. ${DAYS[sd].num}/11`, everyLabel: `Hver ${DAYS[sd].long}`,
+      onceStyle: seg(!!pdef && !!pdef.once), everyStyle: seg(!!pdef && !pdef.once),
+      setOnce: () => setDep((d) => { d.once = true; }), setEvery: () => setDep((d) => { d.once = false; }),
+      clim: !!pdef && !!pdef.clim,
+      toggleClim: () => setDep((d) => { d.clim = !d.clim; }),
+      climSub: pdef && pdef.clim ? `21° · starter kl. ${hm((pdef.t || 7) - 0.25)}` : 'fra',
+      climIcon: `width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; color: ${pdef && pdef.clim ? '#fff' : '#8ab8ff'}; background: ${pdef && pdef.clim ? '#3b8bff' : 'rgba(59,139,255,.14)'}`,
+      climTrack: `flex: none; width: 48px; height: 28px; border-radius: 14px; position: relative; background: ${pdef && pdef.clim ? '#3b8bff' : '#3a414d'}`,
+      climKnob: `position: absolute; top: 3px; left: ${pdef && pdef.clim ? 23 : 3}px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: left .2s`,
+      result,
+    };
+    const tabStyle = (on) => `display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 0; border-radius: 16px; font-size: 11px; font-weight: ${on ? 700 : 600}; background: ${on ? 'rgba(47,211,163,.14)' : 'transparent'}; color: ${on ? '#6fe8c4' : '#a3adb8'}`;
+    const tabs = [['Huset', D.house, 'Main.dc.html'], ['Biler', D.car, 'Biler.dc.html'], ['Gæst', D.guest, 'Biler.dc.html'], ['Læring', D.bulb, 'Biler.dc.html'], ['Historik', D.history, 'Biler.dc.html']].map(([label, d, href], i) => ({ label, d, href, current: i === 1 ? 'page' : 'false', style: tabStyle(i === 1) }));
+
+    return {
+      headerHouse: two ? '/_blob/fa51e18f75ab61d0c1a071267487cec5' : '/_blob/3111d54a4fdbfecb587b05d4945ea32b',
+      headerLine: two ? 'Tesla 18 % · Mercedes 46 %\nNu 2,55 kr. · i nat 1,61 kr.' : 'Tesla 18 %\nNu 2,55 kr. · i nat 1,61 kr.',
+      ribbon: (() => { const ps = []; for (let k = 0; k < 24; k += 1) ps.push(price(Math.floor(now) + k)); const lo = Math.min(...ps), hi = Math.max(...ps); return ps.map((p, k) => { const t = (p - lo) / (hi - lo || 1); const c = t < 0.3 ? '#3ee08f' : t < 0.66 ? '#f5b94a' : '#ff7a6b'; const ch = !!charging(Math.floor(now) + k); return `justify-self: center; width: ${k === 0 ? 8 : 5}px; height: ${k === 0 ? 8 : 5}px; border-radius: 50%; background: ${c}; box-shadow: ${ch ? '0 0 0 2px #2fd3a3, 0 0 8px #2fd3a3' : k === 0 ? '0 0 0 2px #fff' : 'none'}`; }); })(),
+      night, issue, g, days, grid, legend, ed, tabs,
+      why: { open: this.state.why, lines: whyLines },
+      toggleWhy: () => this.setState({ why: !this.state.why }),
+      swapHelp: this.state.swapHelp,
+      toggleSwapHelp: () => this.setState({ swapHelp: !this.state.swapHelp }),
+      weekHelp: this.state.weekHelp,
+      toggleWeekHelp: () => this.setState({ weekHelp: !this.state.weekHelp }),
+      weekend: { on: weekendFree, tag: weekendFree ? 'Fri · kun ture' : 'Som hverdage', tagStyle: `font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; color: ${weekendFree ? '#0d1014' : '#d5dbe2'}; background: ${weekendFree ? '#7ff0b7' : 'rgba(255,255,255,.08)'}` },
+      toggleWeekend: () => this.setState({ weekendFree: !weekendFree }),
+      closeEd: () => this.setState({ edOpen: false }),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<title>EV Planner – Tesla Model 3</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&amp;family=Inter:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#0d1014}
+a{color:#6fe8c4;text-decoration:none}a:hover{color:#a6f3da}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #eef2f5;outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.disp{font-family:'Bricolage Grotesque',Inter,sans-serif;letter-spacing:-.02em}
+.glass{background:rgba(16,20,32,.5);-webkit-backdrop-filter:blur(16px) saturate(1.3);backdrop-filter:blur(16px) saturate(1.3);border:1px solid rgba(255,255,255,.13)}
+input[type=range].hit{-webkit-appearance:none;appearance:none;position:absolute;inset:-14px 0;width:100%;height:calc(100% + 28px);margin:0;background:transparent;opacity:0;cursor:grab}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+@keyframes warm{0%,100%{opacity:.35}50%{opacity:.9}}
+@keyframes air{0%{transform:translateY(10px);opacity:0}30%{opacity:.9}100%{transform:translateY(-22px);opacity:0}}
+@keyframes grow{from{transform:scaleY(.15)}to{transform:none}}
+.pop{animation:rise .22s ease-out}
+.sheet{animation:up .3s cubic-bezier(.2,.9,.3,1.1)}
+.warm{animation:warm 2.4s ease-in-out infinite}
+.air{animation:air 1.8s ease-in infinite}
+.bar{transform-origin:bottom;animation:grow .5s ease-out both}
+</style>
+</helmet>
+<div style="width: 390px; height: 2440px; box-sizing: border-box; background: #0d1014; color: #eef2f5; font-family: Inter, -apple-system, 'Segoe UI', sans-serif; display: flex; flex-direction: column; gap: 14px; overflow: hidden; position: relative">
+
+  <header style="position: relative; height: 300px; flex: none; overflow: hidden; background: radial-gradient(120% 80% at 50% 82%, rgba(47,211,163,.22) 0%, rgba(47,211,163,0) 46%), linear-gradient(180deg, #060a20 0%, #121a45 45%, #1c2350 70%, #0d1014 100%)" aria-label="Tesla Model 3">
+    <div style="position: absolute; left: 12px; right: 16px; top: 12px; display: flex; align-items: center; gap: 8px; z-index: 2">
+      <a href="Biler.dc.html" aria-label="Tilbage til Biler" style="width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: rgba(255,255,255,.08)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+      </a>
+      <div style="flex: 1; display: flex; flex-direction: column">
+        <b class="disp" style="font-size: 22px; font-weight: 800">Tesla Model 3</b>
+        <small style="font-size: 12.5px; color: rgba(255,255,255,.75)">Hjemme · tilsluttet lader 1</small>
+      </div>
+      <button onClick="{{openClimate}}" aria-label="Klima" style="{{climBtn}}">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0z"></path></svg>
+      </button>
+    </div>
+    <div style="position: absolute; left: 50%; top: 214px; width: 280px; height: 56px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(closest-side, rgba(47,211,163,.35), rgba(47,211,163,0))" aria-hidden="true"></div>
+    <img src="/_blob/60ac1070c3828e96e6b3f3851ef51385" alt="{{carAlt}}" style="{{carImg}}">
+    <span style="{{photoTag}}">{{photoTagText}}</span>
+  </header>
+
+  <nav style="margin: -6px 16px 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 16px; background: #161a21" role="tablist" aria-label="Tesla">
+    <sc-for list="{{views}}" as="v" hint-placeholder-count="3">
+      <button role="tab" onClick="{{v.pick}}" aria-selected="{{v.on}}" style="{{v.style}}">{{v.label}}</button>
+    </sc-for>
+  </nav>
+
+  <sc-if value="{{is.now}}" hint-placeholder-val="{{ true }}">
+    <section style="margin: 0 16px; border-radius: 26px; background: linear-gradient(170deg, #1b2142 0%, #161a21 62%); border: 1px solid rgba(255,255,255,.07); padding: 18px 16px; display: flex; flex-direction: column; gap: 16px; position: relative" aria-label="Næste afgang">
+      <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px">
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <small style="font-size: 11px; font-weight: 700; letter-spacing: .1em; color: #8f99a5">NÆSTE AFGANG</small>
+          <b class="disp num" style="font-size: 28px; line-height: 1.1">{{next.when}}</b>
+          <span class="num" style="font-size: 13px; color: #a3adb8">{{next.line}}</span>
+        </div>
+        <button onClick="{{toggleCtl}}" aria-expanded="{{ctlHelp}}" style="{{next.ctlStyle}}">
+          <small style="font-size: 10px; font-weight: 700; letter-spacing: .08em; opacity: .8">✦ INSIGHT STYRER</small>
+          <b style="font-size: 13px">{{next.ctl}}</b>
+        </button>
+      </div>
+      <sc-if value="{{ctlHelp}}" hint-placeholder-val="{{ false }}">
+        <div class="pop" style="position: absolute; right: 16px; top: 82px; width: 260px; z-index: 5; padding: 14px; border-radius: 16px; background: #232936; border: 1px solid rgba(255,255,255,.1); box-shadow: 0 16px 40px rgba(0,0,0,.45); font-size: 12.5px; line-height: 1.5; color: #d5dbe2; display: flex; flex-direction: column; gap: 8px">
+          <span>{{next.ctlHelp}}</span>
+          <span style="color: #a3adb8">Bilens egen ladegrænse følger målet af sig selv. Den er kun en sikkerhed, hvis Home Assistant mister laderen.</span>
+        </div>
+      </sc-if>
+
+      <div style="position: relative; width: 250px; height: 250px; align-self: center" role="img" aria-label="Ladeuret">
+        <div style="position: absolute; inset: 26px; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #232b4a, #141824 72%)"></div>
+        <sc-for list="{{bars}}" as="b" hint-placeholder-count="48">
+          <i style="{{b}}"></i>
+        </sc-for>
+        <svg width="250" height="250" viewBox="0 0 250 250" style="position: absolute; inset: 0" aria-hidden="true">
+          <circle cx="125" cy="125" r="86" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="8"></circle>
+          <circle cx="125" cy="125" r="86" fill="none" stroke="{{arc.color}}" stroke-width="9" stroke-linecap="round" stroke-dasharray="{{arc.dash}}" transform="rotate({{arc.rot}} 125 125)"></circle>
+          <text x="125" y="58" text-anchor="middle" font-size="10.5" fill="#8f99a5" font-family="Inter">00</text>
+          <text x="194" y="129" text-anchor="middle" font-size="10.5" fill="#8f99a5" font-family="Inter">06</text>
+          <text x="125" y="200" text-anchor="middle" font-size="10.5" fill="#8f99a5" font-family="Inter">12</text>
+          <text x="56" y="129" text-anchor="middle" font-size="10.5" fill="#8f99a5" font-family="Inter">18</text>
+        </svg>
+        <i style="{{hand}}"></i>
+        <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-align: center">
+          <b class="num disp" style="font-size: 26px; color: #fff">{{big}}</b>
+          <small class="num" style="font-size: 12px; color: #a3adb8">{{small}}</small>
+          <small class="num" style="font-size: 12px; font-weight: 600; color: #4fe0a5">{{save}}</small>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div style="position: relative; height: 22px">
+          <span class="num" style="{{slider.labelStyle}}">{{slider.label}}</span>
+        </div>
+        <div style="position: relative; height: 34px; border-radius: 12px; border: 2px solid rgba(255,255,255,.55); padding: 3px; box-sizing: border-box">
+          <div style="position: relative; height: 100%; border-radius: 8px; overflow: hidden; background: rgba(255,255,255,.05)">
+            <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 18%; background: linear-gradient(90deg, #19b68f, #2fd3a3)"></div>
+            <div style="{{slider.plan}}"></div>
+          </div>
+          <i style="{{slider.knob}}"></i>
+          <input class="hit" type="range" min="50" max="100" step="5" value="{{slider.value}}" onInput="{{slider.onInput}}" aria-label="{{slider.aria}}">
+          <i style="position: absolute; right: -8px; top: 9px; width: 5px; height: 12px; border-radius: 0 3px 3px 0; background: rgba(255,255,255,.55)"></i>
+        </div>
+        <div class="num" style="display: flex; justify-content: space-between; font-size: 12.5px; color: #a3adb8">
+          <span>Nu <b style="color: #fff">18 %</b></span>
+          <span>{{slider.kwh}}</span>
+          <sc-if value="{{slider.canAuto}}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{slider.backAuto}}" style="border: 0; background: transparent; padding: 0; font-size: 12.5px; font-weight: 700; color: #c3b5ff">✦ Tilbage til Auto</button>
+          </sc-if>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) 46px; gap: 4px; padding: 4px; border-radius: 16px; background: #14181e" role="group" aria-label="Opladning">
+        <sc-for list="{{modes}}" as="m" hint-placeholder-count="3">
+          <button onClick="{{m.pick}}" aria-pressed="{{m.on}}" style="{{m.style}}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="{{m.fill}}" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{m.d}}"></path></svg>{{m.label}}</button>
+        </sc-for>
+        <button aria-label="Sluk styring" style="height: 42px; border: 0; border-radius: 12px; background: transparent; color: #8f99a5; display: grid; place-items: center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v8M6.3 7.3a8 8 0 1 0 11.4 0"></path></svg>
+        </button>
+      </div>
+    </section>
+
+    <section style="margin: 0 16px; border-radius: 26px; background: #161a21; border: 1px solid rgba(255,255,255,.07); padding: 18px 16px; display: flex; flex-direction: column; gap: 12px" aria-label="Elpris de næste døgn">
+      <div style="display: flex; align-items: baseline; justify-content: space-between">
+        <h2 class="disp" style="margin: 0; font-size: 19px; font-weight: 700">Elpris de næste døgn</h2>
+        <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: #a3adb8"><i style="width: 12px; height: 3px; border-radius: 2px; background: #2fd3a3"></i>batteri</span>
+      </div>
+      <div style="position: relative; height: 150px">
+        <div style="position: absolute; inset: 0 0 18px 0; display: grid; grid-template-columns: repeat(48, minmax(0, 1fr)); gap: 1.5px; align-items: end">
+          <sc-for list="{{price.bars}}" as="b" hint-placeholder-count="48">
+            <i class="bar" style="{{b}}"></i>
+          </sc-for>
+        </div>
+        <svg width="100%" height="132" viewBox="0 0 326 132" preserveAspectRatio="none" style="position: absolute; left: 0; top: 0" aria-hidden="true">
+          <path d="{{price.level}}" fill="none" stroke="#2fd3a3" stroke-width="2.6" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>
+          <line x1="{{price.depX}}" y1="0" x2="{{price.depX}}" y2="132" stroke="#ffd27a" stroke-width="1.5" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"></line>
+        </svg>
+        <span class="num" style="{{price.depTag}}">lør. 09.00 · 90 %</span>
+        <div class="num" style="position: absolute; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); font-size: 9.5px; color: #7d8794">
+          <sc-for list="{{price.ticks}}" as="t" hint-placeholder-count="8"><span>{{t}}</span></sc-for>
+        </div>
+      </div>
+      <div class="num" style="display: flex; justify-content: space-between; font-size: 12px; color: #a3adb8"><span>Nu <b style="color: #ff9a7a">2,55 kr.</b></span><span>Lader til <b style="color: #7ff0b7">1,61 kr.</b></span><span>Billigst <b style="color: #fff">1,49 kr.</b></span></div>
+    </section>
+
+    <section style="margin: 0 16px; border-radius: 26px; background: #161a21; border: 1px solid rgba(255,255,255,.07); padding: 18px 16px; display: flex; flex-direction: column; gap: 12px; position: relative" aria-label="Afgange og ugeplan">
+      <div style="display: flex; align-items: center; justify-content: space-between">
+        <h2 class="disp" style="margin: 0; font-size: 19px; font-weight: 700">Afgange</h2>
+        <a href="Biler.dc.html" style="font-size: 12.5px; font-weight: 600">Hele husstandens uge ›</a>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px">
+        <sc-for list="{{week}}" as="w" hint-placeholder-count="7">
+          <button onClick="{{w.pick}}" aria-pressed="{{w.on}}" aria-label="{{w.aria}}" style="{{w.style}}">
+            <small style="font-size: 10.5px; font-weight: 700; color: #a3adb8">{{w.day}}</small>
+            <b class="num" style="{{w.pctStyle}}">{{w.pct}}</b>
+            <small class="num" style="font-size: 9.5px; color: #8f99a5">{{w.time}}</small>
+          </button>
+        </sc-for>
+      </div>
+      <sc-for list="{{deps}}" as="d" hint-placeholder-count="4">
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <div style="{{d.rowStyle}}">
+            <button onClick="{{d.open}}" aria-expanded="{{d.isOpen}}" style="flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; border: 0; background: transparent; padding: 0; text-align: left">
+              <span style="{{d.dayStyle}}"><b style="font-size: 11px; letter-spacing: .04em">{{d.wd}}</b><b class="num disp" style="font-size: 19px; line-height: 1">{{d.num}}</b></span>
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+                <b class="num" style="font-size: 15px">kl. {{d.t}}</b>
+                <small style="font-size: 12px; color: #a3adb8">{{d.scope}}{{d.chargeNote}}</small>
+              </span>
+              <span style="{{d.pctStyle}}">{{d.pct}}</span>
+            </button>
+            <button onClick="{{d.toggleClim}}" aria-pressed="{{d.clim}}" aria-label="Klima til afgangen" style="{{d.climStyle}}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 2v20M4 6l16 12M20 6 4 18"></path></svg>
+            </button>
+          </div>
+          <sc-if value="{{d.isOpen}}" hint-placeholder-val="{{ false }}">
+            <div class="pop" style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 16px; background: #1d222b">
+              <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 12px; background: #14181e">
+                <button onClick="{{d.setAuto}}" aria-pressed="{{d.auto}}" style="{{d.autoStyle}}">✦ Auto ≈55 %</button>
+                <button onClick="{{d.setFast}}" aria-pressed="{{d.fast}}" style="{{d.fastStyle}}">Fast mål</button>
+              </div>
+              <sc-if value="{{d.fast}}" hint-placeholder-val="{{ true }}">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+                  <button onClick="{{d.minus}}" aria-label="Mindre" style="width: 42px; height: 42px; border-radius: 12px; border: 0; background: #262c36; font-size: 18px">−</button>
+                  <b class="num disp" style="font-size: 24px">{{d.p}} %</b>
+                  <button onClick="{{d.plus}}" aria-label="Mere" style="width: 42px; height: 42px; border-radius: 12px; border: 0; background: #262c36; font-size: 18px">+</button>
+                </div>
+              </sc-if>
+              <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 12px; background: #14181e">
+                <button onClick="{{d.setOnce}}" aria-pressed="{{d.once}}" style="{{d.onceStyle}}">Kun {{d.wdl}}. {{d.num}}/11</button>
+                <button onClick="{{d.setEvery}}" aria-pressed="{{d.every}}" style="{{d.everyStyle}}">Hver {{d.long}}</button>
+              </div>
+              <span class="num" style="font-size: 12px; color: #a3adb8">{{d.climNote}}</span>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{is.rules}}" hint-placeholder-val="{{ false }}">
+    <section style="margin: 0 16px; display: flex; flex-direction: column; gap: 10px" aria-label="Regler">
+      <sc-for list="{{rules}}" as="r" hint-placeholder-count="6">
+        <div style="display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 22px; background: #161a21; border: 1px solid rgba(255,255,255,.07)">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <span style="{{r.iconStyle}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{r.d}}"></path></svg></span>
+            <b style="flex: 1; font-size: 16px">{{r.label}}</b>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8f99a5" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+          </div>
+          <div style="{{r.visStyle}}">
+            <i style="{{r.fill}}"></i><i style="{{r.mark}}"></i>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px">
+            <sc-for list="{{r.chips}}" as="c" hint-placeholder-count="2">
+              <span class="num" style="font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.06); color: #d5dbe2">{{c}}</span>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{is.history}}" hint-placeholder-val="{{ false }}">
+    <section style="margin: 0 16px; border-radius: 26px; background: linear-gradient(170deg, #1b2142 0%, #161a21 60%); border: 1px solid rgba(255,255,255,.07); padding: 18px 16px; display: flex; flex-direction: column; gap: 14px" aria-label="Historik">
+      <div style="display: flex; align-items: flex-end; justify-content: space-between">
+        <div style="display: flex; flex-direction: column"><small style="font-size: 11px; font-weight: 700; letter-spacing: .1em; color: #8f99a5">NOVEMBER</small><b class="disp num" style="font-size: 30px">371 kr.</b></div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end"><b class="num" style="font-size: 15px">212 kWh</b><small class="num" style="font-size: 12px; color: #4fe0a5">1,75 kr./kWh · 64 kr. sparet</small></div>
+      </div>
+      <div style="height: 96px; display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 3px; align-items: end">
+        <sc-for list="{{month}}" as="m" hint-placeholder-count="20">
+          <i class="bar" style="{{m}}"></i>
+        </sc-for>
+      </div>
+      <sc-for list="{{last}}" as="l" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 18px; background: rgba(255,255,255,.04)">
+          <span style="width: 46px; height: 46px; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(47,211,163,.12); color: #6fe8c4"><b class="num disp" style="font-size: 19px; line-height: 1">{{l.d}}</b><small style="font-size: 10px">nov.</small></span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px">
+            <b class="num" style="font-size: 14px">{{l.t}}</b>
+            <span style="position: relative; height: 6px; border-radius: 3px; background: rgba(255,255,255,.08)"><i style="{{l.bar}}"></i></span>
+            <small class="num" style="font-size: 11.5px; color: #a3adb8">{{l.s}}</small>
+          </span>
+          <span class="num" style="font-size: 14px; font-weight: 700">{{l.kr}}</span>
+        </div>
+      </sc-for>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{climate.open}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; left: 0; right: 0; top: 0; height: 844px; z-index: 20">
+      <button onClick="{{closeClimate}}" aria-label="Luk" style="position: absolute; inset: 0; border: 0; background: rgba(6,8,14,.6); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px)"></button>
+      <section class="sheet" role="dialog" aria-label="Klima" style="position: absolute; left: 10px; right: 10px; top: 70px; border-radius: 28px; background: #1a1e27; border: 1px solid rgba(255,255,255,.1); box-shadow: 0 24px 60px rgba(0,0,0,.55); padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; align-items: center; gap: 10px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2fd3a3" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0z"></path></svg>
+          <b style="flex: 1; font-size: 18px">Tesla Model 3</b>
+          <button onClick="{{closeClimate}}" aria-label="Luk" style="width: 34px; height: 34px; border-radius: 50%; border: 0; background: rgba(255,255,255,.07); color: #c2cad3; font-size: 18px">×</button>
+        </div>
+        <span style="{{climate.stateStyle}}">{{climate.state}}</span>
+        <svg width="200" height="300" viewBox="0 0 200 300" role="img" aria-label="Bilen set oppefra" style="align-self: center">
+          <defs>
+            <radialGradient id="heat" cx="50%" cy="55%" r="55%"><stop offset="0%" stop-color="#ff8a5c" stop-opacity=".7"></stop><stop offset="100%" stop-color="#ff8a5c" stop-opacity="0"></stop></radialGradient>
+            <radialGradient id="cool" cx="50%" cy="55%" r="55%"><stop offset="0%" stop-color="#6db4f2" stop-opacity=".7"></stop><stop offset="100%" stop-color="#6db4f2" stop-opacity="0"></stop></radialGradient>
+          </defs>
+          <ellipse cx="100" cy="152" rx="70" ry="140" fill="rgba(0,0,0,.35)"></ellipse>
+          <ellipse cx="44" cy="96" rx="11" ry="6" fill="#cfd5dd"></ellipse>
+          <ellipse cx="156" cy="96" rx="11" ry="6" fill="#cfd5dd"></ellipse>
+          <path d="M62 18 C66 6 134 6 138 18 L150 72 C155 96 155 206 150 238 L144 278 C140 294 60 294 56 278 L50 238 C45 206 45 96 50 72 Z" fill="#e8ecf1"></path>
+          <path d="M66 22 Q100 12 134 22" fill="none" stroke="{{climate.defrost}}" stroke-width="4" stroke-linecap="round"></path>
+          <path d="M64 82 Q100 66 136 82 L130 112 Q100 104 70 112 Z" fill="#b9c2ce"></path>
+          <rect x="62" y="114" width="76" height="122" rx="8" fill="#f6f7f9" stroke="#cfd5dd"></rect>
+          <circle cx="100" cy="172" r="74" fill="{{climate.glow}}" class="{{climate.glowClass}}"></circle>
+          <rect x="70" y="122" width="60" height="5" rx="2.5" fill="#cfd5dd"></rect>
+          <circle cx="80" cy="140" r="6" fill="none" stroke="#c3cad3" stroke-width="2"></circle>
+          <rect x="94" y="134" width="12" height="52" rx="5" fill="#e3e7ec"></rect>
+          <rect x="70" y="150" width="22" height="28" rx="6" fill="#fff" stroke="#d5dae1"></rect>
+          <rect x="108" y="150" width="22" height="28" rx="6" fill="#fff" stroke="#d5dae1"></rect>
+          <rect x="68" y="198" width="64" height="26" rx="6" fill="#fff" stroke="#d5dae1"></rect>
+          <g class="{{climate.airClass}}" opacity="{{climate.airOpacity}}"><path d="M86 136 q-4 -6 0 -12 q4 -6 0 -12" fill="none" stroke="{{climate.airColor}}" stroke-width="2" stroke-linecap="round"></path></g>
+          <g class="{{climate.airClass}}" opacity="{{climate.airOpacity}}" style="animation-delay: .6s"><path d="M100 136 q-4 -6 0 -12 q4 -6 0 -12" fill="none" stroke="{{climate.airColor}}" stroke-width="2" stroke-linecap="round"></path></g>
+          <g class="{{climate.airClass}}" opacity="{{climate.airOpacity}}" style="animation-delay: 1.2s"><path d="M114 136 q-4 -6 0 -12 q4 -6 0 -12" fill="none" stroke="{{climate.airColor}}" stroke-width="2" stroke-linecap="round"></path></g>
+          <path d="M64 240 Q100 250 136 240 L140 262 Q100 272 60 262 Z" fill="#b9c2ce"></path>
+          <path d="M68 280 Q100 290 132 280" fill="none" stroke="{{climate.defrost}}" stroke-width="4" stroke-linecap="round"></path>
+        </svg>
+        <div style="display: grid; grid-template-columns: 60px 1fr 74px; align-items: center">
+          <button onClick="{{climate.toggle}}" aria-pressed="{{climate.on}}" style="{{climate.powerStyle}}">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v8M6.3 7.3a8 8 0 1 0 11.4 0"></path></svg>
+            <small style="font-size: 12px; font-weight: 600">{{climate.powerLabel}}</small>
+          </button>
+          <div style="display: flex; align-items: center; justify-content: center; gap: 14px">
+            <button onClick="{{climate.down}}" aria-label="Koldere" style="width: 40px; height: 40px; border-radius: 50%; border: 0; background: rgba(255,255,255,.06); color: #9cc8ff; font-size: 20px">‹</button>
+            <b class="num disp" style="font-size: 42px; line-height: 1">{{climate.temp}}<sup style="font-size: 18px">°</sup></b>
+            <button onClick="{{climate.up}}" aria-label="Varmere" style="width: 40px; height: 40px; border-radius: 50%; border: 0; background: rgba(255,255,255,.06); color: #ffb48a; font-size: 20px">›</button>
+          </div>
+          <div class="num" style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 11px; color: #a3adb8">
+            <span><b style="font-size: 15px; color: #fff">16,5°</b> inde</span>
+            <span><b style="font-size: 15px; color: #fff">−0,5°</b> ude</span>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.08)">
+          <button onClick="{{climate.toggleAuto}}" aria-pressed="{{climate.auto}}" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 0; background: transparent; padding: 4px 0; text-align: left">
+            <span style="font-size: 14px">Start klima af sig selv</span>
+            <span style="{{climate.track}}"><i style="{{climate.knob}}"></i></span>
+          </button>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+            <span style="font-size: 14px; color: #c2cad3">Før afgang</span>
+            <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; padding: 3px; border-radius: 12px; background: #14181e">
+              <sc-for list="{{climate.minutes}}" as="m" hint-placeholder-count="4">
+                <button onClick="{{m.pick}}" aria-pressed="{{m.on}}" style="{{m.style}}">{{m.label}}</button>
+              </sc-for>
+            </div>
+          </div>
+          <span class="num" style="font-size: 12px; color: #a3adb8">{{climate.next}}</span>
+        </div>
+      </section>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"picture":{"editor":"enum","options":["Tegning","Eget foto (tegnet)"],"default":"Tegning","section":"Demo"},"$preview":{"width":390,"height":2440}}'>
+const PAT = [1.95, 1.80, 1.68, 1.62, 1.64, 1.78, 2.30, 3.05, 3.25, 2.80, 2.45, 2.25, 2.15, 2.12, 2.25, 2.55, 3.10, 3.60, 3.45, 3.05, 2.75, 2.55, 2.30, 2.10];
+const price = (h) => PAT[((Math.floor(h) % 24) + 24) % 24] * (h >= 24 ? (h >= 48 ? 0.92 : 0.96) : 1);
+const NOWH = 21 + 40 / 60;
+const pad = (n) => String(n).padStart(2, '0');
+const D = {
+  smart: 'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z',
+  now: 'M13 2 4 14h7l-1 8 9-12h-7l1-8z',
+  pause: 'M8 5v14M16 5v14',
+  price: 'M20 12l-8 8-9-9V3h8l9 9zM7.5 7.5h.01',
+  battery: 'M3 7h15v10H3zM21 10v4M7 10v4M11 10v4',
+  clock: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
+  thermo: 'M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0z',
+  bell: 'M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21h4',
+  car: 'M5 17h14v-5l-2-5H7l-2 5v5zM5 12h14M8 19v-2M16 19v-2',
+};
+const baseDeps = () => [
+  { key: 1, wd: 'LØR', wdl: 'lør', long: 'lørdag', num: 21, t: '09.00', m: 'fast', p: 90, once: true, clim: true, charge: ' · lader i nat 02–06' },
+  { key: 3, wd: 'MAN', wdl: 'man', long: 'mandag', num: 23, t: '07.00', m: 'auto', p: 80, once: false, clim: true, charge: ' · lader søn. nat' },
+  { key: 4, wd: 'TIR', wdl: 'tir', long: 'tirsdag', num: 24, t: '07.00', m: 'auto', p: 80, once: false, clim: false, charge: '' },
+  { key: 5, wd: 'ONS', wdl: 'ons', long: 'onsdag', num: 25, t: '07.00', m: 'auto', p: 80, once: false, clim: false, charge: ' · lader tir. nat' },
+];
+const WEEK = ['Fre', 'Lør', 'Søn', 'Man', 'Tir', 'Ons', 'Tor'];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { view: 'now', mode: 'smart', deps: baseDeps(), open: -1, ctlHelp: false, nowTarget: 80, climate: { open: false, on: false, temp: 21, auto: true, min: 15 } };
+  }
+  editDep(i, fn) {
+    const deps = this.state.deps.map((d) => ({ ...d }));
+    fn(deps[i]);
+    this.setState({ deps });
+  }
+  renderVals() {
+    const s = this.state;
+    const photo = (this.props.picture ?? 'Tegning') !== 'Tegning';
+    const seg = (on) => `height: 42px; border: 0; border-radius: 12px; font-size: 13.5px; font-weight: 700; background: ${on ? '#eef2f5' : 'transparent'}; color: ${on ? '#0d1014' : '#a3adb8'}`;
+    const views = [['now', 'Nu'], ['rules', 'Regler'], ['history', 'Historik']].map(([k, label]) => ({ label, on: s.view === k, style: seg(s.view === k), pick: () => this.setState({ view: k }) }));
+    const first = s.deps[0];
+    const auto = first.m === 'auto';
+    const target = s.mode === 'now' ? s.nowTarget : auto ? 55 : first.p;
+
+    // The next departure, and what decides its target.
+    const ctl = s.mode === 'now' ? 'Lad nu' : s.mode === 'pause' ? 'Pause' : auto ? `Auto · ${target} %` : `Fast · ${target} %`;
+    const next = {
+      when: `lør. kl. ${first.t}`,
+      line: s.mode === 'pause' ? 'Pause: lader ikke, før du vælger Smart' : `${target} % · lader i nat 02.00–06.00`,
+      ctl,
+      ctlStyle: `flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; padding: 8px 12px; border-radius: 14px; border: 0; color: ${s.mode === 'now' ? '#1d1300' : auto && s.mode === 'smart' ? '#fff' : '#0d1014'}; background: ${s.mode === 'now' ? '#f5b94a' : auto && s.mode === 'smart' ? 'linear-gradient(135deg, #19b6a5, #6e4aff)' : '#eef2f5'}`,
+      ctlHelp: s.mode === 'now' ? 'Lad nu: bilen lader med det samme til målet på skyderen, uanset prisen.' : auto ? 'Insight styrer, og målet står på Auto: Insight vælger både timerne og målet ud fra jeres kørsel (en svær dag plus reserve). Træk i skyderen for at gøre målet fast.' : 'Insight styrer timerne, men målet står på Fast: du har valgt det, og Insight ændrer det ikke.',
+    };
+
+    // The charge clock: the coming day in half hours, the charge as an arc.
+    const win = [];
+    for (let k = 0; k < 48; k += 1) { const h = Math.floor(NOWH * 2) / 2 + k * 0.5; win.push({ h, p: price(h) }); }
+    const lo = Math.min(...win.map((w) => w.p)), hi = Math.max(...win.map((w) => w.p));
+    const col = (p) => (p <= lo + (hi - lo) * 0.3 ? '#3ee08f' : p <= lo + (hi - lo) * 0.66 ? '#f5b94a' : '#ff7a6b');
+    const charging = s.mode === 'now' ? (h) => h >= NOWH - 0.5 && h < NOWH + 4 : s.mode === 'pause' ? () => false : (h) => h >= 26 && h < 30;
+    const R0 = 96;
+    const bars = win.map((w) => {
+      const len = 6 + ((w.p - lo) / (hi - lo || 1)) * 16;
+      const deg = (((w.h % 24) + 0.25) / 24) * 360;
+      return `position: absolute; left: 123px; top: ${(125 - R0 - len).toFixed(1)}px; width: 4px; height: ${len.toFixed(1)}px; border-radius: 2px; transform-origin: 2px ${(R0 + len).toFixed(1)}px; transform: rotate(${deg.toFixed(1)}deg); background: ${col(w.p)}; opacity: ${charging(w.h) ? 1 : 0.5}`;
+    });
+    const r = 86, circ = 2 * Math.PI * r;
+    const span = s.mode === 'pause' ? 0 : 4;
+    const startH = s.mode === 'now' ? NOWH : 2;
+    const arc = { color: s.mode === 'now' ? '#f5b94a' : '#2fd3a3', dash: `${((span / 24) * circ).toFixed(1)} ${circ.toFixed(1)}`, rot: (-90 + (((startH % 24) / 24) * 360)).toFixed(1) };
+    const kwh = Math.max(0, ((target - 18) / 100) * 60);
+    const big = s.mode === 'pause' ? 'Pause' : `${(kwh * (s.mode === 'now' ? 2.23 : 1.61)).toFixed(2).replace('.', ',')} kr.`;
+    const small = s.mode === 'pause' ? 'ingen ladning' : s.mode === 'now' ? 'lader nu · klar ca. 01.40' : '02.00–06.00';
+    const save = s.mode === 'smart' ? `Du sparer ${Math.round(kwh * 0.5)} kr.` : s.mode === 'now' ? `+${Math.round(kwh * 0.62)} kr. mod planen` : '';
+
+    // The big slider: the departure's target (✦ Auto until you move it), or the target for Lad nu.
+    const isAuto = s.mode === 'smart' && auto;
+    const slider = {
+      value: target,
+      label: s.mode === 'now' ? `Lad nu til ${target} %` : isAuto ? `✦ Auto · ${target} %` : `Fast · ${target} %`,
+      labelStyle: `position: absolute; left: ${target}%; bottom: 0; transform: translateX(-50%); white-space: nowrap; font-size: 12.5px; font-weight: 700; padding: 3px 10px; border-radius: 999px; color: ${s.mode === 'now' ? '#1d1300' : isAuto ? '#fff' : '#0d1014'}; background: ${s.mode === 'now' ? '#f5b94a' : isAuto ? 'linear-gradient(135deg, #19b6a5, #6e4aff)' : '#eef2f5'}`,
+      plan: `position: absolute; left: 18%; top: 0; bottom: 0; width: ${target - 18}%; background: repeating-linear-gradient(135deg, ${s.mode === 'now' ? 'rgba(245,185,74,.55) 0 6px, rgba(245,185,74,.2) 6px 12px' : 'rgba(47,211,163,.5) 0 6px, rgba(47,211,163,.18) 6px 12px'}); opacity: ${s.mode === 'pause' ? 0.25 : 1}`,
+      knob: `position: absolute; top: -6px; left: calc(${target}% - 3px); width: 6px; height: 42px; border-radius: 3px; background: ${s.mode === 'now' ? '#f5b94a' : isAuto ? '#c3b5ff' : '#fff'}; box-shadow: 0 0 0 3px rgba(13,16,20,.6)`,
+      kwh: `+${kwh.toFixed(1).replace('.', ',')} kWh`,
+      aria: s.mode === 'now' ? 'Mål for Lad nu' : 'Mål for næste afgang',
+      canAuto: s.mode === 'smart' && !auto,
+      backAuto: () => this.editDep(0, (x) => { x.m = 'auto'; }),
+      onInput: (e) => {
+        const v = Number(e && e.target ? e.target.value : target);
+        if (s.mode === 'now') this.setState({ nowTarget: v });
+        else this.editDep(0, (x) => { x.m = 'fast'; x.p = v; });
+      },
+    };
+    const modes = [['smart', 'Smart', D.smart, true], ['now', 'Lad nu', D.now, true], ['pause', 'Pause', D.pause, false]].map(([k, label, d, filled]) => ({
+      label, d, on: s.mode === k, fill: filled && s.mode === k ? 'currentColor' : 'none',
+      style: `${seg(s.mode === k)}; display: inline-flex; align-items: center; justify-content: center; gap: 6px; ${s.mode === k && k === 'now' ? 'background: #f5b94a; color: #1d1300;' : ''}`,
+      pick: () => this.setState({ mode: k }),
+    }));
+
+    // Prices for the next two days, with the battery as the week plan sees it, over them.
+    const PW = 326, PH = 132;
+    const pbars = [];
+    const top = 3.8;
+    for (let k = 0; k < 48; k += 1) {
+      const h = Math.floor(NOWH) + k, p = price(h);
+      const ch = h >= 26 && h < 30;
+      pbars.push(`height: ${Math.max(6, (p / top) * PH).toFixed(1)}px; border-radius: 3px 3px 1px 1px; background: ${ch ? '#2fd3a3' : col(p)}; opacity: ${ch ? 0.95 : 0.42}; animation-delay: ${k * 12}ms`);
+    }
+    const X = (h) => ((h - Math.floor(NOWH)) / 48) * PW;
+    const Y = (l) => PH - 6 - (l / 100) * (PH - 16);
+    const lv = [[NOWH, 18], [26, 18], [30, target], [33, target], [42, Math.max(10, target - 45)], [69.9, Math.max(10, target - 45)]];
+    const level = lv.map(([h, l], i) => `${i ? 'L' : 'M'}${X(h).toFixed(1)} ${Y(l).toFixed(1)}`).join(' ');
+    const priceBox = {
+      bars: pbars, level,
+      depX: X(33).toFixed(1),
+      depTag: `position: absolute; left: ${((X(33) / PW) * 100).toFixed(1)}%; top: -2px; transform: translateX(-50%); font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; color: #1d1300; background: #ffd27a; white-space: nowrap`,
+      ticks: ['21', '00', '06', '12', '18', '00', '06', '12'],
+    };
+
+    // The week for this car, and its departures with their own target and climate.
+    const byKey = {};
+    s.deps.forEach((d, i) => { byKey[d.key] = { d, i }; });
+    const week = WEEK.map((day, i) => {
+      const x = byKey[i];
+      const on = x && s.open === x.i;
+      const a = x && x.d.m === 'auto';
+      return {
+        day, on: !!on,
+        pct: x ? (a ? '✦55' : String(x.d.p)) : i === 0 ? 'kørt' : i === 2 ? 'fri' : '–',
+        time: x ? x.d.t : ' ',
+        aria: `${day}: ${x ? x.d.t : 'ingen afgang'}`,
+        pctStyle: `font-size: 13px; font-weight: 700; color: ${!x ? '#6b7480' : a ? '#c3b5ff' : '#eef2f5'}`,
+        style: `display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; height: 60px; padding: 0; border-radius: 12px; border: 1.5px solid ${on ? '#eef2f5' : x && x.d.once ? 'rgba(255,210,122,.45)' : 'rgba(255,255,255,.06)'}; background: ${on ? '#2a303a' : x ? '#1d222b' : 'transparent'}; opacity: ${i === 0 ? 0.45 : 1}`,
+        pick: () => (x ? this.setState({ open: on ? -1 : x.i }) : null),
+      };
+    });
+    const deps = s.deps.map((d, i) => {
+      const a = d.m === 'auto';
+      const open = s.open === i;
+      return {
+        ...d,
+        isOpen: open, auto: a, fast: !a, every: !d.once,
+        scope: d.once ? 'Kun denne gang' : `Hver ${d.long}`,
+        chargeNote: d.charge,
+        pct: a ? '✦ ≈55 %' : `${d.p} %`,
+        pctStyle: `flex: none; font-size: 14px; font-weight: 700; padding: 6px 10px; border-radius: 999px; color: ${a ? '#d9ceff' : '#0d1014'}; background: ${a ? 'rgba(140,110,255,.2)' : '#eef2f5'}`,
+        rowStyle: `display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 18px; border: 1px solid ${open ? 'rgba(255,255,255,.3)' : 'rgba(255,255,255,.06)'}; background: ${open ? '#20252f' : '#1a1f27'}`,
+        dayStyle: `flex: none; width: 48px; height: 48px; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; background: ${d.once ? 'rgba(245,185,74,.16)' : 'rgba(255,255,255,.06)'}; color: ${d.once ? '#ffd27a' : '#d5dbe2'}`,
+        climStyle: `flex: none; width: 40px; height: 40px; border-radius: 12px; border: 0; display: grid; place-items: center; color: ${d.clim ? '#fff' : '#8ab8ff'}; background: ${d.clim ? '#3b8bff' : 'rgba(59,139,255,.12)'}`,
+        climNote: d.clim ? `Klima starter ${s.climate.min} min. før · ${s.climate.temp}°` : 'Ingen klima til denne afgang',
+        open: () => this.setState({ open: open ? -1 : i }),
+        toggleClim: () => this.editDep(i, (x) => { x.clim = !x.clim; }),
+        setAuto: () => this.editDep(i, (x) => { x.m = 'auto'; }), setFast: () => this.editDep(i, (x) => { x.m = 'fast'; }),
+        minus: () => this.editDep(i, (x) => { x.p = Math.max(50, x.p - 5); }), plus: () => this.editDep(i, (x) => { x.p = Math.min(100, x.p + 5); }),
+        setOnce: () => this.editDep(i, (x) => { x.once = true; }), setEvery: () => this.editDep(i, (x) => { x.once = false; }),
+        autoStyle: seg(a), fastStyle: seg(!a), onceStyle: seg(d.once), everyStyle: seg(!d.once),
+      };
+    });
+
+    // Rules, each as a small picture of what it does.
+    const tile = (bg, fg) => `flex: none; width: 40px; height: 40px; border-radius: 13px; display: grid; place-items: center; background: ${bg}; color: ${fg}`;
+    const vis = 'position: relative; height: 10px; border-radius: 5px; background: rgba(255,255,255,.07)';
+    const rule = (label, d, bg, fg, from, to, mark, chips) => ({
+      label, d, chips, iconStyle: tile(bg, fg), visStyle: vis,
+      fill: `position: absolute; left: ${from}%; width: ${to - from}%; top: 0; bottom: 0; border-radius: 5px; background: ${fg}; opacity: .55`,
+      mark: `position: absolute; left: calc(${mark}% - 1px); top: -4px; width: 2px; height: 18px; border-radius: 1px; background: #fff; opacity: ${mark >= 0 ? 0.9 : 0}`,
+    });
+    const rules = [
+      rule('Pris', D.price, 'rgba(47,211,163,.15)', '#6fe8c4', 0, 55, 55, ['Loft: gns. +10 %', 'Lav pris 0,50 kr.']),
+      rule('Batteri', D.battery, 'rgba(126,217,87,.15)', '#a6ec88', 30, 100, 20, ['Mindst 30 %', 'Lad straks under 20 %']),
+      rule('Tid og start', D.clock, 'rgba(140,110,255,.18)', '#c3b5ff', 87.5, 100, -1, ['Tidligst 21.00', 'Weekend fri']),
+      rule('Klima', D.thermo, 'rgba(59,139,255,.16)', '#8ab8ff', 0, 70, 70, [`${s.climate.temp}°`, s.climate.auto ? 'Starter selv' : 'Kun når du tænder', `${s.climate.min} min. før`]),
+      rule('Beskeder', D.bell, 'rgba(245,185,74,.16)', '#ffd27a', 91.7, 100, -1, ['Kvittering', 'Stille 22–06']),
+      rule('Udseende', D.car, 'rgba(255,255,255,.08)', '#d5dbe2', 0, 0, -1, [photo ? 'Eget foto · tegnet' : 'Sedan', 'Hvid']),
+    ];
+    const kw = [8, 0, 14, 0, 0, 22, 6, 0, 18, 0, 9, 0, 26, 0, 7, 12, 0, 21, 0, 43];
+    const month = kw.map((k, i) => `height: ${Math.max(3, Math.round((k / 43) * 92))}px; border-radius: 4px 4px 2px 2px; background: ${i === 19 ? 'linear-gradient(180deg, #6fe8c4, #19b68f)' : k ? 'rgba(47,211,163,.45)' : 'rgba(255,255,255,.06)'}; animation-delay: ${i * 20}ms`);
+    const last = [
+      { d: '19', t: '02.15–04.40', s: '41 % → 80 % · 23,4 kWh · 1,62 kr./kWh', kr: '37,90 kr.', bar: 'position: absolute; left: 41%; width: 39%; top: 0; bottom: 0; border-radius: 3px; background: #2fd3a3' },
+      { d: '17', t: '01.30–03.10', s: '52 % → 80 % · 16,8 kWh · 1,70 kr./kWh', kr: '28,60 kr.', bar: 'position: absolute; left: 52%; width: 28%; top: 0; bottom: 0; border-radius: 3px; background: #2fd3a3' },
+      { d: '14', t: '03.00–05.30', s: '30 % → 74 % · 26,4 kWh · 1,56 kr./kWh', kr: '41,20 kr.', bar: 'position: absolute; left: 30%; width: 44%; top: 0; bottom: 0; border-radius: 3px; background: #2fd3a3' },
+    ];
+
+    // The climate, as the popup does it today: the car from above, warming up when it runs.
+    const c = s.climate;
+    const setC = (patch) => this.setState({ climate: { ...c, ...patch } });
+    const heating = c.on && c.temp > 16.5;
+    const climate = {
+      open: c.open, on: c.on, auto: c.auto,
+      temp: c.temp.toFixed(1).replace('.', ','),
+      state: c.on ? (heating ? 'Varmer op' : 'Køler ned') : 'Fra',
+      stateStyle: `align-self: flex-start; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; color: ${c.on ? '#1d1300' : '#c2cad3'}; background: ${c.on ? (heating ? '#ffb48a' : '#9cc8ff') : 'rgba(255,255,255,.08)'}`,
+      glow: c.on ? (heating ? 'url(#heat)' : 'url(#cool)') : 'transparent',
+      glowClass: c.on ? 'warm' : '',
+      airClass: c.on ? 'air' : '', airOpacity: c.on ? 1 : 0, airColor: heating ? '#ff8a5c' : '#6db4f2',
+      defrost: c.on ? '#ff8a7a' : '#c9d0d8',
+      powerStyle: `display: flex; flex-direction: column; align-items: center; gap: 4px; border: 0; background: transparent; color: ${c.on ? '#2fd3a3' : '#a3adb8'}`, powerLabel: c.on ? 'Til' : 'Fra',
+      toggle: () => setC({ on: !c.on }),
+      down: () => setC({ temp: Math.max(16, c.temp - 0.5) }), up: () => setC({ temp: Math.min(28, c.temp + 0.5) }),
+      toggleAuto: () => setC({ auto: !c.auto }),
+      track: `flex: none; width: 50px; height: 30px; border-radius: 15px; position: relative; background: ${c.auto ? '#2fd3a3' : '#3a414d'}`,
+      knob: `position: absolute; top: 3px; left: ${c.auto ? 23 : 3}px; width: 24px; height: 24px; border-radius: 50%; background: #fff; transition: left .2s`,
+      minutes: [5, 10, 15, 30].map((m) => ({ label: String(m), on: c.min === m, style: `height: 32px; min-width: 38px; border: 0; border-radius: 9px; font-size: 13px; font-weight: 700; background: ${c.min === m ? '#eef2f5' : 'transparent'}; color: ${c.min === m ? '#0d1014' : '#a3adb8'}`, pick: () => setC({ min: m }) })),
+      next: c.auto ? `Starter af sig selv lør. kl. ${pad(8)}.${pad(60 - c.min)} · ${c.temp.toFixed(1).replace('.', ',')}° · det er koldt` : 'Starter kun, når du tænder',
+    };
+
+    return {
+      views, is: { now: s.view === 'now', rules: s.view === 'rules', history: s.view === 'history' },
+      carImg: `position: absolute; left: 50%; top: 58px; height: 220px; width: auto; transform: translateX(-50%); ${photo ? 'filter: sepia(1) saturate(5.5) hue-rotate(-38deg) brightness(.82) contrast(1.04);' : ''}`,
+      carAlt: photo ? 'Tesla Model 3, tegnet efter eget foto' : 'Tesla Model 3, tegnet i appens stil',
+      photoTag: `position: absolute; right: 16px; bottom: 14px; font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; color: #fff; background: rgba(0,0,0,.35); opacity: ${photo ? 1 : 0}`,
+      photoTagText: 'Eget foto · tegnet',
+      climBtn: `width: 40px; height: 40px; border-radius: 50%; border: 0; display: grid; place-items: center; color: ${c.on ? '#1d1300' : '#fff'}; background: ${c.on ? '#ffb48a' : 'rgba(255,255,255,.08)'}`,
+      openClimate: () => setC({ open: true }), closeClimate: () => setC({ open: false }),
+      next, ctlHelp: s.ctlHelp, toggleCtl: () => this.setState({ ctlHelp: !s.ctlHelp }),
+      bars, arc, big, small, save, slider, modes,
+      hand: `position: absolute; left: 124px; top: 22px; width: 2px; height: 103px; border-radius: 1px; background: linear-gradient(180deg, #fff, rgba(255,255,255,0)); transform-origin: 1px 103px; transform: rotate(${((NOWH / 24) * 360).toFixed(1)}deg)`,
+      price: priceBox, week, deps, rules, month, last, climate,
+    };
+  }
+}
+</script>
+</body>
+</html>

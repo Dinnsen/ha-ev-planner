@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<title>EV Planner – Profilmenu</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&amp;family=Inter:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#0d1014}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:focus-visible,a:focus-visible{outline:2px solid #eef2f5;outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.disp{font-family:'Bricolage Grotesque',Inter,sans-serif;letter-spacing:-.02em}
+.glass{background:rgba(16,20,32,.55);-webkit-backdrop-filter:blur(16px) saturate(1.3);backdrop-filter:blur(16px) saturate(1.3);border:1px solid rgba(255,255,255,.13)}
+@keyframes down{from{transform:translateY(-40px);opacity:0}to{transform:none;opacity:1}}
+.down{animation:down .3s cubic-bezier(.2,.9,.3,1.1)}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #0d1014; color: #eef2f5; font-family: Inter, -apple-system, 'Segoe UI', sans-serif; position: relative; overflow: hidden">
+
+  <div style="position: absolute; inset: 0 0 auto 0; height: 640px; background: linear-gradient(180deg, #060a20 0%, #121a45 36%, #232a5c 58%, #1a1f3a 76%, #0d1014 100%)" aria-hidden="true">
+    <div style="position: absolute; left: 20px; top: 72px; display: flex; flex-direction: column; gap: 4px">
+      <span style="font-size: 11.5px; font-weight: 700; letter-spacing: .12em; color: rgba(255,255,255,.72)">FREDAG 20. NOVEMBER · UGE 47</span>
+      <span class="disp" style="font-size: 44px; font-weight: 800; color: #fff">God aften</span>
+    </div>
+    <img src="/_blob/3aab3176099449b4b63a45823550eb38" alt="" style="position: absolute; left: 50%; bottom: 100px; height: 250px; width: auto; max-width: 376px; transform: translateX(-50%)">
+  </div>
+
+  <div style="position: absolute; left: 16px; right: 16px; top: 14px; height: 44px; display: flex; align-items: center; justify-content: space-between; z-index: 3">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <svg width="30" height="30" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="11" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="4"></circle><path d="M14 3 A11 11 0 0 1 25 14" fill="none" stroke="#2fd3a3" stroke-width="4" stroke-linecap="round"></path><path d="M15 8 L10 15 H14 L13 20 L18 13 H14 Z" fill="#7ed957"></path></svg>
+      <span class="disp" style="font-size: 20px; font-weight: 700; color: #fff">EV Planner</span>
+    </div>
+    <button onClick="{{toggle}}" aria-label="Profil og indstillinger" aria-expanded="{{open}}" style="width: 38px; height: 38px; border-radius: 50%; border: 0; font-weight: 700; font-size: 15px; color: #fff; background: linear-gradient(145deg, #19b6a5, #6e4aff); box-shadow: 0 4px 14px rgba(110,74,255,.4)">C</button>
+  </div>
+
+  <sc-if value="{{open}}" hint-placeholder-val="{{ true }}">
+    <button onClick="{{toggle}}" aria-label="Luk" style="position: absolute; inset: 0; z-index: 4; border: 0; background: rgba(6,8,14,.55); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px)"></button>
+    <section class="down" role="dialog" aria-label="Profil" style="position: absolute; left: 0; right: 0; top: 0; z-index: 5; border-radius: 0 0 28px 28px; background: #171b23; border-bottom: 1px solid rgba(255,255,255,.1); box-shadow: 0 24px 60px rgba(0,0,0,.55); padding: 16px 18px 12px; display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <span style="width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 17px; color: #fff; background: linear-gradient(145deg, #19b6a5, #6e4aff)">C</span>
+        <div style="flex: 1; display: flex; flex-direction: column"><b class="disp" style="font-size: 20px; font-weight: 800">Christian</b><small style="font-size: 12px; color: #a3adb8">Administrator</small></div>
+        <button onClick="{{toggle}}" aria-label="Luk" style="width: 36px; height: 36px; border-radius: 50%; border: 0; background: rgba(255,255,255,.07); color: #c2cad3; font-size: 18px">×</button>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+        <sc-for list="{{tiles}}" as="t" hint-placeholder-count="6">
+          <a href="{{t.href}}" style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; height: 104px; padding: 0 4px; border-radius: 20px; background: #1f242e; border: 1px solid rgba(255,255,255,.06); font-size: 12.5px; font-weight: 600; line-height: 1.2; color: #e6ebf0; text-align: center">
+            <span style="{{t.iconStyle}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg></span>{{t.label}}
+            <small style="{{t.tagStyle}}">{{t.tag}}</small>
+          </a>
+        </sc-for>
+      </div>
+      <i style="align-self: center; width: 40px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.2)"></i>
+    </section>
+  </sc-if>
+
+  <a href="Quick.dc.html" aria-label="Quick-menu" style="position: absolute; right: 20px; bottom: 98px; width: 60px; height: 60px; border-radius: 21px; display: grid; place-items: center; color: #fff; background: linear-gradient(145deg, #19b6a5, #6e4aff); box-shadow: 0 10px 28px rgba(110,74,255,.45); z-index: 2">
+    <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" fill="currentColor"></path></svg>
+  </a>
+  <nav class="glass" aria-label="Menu" style="position: absolute; left: 16px; right: 16px; bottom: 18px; height: 66px; border-radius: 24px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: center; padding: 0 6px; z-index: 2">
+    <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+      <a href="{{t.href}}" aria-current="{{t.current}}" style="{{t.style}}">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>{{t.label}}</a>
+    </sc-for>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+const D = {
+  sun: 'M12 4V2M12 22v-2M4 12H2M22 12h-2M5.6 5.6 4.2 4.2M19.8 19.8l-1.4-1.4M5.6 18.4l-1.4 1.4M19.8 4.2l-1.4 1.4M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0z',
+  look: 'M12 21a9 9 0 1 1 9-9c0 2-1.5 3-3 3h-2a2 2 0 0 0-1 3.7c.6.4.4 2.3-3 2.3zM7.5 11h.01M10.5 7h.01M15 7.5h.01',
+  gear: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1',
+  bell: 'M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21h4',
+  party: 'M4 20l4-12 8 8-12 4zM14 4l1 3M19 9l-3 1M18 3l-2 3M20 14h.01M10 3h.01',
+  help: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01',
+  house: 'M3 11 12 4l9 7M5 10v10h14V10M10 20v-5h4v5',
+  car: 'M5 17h14v-5l-2-5H7l-2 5v5zM5 12h14M8 19v-2M16 19v-2',
+  guest: 'M10 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM3 20c1-4 4-6 7-6s6 2 7 6M19 8v6M16 11h6',
+  bulb: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z',
+  history: 'M3 12a9 9 0 1 0 3-6.7M3 4v4h4M12 7v5l3 2',
+};
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { open: true };
+  }
+  renderVals() {
+    const ic = (bg, fg) => `width: 40px; height: 40px; border-radius: 13px; display: grid; place-items: center; background: ${bg}; color: ${fg}`;
+    const tag = (t) => `position: absolute; top: 8px; right: 8px; font-size: 9.5px; font-weight: 700; padding: 2px 6px; border-radius: 999px; color: #0d1014; background: ${t ? '#f5b94a' : 'transparent'}`;
+    const tiles = [
+      { label: 'Husets døgn', d: D.sun, href: 'Main.dc.html', iconStyle: ic('rgba(245,185,74,.16)', '#ffd27a'), tag: 'Preview' },
+      { label: 'Look', d: D.look, href: 'Udseende.dc.html', iconStyle: ic('rgba(47,211,163,.16)', '#6fe8c4'), tag: '' },
+      { label: 'Indstillinger', d: D.gear, href: 'Main.dc.html', iconStyle: ic('rgba(255,255,255,.08)', '#d5dbe2'), tag: '' },
+      { label: 'Beskeder', d: D.bell, href: 'Main.dc.html', iconStyle: ic('rgba(140,110,255,.18)', '#c3b5ff'), tag: '' },
+      { label: 'Helligdage og mærkedage', d: D.party, href: 'Main.dc.html', iconStyle: ic('rgba(255,122,107,.16)', '#ff9a8a'), tag: '' },
+      { label: 'Support', d: D.help, href: 'Main.dc.html', iconStyle: ic('rgba(59,139,255,.16)', '#8ab8ff'), tag: '' },
+    ].map((t) => ({ ...t, tagStyle: tag(t.tag) }));
+    const tabStyle = (on) => `display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 0; border-radius: 16px; font-size: 11px; font-weight: ${on ? 700 : 600}; background: ${on ? 'rgba(47,211,163,.14)' : 'transparent'}; color: ${on ? '#6fe8c4' : '#a3adb8'}`;
+    const tabs = [['Huset', D.house, 'Main.dc.html'], ['Biler', D.car, 'Biler.dc.html'], ['Gæst', D.guest, 'Main.dc.html'], ['Læring', D.bulb, 'Insight.dc.html'], ['Historik', D.history, 'Main.dc.html']].map(([label, d, href], i) => ({ label, d, href, current: i === 0 ? 'page' : 'false', style: tabStyle(i === 0) }));
+    return { open: this.state.open, toggle: () => this.setState({ open: !this.state.open }), tiles, tabs };
+  }
+}
+</script>
+</body>
+</html>
