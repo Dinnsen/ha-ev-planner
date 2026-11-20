@@ -1287,3 +1287,34 @@ test("the profile menu drops from the top as six tiles, and a tap beside it only
     assert.equal(await page.evaluate(() => window.harness.panel._tab), tab, "the tab under it was not tapped");
   });
 });
+
+test("tonight's boxes show only the cars that are home; Huset's top has the prices as pills and no holiday", async () => {
+  const state = fixture("two-cars");
+  const [away, home] = state.vehicles;
+  away.home = false;
+  state.settings = { ...state.settings, days: { ...(state.settings.days || {}) } };
+  await withPanel(state, { size: PHONE, lang: "da" }, async ({ page, tap, read }) => {
+    await tap('.tabs button[data-tab="cars"]');
+    const boxes = await page.evaluate(() => [...window.harness.panel.shadowRoot.querySelectorAll(".x-tn-car")].map((b) => b.dataset.id));
+    assert.deepEqual(boxes, [home.id], "only the car at home has a box");
+    await tap('.tabs button[data-tab="home"]');
+    assert.equal(await read(".x-top.big .x-pill.fest"), null, "no holiday pill");
+    assert.match(await read(".x-top.big .x-prices .x-pill.price"), /^Nu \d/);
+    assert.match(await read(".x-top.big .x-prices .x-pill.cheap"), /^Billigst \d\d–\d\d/);
+    assert.equal(await read(".x-arc .x-lab.cheap"), null, "nothing of the prices behind the house");
+    // Every car away: no boxes, a line instead.
+    home.home = false;
+    await page.evaluate((s) => window.harness.push(s), state);
+    await tap('.tabs button[data-tab="cars"]');
+    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".x-tn-car").length), 0);
+    assert.match(await read(".x-tn .x-away"), /Ingen af bilerne er hjemme/);
+  });
+});
+
+test("registered to handle the safe areas, the top runs up under the status bar", async () => {
+  await withPanel("two-cars", { size: PHONE }, async ({ page }) => {
+    assert.equal(await page.evaluate(() => window.harness.panel.hasAttribute("safe")), false);
+    await page.evaluate(() => { window.harness.panel.panel = { config: { safe_area: true } }; });
+    assert.equal(await page.evaluate(() => window.harness.panel.hasAttribute("safe")), true);
+  });
+});

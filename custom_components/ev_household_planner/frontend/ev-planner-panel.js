@@ -13,6 +13,9 @@ const TEXT = {
     greet_evening: "God aften",
     hero_week: "uge {n}",
     // 2.5.0b48: the pages as drawn
+    x_price_now: "Nu",
+    x_cheap_pill: "Billigst {from}–{to}",
+    x_none_home: "Ingen af bilerne er hjemme lige nu.",
     look_evp: "EV Planner",
     x_theme_auto: "Auto",
     x_theme_light: "Lys",
@@ -887,6 +890,9 @@ const TEXT = {
     greet_evening: "Good evening",
     hero_week: "week {n}",
     // 2.5.0b48: the pages as drawn
+    x_price_now: "Now",
+    x_cheap_pill: "Cheapest {from}–{to}",
+    x_none_home: "None of the cars are home right now.",
     look_evp: "EV Planner",
     x_theme_auto: "Auto",
     x_theme_light: "Light",
@@ -5937,6 +5943,8 @@ class EvPlannerPanel extends HTMLElement {
 
   set panel(panel) {
     this._panel = panel;
+    // Registered to handle the safe areas itself: the top runs up under the status bar (2.5.0b49).
+    this.toggleAttribute("safe", Boolean(panel?.config?.safe_area));
   }
 
   /* The path after /ev-planner: /car/<id>, /charger/<id>, /guest, /history or /settings.
@@ -7058,8 +7066,8 @@ class EvPlannerPanel extends HTMLElement {
 
   /* The cars in tonight's picture: those at home, two at most. */
   _tonightCars() {
-    const home = this._cars.filter((v) => v.home !== false && (v.site ?? "home") === "home");
-    return (home.length ? home : this._cars).slice(0, 2);
+    // Only the cars that are home (or whose place is not known): a car out driving is not by the charger (2.5.0b49).
+    return this._cars.filter((v) => v.home !== false && !v.elsewhere && (v.site ?? "home") === "home").slice(0, 2);
   }
 
   _tonightTwo(cars) {
@@ -13277,7 +13285,7 @@ Object.assign(EvPlannerPanel.prototype, {
       <div class="x-in">
         <div class="x-dock"></div>
         ${pic && this._homeShown ? '<div class="x-pic mini-slot" aria-hidden="true"></div>' : ""}
-        <div class="x-title">${backBtn}<div><h1>${esc(title)}</h1>${line ? `<span class="x-num">${esc(line)}</span>` : ""}</div></div>
+        <div class="x-title">${backBtn}<div><h1>${esc(title)}</h1>${line ? `<span class="x-num x-line">${line.split("\n").map((l) => `<span>${esc(l)}</span>`).join("")}</span>` : ""}</div></div>
         ${dots ? `<div class="x-rib" role="img" aria-label="${esc(this._t("x_rib_aria"))}">${dots}</div>` : ""}
       </div>
       <div class="x-tabs x-in"></div>
@@ -13360,9 +13368,8 @@ Object.assign(EvPlannerPanel.prototype, {
       }
       return `<span class="x-lab ${cls}" style="left:calc(${x.toFixed(2)}% + ${(Math.cos(a) * out).toFixed(1)}px);top:calc(${y.toFixed(2)}% - ${(Math.sin(a) * out).toFixed(1)}px)">${esc(text)}</span>`;
     };
-    let labels = hours[0].p !== null ? `<span class="x-lab x-now-lab">${esc(this._t("x_arc_now", { price: this._num(hours[0].p, 2) }))}</span>` : "";
-    hours.forEach((h, k) => { if (k > 0 && h.hour % 6 === 0 && (!best || Math.abs(k - (best.k + 1.5)) > 3)) labels += lab(k, pad(h.hour), "hour", 16); });
-    if (best) labels += lab(best.k + 1.5, this._t("arc_cheap", { from: pad(best.from), to: pad(best.to), price: this._money(best.avg) }), "cheap", 30);
+    let labels = "";
+    hours.forEach((h, k) => { if (k > 0 && h.hour % 6 === 0) labels += lab(k, pad(h.hour), "hour", 16); });
     const aria = best ? this._t("arc_aria", { from: pad(best.from), to: pad(best.to) }) : "";
     return `<div class="x-arc" role="img" aria-label="${esc(aria)}">${beads}${labels}</div>`;
   },
@@ -13374,8 +13381,6 @@ Object.assign(EvPlannerPanel.prototype, {
     const place = this._placeNow();
     const pills = [];
     if (s.insight) pills.push(`<button class="x-glass x-pill ins${s.insight_use ? " on" : ""}" data-act="insight-open" data-f="insight-open">${XSPARK}<span>${esc(this._t(s.insight_use ? "hero_insight" : "hero_learning"))}</span>${xi(XD.chev, { w: 12, sw: 2.4 })}</button>`);
-    const day = dayNow(s, ZD());
-    if (day) pills.push(`<span class="x-glass x-pill fest">${esc(this._t(`day_${day}`))}</span>`);
     if (sites.length > 1) sites.forEach((site) => pills.push(`<button class="x-glass x-pill place${site.id === place.id ? " on" : ""}" data-act="place" data-id="${esc(site.id)}" data-f="place-${esc(site.id)}" aria-pressed="${site.id === place.id}">${esc(site.name || this._t("place_home"))}</button>`));
     return `<header class="x-top big ${night ? "night" : "day"}" style="background:${this._xSky("big")}" aria-label="${esc(this._t("tab_home"))}">
       <div class="x-sky">${this._xStars([[7, 62], [16, 98], [30, 70], [44, 104], [55, 66], [67, 92], [77, 60], [90, 110], [24, 160], [61, 152], [86, 180], [5, 208]])}<i class="x-orb ${night ? "moon" : "sun"}"></i></div>
@@ -13386,11 +13391,25 @@ Object.assign(EvPlannerPanel.prototype, {
           <h1>${esc(this._xGreeting())}</h1>
           <p>${esc(this._heroLine())}</p>
           ${pills.length ? `<div class="x-pills">${pills.join("")}</div>` : ""}
+          ${this._xPricePills()}
         </div>
         <div class="x-stage">${this._xArcHtml()}<div class="x-house scene-slot" role="img" aria-label="${esc(this._t("home_title"))}"></div></div>
       </div>
       <div class="x-tabs x-in"></div>
     </header>`;
+  },
+
+  /* The price now and the next day's cheapest hours, as two pills under the greeting. */
+  _xPricePills() {
+    const hours = this._hourPrices();
+    if (!hours.length || hours[0].p === null) return "";
+    const known = hours.filter((h) => h.p !== null);
+    const lo = Math.min(...known.map((h) => h.p)), hi = Math.max(...known.map((h) => h.p));
+    const pad = (h) => String(h).padStart(2, "0");
+    const best = this._cheapest(hours);
+    const now = `<span class="x-glass x-pill price ${X_TIER(hours[0].p, lo, hi)}"><i></i>${esc(this._t("x_price_now"))} <b class="x-num">${esc(this._money(hours[0].p))}</b></span>`;
+    const cheap = best ? `<span class="x-pill cheap"><i></i>${esc(this._t("x_cheap_pill", { from: pad(best.from), to: pad(best.to) }))} <b class="x-num">${esc(this._money(best.avg))}</b></span>` : "";
+    return `<div class="x-pills x-prices">${now}${cheap}</div>`;
   },
 
   _xHomeHtml() {
@@ -13552,8 +13571,10 @@ Object.assign(EvPlannerPanel.prototype, {
 
   /* I aften, as in Learning: who charges, the cars by the charger, and the next day's prices. */
   _xTonightCard() {
-    const cars = this._tonightCars();
+    // Who charges tonight: every car of the home; the picture and the boxes: the cars that are home.
+    const cars = this._cars.filter((v) => (v.site ?? "home") === "home").slice(0, 4);
     if (!cars.length) return "";
+    const here = this._tonightCars();
     const now = znow();
     const pad = (h) => String(h).padStart(2, "0");
     const next = cars.map((v) => [v, this._nextCharge(v)]).filter(([, c]) => c && ZD(c.start).getTime() < now + 24 * 3600e3).sort((a, b) => ZD(a[1].start).getTime() - ZD(b[1].start).getTime());
@@ -13583,7 +13604,7 @@ Object.assign(EvPlannerPanel.prototype, {
     }).join("");
     const ticks = hours.map((h) => `<span>${h.hour % 3 === 0 ? pad(h.hour) : ""}</span>`).join("");
     const steered = (v) => this._steered(v);
-    const blocks = cars.map((v, i) => {
+    const blocks = here.map((v, i) => {
       const c = this._nextCharge(v);
       const soon = c && ZD(c.start).getTime() < now + 24 * 3600e3;
       const down = this._troubled(v);
@@ -13593,7 +13614,8 @@ Object.assign(EvPlannerPanel.prototype, {
       const fast = day && isNum(s.day_targets?.[day]) && (!steered(v) || (s.day_fixed || []).includes(day));
       const auto = steered(v) && !fast;
       const tag = v.deadline ? `${auto ? "✦ " : ""}${this._pct(v.target)} · ${this._day(v.deadline).toLowerCase()} ${this._time(v.deadline)}` : this._t("x_no_departure");
-      return `<button class="x-tn-car${cars.length > 1 && i === 1 ? " r" : ""}" data-act="open-car" data-id="${esc(v.id)}" data-f="tn-${esc(v.id)}" style="--car:${this._carColor(i)}" aria-label="${esc(this._t("tn_open", { car: v.name }))}">
+      const ci = this._cars.indexOf(v);
+      return `<button class="x-tn-car${here.length > 1 && i === 1 ? " r" : ""}" data-act="open-car" data-id="${esc(v.id)}" data-f="tn-${esc(v.id)}" style="--car:${this._carColor(ci)}" aria-label="${esc(this._t("tn_open", { car: v.name }))}">
         <span class="x-tn-name"><b>${esc(v.name)}</b>${xi(XD.chev, { w: 16, sw: 2.4 })}</span>
         <b class="x-num x-disp x-tn-soc">${isNum(v.soc) ? this._pct(v.soc) : "–"}</b>
         <small class="x-num ${down ? "warn" : soon ? "on" : ""}">${esc(note)}</small>
@@ -13618,8 +13640,8 @@ Object.assign(EvPlannerPanel.prototype, {
       </div>
       ${why}
       <div class="x-tn-words">${head}${sub ? `<p>${esc(sub.trim())}</p>` : ""}</div>
-      <div class="x-tpic tn-pic" role="img" aria-label="${esc(this._t("x_cars_tonight"))}"></div>
-      <div class="x-tn-cars${cars.length > 1 ? "" : " one"}">${blocks}</div>
+      ${here.length ? `<div class="x-tpic tn-pic" role="img" aria-label="${esc(this._t("x_cars_tonight"))}"></div>
+      <div class="x-tn-cars${here.length > 1 ? "" : " one"}">${blocks}</div>` : `<p class="x-note x-away">${esc(this._t("x_none_home"))}</p>`}
       ${swap}
       ${hours.some((h) => h.p !== null) ? `<div class="x-well x-strip"><div class="x-row x-soft"><span>${esc(this._t("x_next_day_prices"))}</span><span class="x-num">${best ? esc(this._t("x_cheap_at", { from: pad(best.from), to: pad(best.to) })) : ""}</span></div><div class="x-bars20">${bars}</div><div class="x-ticks20 x-num">${ticks}</div></div>` : ""}
     </section>`;
@@ -15973,6 +15995,10 @@ const X_STYLE = `
   color-scheme: light;
 }
 
+/* Home Assistant lets the panel handle the safe areas (2.5.0b49): the top runs up under the phone's status
+   bar, as in Hverdagsro, and the tab bar floats over the home indicator. */
+:host(ev-planner-panel[safe]:not([app]):not([embed])) { --evp-safe-top: env(safe-area-inset-top, 0px); --evp-safe-bottom: env(safe-area-inset-bottom, 0px); height: 100dvh !important; }
+
 /* ---------- the shell: the content scrolls, every page brings its own top */
 .content { padding: 0 0 calc(110px + var(--evp-safe-bottom)); }
 .content > .loading { padding: 40px 20px; }
@@ -16023,7 +16049,7 @@ const X_STYLE = `
 .x-round:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 
 /* The big top (Huset) */
-.x-top.big { height: 640px; }
+.x-top.big { height: calc(692px + var(--evp-safe-top)); }
 .x-top.big > .x-in { height: 100%; }
 .x-hello { position: relative; z-index: 3; display: flex; flex-direction: column; gap: 4px; padding: 14px 4px 0; max-width: 560px; }
 .x-over { font-size: 11.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; opacity: .72; }
@@ -16038,7 +16064,13 @@ button.x-pill { cursor: pointer; }
 .x-pill.fest { color: #ffe3a3; }
 .x-top.day .x-pill.fest { color: #8a4b00; }
 .x-pill.place.on { background: #fff; color: #10182e; }
-.x-stage { position: absolute; left: 0; right: 0; top: 196px; bottom: 0; }
+.x-prices { margin-top: 6px; }
+.x-pill.price i, .x-pill.cheap i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.x-pill.price.lo i { background: #3ee08f; } .x-pill.price.mid i { background: #f5b94a; } .x-pill.price.hi i { background: #ff7a6b; }
+.x-pill.price b, .x-pill.cheap b { font-weight: 800; }
+.x-pill.cheap { background: #7ff0b7; color: #062b1c; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+.x-pill.cheap i { background: #0f8a57; }
+.x-stage { position: absolute; left: 0; right: 0; top: calc(248px + var(--evp-safe-top)); bottom: 0; }
 .x-arc { position: absolute; left: 5.4%; right: 5.4%; top: 0; height: 214px; pointer-events: none; z-index: 1; }
 .x-bead { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; pointer-events: auto; }
 .x-bead.lo { background: #3ee08f; box-shadow: 0 0 10px rgba(62,224,143,.55); }
@@ -16065,12 +16097,14 @@ button.x-pill { cursor: pointer; }
 .x-top.big:has(.cscene.editing) { overflow: visible; z-index: 6; }
 
 /* The small top (the other pages) */
-.x-top.small { height: 168px; }
+.x-top.small { height: calc(176px + var(--evp-safe-top)); }
 .x-top.small > .x-in { height: 100%; }
-.x-title { position: relative; z-index: 3; display: flex; align-items: flex-start; gap: 10px; padding: 4px 4px 0; width: min(46%, 300px); }
+.x-title { position: relative; z-index: 3; display: flex; align-items: flex-start; gap: 10px; padding: 4px 4px 0; width: min(60%, 300px); }
+.x-title > div { min-width: 0; }
+.x-line span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .x-title h1 { margin: 0; font-size: 32px; line-height: 1.05; font-weight: 800; }
 .x-title .x-num { display: block; margin-top: 3px; font-size: 12.5px; line-height: 1.35; opacity: .82; white-space: pre-line; }
-.x-pic { position: absolute; right: -6px; top: 22px; bottom: 6px; width: 64%; z-index: 1; -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 30%); mask-image: linear-gradient(90deg, transparent 0, #000 30%); }
+.x-pic { position: absolute; right: -6px; top: calc(52px + var(--evp-safe-top)); bottom: 18px; width: 64%; z-index: 1; -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 30%); mask-image: linear-gradient(90deg, transparent 0, #000 30%); }
 .x-pic .cscene { background: transparent !important; height: 100%; border-radius: 0; }
 .x-pic .cscene .cs-pic, .x-pic .cscene .cs-pic > svg { width: 100%; height: 100%; }
 .x-pic .cs-label, .x-pic .cs-edit, .x-pic button, .x-pic .cs-tools { display: none !important; }
@@ -16083,15 +16117,15 @@ button.x-pill { cursor: pointer; }
 .x-top > .x-tabs { height: auto !important; }
 
 /* The car's own top */
-.x-top.xcar { height: 300px; }
+.x-top.xcar { height: calc(300px + var(--evp-safe-top)); }
 .x-top.xcar > .x-in { height: 100%; }
 .x-top.xcar .x-dock { display: none; }
 .x-carrow { position: relative; z-index: 3; display: flex; align-items: center; gap: 8px; padding-top: calc(12px + var(--evp-safe-top)); margin-left: -4px; }
 .x-carrow .x-grow b { font-size: 22px; font-weight: 800; line-height: 1.15; }
 .x-carrow .x-grow small { font-size: 12.5px; opacity: .75; }
 .x-round.clim.on { background: rgba(255,154,122,.22); color: #ffb08a; }
-.x-carglow { position: absolute; left: 50%; top: 214px; width: 280px; height: 56px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(closest-side, rgba(47,211,163,.35), rgba(47,211,163,0)); z-index: 1; }
-.x-carpic { position: absolute; left: 50%; top: 66px; transform: translateX(-50%); width: min(330px, 86%); height: 196px; border: 0; padding: 0; background: none; cursor: pointer; z-index: 2; display: grid; place-items: end center; }
+.x-carglow { position: absolute; left: 50%; top: calc(214px + var(--evp-safe-top)); width: 280px; height: 56px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(closest-side, rgba(47,211,163,.35), rgba(47,211,163,0)); z-index: 1; }
+.x-carpic { position: absolute; left: 50%; top: calc(66px + var(--evp-safe-top)); transform: translateX(-50%); width: min(330px, 86%); height: 196px; border: 0; padding: 0; background: none; cursor: pointer; z-index: 2; display: grid; place-items: end center; }
 .x-carimg { display: block; width: 100%; height: 100%; }
 .x-carimg.photo { object-fit: contain; object-position: center bottom; filter: drop-shadow(0 16px 24px rgba(0,0,0,.45)); }
 .x-carimg.drawn svg { width: 100%; height: 100%; }
@@ -16213,6 +16247,7 @@ button.x-card { font: inherit; text-align: left; cursor: pointer; width: 100%; }
 .x-tn-h { margin: 0; font-size: 22px; line-height: 1.22; font-weight: 700; text-wrap: balance; }
 .x-tn-h span { color: var(--x-acc-ink); }
 .x-tn-words p { margin: 0; font-size: 13px; color: var(--x-soft); line-height: 1.4; }
+.x-away { margin: 0; padding: 6px 2px 0; font-size: 13.5px; }
 .x-tn-cars { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .x-tn-cars.one { grid-template-columns: minmax(0, 1fr); }
 .x-tn-car { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; text-align: left; padding: 12px; border-radius: 18px; border: 1px solid var(--x-line2); border-top: 3px solid var(--car); background: color-mix(in srgb, var(--x-ink) 3%, transparent); color: var(--x-ink); font: inherit; cursor: pointer; min-width: 0; }
@@ -16562,7 +16597,7 @@ button.x-card { font: inherit; text-align: left; cursor: pointer; width: 100%; }
 .x-profmenu .x-handle { margin-top: 2px; }
 
 /* ---------- Look */
-.x-top.look { height: 300px; }
+.x-top.look { height: calc(300px + var(--evp-safe-top)); }
 .x-top.look > .x-in { height: 100%; }
 .x-top.look .x-dock { display: none; }
 .x-lookrow { position: relative; z-index: 3; display: flex; align-items: center; gap: 10px; padding-top: calc(12px + var(--evp-safe-top)); margin-left: -4px; }
@@ -16571,7 +16606,7 @@ button.x-card { font: inherit; text-align: left; cursor: pointer; width: 100%; }
 .x-top.day .x-daynight { background: rgba(255,255,255,.55); }
 .x-daynight button { height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; color: inherit; font: 700 13px/1 var(--x-text); cursor: pointer; }
 .x-daynight button.on { background: #fff; color: #10182e; }
-.x-lookstage { position: absolute; left: 50%; top: 56px; bottom: 30px; width: min(420px, 100%); transform: translateX(-50%); z-index: 2; }
+.x-lookstage { position: absolute; left: 50%; top: calc(56px + var(--evp-safe-top)); bottom: 30px; width: min(420px, 100%); transform: translateX(-50%); z-index: 2; }
 .x-lookstage .cscene { background: transparent !important; border-radius: 0; height: 100%; }
 .x-lookstage .cscene .cs-pic, .x-lookstage .cscene .cs-pic > svg { width: 100%; height: 100%; }
 .x-lookstage .cs-label, .x-lookstage .cs-tools, .x-lookstage .cs-edit { display: none !important; }

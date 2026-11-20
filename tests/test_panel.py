@@ -79,3 +79,32 @@ async def test_the_app_address_served_by_1x_already(hass: HomeAssistant) -> None
     ):
         await panel.async_register_panel(hass)
     add.assert_called_once()
+
+
+async def test_the_panel_draws_under_the_status_bar(hass: HomeAssistant) -> None:
+    """Where Home Assistant lets a panel handle the safe areas, EV Planner does (and tells the panel)."""
+    hass.http = MagicMock()
+    hass.http.async_register_static_paths = AsyncMock()
+    seen: dict[str, object] = {}
+
+    async def register(
+        hass: HomeAssistant,
+        *,
+        frontend_url_path: str,
+        webcomponent_name: str,
+        sidebar_title: str,
+        sidebar_icon: str,
+        module_url: str,
+        config: dict[str, object],
+        require_admin: bool,
+        handle_safe_area: bool = False,
+    ) -> None:
+        seen.update(config=config, handle_safe_area=handle_safe_area)
+
+    with (
+        patch.object(panel.panel_custom, "async_register_panel", new=register),
+        patch.object(panel.frontend, "add_extra_js_url"),
+    ):
+        await panel.async_register_panel(hass)
+    assert seen["handle_safe_area"] is True
+    assert seen["config"]["safe_area"] is True  # type: ignore[index]

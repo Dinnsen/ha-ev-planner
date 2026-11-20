@@ -2,6 +2,15 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b49] - 2026-11-20
+
+### Changed
+
+- **Under the status bar on an iPhone**: the panel asks Home Assistant to leave the safe areas to it (`handle_safe_area`), so the top runs up under the clock as in Hverdagsro.
+- **Huset's top**: the price now and the cheapest hours are pills under the greeting instead of labels behind the house, and a holiday is no longer shown there.
+- **Tonight on Biler** shows only the cars that are home; with none home it says so.
+- **The small top**: the page's line is two lines that do not wrap, and the house sits under the logo.
+
 ## [2.5.0b48] - 2026-11-20
 
 ### Changed

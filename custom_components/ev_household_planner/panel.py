@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import inspect
 import logging
 from pathlib import Path
+from typing import Any
 
 from homeassistant.components import frontend, panel_custom
 from homeassistant.components.http import StaticPathConfig
@@ -47,6 +49,10 @@ async def async_register_panel(hass: HomeAssistant) -> None:
         hass.data[_CARDS_KEY] = cards_url
     if PANEL_URL in hass.data.get(frontend.DATA_PANELS, {}):
         return
+    # The panel draws its own sky under the phone's status bar and its tab bar over the home indicator
+    # (as Hverdagsro), where Home Assistant lets a panel do so.
+    safe = "handle_safe_area" in inspect.signature(panel_custom.async_register_panel).parameters
+    extra: dict[str, Any] = {"handle_safe_area": True} if safe else {}
     await panel_custom.async_register_panel(
         hass,
         frontend_url_path=PANEL_URL,
@@ -54,8 +60,9 @@ async def async_register_panel(hass: HomeAssistant) -> None:
         sidebar_title="EV Planner",
         sidebar_icon="mdi:car-electric",
         module_url=f"{STATIC_URL}/{WEBCOMPONENT}.js?v={version}",
-        config={"static_url": STATIC_URL, "app_url": APP_URL, "version": str(version)},
+        config={"static_url": STATIC_URL, "app_url": APP_URL, "version": str(version), "safe_area": safe},
         require_admin=False,
+        **extra,
     )
 
 
