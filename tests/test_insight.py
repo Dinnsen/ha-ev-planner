@@ -527,6 +527,15 @@ async def test_the_evening_which_car_and_the_hold(
     tesla.calendar_target = 90.0
     assert tesla.target == 90
     tesla.calendar_target = None
+    # The departure's day's own target is only a wish (Auto) until it is Fast: then it wins over the week plan's.
+    assert tesla.deadline is not None
+    day = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")[tesla.deadline.weekday()]
+    tesla.settings["day_targets"] = {day: 77}
+    assert tesla.target == max(week["target"], 60)
+    tesla.settings["day_fixed"] = [day]
+    assert tesla.day_fixed and tesla.target == 77
+    tesla.settings["day_targets"], tesla.settings["day_fixed"] = {}, []
+    assert tesla.target == max(week["target"], 60)
     tesla.settings["min_soc"] = 20
     # No cheaper night, and both have enough for tomorrow: no car charges, and the plan holds them at their floor.
     night_prices(hass, now, 1.0, 3.0)

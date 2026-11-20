@@ -96,6 +96,11 @@ const TEXT = {
     prof_support: "Supportfil",
     prof_houseday: "Husets døgn",
     tn_title: "I aften",
+    target_auto: "Auto",
+    target_fast: "Fast · {day}",
+    target_back_auto: "Auto",
+    steer_pill: "Insight styrer",
+    tl_level: "Batteri",
     tn_night: "nattens pris",
     tn_head: "{car} lader {when}.",
     tn_head_plug: "Sæt {car} i laderen: den lader {when}.",
@@ -791,6 +796,11 @@ const TEXT = {
     prof_support: "Support file",
     prof_houseday: "The house's day",
     tn_title: "Tonight",
+    target_auto: "Auto",
+    target_fast: "Fixed · {day}",
+    target_back_auto: "Auto",
+    steer_pill: "Insight steers",
+    tl_level: "Battery",
     tn_night: "the night's price",
     tn_head: "{car} charges {when}.",
     tn_head_plug: "Plug in {car}: it charges {when}.",
@@ -7407,7 +7417,7 @@ class EvPlannerPanel extends HTMLElement {
   }
 
   /* The two-day price graph with the charging periods, the deadline, the ceiling and now. */
-  _renderTimeline(plan, { deadline = null, ceiling = null, actual = [] } = {}) {
+  _renderTimeline(plan, { deadline = null, ceiling = null, actual = [], level = null } = {}) {
     const svg = this.shadowRoot.querySelector(".timeline");
     if (!svg) return;
     const every = this._prices();
@@ -7523,8 +7533,18 @@ class EvPlannerPanel extends HTMLElement {
     if (nowMs >= t0 && nowMs <= t1) {
       html += `<line x1="${x(nowMs)}" x2="${x(nowMs)}" y1="${top - 8}" y2="${H - bottom}" class="tl-now"/><text x="${x(nowMs) + 5}" y="${top - 1}" class="tl-now-label">${this._t("now")}</text>`;
     }
+    // The battery as the plan fills it, over the prices (0–100 % from the bottom to the top of the bars).
+    if (level && level.length > 1) {
+      const ly = (v) => H - bottom - (clamp(v, 0, 100) / 100) * (H - top - bottom);
+      const pts = [...level, [Math.max(level.at(-1)[0], t1), level.at(-1)[1]]].filter(([t]) => t >= t0).map(([t, v]) => `${clamp(x(t), 0, W).toFixed(1)},${ly(v).toFixed(1)}`);
+      if (pts.length > 1) {
+        const last = level.at(-1);
+        html += `<polyline class="tl-level" points="${pts.join(" ")}"/><text x="${W - 6}" y="${ly(last[1]) - 7}" class="tl-level-label" text-anchor="end">${esc(this._pct(last[1]))}</text>`;
+      }
+    }
     svg.innerHTML = html;
     this.shadowRoot.querySelector(".done-key")?.toggleAttribute("hidden", !charged);
+    this.shadowRoot.querySelector(".level-key")?.toggleAttribute("hidden", !(level && level.length > 1));
     svg.classList.toggle("intro", this._intro(`tl:${this._viewKey()}`));
     this._bindScrub(svg, prices, t0, t1, { x, y, avg, plan, min });
   }
@@ -7612,6 +7632,7 @@ class EvPlannerPanel extends HTMLElement {
           <div class="segmented tl-toggle" role="group" aria-label="${this._t("tl_forecast")}" hidden><button data-act="tl-show" data-tl="known" aria-pressed="false">${this._t("tl_known")}</button><button data-act="tl-show" data-tl="all" aria-pressed="true">${this._t("tl_with_forecast")}</button></div>
           <span><i class="sw window"></i>${this._t("charging_window")}</span>
           <span class="done-key"><i class="sw done"></i>${this._t("legend_charged")}</span>
+          <span class="level-key" hidden><i class="sw level"></i>${this._t("tl_level")}</span>
           <span><i class="sw scale"></i>${this._t("per_kwh")}</span>
           ${ceiling ? `<span class="ceiling-key"><i class="sw ceiling"></i>${this._t("ceiling_line")}</span>` : ""}
         </div>
@@ -7651,11 +7672,17 @@ class EvPlannerPanel extends HTMLElement {
     const manual = v.soc_source !== "sensor";
     const soc = manual ? draft.manual_soc ?? v.soc ?? s.manual_soc : v.soc;
     // The day of the next ready-by time has its own target in the week plan: the handle moves that one.
-    const day = this._dayTargetDay(v);
-    const dayDraft = day ? draft.day_targets?.[day] : undefined;
+    // While Insight steers, the departure's day is Auto (Insight's target) until the handle is moved:
+    // then the day gets its own target, and it is Fast.
+    const steered = this._steered(v) && !(v.trip && v.trip.at === v.deadline) && !(v.calendar && v.calendar.start === v.deadline);
+    const deadlineDay = steered ? this._deadlineDay(v) : null;
+    const fixed = Boolean(deadlineDay && isNum(s.day_targets?.[deadlineDay]) && (s.day_fixed || []).includes(deadlineDay));
+    const own = steered ? (fixed ? deadlineDay : null) : this._dayTargetDay(v);
+    const day = steered ? deadlineDay : own;
+    const dayDraft = own ? draft.day_targets?.[own] : undefined;
     return {
       soc: isNum(soc) ? Number(soc) : null,
-      limit: Number(dayDraft ?? (day ? undefined : draft.target_soc) ?? v.target ?? s.target_soc ?? 80),
+      limit: Number(dayDraft ?? (fixed ? s.day_targets[deadlineDay] : undefined) ?? (day ? undefined : draft.target_soc) ?? v.target ?? s.target_soc ?? 80),
       capacity: Number(v.capacity) || 0,
       min: Number(s.min_soc) || 0,
       nowKey: "manual_soc",
@@ -7663,16 +7690,29 @@ class EvPlannerPanel extends HTMLElement {
       targetSteps: Array.isArray(v.target_steps) ? v.target_steps.map(Number) : null,
       canNow: manual,
       canTarget: v.target_editable !== false,
-      day,
+      day: own,
+      auto: Boolean(deadlineDay) && !fixed,
+      steered: Boolean(deadlineDay),
       set: (changes, opts) => {
         if (day && "target_soc" in changes) {
           const { target_soc: value, ...rest } = changes;
-          changes = { ...rest, day_targets: { ...(s.day_targets || {}), ...(draft.day_targets || {}), [day]: value } };
+          changes = { ...rest, day_targets: { ...(s.day_targets || {}), [day]: value } };
+          if (deadlineDay && !fixed) changes.day_fixed = [...new Set([...(s.day_fixed || []), day])];
         }
         this._vchange(changes, opts);
       },
       commit: () => this._vcommit(),
     };
+  }
+
+  /* Insight's week plan steers this car's charging. */
+  _steered(v) {
+    return Boolean(v && this._state?.settings?.insight_use && this._state?.week?.cars?.[v.id]?.steer);
+  }
+
+  /* The weekday of the next ready-by time, or null. */
+  _deadlineDay(v) {
+    return v?.deadline ? WEEKDAYS[(ZD(v.deadline).getDay() + 6) % 7] : null;
   }
 
   /* The weekday whose own target in the week plan is the car's target now, or null. */
@@ -7737,9 +7777,13 @@ class EvPlannerPanel extends HTMLElement {
       minMark.title = this._t("min_mark", { pct: this._pct(model.min) });
     }
     root.querySelector(".now-label").innerHTML = known ? `${this._t("now_level")} <b>${Math.round(soc)} %</b>` : `<b class="bad-text">${this._t("soc_missing")}</b>`;
-    root.querySelector(".target-label").innerHTML = model.day
-      ? `<small class="from-week">${esc(this._t("target_from_week", { day: this._t(`day_${model.day}`) }))}</small> ${this._t("target")} <b>${Math.round(limit)} %</b>`
-      : `${this._t("target")} <b>${Math.round(limit)} %</b>`;
+    root.querySelector(".target-label").innerHTML = model.auto
+      ? `<small class="tgt-chip auto">${SPARK}${esc(this._t("target_auto"))}</small> ${this._t("target")} <b>${Math.round(limit)} %</b>`
+      : model.day && model.steered
+        ? `<small class="tgt-chip fast">${esc(this._t("target_fast", { day: this._t(`day_${model.day}`) }))}</small><button class="tgt-back" data-act="day-fixed-clear" data-day="${model.day}" data-f="tgt-auto">${SPARK}${esc(this._t("target_back_auto"))}</button> ${this._t("target")} <b>${Math.round(limit)} %</b>`
+        : model.day
+          ? `<small class="from-week">${esc(this._t("target_from_week", { day: this._t(`day_${model.day}`) }))}</small> ${this._t("target")} <b>${Math.round(limit)} %</b>`
+          : `${this._t("target")} <b>${Math.round(limit)} %</b>`;
     const gain = known ? (model.capacity * Math.max(0, limit - soc)) / 100 : 0;
     root.querySelector(".gain").textContent = gain > 0 ? `+${this._t("add_energy", { kwh: this._kwh(gain) })}` : "";
     const hint = root.querySelector(".battery-hint");
@@ -7907,7 +7951,7 @@ class EvPlannerPanel extends HTMLElement {
 
       <div class="col right">
         <section class="panel charging">
-          <h2>${ICONS.plan}<span>${this._t("charge")}</span></h2>
+          <h2>${ICONS.plan}<span>${this._t("charge")}</span>${this._steered(v) ? `<em class="steer-pill">${SPARK}${esc(this._t("steer_pill"))}</em>` : ""}</h2>
           ${this._modesHtml(v, { large: true })}
           ${this._batteryHtml()}
           <div class="go-box"></div>
@@ -8032,7 +8076,7 @@ class EvPlannerPanel extends HTMLElement {
     this._patch(root.querySelector(".car-notes"), JSON.stringify([v.problem, v.control_error, v.control_retry, v.car_limit, v.target, v.resumes, this._state.price_issue, this._state.supply, v.supply_amps, v.connected, v.plan_forecast, v.plan_other_cost, shown.plan?.cost, v.settings?.known_prices, shown.plan && [shown.plan.limited, shown.plan.min_only, shown.plan.short, shown.plan.opportunistic, shown.plan.ceiling], shown.deadline, this._lang]), this._notesHtml(v, shown.plan ? { ...shown.plan, deadline: shown.deadline } : null, { compact: true }));
     const glance = root.querySelector(".car-page .glance");
     if (glance) this._patch(glance, JSON.stringify([shown.deadline, shown.preview, shown.plan?.end_soc, v.target, v.calendar?.start, v.trip, this._tripPick, this._lang]), this._glanceHtml(v, shown));
-    this._renderTimeline(shown.plan, { deadline: shown.deadline, ceiling: s.price_ceiling_enabled || shown.plan?.opportunistic ? ceiling : null, actual: this._chargedPeriods(v) });
+    this._renderTimeline(shown.plan, { deadline: shown.deadline, ceiling: s.price_ceiling_enabled || shown.plan?.opportunistic ? ceiling : null, actual: this._chargedPeriods(v), level: this._socForecast(v, shown) });
     root.querySelector(".ceiling-key")?.toggleAttribute("hidden", !(s.price_ceiling_enabled || shown.plan?.opportunistic));
     const note = root.querySelector(".car-page .ceil-note");
     if (note) {
@@ -12151,6 +12195,10 @@ class EvPlannerPanel extends HTMLElement {
         this._write(LEVEL_KEY, this._level === "smart" ? null : this._level);
         this._renderCarPage({ live: false });
         break;
+      case "day-fixed-clear":
+        // Back to Auto: Insight's target again; the day's own stays a wish.
+        if (s) this._vchange({ day_fixed: (s.day_fixed || []).filter((day) => day !== button.dataset.day) });
+        break;
       case "day-target-clear":
         if (s) {
           const targets = { ...(s.day_targets || {}) };
@@ -12727,7 +12775,7 @@ code { font-size: 13px; background: color-mix(in srgb, var(--evp-ink) 6%, transp
 .segmented.modes .m-off { font-size: 13px; padding: 8px 10px; }
 .vcard .modes .m-off span { display: none; }
 .vcard .modes button { gap: 5px; padding-inline: 6px; }
-@media (max-width: 440px) { .vcard .modes button:not(.m-off) svg { display: none; } }
+@media (max-width: 440px) { .vcard .modes button:not(.m-off) { gap: 4px; padding-inline: 4px; } .vcard .modes button:not(.m-off) svg { width: 16px; height: 16px; } }
 .modes .m-off svg { width: 15px; height: 15px; }
 .modes button.on.m-smart { color: #0B8A6F; }
 .modes button.on.m-charge_now { color: #4D7C0F; }
@@ -13498,6 +13546,18 @@ button.hero-pill:focus-visible { outline: 2px solid currentColor; outline-offset
   .mini-words { left: 16px; }
   .mini-rib { left: 16px; right: 16px; }
 }
+
+/* ---------- 2.5: the car's page. Insight steers; the target is Auto (Insight's) or Fast (the day's own). */
+.steer-pill { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-style: normal; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; color: #fff; background: linear-gradient(135deg, #19b6a5, #6e4aff); }
+.steer-pill svg, .tgt-chip svg, .tgt-back svg { width: 11px; height: 11px; fill: currentColor; stroke: none; }
+.tgt-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-right: 4px; }
+.tgt-chip.auto { color: color-mix(in srgb, #6e4aff 70%, var(--evp-ink)); background: color-mix(in srgb, #6e4aff 18%, transparent); }
+.tgt-chip.fast { color: var(--evp-ink); background: color-mix(in srgb, var(--evp-ink) 10%, transparent); }
+.tgt-back { display: inline-flex; align-items: center; gap: 4px; border: 0; cursor: pointer; font: 700 11px/1 inherit; padding: 4px 8px; border-radius: 999px; margin-right: 6px; color: color-mix(in srgb, #6e4aff 70%, var(--evp-ink)); background: transparent; }
+.tgt-back:focus-visible { outline: 2px solid var(--evp-accent); outline-offset: 2px; }
+.timeline .tl-level { fill: none; stroke: var(--evp-a); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; filter: drop-shadow(0 0 3px color-mix(in srgb, var(--evp-a) 60%, transparent)); }
+.timeline .tl-level-label { font-size: 11px; font-weight: 700; fill: var(--evp-a); }
+.legend .sw.level { background: var(--evp-a); height: 3px; border-radius: 2px; align-self: center; }
 
 /* ---------- 2.5: Cars. Tonight, as in Learning, and the cars' week. */
 .tn-card { display: grid; gap: 12px; background: linear-gradient(170deg, color-mix(in srgb, #2a3164 55%, var(--evp-card)) 0%, var(--evp-card) 60%); }

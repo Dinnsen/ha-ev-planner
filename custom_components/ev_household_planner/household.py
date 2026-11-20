@@ -119,6 +119,7 @@ from .const import (
     SET_CLIMATE_PLUGGED,
     SET_CLIMATE_TEMP,
     SET_DAY_CLIMATE,
+    SET_DAY_FIXED,
     SET_DAY_TARGETS,
     SET_EVENING,
     SET_KNOWN_PRICES,
@@ -3139,6 +3140,8 @@ class Household(DataUpdateCoordinator[None]):
                 value = {day: str(entry) for day, entry in dict(value or {}).items() if day in WEEKDAYS}
             if key == SET_DAY_TARGETS:
                 value = {day: float(entry) for day, entry in dict(value or {}).items() if day in WEEKDAYS}
+            if key == SET_DAY_FIXED:
+                value = [day for day in WEEKDAYS if day in set(value or [])]
             if key == SET_TARGET_STEP:
                 value = str(value) if str(value) in TARGET_STEPS else TARGET_STEP_AUTO
             if key == SET_TARGET_SOC:

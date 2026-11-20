@@ -61,6 +61,7 @@ from .const import (
     SET_CEILING_RELATIVE,
     SET_CLIMATE_ENTITY,
     SET_CONTINUOUS,
+    SET_DAY_FIXED,
     SET_DAY_TARGETS,
     SET_EARLIEST_START,
     SET_EARLY_ENABLED,
@@ -692,10 +693,19 @@ class Vehicle:
         return to_float(targets.get(WEEKDAYS[deadline.weekday()]))
 
     @property
+    def day_fixed(self) -> bool:
+        """The departure's day has its own target, and it is Fast: Insight's week plan keeps to it."""
+        if self.day_target is None or self.deadline is None:
+            return False
+        fixed = self.settings.get(SET_DAY_FIXED)
+        return isinstance(fixed, list | tuple) and WEEKDAYS[self.deadline.weekday()] in fixed
+
+    @property
     def target(self) -> float:
         """The charge level to aim for in this stay: the week plan's, else the wanted one.
 
-        A trip or a calendar's target is never changed by the week plan.
+        A trip or a calendar's target is never changed by the week plan, and neither is the
+        departure's day's own target when it is Fast. Otherwise the week plan's is used (Auto).
         """
         wanted = self.wanted_target
         week = self.week_target
@@ -703,6 +713,7 @@ class Vehicle:
             week is None
             or self.calendar_target is not None
             or (self.trip is not None and self.deadline == self.trip["at"])
+            or self.day_fixed
         ):
             return wanted
         return min(100.0, max(week, to_float(self.settings.get(SET_MIN_SOC)) or 0.0))

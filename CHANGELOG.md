@@ -2,6 +2,18 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b46] - 2026-11-20
+
+### Added
+
+- **Auto or Fast on the car's page**: while Insight steers a car, its charging says so ("Insight steers"), and the target under the battery is **Auto**: Insight's level for the next departure. Moving the handle gives that departure's day its own target and makes it **Fast**: Insight then keeps to it. "Auto" next to it goes back to Insight's level (the day's own target stays as a wish).
+- **The battery over the prices**: the price graph on the car's page draws the battery's level as the plan fills it, with the level it ends at.
+
+### Changed
+
+- The modes on a car's card keep their icons on a phone.
+- A day's own target is binding while Insight steers only when it is Fast (new per-car setting `day_fixed`); targets set before stay wishes, so nothing changes for them.
+
 ## [2.5.0b45] - 2026-11-20
 
 ### Added

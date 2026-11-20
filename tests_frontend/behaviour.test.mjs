@@ -1125,3 +1125,38 @@ test("Cars opens with tonight as in Learning and the cars' week; a day opens the
     assert.equal(await read(`.schedule-box .day[data-day="${cell.day}"]`, "aria-pressed"), "true", "at the day that was tapped");
   });
 });
+
+test("a car Insight steers: the target is Auto until it is moved, then Fast for that day, and the battery is drawn over the prices", async () => {
+  const state = fixture("two-cars");
+  const a = "tesla_model_y";
+  state.settings = { ...state.settings, insight: true, insight_use: true };
+  state.week = { start: "2026-11-10T21:00:00+01:00", groups: [[a]], cars: { [a]: { charges: [], target: 70, steer: true } } };
+  await withPanel(state, { size: PHONE, lang: "da" }, async ({ page, tap, read, push, waitForCall, calls }) => {
+    await tap('.tabs button[data-tab="cars"]');
+    await tap(`[data-act="open-car"][data-id="${a}"]`);
+    assert.match(await read(".charging h2 .steer-pill"), /Insight styrer/);
+    assert.match(await read(".target-label .tgt-chip.auto"), /Auto/);
+    assert.ok(await page.evaluate(() => Boolean(window.harness.panel.shadowRoot.querySelector(".timeline .tl-level"))), "the battery's line over the prices");
+    // Moving the handle gives the departure's day a target of its own, and makes it Fast.
+    const day = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][new Date(state.vehicles.find((v) => v.id === a).deadline).getDay()];
+    await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".handle.target").focus());
+    await page.keyboard.press("ArrowLeft");
+    await waitForCall("vehicle_set");
+    const sent = (await calls("vehicle_set")).at(-1).settings;
+    assert.ok(isFinite(sent.day_targets[day]) && sent.target_soc === undefined, "the day's own target, not the usual one");
+    assert.deepEqual(sent.day_fixed, [day]);
+    // A day's own target that is not Fast is only a wish: still Auto.
+    const car = state.vehicles.find((v) => v.id === a);
+    car.day_target = 77;
+    car.settings = { ...(car.settings || {}), day_targets: { [day]: 77 }, day_fixed: [] };
+    await push(state);
+    await page.waitForFunction(() => !window.harness.panel._vcommitting && window.harness.panel.shadowRoot.querySelector(".target-label .tgt-chip.auto"));
+    car.settings = { ...car.settings, day_fixed: [day] };
+    await push(state);
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector(".target-label .tgt-chip.fast"));
+    assert.match(await read(".target-label"), /Fast · .*77 %/);
+    await tap(".target-label .tgt-back");
+    assert.equal(await page.evaluate(() => JSON.stringify(window.harness.panel._vdraft?.day_fixed)), "[]");
+  });
+});
+
