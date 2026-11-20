@@ -78,6 +78,7 @@ from .const import (
     SET_MIN_SOC,
     SET_MODE,
     SET_NOTIFY_TARGETS,
+    SET_NOW_TARGET,
     SET_OPPORTUNISTIC,
     SET_OPPORTUNISTIC_LEVEL,
     SET_READY_BY,
@@ -707,6 +708,9 @@ class Vehicle:
         A trip or a calendar's target is never changed by the week plan, and neither is the
         departure's day's own target when it is Fast. Otherwise the week plan's is used (Auto).
         """
+        if self.mode == MODE_CHARGE_NOW and (now := to_float(self.settings.get(SET_NOW_TARGET))) is not None:
+            # Lad nu to a level of its own (the quick menu).
+            return min(100.0, now)
         wanted = self.wanted_target
         week = self.week_target
         if (

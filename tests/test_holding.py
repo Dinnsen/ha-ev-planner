@@ -182,6 +182,11 @@ async def test_a_car_that_was_paused_rests_before_it_starts_again(
     vehicle.paused_at = dt_util.now()
     await household.async_set_vehicle(TESLA, {"mode": "charge_now"})
     assert vehicle.paused_at is None
+    # Lad nu to a level of its own (the quick menu): only for this charge.
+    await household.async_set_vehicle(TESLA, {"mode": "charge_now", "now_target": 95})
+    assert vehicle.target == 95
+    await household.async_set_vehicle(TESLA, {"mode": "smart"})
+    assert vehicle.settings["now_target"] is None and vehicle.target == vehicle.wanted_target
 
 
 async def test_a_charging_sensor_that_does_not_answer_is_asked_again(

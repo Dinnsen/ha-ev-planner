@@ -319,6 +319,8 @@ PAINT_OPTIONS: Final = ["white", "black"]
 SET_DAY_TARGETS: Final = "day_targets"
 # The days whose own target is Fast (2.5.0b46): kept to also while Insight's week plan steers ("Auto").
 SET_DAY_FIXED: Final = "day_fixed"
+# Lad nu to this level (2.5.0b47, the quick menu): only while the mode is Lad nu, then forgotten.
+SET_NOW_TARGET: Final = "now_target"
 # The week plan (2.5.0b35): the level the low-price hours charge to (0: the target), a full charge every so
 # many days (Tesla asks for 100 % once a week), and how much a charge takes: "cheapest" (what is needed, and
 # more in the week's cheapest hours) or "fill" (every stay to the target).
@@ -416,6 +418,7 @@ DEFAULT_VEHICLE_SETTINGS: Final[dict[str, object]] = {
     SET_SPOT: "auto",
     SET_DAY_TARGETS: {},
     SET_DAY_FIXED: [],
+    SET_NOW_TARGET: None,
     SET_LOW_PRICE_SOC: 0.0,
     SET_FULL_ENABLED: False,
     SET_FULL_LEVEL: 100.0,

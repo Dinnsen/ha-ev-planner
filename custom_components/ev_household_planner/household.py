@@ -132,6 +132,7 @@ from .const import (
     SET_NOTIFY_DONE,
     SET_NOTIFY_PLUG,
     SET_NOTIFY_RECEIPT,
+    SET_NOW_TARGET,
     SET_REMINDER,
     SET_REMINDER_DAYS,
     SET_REMINDER_HORIZON,
@@ -2149,6 +2150,7 @@ class Household(DataUpdateCoordinator[None]):
         for vehicle in self.vehicles.values():
             if (mode := vehicle.mode_after_charge_now()) is not None:
                 vehicle.settings[SET_MODE] = mode
+                vehicle.settings[SET_NOW_TARGET] = None
                 self.async_save()
             decision = decide(
                 now,
@@ -3157,6 +3159,9 @@ class Household(DataUpdateCoordinator[None]):
             if key == SET_MODE and value != vehicle.mode:
                 mode_changed = True
             vehicle.settings[key] = value
+        if vehicle.mode != MODE_CHARGE_NOW:
+            # Lad nu's own level is for that charge only.
+            vehicle.settings[SET_NOW_TARGET] = None
         if SET_TARGET_STEP in changes and SET_TARGET_SOC not in changes:
             # New steps: the target stays where it was (the car's own limit becomes EV Planner's target).
             vehicle.settings[SET_TARGET_SOC] = target_before

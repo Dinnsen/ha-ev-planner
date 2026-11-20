@@ -2,6 +2,18 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b47] - 2026-11-20
+
+### Added
+
+- **The quick menu**: a round button on Huset and Cars. **Lad nu** to a level of its own for one or all cars (a slider, the plan's level, 80 % or 100 %), and back to Smart. **Climate** opens the car's climate, **Ready by** its next departure. Lad nu's level is for that charge only (new per-car setting `now_target`, forgotten when the mode changes).
+- **The top in Look**: Look has a row for the top on Huset that opens the house's editor.
+
+### Changed
+
+- **The profile menu** drops from the top as six tiles: the house's day, Look, Settings, Messages, Holidays and special days, Support. A tap beside it only closes it.
+- On Huset with more than one place, the places no longer cover the price arc's cheapest hours.
+
 ## [2.5.0b46] - 2026-11-20
 
 ### Added

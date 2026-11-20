@@ -96,6 +96,24 @@ const TEXT = {
     prof_support: "Supportfil",
     prof_houseday: "Husets døgn",
     tn_title: "I aften",
+    q_open: "Hurtigt",
+    look_top: "Toppen",
+    look_top_house: "Huset, tingene og mærkerne",
+    look_top_edit: "Tilpas",
+    q_both: "Begge",
+    q_all: "Alle",
+    q_now: "Lad nu",
+    q_climate: "Klima",
+    q_ready: "Klar kl.",
+    q_to: "til {pct}",
+    q_go: "Lad nu til {pct}",
+    q_stop: "Stop · tilbage til Smart",
+    q_plan: "Planens",
+    q_charging: "Lader nu til {pct}",
+    q_climate_open: "Klima i {car}",
+    q_no_climate: "Ingen af bilerne kan styre klimaet herfra.",
+    q_ready_open: "Ret næste afgang",
+    q_ready_none: "Ingen afgang sat",
     target_auto: "Auto",
     target_fast: "Fast · {day}",
     target_back_auto: "Auto",
@@ -796,6 +814,24 @@ const TEXT = {
     prof_support: "Support file",
     prof_houseday: "The house's day",
     tn_title: "Tonight",
+    q_open: "Quick",
+    look_top: "The top",
+    look_top_house: "The house, its things and labels",
+    look_top_edit: "Edit",
+    q_both: "Both",
+    q_all: "All",
+    q_now: "Charge now",
+    q_climate: "Climate",
+    q_ready: "Ready by",
+    q_to: "to {pct}",
+    q_go: "Charge now to {pct}",
+    q_stop: "Stop · back to Smart",
+    q_plan: "The plan's",
+    q_charging: "Charging now to {pct}",
+    q_climate_open: "Climate in {car}",
+    q_no_climate: "None of the cars can run its climate from here.",
+    q_ready_open: "Change the next departure",
+    q_ready_none: "No departure set",
     target_auto: "Auto",
     target_fast: "Fixed · {day}",
     target_back_auto: "Auto",
@@ -5891,6 +5927,7 @@ class EvPlannerPanel extends HTMLElement {
   _renderBusy() {
     this._renderToast();
     if (this._popup) this._renderPopup();
+    if (this._quick && !this.shadowRoot.activeElement?.matches?.('[data-q="to"]')) this._renderQuick();
     if (this._tab === "cars" && this.shadowRoot.querySelector(".car-page.view-now")) this._renderCarPage({ live: false });
     if (this._tab === "guest" && this.shadowRoot.querySelector(".guest-page")) {
       this._renderGuestHead();
@@ -6206,12 +6243,13 @@ class EvPlannerPanel extends HTMLElement {
     // The profile menu: the settings, the messages, the look and the holidays.
     const prof = this.shadowRoot.querySelector(".prof"), profMenu = this.shadowRoot.querySelector(".prof-menu");
     if (prof && profMenu) {
-      const items = () => [["settings", null, "settings"], ["notifications", "notifications", "bell"], ["look", "look", "car"], ["days", "days", "calendar"], ["houseday", null, "sun"], ["support", "support", "download"]];
+      const items = () => [["houseday", null, "sun"], ["look", "look", "car"], ["settings", null, "settings"], ["notifications", "notifications", "bell"], ["days", "days", "calendar"], ["support", "support", "download"]];
       const close = () => { profMenu.hidden = true; prof.setAttribute("aria-expanded", "false"); };
       prof.addEventListener("click", (ev) => {
         ev.stopPropagation();
         if (!profMenu.hidden) { close(); return; }
-        profMenu.innerHTML = items().map(([key, , icon]) => `<button role="menuitem" data-prof="${key}">${ICONS[icon] || ""}<span>${esc(this._t(`prof_${key}`))}</span>${key === "houseday" ? `<em class="prev">${esc(this._t("preview_tag"))}</em>` : ""}</button>`).join("");
+        // Drops from the top as six tiles (2.5.0b47).
+        profMenu.innerHTML = `<div class="prof-tiles">${items().map(([key, , icon]) => `<button role="menuitem" data-prof="${key}"><i>${ICONS[icon] || ""}</i><span>${esc(this._t(`prof_${key}`))}</span>${key === "houseday" ? `<em class="prev">${esc(this._t("preview_tag"))}</em>` : ""}</button>`).join("")}</div>`;
         profMenu.hidden = false;
         prof.setAttribute("aria-expanded", "true");
         profMenu.querySelector("button")?.focus();
@@ -6225,7 +6263,14 @@ class EvPlannerPanel extends HTMLElement {
         this._setTab("settings");
         if (sheet) { this._sheet = sheet; this._render(); this.shadowRoot.querySelector('[data-f="sheet-close"]')?.focus(); }
       });
-      this.shadowRoot.addEventListener("click", (ev) => { if (!profMenu.hidden && !ev.composedPath().includes(profMenu)) close(); });
+      // A tap outside the open menu only closes it (on a phone the page under it is dimmed).
+      this.shadowRoot.addEventListener("click", (ev) => {
+        const path = ev.composedPath();
+        if (profMenu.hidden || path.includes(profMenu) || path.includes(prof)) return;
+        ev.stopPropagation();
+        ev.preventDefault();
+        close();
+      }, true);
       this.shadowRoot.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && !profMenu.hidden) { close(); prof.focus(); } });
     }
     // Home Assistant's own menu button (it shows itself only where Home Assistant would: on a phone,
@@ -6488,6 +6533,9 @@ class EvPlannerPanel extends HTMLElement {
     if (mini && !content.querySelector(".mini-hero")) content.insertAdjacentHTML("afterbegin", this._miniHeroHtml(this._t(`tab_${this._tab}`)));
     if (mini) this._mountMini();
     if (this._tab === "cars" && !car) this._paintTonight();
+    if (((this._tab === "home" && !this._currentCharger) || (this._tab === "cars" && !car && !this._currentCharger)) && this._cars.length)
+      content.insertAdjacentHTML("beforeend", `<button class="qfab" data-act="quick-open" data-f="quick" aria-haspopup="dialog" aria-label="${esc(this._t("q_open"))}">${ICONS.boost}</button>`);
+    if (this._quick && !this.shadowRoot.activeElement?.matches?.('[data-q="to"]')) this._renderQuick();
     if (this._tab === "home" && !this._currentCharger) this._mountScene();
     if (this._tab === "history" || this._tab === "past") this._afterHistory();
     if (this._tab === "settings") this._messagesMount();
@@ -7984,6 +8032,7 @@ class EvPlannerPanel extends HTMLElement {
     const s = this._vs(v);
     const lang = this._lang;
     if (this._popup) this._renderPopup();
+    if (this._quick && !this.shadowRoot.activeElement?.matches?.('[data-q="to"]')) this._renderQuick();
 
     const sub = this._carSubline(v);
     const tone = this._statusTone(v);
@@ -8217,6 +8266,149 @@ class EvPlannerPanel extends HTMLElement {
     this._popup = { kind, car: this._carId, opener: this.shadowRoot.activeElement };
     this._popTemp = null;
     this._renderPopup();
+  }
+
+  /* The quick menu: Lad nu to a level, the climate, and the next departure, for one or both cars. */
+  _quickCars() {
+    const q = this._quick;
+    const cars = this._cars;
+    const pick = q.pick && cars.some((v) => v.id === q.pick) ? q.pick : null;
+    return pick ? cars.filter((v) => v.id === pick) : cars;
+  }
+
+  _quickTo(v) {
+    const q = this._quick;
+    if (isNum(q.to[v.id])) return Number(q.to[v.id]);
+    if (v.mode === "charge_now" && isNum(v.settings?.now_target)) return Number(v.settings.now_target);
+    return Math.round(Number(v.target) || 80);
+  }
+
+  _quickHtml() {
+    const q = this._quick;
+    const cars = this._quickCars();
+    const tab = (key) => `<button role="tab" data-q="tab" data-tab-q="${key}" aria-selected="${q.tab === key}" class="${q.tab === key ? "on" : ""}"><span>${esc(this._t(`q_${key}`))}</span></button>`;
+    const chips = this._cars.length > 1
+      ? `<div class="q-chips">${[null, ...this._cars.map((v) => v.id)].map((id) => {
+          const v = id && this._car(id);
+          const on = (q.pick || null) === id;
+          return `<button data-q="pick" data-id="${esc(id || "")}" aria-pressed="${on}" class="${on ? "on" : ""}"${v ? ` style="--car:${this._carColor(this._cars.indexOf(v))}"` : ""}>${esc(v ? v.name : this._t(this._cars.length > 2 ? "q_all" : "q_both"))}</button>`;
+        }).join("")}</div>`
+      : "";
+    let body = "";
+    if (q.tab === "now") {
+      body = cars.map((v) => {
+        const soc = isNum(v.soc) ? Number(v.soc) : 0;
+        const to = clamp(this._quickTo(v), Math.min(100, Math.ceil(soc / 5) * 5), 100);
+        const now = v.mode === "charge_now";
+        const plan = Math.round(Number(v.wanted_target ?? v.target) || 80);
+        const presets = [[this._t("q_plan"), plan], ["80 %", 80], ["100 %", 100]].filter(([, pct], i, all) => all.findIndex(([, p]) => p === pct) === i);
+        return `<div class="q-car" data-id="${esc(v.id)}">
+          <div class="q-head"><b>${esc(v.name)}</b><span>${isNum(v.soc) ? this._pct(v.soc) : "–"}</span><em>${esc(now ? this._t("q_charging", { pct: this._pct(v.target) }) : this._t("q_to", { pct: this._pct(to) }))}</em></div>
+          <div class="q-bar" style="--soc:${soc}%;--to:${to}%"><i class="q-soc"></i><i class="q-add"></i>
+            <input type="range" min="10" max="100" step="5" value="${to}" data-q="to" data-id="${esc(v.id)}" aria-label="${esc(`${v.name}: ${this._t("q_to", { pct: this._pct(to) })}`)}"></div>
+          <div class="q-presets">${presets.map(([label, pct]) => `<button data-q="preset" data-id="${esc(v.id)}" data-pct="${pct}" class="${pct === to ? "on" : ""}">${esc(label)}</button>`).join("")}</div>
+          <div class="q-go">${now ? `<button class="btn ghost" data-q="stop" data-id="${esc(v.id)}">${esc(this._t("q_stop"))}</button>` : ""}
+            <button class="btn primary" data-q="go" data-id="${esc(v.id)}">${ICONS.boost}<span>${esc(this._t("q_go", { pct: this._pct(to) }))}</span></button></div>
+        </div>`;
+      }).join("");
+    } else if (q.tab === "climate") {
+      const able = cars.filter((v) => v.climate);
+      body = able.length
+        ? able.map((v) => `<button class="q-row" data-q="climate" data-id="${esc(v.id)}">${ICONS.climate}<span><b>${esc(this._t("q_climate_open", { car: v.name }))}</b><small>${esc(v.climate?.on ? this._t("climate_stop") : this._t("climate_start"))}</small></span>${CHEVRON}</button>`).join("")
+        : `<p class="hint">${esc(this._t("q_no_climate"))}</p>`;
+    } else {
+      body = cars.map((v) => {
+        const when = v.deadline ? `${this._weekdayName(WEEKDAYS[(ZD(v.deadline).getDay() + 6) % 7])} ${this._time(v.deadline)}` : this._t("q_ready_none");
+        return `<button class="q-row" data-q="ready" data-id="${esc(v.id)}">${ICONS.calendar}<span><b>${esc(v.name)} · ${esc(when)}</b><small>${esc(this._t("q_ready_open"))}</small></span>${CHEVRON}</button>`;
+      }).join("");
+    }
+    return `<div class="scrim" data-q="close"></div>
+      <div class="sheet pop-quick" role="dialog" aria-modal="true" aria-label="${esc(this._t("q_open"))}">
+        <header><h2>${ICONS.boost}<span>${esc(this._t("q_open"))}</span></h2>
+          <button class="icon close" data-q="close" data-f="q-close" aria-label="${this._t("close")}">${ICONS.close}</button></header>
+        ${chips}
+        <div class="q-tabs" role="tablist">${tab("now")}${tab("climate")}${tab("ready")}</div>
+        <div class="q-body">${body}</div>
+      </div>`;
+  }
+
+  _renderQuick() {
+    const root = this.shadowRoot.querySelector(".sheet-root");
+    if (!this._quick || !root) return;
+    const had = root.querySelector(".pop-quick");
+    const focus = root.contains(this.shadowRoot.activeElement) ? this.shadowRoot.activeElement : null;
+    const key = focus ? [focus.dataset.q, focus.dataset.id, focus.dataset.tabQ, focus.dataset.pct].join("|") : null;
+    root.dataset.key = "";
+    root.innerHTML = this._quickHtml();
+    if (had) root.querySelectorAll(".sheet, .scrim").forEach((el) => el.classList.add("stay"));
+    const back = key && [...root.querySelectorAll("[data-q]")].find((el) => [el.dataset.q, el.dataset.id, el.dataset.tabQ, el.dataset.pct].join("|") === key);
+    (back || root.querySelector(".close"))?.focus();
+    root.onclick = (ev) => this._onQuickClick(ev);
+    root.oninput = (ev) => {
+      const input = ev.target.closest('[data-q="to"]');
+      if (!input) return;
+      this._quick.to[input.dataset.id] = Number(input.value);
+      // Only the words and the bar follow the finger: the slider itself is not drawn again.
+      const box = input.closest(".q-car");
+      const pct = this._pct(Number(input.value));
+      box.querySelector(".q-bar").style.setProperty("--to", `${input.value}%`);
+      box.querySelector('[data-q="go"] span').textContent = this._t("q_go", { pct });
+      const v = this._car(input.dataset.id);
+      if (v?.mode !== "charge_now") box.querySelector(".q-head em").textContent = this._t("q_to", { pct });
+      box.querySelectorAll("[data-q=preset]").forEach((b) => b.classList.toggle("on", Number(b.dataset.pct) === Number(input.value)));
+    };
+    root.onkeydown = (ev) => ev.key === "Escape" && this._closeQuick();
+  }
+
+  _closeQuick() {
+    const opener = this._quick?.opener;
+    this._quick = null;
+    const root = this.shadowRoot.querySelector(".sheet-root");
+    if (root && root.querySelector(".pop-quick")) {
+      root.innerHTML = "";
+      root.onclick = root.oninput = root.onkeydown = null;
+    }
+    if (opener?.isConnected) opener.focus();
+    else this.shadowRoot.querySelector(".qfab")?.focus();
+  }
+
+  async _onQuickClick(ev) {
+    const el = ev.target.closest("[data-q]");
+    if (!el || !this._quick) return;
+    const q = this._quick;
+    const id = el.dataset.id;
+    switch (el.dataset.q) {
+      case "close":
+        this._closeQuick();
+        return;
+      case "tab":
+        q.tab = el.dataset.tabQ;
+        break;
+      case "pick":
+        q.pick = id || null;
+        break;
+      case "preset":
+        q.to[id] = Number(el.dataset.pct);
+        break;
+      case "go": {
+        const v = this._car(id);
+        if (!v) return;
+        await this._run("mode", "ev_household_planner/vehicle_set", { vehicle_id: id, settings: { mode: "charge_now", now_target: this._quickTo(v) } });
+        break;
+      }
+      case "stop":
+        await this._run("mode", "ev_household_planner/vehicle_set", { vehicle_id: id, settings: { mode: "smart" } });
+        break;
+      case "climate":
+      case "ready":
+        this._closeQuick();
+        this._openCar(id);
+        this._openPopup(el.dataset.q === "climate" ? "climate" : "next");
+        return;
+      default:
+        return;
+    }
+    this._renderQuick();
   }
 
   _closePopup() {
@@ -11462,6 +11654,7 @@ class EvPlannerPanel extends HTMLElement {
       summary: this._t(`look_${now}`),
       body: `<div class="inline-values"><span>${this._t("look_pick")}${this._helpButton("look", this._t("prof_look"))}</span></div>${this._helpBubble("look", this._t("look_hint"))}
         <div class="look-grid">${cards}</div>
+        ${this._homeShown ? `<h3>${this._t("look_top")}</h3>${this._ruleRow({ icon: "sun", title: this._t("look_top_house"), control: `<button class="btn ghost small" data-act="look-top" data-f="look-top">${esc(this._t("look_top_edit"))}</button>` })}` : ""}
         ${this._chargers.length ? `<h3>${this._t("charger_photos")}</h3>${this._chargers
           .map((c) => this._ruleRow({ icon: "charger", title: c.name, control: "", extra: `<div class="rule-under">${this._photoEditHtml(c.id, c.image, chargerArt(c.style), c.image_original)}</div>` }))
           .join("")}` : ""}`,
@@ -11968,6 +12161,20 @@ class EvPlannerPanel extends HTMLElement {
         break;
       case "climate-open":
         this._openPopup("climate");
+        break;
+      case "look-top":
+        // The top is edited where it is: on Huset, with the house's own editor.
+        this._sheet = null;
+        this._setTab("home");
+        requestAnimationFrame(() => {
+          const edit = this.shadowRoot.querySelector(".cs-editbtn");
+          edit?.scrollIntoView({ block: "center" });
+          edit?.click();
+        });
+        break;
+      case "quick-open":
+        this._quick = { tab: "now", pick: null, to: {}, opener: button };
+        this._renderQuick();
         break;
       case "next-open":
         this._openPopup("next");
@@ -13505,7 +13712,7 @@ button.hero-pill:focus-visible { outline: 2px solid currentColor; outline-offset
 .ev-top.day .hero-pill.ins.on { color: #4b32c4; }
 .hero-pill.fest { color: #ffe3a3; }
 .ev-top.day .hero-pill.fest { color: #8a4b00; }
-.ev-top > .chips.places { position: relative; z-index: 2; max-width: 980px; margin: 10px auto 0; }
+.ev-top > .chips.places { position: relative; z-index: 2; max-width: 980px; margin: 10px auto 34px; }
 .hero-stage { position: relative; max-width: 980px; margin: 0 auto; padding-top: 70px; }
 .hero-stage .cscene { background: transparent !important; margin: 0 auto; max-width: 860px; border-radius: 0; }
 .hero-arc { position: absolute; left: 2%; right: 2%; top: 6px; height: 60%; pointer-events: none; z-index: 1; }
@@ -13546,6 +13753,58 @@ button.hero-pill:focus-visible { outline: 2px solid currentColor; outline-offset
   .mini-words { left: 16px; }
   .mini-rib { left: 16px; right: 16px; }
 }
+
+/* ---------- 2.5: the profile menu drops from the top: six tiles. */
+.prof-menu { min-width: 0; width: 340px; padding: 10px; transform-origin: top right; animation: prof-drop .26s cubic-bezier(.2,.9,.3,1.1); }
+.prof-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.prof-menu .prof-tiles button { position: relative; display: grid; justify-items: center; align-content: center; gap: 8px; padding: 14px 6px 12px; border-radius: 14px; text-align: center; font-size: 12.5px; font-weight: 600; line-height: 1.2; background: color-mix(in srgb, var(--evp-ink) 5%, transparent); min-height: 92px; }
+.prof-menu .prof-tiles button i { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: color-mix(in srgb, var(--evp-accent, #14B47C) 15%, transparent); color: var(--evp-accent, #14B47C); }
+.prof-menu .prof-tiles .prev { position: absolute; top: 6px; right: 6px; margin: 0; font-size: 8.5px; padding: 2px 5px; }
+@keyframes prof-drop { from { opacity: 0; transform: translateY(-14px) scale(.97); } }
+@media (max-width: 860px) {
+  .prof-menu { position: fixed; left: 0; right: 0; top: 0; width: auto; border-radius: 0 0 22px 22px; padding: calc(14px + var(--evp-safe-top, 0px)) max(14px, env(safe-area-inset-right, 0px)) 16px max(14px, env(safe-area-inset-left, 0px)); box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .45), 0 12px 30px rgba(0, 0, 0, .3); animation: prof-down .3s cubic-bezier(.2,.8,.2,1); }
+}
+@keyframes prof-down { from { transform: translateY(-100%); } }
+
+/* ---------- 2.5: the quick menu. A round button over the tab bar; Lad nu to a level, the climate, the next departure. */
+.qfab { position: fixed; z-index: 6; right: max(18px, env(safe-area-inset-right, 0px)); bottom: calc(24px + var(--evp-safe-bottom)); width: 56px; height: 56px; border-radius: 50%; border: 0; cursor: pointer; display: grid; place-items: center; color: #fff;
+  background: linear-gradient(135deg, var(--evp-a), color-mix(in srgb, var(--evp-a) 55%, #6e4aff)); box-shadow: 0 10px 26px color-mix(in srgb, var(--evp-a) 45%, transparent), 0 2px 6px rgba(0,0,0,.2); animation: qfab-in .35s cubic-bezier(.2,.9,.3,1.2); }
+.qfab svg { width: 26px; height: 26px; }
+.qfab:focus-visible { outline: 3px solid var(--evp-ink); outline-offset: 3px; }
+@keyframes qfab-in { from { transform: scale(.6); opacity: 0; } }
+@media (max-width: 860px) { .qfab { bottom: calc(var(--evp-tabbar, calc(62px + var(--evp-safe-bottom))) + 14px); } }
+.pop-quick { display: grid; gap: 14px; }
+.pop-quick header h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 18px; }
+.pop-quick header h2 svg { width: 20px; height: 20px; color: var(--evp-a); }
+.q-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.q-chips button { border: 1px solid var(--evp-line); background: transparent; color: var(--evp-ink); border-radius: 999px; padding: 7px 14px; font: 600 13px/1 inherit; cursor: pointer; }
+.q-chips button.on { border-color: var(--car, var(--evp-a)); background: color-mix(in srgb, var(--car, var(--evp-a)) 16%, transparent); }
+.q-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; border-radius: 14px; background: color-mix(in srgb, var(--evp-ink) 6%, transparent); }
+.q-tabs button { display: flex; align-items: center; justify-content: center; gap: 6px; border: 0; background: transparent; color: var(--evp-soft); border-radius: 10px; padding: 9px 6px; font: 600 13px/1 inherit; cursor: pointer; }
+.q-tabs button svg { width: 16px; height: 16px; }
+.q-tabs button.on { background: var(--evp-solid); color: var(--evp-ink); box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+.q-body { display: grid; gap: 12px; }
+.q-car { display: grid; gap: 10px; padding: 14px; border-radius: 16px; border: 1px solid var(--evp-line); }
+.q-head { display: flex; align-items: baseline; gap: 8px; }
+.q-head span { color: var(--evp-soft); font-variant-numeric: tabular-nums; }
+.q-head em { margin-left: auto; font-style: normal; font-weight: 700; color: var(--evp-a); font-variant-numeric: tabular-nums; }
+.q-bar { position: relative; height: 34px; border-radius: 10px; background: color-mix(in srgb, var(--evp-ink) 8%, transparent); overflow: hidden; }
+.q-bar i { position: absolute; top: 0; bottom: 0; left: 0; }
+.q-bar .q-soc { width: var(--soc); background: var(--evp-a); }
+.q-bar .q-add { left: var(--soc); width: max(0px, calc(var(--to) - var(--soc))); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--evp-a) 55%, transparent) 0 6px, color-mix(in srgb, var(--evp-a) 30%, transparent) 6px 12px); border-right: 3px solid var(--evp-ink); transition: width .12s; }
+.q-bar input { position: absolute; inset: -6px 0; width: 100%; height: calc(100% + 12px); margin: 0; opacity: 0; cursor: grab; }
+.q-bar:has(input:focus-visible) { outline: 2px solid var(--evp-ink); outline-offset: 2px; }
+.q-presets { display: flex; gap: 6px; }
+.q-presets button { flex: 1; border: 1px solid var(--evp-line); background: transparent; color: var(--evp-ink); border-radius: 10px; padding: 8px 6px; font: 600 12.5px/1 inherit; cursor: pointer; }
+.q-presets button.on { border-color: var(--evp-a); color: var(--evp-a); }
+.q-go { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.q-go .btn svg { width: 16px; height: 16px; }
+.q-row { display: flex; align-items: center; gap: 12px; text-align: left; width: 100%; padding: 14px; border-radius: 16px; border: 1px solid var(--evp-line); background: transparent; color: var(--evp-ink); cursor: pointer; font: inherit; }
+.q-row svg, .pop-quick header h2 svg, .qfab svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.q-row > svg:first-child { width: 22px; height: 22px; color: var(--evp-a); flex: none; }
+.q-row span { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.q-row small { color: var(--evp-soft); }
+.q-row > svg:last-child { width: 16px; height: 16px; color: var(--evp-soft); }
 
 /* ---------- 2.5: the car's page. Insight steers; the target is Auto (Insight's) or Fast (the day's own). */
 .steer-pill { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-style: normal; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; color: #fff; background: linear-gradient(135deg, #19b6a5, #6e4aff); }

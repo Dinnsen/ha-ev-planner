@@ -1160,3 +1160,34 @@ test("a car Insight steers: the target is Auto until it is moved, then Fast for 
   });
 });
 
+
+test("the quick menu: Lad nu to a level for one car, the climate and the next departure a tap away", async () => {
+  await withPanel("two-cars", { size: PHONE, lang: "da" }, async ({ page, tap, read, waitForCall, calls }) => {
+    await tap('.tabs button[data-tab="home"]');
+    await tap(".qfab");
+    assert.equal(await read(".pop-quick header h2"), "Hurtigt");
+    await tap('.pop-quick [data-q="pick"][data-id="tesla_model_y"]');
+    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".pop-quick .q-car").length), 1, "only the car picked");
+    await tap('.pop-quick [data-q="preset"][data-id="tesla_model_y"][data-pct="100"]');
+    assert.match(await read('.pop-quick [data-q="go"]'), /Lad nu til 100/);
+    await tap('.pop-quick [data-q="go"][data-id="tesla_model_y"]');
+    await waitForCall("vehicle_set");
+    assert.deepEqual((await calls("vehicle_set")).at(-1).settings, { mode: "charge_now", now_target: 100 });
+    await tap('.pop-quick [data-tab-q="ready"]');
+    await tap('.pop-quick [data-q="ready"][data-id="tesla_model_y"]');
+    assert.equal(await page.evaluate(() => window.harness.panel._carId), "tesla_model_y");
+    assert.ok(await read(".sheet.pop-next"), "the next departure opens");
+  });
+});
+
+test("the profile menu drops from the top as six tiles, and a tap beside it only closes it", async () => {
+  await withPanel("two-cars", { size: PHONE, lang: "da" }, async ({ page, tap }) => {
+    await tap(".prof");
+    const tiles = await page.evaluate(() => [...window.harness.panel.shadowRoot.querySelectorAll(".prof-tiles [data-prof]")].map((b) => b.dataset.prof));
+    assert.deepEqual(tiles, ["houseday", "look", "settings", "notifications", "days", "support"]);
+    const tab = await page.evaluate(() => window.harness.panel._tab);
+    await page.evaluate(() => window.harness.panel.shadowRoot.querySelector('.tabs button[data-tab="guest"]').click());
+    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".prof-menu").hidden), true);
+    assert.equal(await page.evaluate(() => window.harness.panel._tab), tab, "the tab under it was not tapped");
+  });
+});
