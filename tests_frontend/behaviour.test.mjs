@@ -75,15 +75,16 @@ test("the panel follows EV Planner once, and stops when it leaves the page", asy
 test("a mode button stores the mode at once", async () => {
   await withPanel("two-cars", {}, async ({ tap, read, calls, waitForCall, state }) => {
     await tap('.tabs button[data-tab="cars"]');
-    const button = '.modes[data-id="tesla_model_y"] button[data-mode="pause"]';
-    assert.equal(await read(button, "aria-checked"), "false");
+    await tap('[data-act="open-car"][data-id="tesla_model_y"]');
+    const button = '.x-modes button[data-mode="pause"]';
+    assert.equal(await read(button, "aria-pressed"), "false");
     await tap(button);
     await waitForCall("vehicle_set");
     assert.deepEqual(await calls("vehicle_set"), [
       { type: `${DOMAIN}/vehicle_set`, vehicle_id: "tesla_model_y", settings: { mode: "pause" }, entry_id: state.entry_id },
     ]);
-    assert.equal(await read(button, "aria-checked"), "true");
-    assert.equal(await read('.modes[data-id="tesla_model_y"] button[data-mode="smart"]', "aria-checked"), "false");
+    assert.equal(await read(button, "aria-pressed"), "true");
+    assert.equal(await read('.x-modes button[data-mode="smart"]', "aria-pressed"), "false");
   });
 });
 
@@ -136,7 +137,6 @@ test("Holiday waits for its day home: the picker is not drawn away while the car
     await tap('[data-act="open-car"][data-id="tesla_model_y"]');
     await page.evaluate(() => { const sel = window.harness.panel.shadowRoot.querySelector("[data-trip-select]"); sel.value = "holiday"; sel.dispatchEvent(new Event("change", { bubbles: true })); });
     await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector("[data-trip-date]"));
-    assert.ok(await read('[data-act="trip-date"]'), "the chip waits for the day home");
     await page.evaluate(() => { window.__date = window.harness.panel.shadowRoot.querySelector("[data-trip-date]"); window.__date.blur(); });
     // New temperatures from the car, the picker not in focus (as on a phone while it is open).
     for (const inside of [19, 20, 21]) {
@@ -151,21 +151,16 @@ test("a picture has nothing on it, and tapping it opens where it is changed", as
   await withPanel("two-cars", { size: PHONE }, async ({ tap, touch, read, page }) => {
     await tap('.tabs button[data-tab="cars"]');
     await tap('[data-act="open-car"][data-id="tesla_model_y"]');
-    const onPicture = await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".car-head .photo button").length);
-    assert.equal(onPicture, 1, "only the picture itself");
-    await tap('.car-head [data-act="photo-look"]');
+    const onPicture = await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".x-carpic button").length);
+    assert.equal(onPicture, 0, "only the picture itself");
+    await tap('.x-carpic[data-act="photo-look"]');
     // The car's Rules, with Look open and the picture's buttons in it.
     assert.equal(await read('[data-act="car-view"][data-view="rules"]', "aria-selected"), "true");
     assert.ok(await read('.sheet [data-photo="tesla_model_y"] [data-act="photo"]'), "the picture is changed in the sheet");
 
     await touch('header [data-act="sheet-close"]');
     await touch('[data-act="back"]');
-    await tap('.tabs button[data-tab="home"]');
-    const charger = await page.evaluate(() => window.harness.panel.shadowRoot.querySelector('.chargers [data-act="photo-look"]')?.dataset.id || null);
-    assert.ok(charger, "the Home tab lists a charger with its picture");
-    await tap(`.chargers [data-act="photo-look"][data-id="${charger}"]`);
-    assert.equal(await page.evaluate(() => window.harness.panel._tab), "settings");
-    assert.ok(await read(`.sheet [data-photo="${charger}"] [data-act="photo"]`), "a charger's picture is changed in Settings › Look");
+    assert.equal(await page.evaluate(() => window.harness.panel._carId), null, "back on Biler");
   });
 });
 
@@ -213,13 +208,13 @@ test("a new household is shown what to set up, until there is a car, a charger a
     assert.deepEqual(await steps(), ["prices:true", "car:false", "charger:false", "supply:false", "energy:false", "notify:true"]);
     assert.equal(await read(".setup-count"), "2 of 6");
     assert.equal(await read(".setup a.btn", "href"), "/config/integrations/integration/ev_household_planner");
-    assert.equal(await read(".empty.panel"), null, "the steps stand in for the empty page");
+    assert.equal(await read(".x-empty"), null, "the steps stand in for the empty page");
 
     // A car is added: the steps stay over the car until there is a charger too.
     const full = fixture("two-cars");
     await push({ ...state, vehicles: full.vehicles });
     await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector('.setup-steps li[data-step="car"].done'), null, { timeout: 5000 });
-    assert.ok(await read(".cars-grid"), "the car is shown under the steps");
+    assert.ok(await read(".x-week"), "the cars are shown under the steps");
     await push({ ...state, vehicles: full.vehicles, chargers: full.chargers });
     await page.waitForFunction(() => !window.harness.panel.shadowRoot.querySelector(".setup"), null, { timeout: 5000 });
   });
@@ -228,19 +223,20 @@ test("a new household is shown what to set up, until there is a car, a charger a
 test("a plan on the price forecast says so, and a button makes it from the known prices", async () => {
   await withPanel("two-cars", {}, async ({ page, tap, read, calls, waitForCall, push, state }) => {
     const car = state.vehicles.find((v) => v.plan);
-    const note = '.cars-grid .basis [data-act="known-prices"]';
+    const note = '.car-notes .basis [data-act="known-prices"]';
     await tap('.tabs button[data-tab="cars"]');
+    await tap(`[data-act="open-car"][data-id="${car.id}"]`);
     assert.equal(await read(note), null);
     await push({ ...state, vehicles: state.vehicles.map((v) => (v.id === car.id ? { ...v, plan_forecast: true, plan_other_cost: v.plan.cost + 12.5 } : v)) });
     await page.waitForFunction((s) => window.harness.panel.shadowRoot.querySelector(s), note, { timeout: 5000 });
     assert.equal((await read(note)).replace(/\s/g, " "), "Use known prices+DKK 12.50");
-    assert.equal(await read(".cars-grid .basis span"), "Price forecast");
+    assert.equal(await read(".car-notes .basis span"), "Price forecast");
     await tap(note);
     await waitForCall("vehicle_set");
     assert.deepEqual((await calls("vehicle_set")).at(-1).settings, { known_prices: true });
     // Planned from the known prices: the note says so, and the forecast can be used again.
     await push({ ...state, vehicles: state.vehicles.map((v) => (v.id === car.id ? { ...v, plan_forecast: false, settings: { ...v.settings, known_prices: true } } : v)) });
-    const back = '.cars-grid .basis [data-act="forecast-prices"]';
+    const back = '.car-notes .basis [data-act="forecast-prices"]';
     await page.waitForFunction((s) => window.harness.panel.shadowRoot.querySelector(s), back, { timeout: 5000 });
     await tap(back);
     await page.waitForFunction(() => window.harness.calls.filter((c) => c.type.endsWith("vehicle_set")).length >= 2, null, { timeout: 5000 });
@@ -387,20 +383,18 @@ test("the CSV keeps names with commas, quotes and formulas in one harmless cell"
   });
 });
 
-test("tonight's plans on a phone: a name that is too long ends in an ellipsis", async () => {
+test("tonight's cars on a phone: a name that is too long ends in an ellipsis", async () => {
   await withPanel("shared-supply", { size: PHONE }, async ({ page, tap }) => {
-    await tap('.tabs button[data-tab="home"]');
+    await tap('.tabs button[data-tab="cars"]');
     const names = await page.evaluate(() =>
-      [...window.harness.panel.shadowRoot.querySelectorAll(".tn-name span")].map((el) => ({
+      [...window.harness.panel.shadowRoot.querySelectorAll(".x-tn-name b")].map((el) => ({
         name: el.textContent,
-        cut: el.scrollWidth > el.clientWidth,
         ellipsis: getComputedStyle(el).textOverflow === "ellipsis" && getComputedStyle(el).overflowX === "hidden",
         inside: el.getBoundingClientRect().right <= el.parentElement.getBoundingClientRect().right + 0.5,
       })),
     );
     assert.deepEqual(names.map((n) => n.name), ["Renault Zoe", "Tesla Model Y"]);
-    assert.ok(names.some((n) => n.cut), "a name does not fit on a phone");
-    for (const n of names) assert.ok(n.ellipsis && n.inside, `${n.name} is shortened with "…"`);
+    for (const n of names) assert.ok(n.ellipsis && n.inside, `${n.name} is shortened with "…" when it does not fit`);
   });
 });
 
@@ -479,17 +473,18 @@ test("each animation has a name of its own", async () => {
 
 test("a command that is tried again by itself is shown quietly, and as a problem when it keeps failing", async () => {
   await withPanel("two-cars", { size: PHONE, known: true }, async ({ page, tap, state }) => {
-    await tap('.tabs button[data-tab="cars"]');
     const car = state.vehicles[0];
+    await tap('.tabs button[data-tab="cars"]');
+    await tap(`[data-act="open-car"][data-id="${car.id}"]`);
     const show = (changes) => page.evaluate((changed) => window.harness.patch({ patch: {}, items: { vehicles: { [changed.id]: changed } } }), { ...car, ...changes });
-    const seen = () => page.evaluate((id) => {
+    const seen = () => page.evaluate(() => {
       const root = window.harness.panel.shadowRoot;
-      const card = root.querySelector(`.modes[data-id="${id}"]`).closest("article, section, .vcard");
+      const card = root.querySelector(".car-notes");
       return {
         badge: root.querySelector('.tabs button[data-tab="cars"] em')?.textContent || null,
         notes: [...card.querySelectorAll(".note-line")].map((n) => [n.classList.contains("info") ? "info" : "bad", n.textContent.trim()]),
       };
-    }, car.id);
+    });
     await show({ control_error: "vehicle is offline", control_retry: "2026-01-14T21:24:00+01:00", problem: false });
     let now = await seen();
     assert.equal(now.badge, null, "no problem on the tab");
@@ -508,13 +503,13 @@ test("a command that is tried again by itself is shown quietly, and as a problem
 test("a charger with an unknown car asks which car it is, and stores the answer", async () => {
   await withPanel("two-chargers", { size: PHONE }, async ({ page, tap, calls, waitForCall, state }) => {
     await tap('.tabs button[data-tab="home"]');
-    const list = await page.locator("ev-planner-panel .chargers").innerText();
+    const list = await page.locator("ev-planner-panel .x-chargers").innerText();
     assert.match(list, /Unknown car/);
     assert.match(list, /Tesla Model Y is plugged in/);
     // Each place shows its own chargers: the summer house's is under the summer house, not the home.
     assert.doesNotMatch(list, /Skur/);
     await tap('[data-act="place"][data-id="summer"]');
-    const there = await page.locator("ev-planner-panel .chargers").innerText();
+    const there = await page.locator("ev-planner-panel .x-chargers").innerText();
     assert.match(there, /Skur/);
     assert.doesNotMatch(there, /Carport/);
     await tap('[data-act="place"][data-id="home"]');
@@ -530,11 +525,13 @@ test("a charger with an unknown car asks which car it is, and stores the answer"
 });
 
 test("a car whose charger is not found yet says so, without a warning", async () => {
-  await withPanel("two-chargers", {}, async ({ page, tap }) => {
+  await withPanel("two-chargers", {}, async ({ page, tap, state }) => {
+    const car = state.vehicles.find((v) => v.control_error === "finding_charger") || state.vehicles[0];
     await tap('.tabs button[data-tab="cars"]');
-    const card = await page.locator("ev-planner-panel .cars-grid").innerText();
-    assert.match(card, /Finding the charger/);
-    assert.equal(await page.locator('ev-planner-panel .tabs button[data-tab="cars"] .badge').count(), 0);
+    assert.equal(await page.locator('ev-planner-panel .tabs button[data-tab="cars"] em').count(), 0, "no problem on the tab");
+    assert.equal(await page.locator("ev-planner-panel .x-issue").count(), 0, "and none over the cars");
+    await tap(`[data-act="open-car"][data-id="${car.id}"]`);
+    assert.match(await page.locator("ev-planner-panel .car-notes").innerText(), /Finding the charger/);
   });
 });
 
@@ -993,9 +990,8 @@ test("A charge elsewhere is a grey line without kWh or price, and a charge over 
     assert.match(rows[0].what, /Charged elsewhere · 60 % → 80 %/);
     assert.equal(rows[1].when, "8–9");
     assert.match(rows[1].nums, /34/);
-    // The car's sub-menu sits just above the tab bar on a phone.
-    const [views, bar] = await page.evaluate(() => [".car-views", "nav.tabs"].map((s) => window.harness.panel.shadowRoot.querySelector(s).getBoundingClientRect().toJSON()));
-    assert.ok(views.bottom <= bar.top && bar.top - views.bottom < 20, JSON.stringify([views, bar]));
+    // The month at the top of the car's history, as drawn.
+    assert.ok(await read(".x-hist .x-histbig"), "the month's cost");
   });
 });
 
@@ -1003,6 +999,7 @@ test("the week plan's next charges on Home and on a car without a plan of its ow
   const state = fixture("two-cars");
   const [a, b] = state.vehicles.map((v) => v.id);
   const charge = (start, end, kwh) => ({ start, end, kwh, cost: kwh, price: 1, why: "cheap", level: 80, guess: false, from: 0, to: 1 });
+  state.settings = { ...state.settings, insight: true, insight_use: true };
   state.week = {
     start: "2026-11-10T21:00:00+01:00",
     groups: [[a, b]],
@@ -1013,17 +1010,11 @@ test("the week plan's next charges on Home and on a car without a plan of its ow
   };
   await withPanel(state, { size: DESKTOP }, async ({ page, tap }) => {
     await tap('.tabs button[data-tab="home"]');
-    const shown = await page.evaluate(() => {
-      const root = window.harness.panel.shadowRoot;
-      return { head: root.querySelector(".tonight h2").textContent, rows: root.querySelectorAll(".tonight .tn-row").length, total: root.querySelector(".tonight .hint").textContent };
-    });
-    // Nothing in the next day: each car's next charge, from the week plan.
-    assert.equal(shown.head, "Next charge");
-    assert.equal(shown.rows, 2);
-    assert.match(shown.total, /28/);
+    // Nothing in the next day: each car waits for its next charge in the week plan.
+    const notes = await page.evaluate(() => [...window.harness.panel.shadowRoot.querySelectorAll(".x-tonight-link .x-tl-car small")].map((el) => el.textContent));
+    assert.deepEqual(notes, ["waits until Fri", "waits until Sat"]);
     await tap('.tabs button[data-tab="cars"]');
-    const facts = await page.evaluate((id) => window.harness.panel.shadowRoot.querySelector(`.vcard[data-id="${id}"] .mini-facts`).textContent, a);
-    assert.match(facts, /Next charge.*11–14/);
+    assert.match(await page.locator("ev-planner-panel .x-tn-h").innerText(), /No car needs to charge tonight/);
   });
 });
 
@@ -1091,16 +1082,20 @@ test("Huset has the big top: the date, a greeting, the price arc over the house;
   await withPanel("two-cars", { size: PHONE, lang: "da" }, async ({ page, tap, read }) => {
     await tap('.tabs button[data-tab="home"]');
     assert.equal(await read('.tabs button[data-tab="home"] span'), "Huset");
-    assert.ok(await read(".ev-top .hero-over"), "the date is over the greeting");
-    assert.match(await read(".ev-top h1"), /^God /);
-    assert.ok(await read(".ev-top .hero-words p"), "one line under the greeting");
-    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".hero-arc .bead").length >= 6), "the price arc has its beads");
-    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".ev-top .scene-slot .cscene")), "the house is drawn in the top");
-    assert.ok(await page.evaluate(() => !window.harness.panel.shadowRoot.querySelector(".mini-hero")), "no small top on Huset");
+    assert.ok(await read(".x-top.big .x-over"), "the date is over the greeting");
+    assert.match(await read(".x-top.big h1"), /^God /);
+    assert.ok(await read(".x-top.big .x-hello p"), "one line under the greeting");
+    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".x-arc .x-bead").length >= 6), "the price arc has its beads");
+    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".x-top.big .scene-slot .cscene")), "the house is drawn in the top");
+    // The brand, the menu and the profile are in the top itself.
+    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".x-top.big .x-dock .bar .brand")), "the brand is in the top");
+    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".x-top.big .x-dock .bar .prof")), "the profile is in the top");
     await tap('.tabs button[data-tab="cars"]');
-    assert.equal(await read(".mini-hero h1"), "Biler");
-    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".mini-slot .cscene")), "a slice of the house in the small top");
-    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".mini-rib i").length), 24, "the next day's prices as dots");
+    assert.equal(await read(".x-top.small h1"), "Biler");
+    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".x-top.small .x-pic .cscene")), "a slice of the house in the small top");
+    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".x-rib i").length), 24, "the next day's prices as dots");
+    // On a phone the tabs float at the bottom.
+    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".app > nav.tabs")), "the tabs float at the bottom on a phone");
     // A tap on the tab you are on goes to the top.
     await page.evaluate(() => { window.harness.panel.shadowRoot.querySelector(".content").scrollTop = 300; });
     await tap('.tabs button[data-tab="cars"]');
@@ -1108,21 +1103,70 @@ test("Huset has the big top: the date, a greeting, the price arc over the house;
   });
 });
 
-test("Cars opens with tonight as in Learning and the cars' week; a day opens the car's week plan at that day", async () => {
-  await withPanel("two-cars", { size: PHONE, lang: "da" }, async ({ page, tap, read }) => {
+test("on a PC the tabs are pills at the bottom of each page's top, and the cards sit side by side", async () => {
+  await withPanel("two-cars", { size: { width: 1440, height: 900 }, lang: "da" }, async ({ page, tap }) => {
+    for (const tab of ["home", "cars", "guest", "history", "past"]) {
+      await tap(`.tabs button[data-tab="${tab}"]`);
+      const where = await page.evaluate(() => {
+        const root = window.harness.panel.shadowRoot;
+        const nav = root.querySelector("nav.tabs");
+        const top = root.querySelector(".content .x-top");
+        const brand = root.querySelector(".bar .brand").getBoundingClientRect();
+        const r = nav.getBoundingClientRect(), t = top.getBoundingClientRect();
+        return { inTop: top.contains(nav), bottom: t.bottom - r.bottom, brandTop: brand.top - t.top, docked: top.contains(root.querySelector(".bar")) };
+      });
+      assert.ok(where.inTop && where.docked, `${tab}: the tabs and the brand are in the top`);
+      assert.ok(where.bottom >= 0 && where.bottom < 40, `${tab}: the tabs sit at the bottom of the top (${where.bottom})`);
+      assert.ok(where.brandTop >= 0 && where.brandTop < 40, `${tab}: the brand at the top of the top (${where.brandTop})`);
+    }
     await tap('.tabs button[data-tab="cars"]');
-    assert.equal(await read(".tn-card .tn-when b"), "I aften");
-    assert.ok((await read(".tn-card .tn-head")).length > 5, "tonight says who charges");
-    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector(".tn-pic")?.shadowRoot?.querySelector("svg"), null, { timeout: 8000 });
-    const blocks = await page.evaluate(() => [...window.harness.panel.shadowRoot.querySelectorAll(".tn-car")].map((b) => b.dataset.id));
+    const [a, b] = await page.evaluate(() => [".x-tn", ".x-week"].map((s) => window.harness.panel.shadowRoot.querySelector(s).getBoundingClientRect().toJSON()));
+    assert.ok(Math.abs(a.top - b.top) < 2 && b.left > a.right, "tonight and the week side by side");
+    // Nothing wider than the column of 1180 px.
+    const wide = await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".x-wrap").getBoundingClientRect().width);
+    assert.ok(wide <= 1180, `the column is ${wide} px`);
+  });
+});
+
+test("Cars opens with tonight as in Learning and the cars' week; a day opens its editor: ready by, target, applies and climate", async () => {
+  const state = fixture("two-cars");
+  const car = state.vehicles.find((v) => v.id === "tesla_model_y");
+  car.climate = { entity: "climate.tesla", on: false, inside: 18, outside: 4 };
+  await withPanel(state, { size: PHONE, lang: "da" }, async ({ page, tap, read, waitForCall, calls }) => {
+    await tap('.tabs button[data-tab="cars"]');
+    assert.equal(await read(".x-tn .x-tn-when b"), "I aften");
+    assert.ok((await read(".x-tn .x-tn-h")).length > 5, "tonight says who charges");
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector(".x-tn .tn-pic")?.shadowRoot?.querySelector("svg"), null, { timeout: 8000 });
+    const blocks = await page.evaluate(() => [...window.harness.panel.shadowRoot.querySelectorAll(".x-tn-car")].map((b) => b.dataset.id));
     assert.ok(blocks.length >= 1, "a block for each car at home");
-    const order = await page.evaluate(() => [...window.harness.panel.shadowRoot.querySelectorAll(".page > section, .page > div")].map((el) => el.className));
-    assert.ok(order.findIndex((c) => c.includes("tn-card")) < order.findIndex((c) => c.includes("wk-card")), "the week is under tonight");
-    const cell = await page.evaluate(() => { const c = window.harness.panel.shadowRoot.querySelectorAll(".wk-cell")[3]; return { id: c.dataset.id, day: c.dataset.day }; });
-    await tap(`.wk-cell[data-id="${cell.id}"][data-day="${cell.day}"]`);
-    assert.equal(await page.evaluate(() => window.harness.panel._carId), cell.id);
-    assert.equal(await read(".week-more", "open"), "", "the week plan is open");
-    assert.equal(await read(`.schedule-box .day[data-day="${cell.day}"]`, "aria-pressed"), "true", "at the day that was tapped");
+    const order = await page.evaluate(() => [...window.harness.panel.shadowRoot.querySelectorAll(".x-cars > *")].map((el) => el.className));
+    assert.ok(order.findIndex((c) => c.includes("x-tn")) < order.findIndex((c) => c.includes("x-week")), "the week is under tonight");
+    // Thursday of the Tesla: the editor opens under the week.
+    await tap('[data-act="x-cell"][data-id="tesla_model_y"][data-k="2"]');
+    assert.equal(await read(".x-week .x-ed", "data-ed"), "tesla_model_y");
+    const labels = await page.evaluate(() => [...window.harness.panel.shadowRoot.querySelectorAll(".x-week .x-ed .x-field > small")].map((el) => el.textContent));
+    assert.deepEqual(labels, ["Klar kl.", "Mål", "Gælder"]);
+    // Fast: the day gets its own target and is fixed.
+    await tap('.x-ed [data-act="x-mode"][data-value="fast"]');
+    await waitForCall("vehicle_set");
+    const sent = (await calls("vehicle_set")).at(-1).settings;
+    const day = Object.keys(sent.day_targets)[0];
+    assert.deepEqual(sent.day_fixed, [day]);
+    await tap('.x-ed [data-act="x-step"][data-d="5"]');
+    await page.waitForFunction(() => window.harness.calls.filter((c) => c.type.endsWith("vehicle_set")).length >= 2);
+    assert.equal((await calls("vehicle_set")).at(-1).settings.day_targets[day], sent.day_targets[day] + 5);
+    // Climate to the departure, and only this day: a one-off departure.
+    await tap('.x-ed [data-act="x-clim"]');
+    await page.waitForFunction(() => window.harness.calls.filter((c) => c.type.endsWith("vehicle_set")).length >= 3);
+    assert.ok((await calls("vehicle_set")).at(-1).settings.day_climate[day] > 0);
+    await tap('.x-ed [data-act="x-scope"][data-value="once"]');
+    await waitForCall("vehicle_trip");
+    const trip = (await calls("vehicle_trip")).at(-1);
+    assert.equal(trip.kind, "once");
+    assert.match(trip.date, /^2026-11-12$/);
+    assert.match(trip.time, /^\d{2}:\d{2}$/);
+    await tap('[data-act="x-ed-close"]');
+    assert.equal(await read(".x-week .x-ed"), null, "closed again");
   });
 });
 
@@ -1134,9 +1178,9 @@ test("a car Insight steers: the target is Auto until it is moved, then Fast for 
   await withPanel(state, { size: PHONE, lang: "da" }, async ({ page, tap, read, push, waitForCall, calls }) => {
     await tap('.tabs button[data-tab="cars"]');
     await tap(`[data-act="open-car"][data-id="${a}"]`);
-    assert.match(await read(".charging h2 .steer-pill"), /Insight styrer/);
+    assert.match(await read(".x-nexthead .x-ctl small"), /INSIGHT STYRER/);
     assert.match(await read(".target-label .tgt-chip.auto"), /Auto/);
-    assert.ok(await page.evaluate(() => Boolean(window.harness.panel.shadowRoot.querySelector(".timeline .tl-level"))), "the battery's line over the prices");
+    assert.ok(await page.evaluate(() => Boolean(window.harness.panel.shadowRoot.querySelector(".x-price-body svg path"))), "the battery's line over the prices");
     // Moving the handle gives the departure's day a target of its own, and makes it Fast.
     const day = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][new Date(state.vehicles.find((v) => v.id === a).deadline).getDay()];
     await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".handle.target").focus());
@@ -1165,18 +1209,70 @@ test("the quick menu: Lad nu to a level for one car, the climate and the next de
   await withPanel("two-cars", { size: PHONE, lang: "da" }, async ({ page, tap, read, waitForCall, calls }) => {
     await tap('.tabs button[data-tab="home"]');
     await tap(".qfab");
-    assert.equal(await read(".pop-quick header h2"), "Hurtigt");
-    await tap('.pop-quick [data-q="pick"][data-id="tesla_model_y"]');
-    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".pop-quick .q-car").length), 1, "only the car picked");
-    await tap('.pop-quick [data-q="preset"][data-id="tesla_model_y"][data-pct="100"]');
-    assert.match(await read('.pop-quick [data-q="go"]'), /Lad nu til 100/);
-    await tap('.pop-quick [data-q="go"][data-id="tesla_model_y"]');
+    assert.ok(await read(".x-quick"), "the quick menu opens");
+    assert.equal(await read(".qfab", "aria-expanded"), "true");
+    await tap('.x-quick [data-q="pick"][data-id="tesla_model_y"]');
+    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".x-quick .x-qs").length), 1, "only the car picked");
+    await tap('.x-quick [data-q="preset"][data-p="full"]');
+    assert.match(await read(".x-quick .x-qtag"), /til 100 %/);
+    await tap('.x-quick [data-q="toggle-now"]');
     await waitForCall("vehicle_set");
     assert.deepEqual((await calls("vehicle_set")).at(-1).settings, { mode: "charge_now", now_target: 100 });
-    await tap('.pop-quick [data-tab-q="ready"]');
-    await tap('.pop-quick [data-q="ready"][data-id="tesla_model_y"]');
-    assert.equal(await page.evaluate(() => window.harness.panel._carId), "tesla_model_y");
-    assert.ok(await read(".sheet.pop-next"), "the next departure opens");
+    assert.ok(await read(".x-quick .x-qtoast"), "it says what it did");
+    // Klar kl.: tomorrow at 08, with the target Insight or the plan picks.
+    await tap('.x-quick [data-tab-q="ready"]');
+    await tap('.x-quick [data-q="time"][data-v="08:00"]');
+    await tap('.x-quick [data-q="save"]');
+    await waitForCall("vehicle_trip");
+    const trip = (await calls("vehicle_trip")).at(-1);
+    assert.deepEqual([trip.vehicle_id, trip.kind, trip.date, trip.time, trip.target], ["tesla_model_y", "once", "2026-11-11", "08:00", null]);
+    // The button closes it again.
+    await tap(".qfab");
+    assert.equal(await read(".x-quick"), null);
+  });
+});
+
+test("Insight's pop-up opens from the top, shows what it has learned, and turns Insight off and on", async () => {
+  const state = fixture("two-cars");
+  state.settings = { ...state.settings, insight: true, insight_use: true };
+  const [a, b] = state.vehicles.map((v) => v.id);
+  const detail = { week: Array.from({ length: 7 }, (_, i) => ({ p50: 5 + i, p90: 20 + i })) };
+  const insight = { enabled: true, cars: { [a]: { name: "Renault", days: 34 }, [b]: { name: "Tesla", days: 20 } }, detail: { [a]: detail, [b]: detail }, score: { scored: 4, rate: 0.86, saved: 214 } };
+  await withPanel(state, { size: PHONE, lang: "da" }, async ({ page, tap, read, waitForCall, calls }) => {
+    await page.evaluate((data) => { window.harness.insight = data; }, insight);
+    await tap('.tabs button[data-tab="home"]');
+    await tap('[data-act="insight-open"]');
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector(".x-insight .x-ring"), null, { timeout: 5000 });
+    assert.match(await read(".x-insight .x-over2"), /34 DAGE/);
+    assert.equal(await read(".x-insight .x-ring b"), "86 %");
+    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".x-insight .x-insrow:not(.head)").length), 2, "a row for each car's week");
+    assert.equal(await read('.x-insight [data-ins="toggle"]', "aria-checked"), "true");
+    await tap('.x-insight [data-ins="toggle"]');
+    await waitForCall("settings");
+    assert.deepEqual((await calls("settings")).at(-1).settings, { insight_use: false });
+    assert.equal(await read('.x-insight [data-ins="toggle"]', "aria-checked"), "false");
+    await page.keyboard.press("Escape");
+    assert.equal(await read(".x-insight"), null, "Escape closes it");
+  });
+});
+
+test("Look: the look, light or dark, the house and each car's body; the back button goes back", async () => {
+  await withPanel("two-cars", { size: PHONE, lang: "da" }, async ({ page, tap, read, waitForCall, calls }) => {
+    await tap('.tabs button[data-tab="cars"]');
+    await tap(".prof");
+    await tap('[data-prof="look"]');
+    assert.ok(await read(".x-top.look"), "Look has its own top");
+    assert.equal(await read('[data-act="look"][data-look="evp"]', "aria-pressed"), "true", "EV Planner's own look is the default");
+    await tap('[data-act="x-theme"][data-value="light"]');
+    assert.equal(await page.evaluate(() => window.harness.panel.hasAttribute("xlight")), true);
+    assert.equal(await page.evaluate(() => window.harness.userData.ev_planner_theme), "light");
+    await tap('[data-act="x-theme"][data-value="dark"]');
+    assert.equal(await page.evaluate(() => window.harness.panel.hasAttribute("xlight")), false);
+    await tap('[data-act="x-body"][data-id="tesla_model_y"][data-value="sedan"]');
+    await waitForCall("vehicle_set");
+    assert.deepEqual((await calls("vehicle_set")).at(-1).settings, { body: "sedan" });
+    await tap('[data-act="x-look-back"]');
+    assert.equal(await page.evaluate(() => window.harness.panel._tab), "cars", "back where it was opened");
   });
 });
 

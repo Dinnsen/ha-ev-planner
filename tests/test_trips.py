@@ -8,6 +8,8 @@ from zoneinfo import ZoneInfo
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import ServiceValidationError
+from homeassistant.util import dt as dt_util
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -114,6 +116,14 @@ async def test_a_preset_is_the_ready_by_time_once_then_the_week_plan(
     assert tesla.trip is not None and tesla.trip["kind"] == "afternoon"
     kinds = [event["kind"] for event in household.events.items]
     assert "trip" in kinds
+    # One departure moved from the week plan's editor: that day only, at its own time.
+    day = (tesla.deadline or dt_util.now()).date()
+    at = await household.async_set_trip(TESLA, "once", day=day + timedelta(days=1), at_time="09:30", target=90)
+    await settle(hass, freezer)
+    assert at is not None and (at.hour, at.minute) == (9, 30) and tesla.trip["kind"] == "once"
+    assert tesla.target == 90
+    with pytest.raises(ServiceValidationError):
+        await household.async_set_trip(TESLA, "once", day=day - timedelta(days=3), at_time="09:30")
     # Back to the week plan by hand ...
     await household.async_set_trip(TESLA, None)
     await settle(hass, freezer)

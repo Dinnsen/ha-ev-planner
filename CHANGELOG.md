@@ -2,6 +2,23 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b48] - 2026-11-20
+
+### Changed
+
+- **Every page as drawn**: Huset, Biler, a car's own page, the quick menu, Insight, the profile menu and Look follow the drawings 1:1, on a phone, a tablet and a PC.
+- **The top is the header**: the logo, Home Assistant's menu and the profile sit in each page's own top, as in Middagsro and Hverdagsro; there is no separate bar over it. On a PC and a tablet the tabs are glass pills at the bottom of the top (the active one white); on a phone they float as a bar at the bottom.
+- **A PC and a tablet**: the pages sit in a column of at most 1180 px with the cards side by side. The small top shows the page's name and the prices at the left and the house with the cars at the right.
+- **EV Planner's own look** is the default, in Auto, light or dark (Look). Frisk, Hverdag and Theme Studio can still be chosen.
+- **Biler**: a problem first, then tonight, and the cars' week with the price, each car's battery and its charges. A day opens its editor: ready by (none, standard or another time, and "make standard"), the target (Auto or Fast, with − and +), whether it is that day only or every week, and climate to the departure.
+- **A car's own page**: the car big in its top; the next departure with what decides its target (Insight: Auto or Fast, with a "?" that explains it), the clock, the battery and the modes; the prices of the next days with the battery over them; the departures of the week, each with its target and climate. Rules as cards with a small picture of each, and the history with the month at the top.
+- **The quick menu** is drawn as tiles: Lad nu for one car, both or all (with the level), climate now or to the departure, and **Klar kl.** today or tomorrow at an hour, with Auto or a fixed target.
+
+### Added
+
+- **Insight's pop-up** from the pill in Huset's top: what it has learned (how well it knows your driving, a typical and a hard day, the reserve, each car's week), what it does tonight, and what it saved; Insight is turned off and on there.
+- **A departure this time only** (`vehicle_trip` kind `once` with a date and a time), from the day editor and from the quick menu.
+
 ## [2.5.0b47] - 2026-11-20
 
 ### Added

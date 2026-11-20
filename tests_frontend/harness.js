@@ -105,6 +105,8 @@ const harness = {
       case "guest_stop":
       case "delete_history":
       case "settings":
+      case "vehicle_trip":
+      case "vehicle_climate":
         return null;
       case "vehicle_preview": {
         const car = state.vehicles.find((v) => v.id === message.vehicle_id);

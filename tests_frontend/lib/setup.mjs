@@ -100,6 +100,8 @@ export async function openPage(browser, url, { size = DESKTOP, lang = "en", dark
   page.on("pageerror", (error) => errors.push(`uncaught: ${error.stack || error.message}`));
   page.on("requestfailed", (request) => errors.push(`failed: ${request.url()}`));
   page.on("request", (request) => requests.push(new URL(request.url()).pathname + new URL(request.url()).search));
+  // The display fonts come from Google Fonts in Home Assistant; the tests have no internet, so an empty sheet stands in.
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.fulfill({ status: 200, contentType: "text/css", body: "" }));
   if (now) await page.clock.setFixedTime(new Date(now));
   await page.goto(`${url}/harness.html`);
   await page.waitForFunction(() => window.harnessReady === true);

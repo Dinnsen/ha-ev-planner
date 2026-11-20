@@ -44,7 +44,8 @@ export async function walkPanel({ lang }) {
     for (const tile of values('[data-act="tile"]', "tile")) {
       if (!click(`[data-act="tile"][data-tile="${tile}"]`)) continue;
       await check(`${view} › ${tile}`);
-      click('[data-act="sheet-close"][data-f]');
+      // Look is a page of its own (2.5.0b48): its back button returns to where it was opened.
+      click(root.querySelector('[data-act="sheet-close"][data-f]') ? '[data-act="sheet-close"][data-f]' : '[data-act="x-look-back"]');
     }
   };
 

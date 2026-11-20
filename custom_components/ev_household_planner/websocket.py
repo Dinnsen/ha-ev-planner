@@ -1081,6 +1081,7 @@ async def ws_layout(hass: HomeAssistant, connection: websocket_api.ActiveConnect
         vol.Optional("kind"): vol.Any(None, vol.All(cv.string, vol.Length(min=1, max=40))),
         vol.Optional("date"): vol.Any(None, cv.date),
         vol.Optional("target"): vol.Any(None, PERCENT),
+        vol.Optional("time"): vol.Any(None, vol.Match(r"^([01]\d|2[0-3]):[0-5]\d$")),
     }
 )
 @websocket_api.async_response
@@ -1090,7 +1091,7 @@ async def ws_vehicle_trip(hass: HomeAssistant, connection: websocket_api.ActiveC
     household = _household(hass, msg)
     _vehicle(household, msg["vehicle_id"])
     at = await household.async_set_trip(
-        msg["vehicle_id"], msg.get("kind"), day=msg.get("date"), target=msg.get("target")
+        msg["vehicle_id"], msg.get("kind"), day=msg.get("date"), target=msg.get("target"), at_time=msg.get("time")
     )
     connection.send_result(msg["id"], {"at": at.isoformat() if at else None})
 

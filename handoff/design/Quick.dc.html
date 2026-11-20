@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<title>EV Planner – Quick-menu</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&amp;family=Inter:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#0d1014}
+a{color:#2fd3a3;text-decoration:none}a:hover{color:#6fe8c4}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #eef2f5;outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.disp{font-family:'Bricolage Grotesque',Inter,sans-serif;letter-spacing:-.02em}
+.glass{background:rgba(16,20,32,.52);-webkit-backdrop-filter:blur(16px) saturate(1.3);backdrop-filter:blur(16px) saturate(1.3);border:1px solid rgba(255,255,255,.13)}
+input[type=range].hit{-webkit-appearance:none;appearance:none;position:absolute;inset:-12px 0;width:100%;height:calc(100% + 24px);margin:0;background:transparent;opacity:0;cursor:grab}
+@keyframes rise{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes warm{0%,100%{opacity:.35}50%{opacity:.9}}
+@keyframes air{0%{transform:translateY(10px);opacity:0}30%{opacity:.9}100%{transform:translateY(-22px);opacity:0}}
+.pop{animation:rise .26s cubic-bezier(.2,.9,.3,1.15);transform-origin:right bottom}
+.fade{animation:fade .2s ease-out}
+.fan{animation:spin 2.4s linear infinite;transform-origin:12px 12px}
+.warm{animation:warm 2.4s ease-in-out infinite}
+.air{animation:air 1.8s ease-in infinite}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #0d1014; color: #eef2f5; font-family: Inter, -apple-system, 'Segoe UI', sans-serif; position: relative; overflow: hidden">
+
+  <div style="position: absolute; inset: 0 0 auto 0; height: 600px; background: linear-gradient(180deg, #060a20 0%, #121a45 38%, #232a5c 62%, #1a1f3a 80%, #0d1014 100%)" aria-hidden="true">
+    <div style="position: absolute; left: 20px; top: 72px; display: flex; flex-direction: column; gap: 4px">
+      <span style="font-size: 11.5px; font-weight: 700; letter-spacing: .12em; color: rgba(255,255,255,.72)">FREDAG 20. NOVEMBER · UGE 47</span>
+      <span class="disp" style="font-size: 44px; font-weight: 800; color: #fff">God aften</span>
+    </div>
+    <img src="{{house}}" alt="" style="position: absolute; left: 50%; bottom: 80px; height: 250px; width: auto; max-width: 376px; transform: translateX(-50%)">
+  </div>
+
+  <div class="fade" style="position: absolute; inset: 0; background: rgba(6,8,14,.6); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px)"></div>
+
+  <section class="pop" role="dialog" aria-label="Quick-menu" style="position: absolute; right: 16px; left: 16px; bottom: 172px; border-radius: 28px; background: #171b23; border: 1px solid rgba(255,255,255,.1); box-shadow: 0 24px 60px rgba(0,0,0,.55); padding: 16px; display: flex; flex-direction: column; gap: 14px">
+
+    <sc-if value="{{two}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; gap: 6px" role="group" aria-label="Hvilke biler">
+        <sc-for list="{{carChips}}" as="c" hint-placeholder-count="3">
+          <button onClick="{{c.pick}}" aria-pressed="{{c.on}}" style="{{c.style}}">
+            <i style="{{c.dot}}"></i><span style="display: flex; flex-direction: column; align-items: flex-start; line-height: 1.1"><b style="font-size: 13px">{{c.name}}</b><small class="num" style="font-size: 11px; opacity: .8">{{c.sub}}</small></span>
+          </button>
+        </sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{one}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <i style="width: 10px; height: 10px; border-radius: 50%; background: #2fd3a3"></i>
+        <b style="font-size: 15px; flex: 1">Tesla Model 3</b>
+        <span class="num" style="font-size: 13px; color: #a3adb8">tilsluttet · 18 %</span>
+      </div>
+    </sc-if>
+
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px" role="tablist" aria-label="Handlinger">
+      <sc-for list="{{tiles}}" as="t" hint-placeholder-count="3">
+        <button role="tab" onClick="{{t.pick}}" aria-selected="{{t.on}}" style="{{t.style}}">
+          <span style="{{t.iconStyle}}">
+            <sc-if value="{{t.isBolt}}" hint-placeholder-val="{{ true }}"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" fill="currentColor"></path></svg></sc-if>
+            <sc-if value="{{t.isFan}}" hint-placeholder-val="{{ false }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><g class="{{t.spin}}"><path d="M12 12c0-4 1-8 4-8 2 0 3 2 2 4-1 2-4 3-6 4z"></path><path d="M12 12c4 0 8 1 8 4 0 2-2 3-4 2-2-1-3-4-4-6z"></path><path d="M12 12c0 4-1 8-4 8-2 0-3-2-2-4 1-2 4-3 6-4z"></path><path d="M12 12c-4 0-8-1-8-4 0-2 2-3 4-2 2 1 3 4 4 6z"></path></g></svg></sc-if>
+            <sc-if value="{{t.isClock}}" hint-placeholder-val="{{ false }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l3 2M9 2h6"></path></svg></sc-if>
+          </span>
+          <b style="font-size: 13.5px">{{t.label}}</b>
+          <small class="num" style="{{t.subStyle}}">{{t.sub}}</small>
+        </button>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{panel.now}}" hint-placeholder-val="{{ true }}">
+      <div class="fade" style="display: flex; flex-direction: column; gap: 12px">
+        <button onClick="{{toggleNow}}" aria-pressed="{{nowOn}}" style="{{nowRow}}">
+          <span style="display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left">
+            <b style="font-size: 15px">{{nowTitle}}</b>
+            <small class="num" style="font-size: 12px; color: #a3adb8">{{nowSub}}</small>
+          </span>
+          <span style="{{switchTrack}}"><i style="{{switchKnob}}"></i></span>
+        </button>
+        <sc-for list="{{nowSliders}}" as="b" hint-placeholder-count="1">
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12.5px">
+              <span style="display: inline-flex; align-items: center; gap: 6px; color: #d5dbe2"><i style="{{b.dot}}"></i>{{b.name}} · {{b.soc}} %</span>
+              <b class="num" style="{{b.tagStyle}}">til {{b.target}} %</b>
+            </div>
+            <div style="position: relative; height: 32px; border-radius: 11px; border: 2px solid rgba(255,255,255,.5); padding: 3px; box-sizing: border-box">
+              <div style="position: relative; height: 100%; border-radius: 7px; overflow: hidden; background: rgba(255,255,255,.05)"><div style="{{b.fill}}"></div><div style="{{b.plan}}"></div></div>
+              <i style="{{b.knob}}"></i>
+              <input class="hit" type="range" min="20" max="100" step="5" value="{{b.target}}" onInput="{{b.onInput}}" aria-label="{{b.aria}}">
+              <i style="position: absolute; right: -7px; top: 8px; width: 4px; height: 12px; border-radius: 0 3px 3px 0; background: rgba(255,255,255,.5)"></i>
+            </div>
+          </div>
+        </sc-for>
+        <div style="display: flex; gap: 6px">
+          <sc-for list="{{nowPresets}}" as="o" hint-placeholder-count="3">
+            <button onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="{{o.style}}">{{o.label}}</button>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{panel.climate}}" hint-placeholder-val="{{ false }}">
+      <div class="fade" style="display: flex; flex-direction: column; gap: 12px">
+        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px; align-items: center">
+          <svg width="120" height="180" viewBox="0 0 200 300" role="img" aria-label="Bilen set oppefra">
+            <defs>
+              <radialGradient id="qheat" cx="50%" cy="55%" r="55%"><stop offset="0%" stop-color="#ff8a5c" stop-opacity=".75"></stop><stop offset="100%" stop-color="#ff8a5c" stop-opacity="0"></stop></radialGradient>
+              <radialGradient id="qcool" cx="50%" cy="55%" r="55%"><stop offset="0%" stop-color="#6db4f2" stop-opacity=".75"></stop><stop offset="100%" stop-color="#6db4f2" stop-opacity="0"></stop></radialGradient>
+            </defs>
+            <ellipse cx="100" cy="152" rx="70" ry="140" fill="rgba(0,0,0,.35)"></ellipse>
+            <ellipse cx="44" cy="96" rx="11" ry="6" fill="#cfd5dd"></ellipse>
+            <ellipse cx="156" cy="96" rx="11" ry="6" fill="#cfd5dd"></ellipse>
+            <path d="M62 18 C66 6 134 6 138 18 L150 72 C155 96 155 206 150 238 L144 278 C140 294 60 294 56 278 L50 238 C45 206 45 96 50 72 Z" fill="#e8ecf1"></path>
+            <path d="M66 22 Q100 12 134 22" fill="none" stroke="{{clim.defrost}}" stroke-width="5" stroke-linecap="round"></path>
+            <path d="M64 82 Q100 66 136 82 L130 112 Q100 104 70 112 Z" fill="#b9c2ce"></path>
+            <rect x="62" y="114" width="76" height="122" rx="8" fill="#f6f7f9" stroke="#cfd5dd"></rect>
+            <circle cx="100" cy="172" r="74" fill="{{clim.glow}}" class="{{clim.glowClass}}"></circle>
+            <rect x="94" y="134" width="12" height="52" rx="5" fill="#e3e7ec"></rect>
+            <rect x="70" y="150" width="22" height="28" rx="6" fill="#fff" stroke="#d5dae1"></rect>
+            <rect x="108" y="150" width="22" height="28" rx="6" fill="#fff" stroke="#d5dae1"></rect>
+            <rect x="68" y="198" width="64" height="26" rx="6" fill="#fff" stroke="#d5dae1"></rect>
+            <g class="{{clim.airClass}}" opacity="{{clim.airOpacity}}"><path d="M86 136 q-4 -6 0 -12 q4 -6 0 -12" fill="none" stroke="{{clim.airColor}}" stroke-width="2.4" stroke-linecap="round"></path></g>
+            <g class="{{clim.airClass}}" opacity="{{clim.airOpacity}}" style="animation-delay: .6s"><path d="M100 136 q-4 -6 0 -12 q4 -6 0 -12" fill="none" stroke="{{clim.airColor}}" stroke-width="2.4" stroke-linecap="round"></path></g>
+            <g class="{{clim.airClass}}" opacity="{{clim.airOpacity}}" style="animation-delay: 1.2s"><path d="M114 136 q-4 -6 0 -12 q4 -6 0 -12" fill="none" stroke="{{clim.airColor}}" stroke-width="2.4" stroke-linecap="round"></path></g>
+            <path d="M64 240 Q100 250 136 240 L140 262 Q100 272 60 262 Z" fill="#b9c2ce"></path>
+            <path d="M68 280 Q100 290 132 280" fill="none" stroke="{{clim.defrost}}" stroke-width="5" stroke-linecap="round"></path>
+          </svg>
+          <div style="display: flex; flex-direction: column; gap: 10px">
+            <span style="{{clim.stateStyle}}">{{clim.state}}</span>
+            <div style="display: flex; align-items: center; justify-content: space-between">
+              <button onClick="{{tempDown}}" aria-label="Koldere" style="width: 40px; height: 40px; border-radius: 50%; border: 0; background: #262c36; color: #9cc8ff; font-size: 20px">‹</button>
+              <b class="num disp" style="font-size: 36px; line-height: 1">{{clim.temp}}°</b>
+              <button onClick="{{tempUp}}" aria-label="Varmere" style="width: 40px; height: 40px; border-radius: 50%; border: 0; background: #262c36; color: #ffb48a; font-size: 20px">›</button>
+            </div>
+            <div class="num" style="display: flex; justify-content: space-between; font-size: 11.5px; color: #a3adb8"><span><b style="font-size: 14px; color: #fff">16,5°</b> inde</span><span><b style="font-size: 14px; color: #fff">−0,5°</b> ude</span></div>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+          <button onClick="{{climateNow}}" aria-pressed="{{climOn}}" style="{{climNowStyle}}">{{climNowLabel}}</button>
+          <button onClick="{{climateDep}}" aria-pressed="{{climDep}}" style="{{climDepStyle}}">{{climDepLabel}}</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{panel.ready}}" hint-placeholder-val="{{ false }}">
+      <div class="fade" style="display: flex; flex-direction: column; gap: 12px">
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 14px; background: #1f242e" role="group" aria-label="Hvilken dag">
+          <button onClick="{{setToday}}" aria-pressed="{{isToday}}" style="{{todayStyle}}">I dag · fre.</button>
+          <button onClick="{{setTomorrow}}" aria-pressed="{{isTomorrow}}" style="{{tomorrowStyle}}">I morgen · lør.</button>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px" role="group" aria-label="Klar kl.">
+          <sc-for list="{{times}}" as="o" hint-placeholder-count="5">
+            <button onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="{{o.style}}">{{o.label}}</button>
+          </sc-for>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 14px; background: #1f242e" role="group" aria-label="Mål">
+          <button onClick="{{setAuto}}" aria-pressed="{{isAuto}}" style="{{autoStyle}}">✦ Auto ≈55 %</button>
+          <button onClick="{{setFast}}" aria-pressed="{{isFast}}" style="{{fastStyle}}">{{fastLabel}}</button>
+        </div>
+        <sc-if value="{{isFast}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; align-items: center; gap: 10px">
+            <button onClick="{{pctDown}}" aria-label="Mindre" style="width: 44px; height: 44px; border-radius: 13px; border: 0; background: #262c36; font-size: 18px">−</button>
+            <div style="flex: 1; height: 10px; border-radius: 5px; background: rgba(255,255,255,.08); position: relative"><div style="{{pctBar}}"></div><i style="{{pctNow}}"></i></div>
+            <button onClick="{{pctUp}}" aria-label="Mere" style="width: 44px; height: 44px; border-radius: 13px; border: 0; background: #262c36; font-size: 18px">+</button>
+          </div>
+        </sc-if>
+        <button onClick="{{save}}" style="height: 50px; border-radius: 16px; border: 0; background: linear-gradient(135deg, #19b6a5, #6e4aff); color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>{{saveLabel}}</button>
+        <span class="num" style="font-size: 12px; color: #a3adb8; text-align: center">{{readyNote}}</span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{toast}}" hint-placeholder-val="{{ false }}">
+      <div class="fade" style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 14px; background: rgba(47,211,163,.14); color: #8ff3cf; font-size: 13px; font-weight: 600">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>{{toastText}}</div>
+    </sc-if>
+  </section>
+
+  <a href="Main.dc.html" aria-label="Luk" style="position: absolute; right: 20px; bottom: 98px; width: 60px; height: 60px; border-radius: 21px; display: grid; place-items: center; color: #fff; background: linear-gradient(145deg, #19b6a5, #6e4aff); box-shadow: 0 10px 28px rgba(110,74,255,.45)">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+  </a>
+  <nav class="glass" aria-label="Menu" style="position: absolute; left: 16px; right: 16px; bottom: 18px; height: 66px; border-radius: 24px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: center; padding: 0 6px; opacity: .55">
+    <span style="text-align: center; font-size: 11px; font-weight: 700; color: #6fe8c4">Huset</span>
+    <span style="text-align: center; font-size: 11px; color: #a3adb8">Biler</span>
+    <span style="text-align: center; font-size: 11px; color: #a3adb8">Gæst</span>
+    <span style="text-align: center; font-size: 11px; color: #a3adb8">Læring</span>
+    <span style="text-align: center; font-size: 11px; color: #a3adb8">Historik</span>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"cars":{"editor":"enum","options":["2 biler","1 bil"],"default":"2 biler","section":"Demo"},"start":{"editor":"enum","options":["Lad nu","Klima","Klar kl."],"default":"Lad nu","section":"Demo"},"$preview":{"width":390,"height":844}}'>
+const CARS = {
+  tesla: { short: 'Tesla', color: '#2fd3a3', soc: 18, cap: 60, kw: 11, plan: 90 },
+  merc: { short: 'Mercedes', color: '#a3abff', soc: 46, cap: 66.5, kw: 11, plan: 100 },
+};
+const pad = (n) => String(n).padStart(2, '0');
+const hm = (h) => { h = ((h % 24) + 24) % 24; const H = Math.floor(h); const M = Math.round((h - H) * 60); return pad(H) + '.' + pad(M); };
+const NOWH = 21 + 40 / 60;
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const start = props.start ?? 'Lad nu';
+    this.state = {
+      pick: { tesla: true, merc: false },
+      panel: start === 'Klima' ? 'climate' : start === 'Klar kl.' ? 'ready' : 'now',
+      now: { tesla: false, merc: false },
+      nowT: { tesla: 90, merc: 100 }, preset: 'plan',
+      temp: 21, climOn: start === 'Klima', climDep: true,
+      day: 'tomorrow', time: 9, mode: 'fast', pct: 90,
+      ready: { tesla: 'lør. 09.00', merc: 'søn. 14.00' },
+      toast: '',
+    };
+  }
+
+  renderVals() {
+    const two = (this.props.cars ?? '2 biler') === '2 biler';
+    const s = this.state;
+    const ids = two ? ['tesla', 'merc'].filter((c) => s.pick[c]) : ['tesla'];
+    const sel = ids.length ? ids : ['tesla'];
+    const both = two && sel.length === 2;
+    const anyNow = sel.some((c) => s.now[c]);
+    const allNow = sel.every((c) => s.now[c]);
+
+    const chip = (picked, color) => `flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 10px; border-radius: 15px; border: 1.5px solid ${picked ? color : 'rgba(255,255,255,.1)'}; background: ${picked ? color + '22' : 'transparent'}; color: ${picked ? '#fff' : '#a3adb8'}`;
+    const carChips = [
+      ...['tesla', 'merc'].map((c) => {
+        const on = !!s.pick[c] && !(s.pick.tesla && s.pick.merc);
+        return { name: CARS[c].short, sub: `${CARS[c].soc} %${s.now[c] ? ' · lader' : ''}`, on, dot: `flex: none; width: 9px; height: 9px; border-radius: 50%; background: ${CARS[c].color}`, style: chip(on, CARS[c].color), pick: () => this.setState({ pick: { tesla: c === 'tesla', merc: c === 'merc' }, toast: '' }) };
+      }),
+      { name: 'Begge', sub: 'samme handling', on: s.pick.tesla && s.pick.merc, dot: 'flex: none; width: 9px; height: 9px; border-radius: 50%; background: linear-gradient(90deg, #2fd3a3 50%, #a3abff 50%)', style: chip(s.pick.tesla && s.pick.merc, '#c3b5ff'), pick: () => this.setState({ pick: { tesla: true, merc: true }, toast: '' }) },
+    ];
+
+    const tile = (key, label, sub, active, icon) => {
+      const on = s.panel === key;
+      return {
+        label, sub, on, isBolt: icon === 'bolt', isFan: icon === 'fan', isClock: icon === 'clock',
+        spin: key === 'climate' && s.climOn ? 'fan' : '',
+        pick: () => this.setState({ panel: key, toast: '' }),
+        style: `display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 12px; height: 102px; border-radius: 20px; text-align: left; border: 1.5px solid ${on ? 'rgba(255,255,255,.55)' : 'transparent'}; background: ${active ? (key === 'now' ? 'linear-gradient(150deg, #1f8f6f, #13604c)' : key === 'climate' ? 'linear-gradient(150deg, #2d5ea8, #1d3f73)' : 'linear-gradient(150deg, #5a43c9, #3a2d86)') : '#1f242e'}`,
+        iconStyle: `width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; color: ${active ? '#fff' : '#c2cad3'}; background: ${active ? 'rgba(255,255,255,.18)' : 'rgba(255,255,255,.06)'}`,
+        subStyle: `font-size: 11.5px; color: ${active ? 'rgba(255,255,255,.85)' : '#a3adb8'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%`,
+      };
+    };
+    const tiles = [
+      tile('now', 'Lad nu', anyNow ? (allNow ? 'lader' : 'delvist') : 'fra', anyNow, 'bolt'),
+      tile('climate', 'Klima', s.climOn ? `kører · ${s.temp}°` : s.climDep ? `til afgang · ${s.temp}°` : 'fra', s.climOn, 'fan'),
+      tile('ready', 'Klar kl.', both ? 'lør. · søn.' : s.ready[sel[0]], true, 'clock'),
+    ];
+
+    // Charge now: a slider per car from its level to the target, and quick picks.
+    let kwh = 0, hrs = 0;
+    sel.forEach((c) => { const k = Math.max(0, ((s.nowT[c] - CARS[c].soc) / 100) * CARS[c].cap); kwh += k; hrs += k / CARS[c].kw; });
+    const extra = kwh * 0.62;
+    const nowSliders = sel.map((c) => {
+      const car = CARS[c], t = s.nowT[c], on = !!s.now[c];
+      return {
+        name: car.short, soc: car.soc, target: t,
+        dot: `width: 8px; height: 8px; border-radius: 50%; background: ${car.color}`,
+        tagStyle: `font-size: 12px; padding: 2px 9px; border-radius: 999px; color: ${on ? '#1d1300' : '#0d1014'}; background: ${on ? '#f5b94a' : '#eef2f5'}`,
+        fill: `position: absolute; left: 0; top: 0; bottom: 0; width: ${car.soc}%; background: ${car.color}`,
+        plan: `position: absolute; left: ${car.soc}%; top: 0; bottom: 0; width: ${Math.max(0, t - car.soc)}%; background: repeating-linear-gradient(135deg, rgba(245,185,74,.55) 0 6px, rgba(245,185,74,.2) 6px 12px)`,
+        knob: `position: absolute; top: -6px; left: calc(${t}% - 3px); width: 6px; height: 40px; border-radius: 3px; background: #f5b94a; box-shadow: 0 0 0 3px rgba(23,27,35,.8)`,
+        aria: `${car.short}: lad nu til`,
+        onInput: (e) => { const v = Number(e && e.target ? e.target.value : t); this.setState({ nowT: { ...s.nowT, [c]: Math.max(car.soc, v) }, preset: 'custom' }); },
+      };
+    });
+    const nowTitle = both ? 'Lad begge nu' : `Lad ${CARS[sel[0]].short} nu`;
+    const nowSub = anyNow ? `Klar ca. kl. ${hm(NOWH + hrs)} · ${(Math.round(kwh * 10) / 10).toString().replace('.', ',')} kWh · +${Math.round(extra)} kr. mod planen` : `Planen lader i nat 02–06 · ${Math.round(extra)} kr. billigere`;
+    const optStyle = (o) => `flex: 1; height: 38px; border-radius: 12px; font-size: 12.5px; font-weight: 600; border: 1px solid ${o ? '#eef2f5' : 'rgba(255,255,255,.12)'}; background: ${o ? '#eef2f5' : 'transparent'}; color: ${o ? '#0d1014' : '#d5dbe2'}`;
+    const setAll = (fn, preset) => { const n = { ...s.nowT }; sel.forEach((c) => { n[c] = fn(c); }); this.setState({ nowT: n, preset }); };
+    const nowPresets = [
+      { key: 'plan', label: 'Afgangens mål', fn: (c) => CARS[c].plan },
+      { key: 'full', label: '100 %', fn: () => 100 },
+      { key: 'hour', label: '+1 time', fn: (c) => Math.min(100, Math.round((CARS[c].soc + (CARS[c].kw / CARS[c].cap) * 100) / 5) * 5) },
+    ].map((o) => ({ label: o.label, on: s.preset === o.key, style: optStyle(s.preset === o.key), pick: () => setAll(o.fn, o.key) }));
+
+    // Climate: the car from above, as the popup in the car's page, warming up while it runs.
+    const heating = s.temp > 16.5;
+    const clim = {
+      temp: s.temp.toFixed(1).replace('.', ','),
+      state: s.climOn ? (heating ? 'Varmer op' : 'Køler ned') : s.climDep ? `Klar ${both ? 'til afgang' : s.ready[sel[0]]}` : 'Fra',
+      stateStyle: `align-self: flex-start; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; color: ${s.climOn ? '#1d1300' : '#c2cad3'}; background: ${s.climOn ? (heating ? '#ffb48a' : '#9cc8ff') : 'rgba(255,255,255,.08)'}`,
+      glow: s.climOn ? (heating ? 'url(#qheat)' : 'url(#qcool)') : 'transparent',
+      glowClass: s.climOn ? 'warm' : '',
+      airClass: s.climOn ? 'air' : '', airOpacity: s.climOn ? 1 : 0, airColor: heating ? '#ff8a5c' : '#6db4f2',
+      defrost: s.climOn ? '#ff8a7a' : '#c9d0d8',
+    };
+    const btn = (onx, warm) => `height: 46px; border-radius: 14px; font-size: 13px; font-weight: 700; border: 1px solid ${onx ? 'transparent' : 'rgba(255,255,255,.12)'}; background: ${onx ? (warm ? 'linear-gradient(135deg, #e0703f, #ff9a6b)' : '#eef2f5') : 'transparent'}; color: ${onx ? (warm ? '#fff' : '#0d1014') : '#d5dbe2'}`;
+
+    // Ready by: today or tomorrow, a time, auto or a fixed target. Once only.
+    const seg = (x) => `height: 38px; border: 0; border-radius: 11px; font-size: 13px; font-weight: 700; background: ${x ? '#eef2f5' : 'transparent'}; color: ${x ? '#0d1014' : '#a3adb8'}`;
+    const times = (s.day === 'today' ? [16, 17, 18, 19, 'x'] : [6, 7, 8, 9, 'x']).map((t) => ({
+      label: t === 'x' ? 'Andet' : hm(t), on: t === s.time,
+      style: `height: 42px; border-radius: 13px; font-size: 12.5px; font-weight: 700; border: 1px solid ${t === s.time ? '#eef2f5' : 'rgba(255,255,255,.12)'}; background: ${t === s.time ? '#eef2f5' : 'transparent'}; color: ${t === s.time ? '#0d1014' : '#d5dbe2'}`,
+      pick: () => (t === 'x' ? null : this.setState({ time: t, toast: '' })),
+    }));
+    const when = `${s.day === 'today' ? 'fre.' : 'lør.'} ${hm(s.time)}`;
+    const pctOf = s.mode === 'fast' ? s.pct : 55;
+    const need = sel.reduce((a, c) => a + Math.max(0, ((pctOf - CARS[c].soc) / 100) * CARS[c].cap), 0);
+    const late = s.day === 'today' && NOWH > s.time;
+
+    return {
+      two, one: !two, carChips, tiles,
+      panel: { now: s.panel === 'now', climate: s.panel === 'climate', ready: s.panel === 'ready' },
+      house: two ? '/_blob/3aab3176099449b4b63a45823550eb38' : '/_blob/7b28ce02feec2fbf2839221537b8ff75',
+      nowOn: allNow, nowTitle, nowSub, nowSliders, nowPresets,
+      nowRow: `display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px; border-radius: 18px; border: 0; background: ${allNow ? 'rgba(245,185,74,.14)' : '#1f242e'}`,
+      switchTrack: `flex: none; width: 52px; height: 30px; border-radius: 15px; position: relative; background: ${allNow ? '#f5b94a' : '#3a414d'}`,
+      switchKnob: `position: absolute; top: 3px; left: ${allNow ? 25 : 3}px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.35); transition: left .2s`,
+      toggleNow: () => { const n = { ...s.now }; sel.forEach((c) => { n[c] = !allNow; }); this.setState({ now: n, toast: !allNow ? `${both ? 'Begge biler' : CARS[sel[0]].short} lader nu` : 'Tilbage til planen' }); },
+      clim,
+      tempDown: () => this.setState({ temp: Math.max(16, s.temp - 0.5) }),
+      tempUp: () => this.setState({ temp: Math.min(28, s.temp + 0.5) }),
+      climOn: s.climOn, climDep: s.climDep,
+      climNowLabel: s.climOn ? 'Stop klima' : 'Start nu',
+      climDepLabel: s.climDep ? 'Klar til afgang ✓' : 'Klar til afgang',
+      climNowStyle: btn(s.climOn, true), climDepStyle: btn(s.climDep, false),
+      climateNow: () => this.setState({ climOn: !s.climOn, toast: !s.climOn ? `Klima kører · ${s.temp.toFixed(1).replace('.', ',')}°` : '' }),
+      climateDep: () => this.setState({ climDep: !s.climDep }),
+      isToday: s.day === 'today', isTomorrow: s.day === 'tomorrow',
+      todayStyle: seg(s.day === 'today'), tomorrowStyle: seg(s.day === 'tomorrow'),
+      setToday: () => this.setState({ day: 'today', time: 18, toast: '' }),
+      setTomorrow: () => this.setState({ day: 'tomorrow', time: 9, toast: '' }),
+      times,
+      isAuto: s.mode === 'auto', isFast: s.mode === 'fast',
+      autoStyle: seg(s.mode === 'auto'), fastStyle: seg(s.mode === 'fast'),
+      fastLabel: s.mode === 'fast' ? `Fast ${s.pct} %` : 'Fast mål',
+      setAuto: () => this.setState({ mode: 'auto' }), setFast: () => this.setState({ mode: 'fast' }),
+      pctDown: () => this.setState({ pct: Math.max(50, s.pct - 5) }), pctUp: () => this.setState({ pct: Math.min(100, s.pct + 5) }),
+      pctBar: `position: absolute; left: 0; top: 0; bottom: 0; width: ${s.pct}%; border-radius: 5px; background: linear-gradient(90deg, #19b6a5, #6e4aff)`,
+      pctNow: `position: absolute; top: -4px; left: calc(${CARS[sel[0]].soc}% - 1px); width: 2px; height: 18px; border-radius: 1px; background: #fff; opacity: .7`,
+      saveLabel: `Klar ${when}${s.mode === 'fast' ? ' · ' + s.pct + ' %' : ''}`,
+      save: () => { if (late) return; const r = { ...s.ready }; sel.forEach((c) => { r[c] = when; }); this.setState({ ready: r, toast: `${both ? 'Begge' : CARS[sel[0]].short} klar ${when} · kun denne gang` }); },
+      readyNote: late ? 'Det tidspunkt er passeret – vælg et senere.' : need > 0 ? `Lader ca. ${(Math.round(need * 10) / 10).toString().replace('.', ',')} kWh i de billigste timer før ${when}.` : 'Har nok i forvejen.',
+      toast: !!s.toast, toastText: s.toast,
+    };
+  }
+}
+</script>
+</body>
+</html>
