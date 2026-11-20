@@ -16260,6 +16260,13 @@ nav.tabs button:focus-visible { outline: 2px solid var(--x-acc); outline-offset:
 .app > .qfab[hidden] { display: none; }
 .app > .qfab:active { transform: scale(.94); }
 .app > .qfab .xi { width: 28px; height: 28px; }
+/* On a phone the sub-menus (Learning's pages, a car's Now/Rules/History) sit just above the floating tab bar,
+   not behind it; the quick button and the page's end make room for them. */
+@media (max-width: 860px) {
+  .app .car-views, .app .hist-views { left: 16px; right: 16px; bottom: calc(var(--evp-tabbar, 66px) + 28px + var(--evp-safe-bottom)); z-index: 12; border-radius: 18px; }
+  .app .content:has(.car-views, .hist-views, .insight-host) { padding-bottom: calc(var(--evp-tabbar, 66px) + 110px + var(--evp-safe-bottom)); }
+  .app:has(.car-views, .hist-views) > .qfab { bottom: calc(160px + var(--evp-safe-bottom)); }
+}
 .app > .qfab.open { z-index: 23; }
 
 /* ---------- the cards */

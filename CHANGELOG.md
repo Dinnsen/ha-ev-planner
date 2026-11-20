@@ -2,6 +2,13 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b51] - 2026-11-20
+
+### Fixed
+
+- **Learning's pages on a phone** (Overview and the others): the menu lay behind the floating tab bar; it now sits just above it, with the quick button above the menu and room at the page's end.
+- **The home-screen app's end**: where iOS still draws its own status bar above the page, the app was made as tall as the screen, so the end of every page lay below the screen. It is only made taller where the page really runs up under the status bar.
+
 ## [2.5.0b50] - 2026-11-20
 
 ### Added

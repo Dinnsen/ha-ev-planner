@@ -62,8 +62,15 @@ const msg = document.getElementById("msg");
 const wrap = document.getElementById("wrap");
 
 // On an iPhone's home screen: as tall as the screen, also where iOS gives the page a shorter viewport.
+// Only when the page really runs up under the status bar (it has a top inset): where iOS still draws its own
+// bar above the page (an icon added before the status bar setting), a box as tall as the screen would hide
+// the page's end below the screen.
+const probe = document.createElement("div");
+probe.style.cssText = "position:fixed;top:0;left:0;width:0;height:env(safe-area-inset-top,0px);visibility:hidden;pointer-events:none";
+document.documentElement.appendChild(probe);
 function fit() {
   if (!navigator.standalone || !/iPhone|iPod/.test(navigator.userAgent)) return;
+  if (!probe.offsetHeight) { root.style.removeProperty("--app-h"); return; }
   const portrait = innerHeight >= innerWidth;
   const full = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
   root.style.setProperty("--app-h", `${Math.max(innerHeight, full)}px`);

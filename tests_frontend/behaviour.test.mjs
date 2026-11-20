@@ -966,6 +966,10 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     await page.evaluate(() => window.harness.panel._setTab("history"));
     assert.equal(await read('.learn-views button[aria-selected="true"]', "data-value"), "learned");
     assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".learn-views button.dim").length), 2);
+    // On a phone Learning's pages sit above the floating tab bar, not behind it, and the quick button above them.
+    const box = await page.evaluate(() => { const r = window.harness.panel.shadowRoot; const b = (s) => r.querySelector(s).getBoundingClientRect(); return { views: b(".learn-views"), nav: b(".app > nav.tabs"), fab: b(".app > .qfab") }; });
+    assert.ok(box.views.bottom <= box.nav.top, `${box.views.bottom} > ${box.nav.top}`);
+    assert.ok(box.fab.bottom <= box.views.top, `${box.fab.bottom} > ${box.views.top}`);
     await tap('[data-act="hist-view"][data-value="cars"]');
     assert.match(await read(".hist-page .hint"), /Insight/);
     assert.equal((await calls("insight")).length, 0);
