@@ -635,6 +635,32 @@ function swipe(page, selector, dx, dy) {
   );
 }
 
+test("Forside: a car in tonight's card opens its page on the Cars tab", async () => {
+  await withPanel("two-cars", { size: { width: 390, height: 844 } }, async ({ page, read }) => {
+    assert.equal(await read('.tabs button[aria-selected="true"]', "data-tab"), "front");
+    await page.evaluate(() => window.harness.panel.shadowRoot.querySelector('.x-front .x-tn-car[data-id="tesla_model_y"]').click());
+    assert.equal(await page.evaluate(() => [window.harness.panel._tab, window.harness.panel._carId].join()), "cars,tesla_model_y");
+    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector('.car-page[data-id="tesla_model_y"]')), "the car's page is shown");
+  });
+});
+
+test("on a phone Insight's row of pages sits above the floating tab bar", async () => {
+  const state = fixture("two-cars");
+  const [a, b] = state.vehicles.map((v) => v.id);
+  const detail = { week: Array.from({ length: 7 }, (_, i) => ({ p50: 5 + i, p90: 20 + i })) };
+  const insight = { enabled: true, cars: { [a]: { name: "Renault", days: 34 }, [b]: { name: "Tesla", days: 20 } }, detail: { [a]: detail, [b]: detail }, score: { scored: 4, rate: 0.86, saved: 214 } };
+  await withPanel({ ...state, settings: { ...state.settings, insight: true } }, { size: { width: 390, height: 844 } }, async ({ page }) => {
+    await page.evaluate((data) => { window.harness.insight = data; }, insight);
+    await page.evaluate(() => window.harness.panel._setTab("history"));
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector("ev-planner-insight")?.shadowRoot.querySelector("nav.tabs button"), null, { timeout: 8000 });
+    const [row, bar] = await page.evaluate(() => {
+      const root = window.harness.panel.shadowRoot;
+      return [root.querySelector("ev-planner-insight").shadowRoot.querySelector("nav.tabs").getBoundingClientRect().bottom, root.querySelector(".app > nav.tabs").getBoundingClientRect().top];
+    });
+    assert.ok(row <= bar, `the row (${row}) ends above the bar (${bar})`);
+  });
+});
+
 test("a swipe to the side changes the tab, and a scroll up and down does not", async () => {
   await withPanel("two-cars", { size: { width: 390, height: 844 } }, async ({ page, read }) => {
     const tab = () => read('.tabs button[aria-selected="true"]', "data-tab");
@@ -805,13 +831,18 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     await page.route("**/api/map_tiles/raster/**", (route) => { tiles.push(route.request().url()); return route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"/>' }); });
     await page.evaluate(([data, rows, past]) => { window.harness.insight = data; window.harness.statistics = rows; window.harness.history = past; window.harness.hass.config = { latitude: 55, longitude: 10 }; }, [insight, statistics, history]);
     await page.evaluate(() => window.harness.panel._setTab("history"));
+    // Overview is kept but not shown in the row (Forside has it): it is opened from here to be tested.
+    const overview = () => page.evaluate(() => { window.harness.panel.shadowRoot.querySelector("ev-planner-insight").tab = "plan"; });
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector("ev-planner-insight"));
+    await overview();
     // The learning centre is a page of its own, fetched now: tonight in a picture, the timeline and three answers.
     const inside = (fn, arg) => page.evaluate(([code, value]) => new Function("root", "value", `return (${code})(root, value)`)(window.harness.panel.shadowRoot.querySelector("ev-planner-insight").shadowRoot, value), [fn.toString(), arg]);
     await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector("ev-planner-insight")?.shadowRoot.querySelector("#tl svg"));
     await page.waitForFunction(() => window.harness.calls.some((c) => c.type === "recorder/statistics_during_period"));
     await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector("ev-planner-insight").shadowRoot.querySelectorAll("#tl circle").length > 0);
     assert.equal((await calls("insight")).length, 1);
-    assert.equal(await inside((root) => root.querySelectorAll("nav.tabs button").length), 5);
+    assert.equal(await inside((root) => root.querySelectorAll("nav.tabs button").length), 4);
+    assert.equal(await inside((root) => root.querySelector('nav.tabs [data-tab="plan"]')), null, "Overview is not in the row");
     assert.match(await inside((root) => root.querySelector("#hero .hero").textContent), /Tesla/);
     assert.equal(await inside((root) => root.querySelectorAll("#hero svg clipPath").length), 2, "both cars are drawn by their sides");
     assert.ok(await inside((root) => root.querySelector("#hero #h-cab").getAttribute("d")), "the cable is drawn");
@@ -944,7 +975,7 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     assert.ok(await inside((root) => root.querySelectorAll("#tl-sheet .strip i").length > 80));
     await tap("ev-planner-insight #tl-close");
     // An answer opens a sheet; from it the history is one tap away, with a way back to where one was.
-    await tap('ev-planner-insight [data-tab="plan"]');
+    await overview();
     await tap('ev-planner-insight .tl-q[data-tlsheet="kost"]');
     assert.equal(await inside((root) => root.querySelector("#tl-sheet").hidden), false);
     await tap('ev-planner-insight #tl-sheet [data-open="history"]');
@@ -956,7 +987,7 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector("ev-planner-insight")?.shadowRoot.querySelector("#tl svg"));
     await tap('ev-planner-insight [data-tab="laer"]');
     assert.equal(await inside((root) => root.querySelector('#tabs button.on').dataset.tab), "laer");
-    await tap('ev-planner-insight [data-tab="plan"]');
+    await overview();
     // Fetched once a minute, not for every look (and once more after the choice of how careful). No sideways scroll on a phone.
     assert.equal((await calls("insight")).length, 2);
     assert.equal(await page.evaluate(() => window.harness.calls.filter((c) => c.type === "recorder/statistics_during_period").length), 1);

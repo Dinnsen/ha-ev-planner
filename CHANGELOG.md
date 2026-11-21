@@ -2,6 +2,17 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b53] - 2026-11-21
+
+### Fixed
+
+- **Forside: the cars in tonight's card** open the car's page on the Cars tab (they did nothing).
+- **Learning's row of pages on a phone** (with Insight on) lay behind the floating tab bar; it now sits just above it, as the other sub-menus do.
+
+### Changed
+
+- **Learning's Overview is hidden**: Forside shows the evening now. The page is kept, only taken out of the row; Learning opens on Driving.
+
 ## [2.5.0b52] - 2026-11-21
 
 ### Added

@@ -37,7 +37,7 @@ nav.tabs div { display: flex; gap: 6px; width: max-content; }
 nav.tabs button { font: 600 14px "Space Grotesk", Inter, sans-serif; border: 0; background: transparent; color: var(--soft); padding: 9px 15px; border-radius: 999px; cursor: pointer; white-space: nowrap; display: flex; gap: 7px; align-items: center; }
 nav.tabs button.on { background: var(--ink); color: var(--card); }
 /* On a phone the tabs sit just above the panel's tab bar, where a thumb is (--evp-tabbar comes from the panel). */
-@media (max-width: 860px) { nav.tabs { position: fixed; top: auto; left: 10px; right: 10px; bottom: calc(var(--evp-tabbar, 62px) + 8px); margin: 0; padding: 4px; background: var(--card); border: 1px solid var(--line); box-shadow: 0 6px 22px rgba(0, 0, 0, .14); backdrop-filter: none; -webkit-backdrop-filter: none; border-radius: 16px; } nav.tabs #tabs { display: flex; justify-content: space-between; gap: 2px; } nav.tabs button { flex: 1 1 auto; justify-content: center; padding: 8px 6px; font-size: 13px; } nav.tabs button i { display: none; } }
+@media (max-width: 860px) { nav.tabs { position: fixed; top: auto; left: 16px; right: 16px; bottom: var(--evp-subbar, calc(var(--evp-tabbar, 62px) + 8px)); z-index: 12; margin: 0; padding: 4px; background: var(--card); border: 1px solid var(--line); box-shadow: 0 6px 22px rgba(0, 0, 0, .14); backdrop-filter: none; -webkit-backdrop-filter: none; border-radius: 16px; } nav.tabs #tabs { display: flex; justify-content: space-between; gap: 2px; } nav.tabs button { flex: 1 1 auto; justify-content: center; padding: 8px 6px; font-size: 13px; } nav.tabs button i { display: none; } }
 nav.tabs button i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; }
 nav.tabs button.dim i { background: var(--faint); }
 @media (max-width: 860px) { nav.tabs button i { display: none; } }
@@ -477,7 +477,8 @@ function boot(host, root) {
   const $ = (s, r = root) => r.querySelector(s), $$ = (s, r = root) => [...r.querySelectorAll(s)];
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const css = (n) => getComputedStyle(host).getPropertyValue(n).trim();
-  const S = { tab: "plan", car: null, view: "fan", T: null, pickTrip: null };
+  // Overview ("plan") is kept, but not shown: Forside has it (2.5.0b53). Driving is the first page.
+  const S = { tab: "bil", car: null, view: "fan", T: null, pickTrip: null };
   const tlS = { z: 1, day: 0, left: null, at: null };
   const charts = {};
   let IN = null, DATA = {}, da = true, built = false, wrap = null, raf = 0;
@@ -1637,7 +1638,7 @@ function boot(host, root) {
 
   /* ---------- the whole page */
   // History is a tab of its own as well: the panel draws it (the charges, by car and by charger).
-  const TABS = () => [["plan", tr("Overblik", "Overview")], ["bil", tr("Kørsel", "Driving")], ["pris", tr("Priser", "Prices")], ["lad", tr("Ladning", "Charging")], ["laer", tr("Lært", "Learned")]];
+  const TABS = () => [["bil", tr("Kørsel", "Driving")], ["pris", tr("Priser", "Prices")], ["lad", tr("Ladning", "Charging")], ["laer", tr("Lært", "Learned")]];
   const GROUP = { plan: ["plan"], bil: ["bil"], pris: ["pris"], lad: ["lad"], laer: ["laer", "forud"] };
   const PANELS = ["plan", "bil", "pris", "lad", "laer", "forud"];
   function render(calm = false) {

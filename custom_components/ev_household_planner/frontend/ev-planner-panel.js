@@ -11257,7 +11257,7 @@ class EvPlannerPanel extends HTMLElement {
     const own = (k) => k === "history" || k === "learned";
     const view = past ? "history" : insightOn ? "learned" : this._histView === "learned" || !(this._histView in parts) ? "learned" : this._histView;
     // With Insight on, the history is the last of Insight's tabs: the same row, the others lead back to Insight.
-    const insightTabs = [["plan", "insight_v_sum"], ["bil", "insight_v_cars"], ["pris", "insight_v_prices"], ["lad", "insight_v_charge"], ["laer", "insight_v_learn"]];
+    const insightTabs = [["bil", "insight_v_cars"], ["pris", "insight_v_prices"], ["lad", "insight_v_charge"], ["laer", "insight_v_learn"]];
     const switcher = past
       ? ""
       : insightOn
@@ -12746,7 +12746,9 @@ class EvPlannerPanel extends HTMLElement {
         break;
       }
       case "open-car":
-        this._openCar(id);
+        // From Forside and Huset a car opens on the Cars tab, as from the Cars page.
+        if (id && this._tab !== "cars" && this._tab !== "settings") { this._openCar(id, { render: false }); this._setTab("cars"); }
+        else this._openCar(id);
         break;
       case "week-day": {
         const day = button.dataset.day;
@@ -16702,7 +16704,9 @@ nav.tabs button:focus-visible { outline: 2px solid var(--x-acc); outline-offset:
 @media (max-width: 860px) {
   .app .car-views, .app .hist-views { left: 16px; right: 16px; bottom: calc(var(--evp-tabbar, 66px) + 28px + var(--evp-safe-bottom)); z-index: 12; border-radius: 18px; }
   .app .content:has(.car-views, .hist-views, .insight-host) { padding-bottom: calc(var(--evp-tabbar, 66px) + 110px + var(--evp-safe-bottom)); }
-  .app:has(.car-views, .hist-views) > .qfab { bottom: calc(160px + var(--evp-safe-bottom)); }
+  .app:has(.car-views, .hist-views, .insight-host) > .qfab { bottom: calc(160px + var(--evp-safe-bottom)); }
+  /* Insight's own row of pages (its own shadow root) sits where Learning's row sits. */
+  .app { --evp-subbar: calc(var(--evp-tabbar, 66px) + 28px + var(--evp-safe-bottom)); }
 }
 .app > .qfab.open { z-index: 23; }
 
