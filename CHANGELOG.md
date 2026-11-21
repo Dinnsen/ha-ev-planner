@@ -2,6 +2,21 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b55] - 2026-11-21
+
+### Added
+
+- **Forside's day, as a scene**: the road through the next day and a half under a sky that turns from night to day; the house at now with the cars by it (a car that is out drives), each car's charging as light running along its lane from the charger, each departure the car setting off with its time and level, the road's edge in the hour's price colour. Today and tomorrow in a line each under it. Tonight's card is Biler's.
+- **Husets ur on Huset**: today as a clock, a petal an hour, as in The house's day: what the house bought, the cars' part in their colours, the typical day and the planned charging for the hours to come, the hour's price as a ring; tap an hour for its figures. For every house, with or without sun, battery or heat pump.
+
+### Changed
+
+- **Learning's "saved the last 30 days"** counts the charging at home against each day's mean price, as Learning's Charging page does; it showed only what waiting a night had saved, which was nothing.
+- **The next day's prices** (tonight's card): each hour in its price's colour.
+- **Tonight's card**: the price on one line, smaller levels, the boxes' tags as soft chips; no "0 kr." for a charge that costs nothing.
+- **Forside**: the cars' card is gone (the day and the departures show it).
+- **The quick menu** reads plainly in the light look: a chosen tile is ringed in ink, an active one keeps its colour with white text.
+
 ## [2.5.0b54] - 2026-11-21
 
 ### Added

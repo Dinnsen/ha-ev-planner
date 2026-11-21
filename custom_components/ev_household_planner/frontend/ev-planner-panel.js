@@ -34,6 +34,26 @@ const TEXT = {
     x_theme_light: "Lys",
     x_theme_dark: "Mørk",
     x_theme_sky: "Himmel",
+    x_day_title: "Døgnet",
+    x_clock_title: "Husets ur",
+    x_clock_house: "Huset",
+    x_clock_kwh_today: "kWh i dag",
+    x_clock_was: "brugt",
+    x_clock_will: "ventet",
+    x_clock_quiet: "En stille time.",
+    x_clock_ring: "Ringen: timens pris",
+    x_day_now: "Nu",
+    x_day_today: "I dag",
+    x_day_tomorrow: "I morgen",
+    x_day_charging: "{car} lader",
+    x_day_idle: "Ingen lader lige nu",
+    x_day_house: "Huset {kw}",
+    x_day_charge: "{car} lader {from}–{to}",
+    x_day_dep: "{car} kører {time}",
+    x_day_quiet: "Ingen ladning og ingen afgang",
+    x_tier_lo: "billig",
+    x_tier_mid: "normal",
+    x_tier_hi: "dyr",
     x_arc_now: "nu {price}",
     x_charges: "lader {when}",
     x_waits: "venter til {day} nat",
@@ -175,7 +195,7 @@ const TEXT = {
     x_ins_typical: "Typisk kørsel pr. ugedag",
     x_ins_higher: "højere søjle = flere kWh",
     x_ins_tonight: "DET GØR DEN I NAT",
-    x_ins_saved: "sparet de sidste 30 dage",
+    x_ins_saved: "sparet de sidste 30 dage mod døgnets snitpris",
     x_ins_on: "styrer opladningen",
     x_ins_off: "lærer kun",
     x_ins_foot_on: "Slår du Insight fra, lader bilerne efter ugeplanens faste mål. Den bliver ved med at lære, så du kan slå den til igen.",
@@ -932,6 +952,26 @@ const TEXT = {
     x_theme_light: "Light",
     x_theme_dark: "Dark",
     x_theme_sky: "Sky",
+    x_day_title: "The day",
+    x_clock_title: "The house's clock",
+    x_clock_house: "House",
+    x_clock_kwh_today: "kWh today",
+    x_clock_was: "used",
+    x_clock_will: "expected",
+    x_clock_quiet: "A quiet hour.",
+    x_clock_ring: "The ring: the hour's price",
+    x_day_now: "Now",
+    x_day_today: "Today",
+    x_day_tomorrow: "Tomorrow",
+    x_day_charging: "{car} charging",
+    x_day_idle: "Nothing charging now",
+    x_day_house: "House {kw}",
+    x_day_charge: "{car} charges {from}–{to}",
+    x_day_dep: "{car} leaves {time}",
+    x_day_quiet: "No charging and no departure",
+    x_tier_lo: "cheap",
+    x_tier_mid: "normal",
+    x_tier_hi: "dear",
     x_arc_now: "now {price}",
     x_charges: "charges {when}",
     x_waits: "waits until {day} night",
@@ -1073,7 +1113,7 @@ const TEXT = {
     x_ins_typical: "Typical driving per weekday",
     x_ins_higher: "higher bar = more kWh",
     x_ins_tonight: "WHAT IT DOES TONIGHT",
-    x_ins_saved: "saved the last 30 days",
+    x_ins_saved: "saved the last 30 days against the day's mean price",
     x_ins_on: "steers the charging",
     x_ins_off: "only learns",
     x_ins_foot_on: "If you turn Insight off, the cars charge to the week plan's fixed targets. It keeps learning, so you can turn it on again.",
@@ -7181,6 +7221,10 @@ class EvPlannerPanel extends HTMLElement {
     this._xMountMini();
     // The street is a picture: whatever goes wrong drawing it must not stop the page.
     try { this._xStreetMount(); } catch (err) { console.error("EV Planner: the street", err); }
+    if (this._tab === "front") {
+      const sc = content.querySelector(".x-dscene");
+      if (sc) { try { ClayScene.paintPreview(sc); } catch (_err) { /* a picture */ } }
+    }
     if ((this._tab === "cars" && !car) || this._tab === "home" || this._tab === "front") this._paintTonight();
     if (this._quick && !this.shadowRoot.activeElement?.matches?.('[data-q="to"]')) this._renderQuick();
     if (this._xInsight) this._xInsightRender();
@@ -11159,6 +11203,7 @@ class EvPlannerPanel extends HTMLElement {
     if (fresh) return;
     await this._loadHouse("day", 0);
     this._patch(this.shadowRoot.querySelector(".home-today .today-body"), `today:${this._houseAt?.[key]}:${this._lang}`, this._xTodayBody());
+    this._patch(this.shadowRoot.querySelector(".home-clock .clock-body"), `clock:${this._houseAt?.[key]}:${this._xClockH ?? "now"}:${this._lang}`, this._xClockBody());
   }
 
   // ------------------------------------------------------------------ the history
@@ -12724,6 +12769,12 @@ class EvPlannerPanel extends HTMLElement {
     }
     switch (act) {
       // ---- the pages as drawn (2.5.0b48)
+      case "x-clock": {
+        const body = this.shadowRoot.querySelector(".home-clock .clock-body");
+        this._xClockH = Number(button.dataset.h);
+        if (body) body.innerHTML = this._xClockBody();
+        break;
+      }
       case "x-tab":
         if (button.dataset.tab === "cars" && this._carId) this._openCar(null);
         else this._setTab(button.dataset.tab);
@@ -13753,8 +13804,8 @@ Object.assign(EvPlannerPanel.prototype, {
       const setup = this._setupHtml();
       return `${this._xFrontTop()}<div class="x-wrap x-front">${setup || `<section class="x-card x-empty">${MARK}<h2>${this._t("no_cars_title")}</h2><p>${this._t("no_cars_text")}</p></section>`}</div>`;
     }
-    const tonight = this._xTonightCard();
-    return `${this._xFrontTop()}<div class="x-wrap x-front">${this._setupHtml()}${this._xIssueCard()}${tonight ? `<div class="x-lift">${tonight}</div>` : ""}${this._xFrontDeps()}${this._xFrontCars()}${this._xFrontTiles()}</div>`;
+    const day = this._xDayCard();
+    return `${this._xFrontTop()}<div class="x-wrap x-front">${this._setupHtml()}${this._xIssueCard()}${day ? `<div class="x-lift">${day}</div>` : ""}${this._xFrontDeps()}${this._xFrontTiles()}</div>`;
   },
 
   /* The next departures of all the cars, as tiles: day, time, car and the level it leaves with. */
@@ -13801,6 +13852,207 @@ Object.assign(EvPlannerPanel.prototype, {
     }
     tiles.push(`<button class="x-tile learn" data-act="x-tab" data-tab="history"><small>${XSPARK} ${esc(this._t("tab_history"))}</small><b class="x-disp">${esc(this._t("x_front_learn"))}</b><span>${esc(this._t("x_front_learn_sub"))}</span></button>`);
     return `<section class="x-tiles">${tiles.join("")}</section>`;
+  },
+
+  // ------------------------------------------------------------------ Forside's day (2.5.0b55)
+
+  /* Forside's day as a scene (2.5.0b55): the road through the next day and a half, the sky turning from night
+     to day over it. The house stands at now; each car's charging is light running along its lane, each
+     departure the car itself setting off with its time and level; the road's edge glows in the hour's price
+     colour. What is happening now moves: a charging car's cable runs with light, a car that is out drives. */
+  _xDayScene({ cars, charges, deps, price, lo, hi, nowH, day0, rise, set }) {
+    const W = 960, Hh = 236, from = nowH - 4, to = from + 34;
+    const X = (h) => ((h - from) / (to - from)) * W;
+    const f1 = (v) => v.toFixed(1);
+    const pad = (h) => String(((Math.floor(h) % 24) + 24) % 24).padStart(2, "0");
+    const R = Number.isFinite(rise) ? rise : 8, S = Number.isFinite(set) ? set : 16.2;
+    // The sky: a stop every hour, by where the hour lies against sunrise and sunset.
+    const light = this._xDark() ? 0 : 1;
+    const skyAt = (h) => {
+      const t = ((h % 24) + 24) % 24;
+      const day = t > R + 1 && t < S - 1, dusk = Math.abs(t - S) <= 1, dawn = Math.abs(t - R) <= 1;
+      if (day) return light ? "#bfe0fb" : "#4d78b8";
+      if (dusk) return light ? "#f6c39b" : "#a35a6c";
+      if (dawn) return light ? "#f3c8c8" : "#6b4a86";
+      return light ? "#3a4677" : "#0b1030";
+    };
+    const stops = [];
+    for (let h = Math.floor(from); h <= Math.ceil(to); h += 1) stops.push(`<stop offset="${Math.max(0, Math.min(1, (h - from) / (to - from))).toFixed(4)}" stop-color="${skyAt(h)}"/>`);
+    // Stars over the night, the sun over each day, the moon in each night.
+    let sky = "";
+    for (let h = Math.ceil(from); h < to; h += 0.37) {
+      const t = ((h % 24) + 24) % 24;
+      if (t > R - 0.5 && t < S + 0.5) continue;
+      const y = 14 + ((h * 97) % 1) * 0 + ((Math.sin(h * 12.9898) * 43758.5453) % 1 + 1) % 1 * 96;
+      sky += `<circle class="x-ds-star" cx="${f1(X(h))}" cy="${f1(y)}" r="${(0.7 + ((h * 7) % 1) * 0.9).toFixed(2)}" style="animation-delay:${((h * 3) % 3).toFixed(2)}s"/>`;
+    }
+    for (let d = Math.floor(from / 24); d * 24 < to; d += 1) {
+      const noon = d * 24 + (R + S) / 2;
+      if (noon > from && noon < to) sky += `<g class="x-ds-sun" transform="translate(${f1(X(noon))} 46)"><circle r="26" class="glow"/><circle r="13"/></g>`;
+      const night = d * 24 + 24 + (R - (24 - S)) / 2;
+      if (night > from && night < to) sky += `<g class="x-ds-moon" transform="translate(${f1(X(night))} 40)"><circle r="20" class="glow"/><path d="M4 -11a11 11 0 1 0 7 19a9 9 0 0 1 -7 -19z"/></g>`;
+    }
+    // Midnight: the line between today and tomorrow.
+    const midX = X(24);
+    const days = `${midX > 40 && midX < W - 40 ? `<line class="x-ds-mid" x1="${f1(midX)}" x2="${f1(midX)}" y1="8" y2="${Hh - 8}"/><text class="x-ds-day" x="${f1(midX + 8)}" y="22">${esc(this._t("x_day_tomorrow"))}</text>` : ""}<text class="x-ds-day" x="${f1(Math.max(8, X(from) + 8))}" y="22">${esc(this._t("x_day_today"))}</text>`;
+    // The ground and the road; the road's edge in the price's colour, hour by hour.
+    const roadY = 176, laneH = 13;
+    const ground = `<path class="x-ds-hill b" d="M0 150 C 140 128 260 156 400 140 S 680 128 960 146 L960 ${Hh} L0 ${Hh}Z"/><path class="x-ds-hill" d="M0 160 C 180 150 300 166 480 156 S 760 150 960 160 L960 ${Hh} L0 ${Hh}Z"/>`;
+    const road = `<rect class="x-ds-road" x="0" y="${roadY - 10}" width="${W}" height="${cars.length * laneH + 20}" rx="6"/><line class="x-ds-dash" x1="0" x2="${W}" y1="${roadY + (cars.length * laneH) / 2}" y2="${roadY + (cars.length * laneH) / 2}"/>`;
+    let edge = "";
+    for (let k = 0; k < 48; k += 1) {
+      const x = price[k];
+      if (!x) continue;
+      const a = Math.max(from, k), b = Math.min(to, k + 1);
+      if (b <= a) continue;
+      edge += `<rect class="x-ds-edge ${X_TIER(x.p, lo, hi)}${x.fc ? " fc" : ""}" x="${f1(X(a))}" y="${roadY - 13}" width="${f1(X(b) - X(a) - 1)}" height="3" rx="1.5"/>`;
+    }
+    const ticks = [];
+    for (let h = Math.ceil(from / 3) * 3; h <= to; h += 3) ticks.push(`<text class="x-ds-tick" x="${f1(X(h))}" y="${Hh - 6}" text-anchor="middle">${pad(h)}</text>`);
+    // The charging: light running along each car's lane, from the charger at its start.
+    let lanes = "", carsArt = "";
+    cars.forEach((v, ci) => {
+      const col = this._carColor(this._cars.indexOf(v));
+      const y = roadY + ci * laneH + laneH / 2;
+      for (const c of charges[ci]) {
+        const a = Math.max(from, c.a), b = Math.min(to, c.b);
+        if (b - a < 0.05) continue;
+        const x0 = X(a), x1 = X(b);
+        lanes += `<g class="x-ds-chg${c.done ? " done" : ""}${c.live ? " live" : ""}" style="--car:${col}"><line class="glow" x1="${f1(x0)}" x2="${f1(x1)}" y1="${f1(y)}" y2="${f1(y)}"/><line class="core" x1="${f1(x0)}" x2="${f1(x1)}" y1="${f1(y)}" y2="${f1(y)}"/>${c.done ? "" : `<line class="flow" x1="${f1(x0)}" x2="${f1(x1)}" y1="${f1(y)}" y2="${f1(y)}"/>`}
+          ${c.done ? "" : `<g transform="translate(${f1(x0)} ${f1(y - 30)})"><rect class="post" x="-4" y="0" width="8" height="24" rx="2.5"/><rect class="screen" x="-2.5" y="3" width="5" height="4" rx="1"/></g>`}
+          ${x1 - x0 > 46 && !c.done ? `<text class="x-ds-lab" x="${f1((x0 + x1) / 2)}" y="${f1(y - 7)}" text-anchor="middle">${pad(c.a)}–${pad(c.b)}</text>` : ""}</g>`;
+      }
+      // The departures: the car itself, setting off.
+      const body = ClayScene.BODIES.includes(v.settings?.body) ? v.settings.body : "sedan";
+      const pv = (x, yy, w, cls) => ClayScene.preview(body, v.settings?.paint === "black" ? "black" : "white").replace(/<rect[^>]*url\(#cs-bg\)[^>]*\/>/, "").replace("<svg ", `<svg class="${cls}" x="${f1(x)}" y="${f1(yy)}" width="${w}" height="${(w * 124) / 190}" `);
+      for (const d of deps[ci]) {
+        if (d.h < from || d.h > to) continue;
+        const x = X(d.h);
+        carsArt += `<g class="x-ds-dep" data-act="open-car" data-id="${esc(v.id)}" style="--car:${col}">${pv(x - 10, y - 40, 66, "x-ds-car go")}
+          <g class="x-ds-flag" transform="translate(${f1(x + 22)} ${f1(y - 62)})"><rect x="-30" y="-12" width="60" height="18" rx="9"/><text x="0" y="1" text-anchor="middle">${esc(this._hhmm(d.time))}${isNum(d.pct) ? ` · ${Math.round(d.pct)}%` : ""}</text></g></g>`;
+      }
+      // Now: a car that is home stands by the house, one that is out drives at the road's end of now.
+      const out = v.home === false || v.elsewhere === true;
+      const nx = X(nowH);
+      carsArt += `<g class="x-ds-now-car${out ? " out" : ""}${v.charging ? " charging" : ""}" data-act="open-car" data-id="${esc(v.id)}" style="--car:${col}">${pv(out ? nx + 64 + ci * 40 : nx + 26 + ci * 34, out ? y - 40 : 96 + ci * 10, out ? 58 : 64, `x-ds-car${out ? " drive" : ""}`)}${v.charging ? `<path class="x-ds-cable" d="M${f1(nx + 8)} 132 C ${f1(nx + 20)} 150, ${f1(nx + 40 + ci * 34)} 150, ${f1(nx + 52 + ci * 34)} ${f1(128 + ci * 10)}"/>` : ""}</g>`;
+    });
+    // The house at now, with the light of now.
+    const kind = ClayScene.HOUSES.includes(this._state.settings?.house) ? this._state.settings.house : ClayScene.HOUSES[0];
+    const house = ClayScene.housePreview(kind).replace("<svg ", `<svg class="x-ds-house" x="${f1(X(nowH) - 92)}" y="78" width="120" height="75" `);
+    const charging = cars.some((v) => v.charging);
+    const nowX = X(nowH);
+    const beam = `<g class="x-ds-now${charging ? " charging" : ""}"><rect class="beam" x="${f1(nowX - 14)}" y="0" width="28" height="${Hh}"/><line x1="${f1(nowX)}" x2="${f1(nowX)}" y1="0" y2="${Hh}"/><circle cx="${f1(nowX)}" cy="${roadY - 12}" r="5"/></g>`;
+    return `<div class="x-dscene" data-noswipe><svg viewBox="0 0 ${W} ${Hh}" width="${W}" height="${Hh}" role="img" aria-label="${esc(this._t("x_day_title"))}">
+      <defs><linearGradient id="x-ds-sky" x1="0" x2="1" y1="0" y2="0">${stops.join("")}</linearGradient>
+      <linearGradient id="x-ds-fade" x1="0" x2="0" y1="0" y2="1"><stop offset=".45" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></linearGradient></defs>
+      <rect x="0" y="0" width="${W}" height="${Hh}" fill="url(#x-ds-sky)"/><rect x="0" y="0" width="${W}" height="${Hh}" fill="url(#x-ds-fade)"/>
+      ${sky}${days}${ground}${road}${edge}${beam}${house}${lanes}${carsArt}${ticks.join("")}
+    </svg></div>`;
+  },
+
+  /* Forside's own card: now, today and tomorrow as two bands of 24 hours. Each hour in its price's colour,
+     each car's charging as a capsule in the car's colour, each departure a flag, the sun's day, and now.
+     Tonight's card (with the cars by the charger) stays on Biler. */
+  _xDayCard() {
+    const cars = this._cars.filter((v) => (v.site ?? "home") === "home").slice(0, 4);
+    if (!cars.length) return "";
+    const now = znow();
+    const mid = ZD(now); mid.setHours(0, 0, 0, 0);
+    const day0 = mid.getTime();
+    const H = (ms) => (ms - day0) / 3600e3; // hours since today's midnight, wall time
+    const iso = (x) => ZD(x).getTime();
+    const pad = (h) => String(h).padStart(2, "0");
+    const nowH = H(now);
+    // The prices of the two days, hour by hour.
+    const slots = (this._state.prices || []).map((p) => [iso(p.start), Number(p.price), !!p.forecast]).filter(([, p]) => Number.isFinite(p));
+    const price = Array.from({ length: 48 }, (_, k) => {
+      const a = day0 + k * 3600e3, inside = slots.filter(([t]) => t >= a && t < a + 3600e3);
+      return inside.length ? { p: inside.reduce((t, [, p]) => t + p, 0) / inside.length, fc: inside.some(([, , f]) => f) } : null;
+    });
+    const known = price.filter(Boolean).map((x) => x.p);
+    const lo = known.length ? Math.min(...known) : 0, hi = known.length ? Math.max(...known) : 1;
+    // Each car's charging: what was charged today, and what is planned.
+    const charges = cars.map((v) => {
+      const done = (v.history || []).filter((e) => !e.elsewhere && e.end && iso(e.end) > day0 && iso(e.start) < now)
+        .flatMap((e) => (Array.isArray(e.periods) && e.periods.length ? e.periods : [{ start: e.start, end: e.end }]).map((p) => ({ a: H(iso(p.start)), b: H(iso(p.end)), done: true })));
+      const ahead = [];
+      const week = this._state.settings?.insight_use ? this._weekCharges(v) : [];
+      if (week.length) for (const c of week) ahead.push({ a: H(iso(c.start)), b: H(iso(c.end)), cost: c.cost, kwh: c.kwh, level: c.level });
+      else {
+        const plan = this._livePlan(v);
+        if (plan && hasSegments(plan)) for (const g of plan.segments) ahead.push({ a: H(iso(g.start)), b: H(iso(g.end)) });
+      }
+      if (v.charging && !ahead.some((c) => c.a <= nowH && c.b > nowH)) ahead.unshift({ a: nowH, b: nowH + 0.5, live: true });
+      return [...done, ...ahead].filter((c) => c.b > 0 && c.a < 48 && c.b - c.a > 0.02).map((c) => ({ ...c, a: Math.max(0, c.a), b: Math.min(48, c.b), live: c.live || (c.a <= nowH && c.b > nowH && v.charging) }));
+    });
+    // Each car's departures in the two days.
+    const deps = cars.map((v) => (this._xDeps(v) || []).filter((d) => d.time && isNum(d.at)).map((d) => ({ h: H(d.at), time: d.time, pct: d.fixed ? d.pct : d.auto ?? d.pct, k: d.k })).filter((d) => d.h >= 0 && d.h < 48 && d.h > nowH - 2));
+    // The sun's day, where Home Assistant says when it rises and sets.
+    const sunAttr = this._hass?.states?.["sun.sun"]?.attributes || {};
+    const hourOf = (x) => { if (!x) return null; const d = ZD(x); return d.getHours() + d.getMinutes() / 60; };
+    const rise = hourOf(sunAttr.next_rising), set = hourOf(sunAttr.next_setting);
+    const pct = (h) => `${((h / 24) * 100).toFixed(2)}%`;
+    const band = (n) => {
+      const off = n * 24;
+      const cells = Array.from({ length: 24 }, (_, h) => { const x = price[off + h]; return `<i class="${x ? X_TIER(x.p, lo, hi) : "none"}${x?.fc ? " fc" : ""}" style="height:${x ? (30 + ((x.p - lo) / (hi - lo || 1)) * 70).toFixed(0) : 0}%"></i>`; }).join("");
+      const sky = rise !== null && set !== null && set > rise ? `<span class="x-dsun" style="left:${pct(rise)};width:${pct(set - rise)}"></span>` : "";
+      const caps = charges.map((list, ci) => list.filter((c) => c.b > off && c.a < off + 24).map((c) => {
+        const a = Math.max(c.a, off) - off, b = Math.min(c.b, off + 24) - off;
+        const v = cars[ci];
+        const label = b - a >= 2.2 ? `${pad(Math.floor(Math.max(c.a, off) - off) % 24)}–${pad(Math.round(Math.min(c.b, off + 24) - off) % 24)}` : "";
+        return `<button class="x-dcap${c.done ? " done" : ""}${c.live ? " live" : ""}" data-act="open-car" data-id="${esc(v.id)}" style="--car:${this._carColor(this._cars.indexOf(v))};left:${pct(a)};width:${pct(Math.max(0.35, b - a))};--lane:${ci}" aria-label="${esc(`${v.name} ${label}`)}"><span>${esc(label)}</span></button>`;
+      }).join("")).join("");
+      // Departures at the same time share one flag, a dot for each car.
+      const groups = [];
+      deps.forEach((list, ci) => list.filter((d) => d.h >= off && d.h < off + 24).forEach((d) => {
+        const g = groups.find((x) => Math.abs(x.h - d.h) < 1.2);
+        if (g) g.cars.push([ci, d]); else groups.push({ h: d.h, cars: [[ci, d]] });
+      }));
+      const flags = groups.map((g) => {
+        const [ci, d] = g.cars[0];
+        const v = cars[ci];
+        const dots = g.cars.length > 1 ? g.cars.map(([cj]) => `<i style="background:${this._carColor(this._cars.indexOf(cars[cj]))}"></i>`).join("") : "";
+        return `<button class="x-dflag" data-act="open-car" data-id="${esc(v.id)}" style="--car:${this._carColor(this._cars.indexOf(v))};left:${pct(Math.min(23.2, Math.max(0.8, g.h - off)))}" aria-label="${esc(g.cars.map(([cj, x]) => `${cars[cj].name} ${this._hhmm(x.time)}`).join(", "))}">${dots}<b class="x-num">${esc(this._hhmm(d.time))}</b>${g.cars.length === 1 && isNum(d.pct) ? `<small class="x-num">${Math.round(d.pct)} %</small>` : ""}</button>`;
+      }).join("");
+      const past = n === 0 ? `<span class="x-dpast" style="width:${pct(Math.min(24, nowH))}"></span><span class="x-dnow" style="left:${pct(Math.min(24, nowH))}"><i></i></span>` : "";
+      return `<div class="x-dtrack" style="--lanes:${cars.length}"><div class="x-dprice">${cells}</div>${sky}${past}${caps}${flags}</div>`;
+    };
+    // The day's line: what charges, and the departures.
+    const line = (n) => {
+      const off = n * 24, parts = [];
+      cars.forEach((v, ci) => {
+        const cs = charges[ci].filter((c) => !c.done && c.b > off && c.a < off + 24 && (n > 0 || c.b > nowH));
+        if (cs.length) {
+          const a = Math.min(...cs.map((c) => c.a)) - off, b = Math.max(...cs.map((c) => c.b)) - off;
+          const cost = cs.reduce((t, c) => t + (Number(c.cost) || 0), 0);
+          parts.push(this._t("x_day_charge", { car: v.name.split(" ")[0], from: pad(Math.max(0, Math.floor(a)) % 24), to: pad(Math.round(Math.min(24, b)) % 24) }) + (cost ? ` · ${this._money(cost, 0)}` : ""));
+        }
+        const d = deps[ci].find((x) => x.h >= off && x.h < off + 24);
+        if (d) parts.push(this._t("x_day_dep", { car: v.name.split(" ")[0], time: this._hhmm(d.time) }));
+      });
+      return parts.length ? parts.join(" · ") : this._t("x_day_quiet");
+    };
+    // Now: what charges, the price, the house.
+    const pNow = this._priceNow();
+    const tierNow = isNum(pNow) ? X_TIER(pNow, lo, hi) : null;
+    const charging = cars.filter((v) => v.charging);
+    const homeKw = this._state.home?.house_kw;
+    const chips = [
+      charging.length
+        ? charging.map((v) => `<span class="x-dchip on" style="--car:${this._carColor(this._cars.indexOf(v))}"><i></i>${esc(this._t("x_day_charging", { car: v.name.split(" ")[0] }))}</span>`).join("")
+        : `<span class="x-dchip"><i></i>${esc(this._t("x_day_idle"))}</span>`,
+      isNum(pNow) ? `<span class="x-dchip price ${tierNow}"><i></i><b class="x-num">${esc(this._money(pNow))}</b> ${esc(this._t(`x_tier_${tierNow}`))}</span>` : "",
+      isNum(homeKw) ? `<span class="x-dchip"><i class="house"></i>${esc(this._t("x_day_house", { kw: `${this._num(homeKw, 1)} kW` }))}</span>` : "",
+    ].join("");
+    const ticks = [0, 6, 12, 18, 24].map((h) => `<span style="left:${pct(h)}">${pad(h % 24)}</span>`).join("");
+    const legend = cars.map((v) => `<span><i style="background:${this._carColor(this._cars.indexOf(v))}"></i>${esc(v.name.split(" ")[0])}</span>`).join("");
+    const dayName = (n) => new Intl.DateTimeFormat(this._locale, { weekday: "long" }).format(new Date(day0 + n * 864e5 + 12 * 3600e3));
+    return `<section class="x-card x-hero-card x-day" aria-label="${esc(this._t("x_day_title"))}">
+      <div class="x-dnowrow"><span class="x-dlive"><i></i>${esc(this._t("x_day_now"))} <b class="x-num">${esc(this._time(new Date(unwall(new Date(now))).toISOString()))}</b></span><div class="x-dchips">${chips}</div></div>
+      ${this._xDayScene({ cars, charges, deps, price, lo, hi, nowH, day0, rise, set })}
+      ${[0, 1].map((n) => `<div class="x-drow"><div class="x-dhead"><b>${esc(this._t(n ? "x_day_tomorrow" : "x_day_today"))}</b><small>${esc(dayName(n))}</small></div><p class="x-dline x-num">${esc(line(n))}</p></div>`).join("")}
+      <div class="x-legend x-dlegend">${legend}<span><i class="x-dl-lo"></i>${esc(this._t("x_tier_lo"))}</span><span><i class="x-dl-hi"></i>${esc(this._t("x_tier_hi"))}</span></div>
+    </section>`;
   },
 
   // ------------------------------------------------------------------ Mere and the menu's tabs (2.5.0b52)
@@ -13952,7 +14204,7 @@ Object.assign(EvPlannerPanel.prototype, {
     const supply = place.home || !only ? this._state.supply : place.supply;
     const places = sites.length > 1 ? `<div class="x-pills x-places">${sites.map((site) => `<button class="x-pill place${site.id === place.id ? " on" : ""}" data-act="place" data-id="${esc(site.id)}" data-f="place-${esc(site.id)}" aria-pressed="${site.id === place.id}">${esc(site.name || this._t("place_home"))}</button>`).join("")}</div>` : "";
     const scene = `<section class="x-card x-scene-card">${places}<div class="x-house scene-slot" role="img" aria-label="${esc(this._t("home_title"))}"></div></section>`;
-    const cards = [scene, this._xTonightLink(only), place.home && this._state.home?.history ? this._xTodayCard() : "", supply ? this._xSupplyCard(supply, place.home ? null : place) : "", this._xChargersCard(only)].filter(Boolean);
+    const cards = [scene, this._xTonightLink(only), place.home ? this._xClockCard() : "", supply ? this._xSupplyCard(supply, place.home ? null : place) : "", this._xChargersCard(only)].filter(Boolean);
     return `${this._xSmallTop({ title: this._t("tab_home"), line: this._xLine(), art: "street" })}<div class="x-wrap x-home">${cards.join("")}</div>`;
   },
 
@@ -14045,6 +14297,128 @@ Object.assign(EvPlannerPanel.prototype, {
   },
 
   /* I dag: the house hour by hour (and the sun), the cars' part of it, and what it cost. */
+  /* Husets ur (2.5.0b55): today as a clock, a petal an hour, midnight at the top, as in The house's day. Each
+     petal is what the house bought in the hour, the cars' part in the cars' colours; the hours to come show
+     the typical day and the planned charging. The ring outside is the hour's price. Drawn for every house,
+     with or without a meter, sun, battery or heat pump: what is not known is left out. */
+  _xClockCard() {
+    return `<section class="x-card x-clockcard home-clock" aria-label="${esc(this._t("x_clock_title"))}">
+      <div class="x-head"><h2>${esc(this._t("x_clock_title"))}</h2><span class="x-num x-soft">${esc(new Intl.DateTimeFormat(this._locale, { weekday: "short", day: "numeric", month: "numeric" }).format(ZD()))}</span></div>
+      <div class="clock-body">${this._xClockBody()}</div>
+    </section>`;
+  },
+
+  _xClockBody() {
+    const data = this._state.home?.history ? this._houseData?.[this._histKey("day", 0)] : null;
+    const rows = data?.rows || [];
+    const typical = data?.typical_day || [];
+    const now = znow();
+    const mid = ZD(now); mid.setHours(0, 0, 0, 0);
+    const day0 = mid.getTime();
+    const nowH = (now - day0) / 3600e3;
+    const iso = (x) => ZD(x).getTime();
+    const cars = this._cars.filter((v) => (v.site ?? "home") === "home").slice(0, 4);
+    // The house per hour (what was bought), the sun where it is known.
+    const house = Array.from({ length: 24 }, (_, h) => { const r = rows.find((x) => ZD(x.start).getHours() === h); return r && isNum(r.kwh) ? Number(r.kwh) : null; });
+    const sun = Array.from({ length: 24 }, (_, h) => { const r = rows.find((x) => ZD(x.start).getHours() === h); return r && isNum(r.solar) ? Number(r.solar) : null; });
+    // The cars per hour: today's charging spread over its periods, then the planned charging.
+    const carH = cars.map((v) => {
+      const out = Array(24).fill(0);
+      const spread = (a, b, kwh) => {
+        const span = Math.max(0.05, b - a);
+        for (let h = Math.max(0, Math.floor(a)); h < Math.min(24, Math.ceil(b)); h += 1) out[h] += kwh * (Math.max(0, Math.min(b, h + 1) - Math.max(a, h)) / span);
+      };
+      for (const e of v.history || []) {
+        if (e.elsewhere || !e.end || iso(e.end) <= day0) continue;
+        const periods = Array.isArray(e.periods) && e.periods.length ? e.periods : [{ start: e.start, end: e.end }];
+        const total = periods.reduce((t, p) => t + Math.max(0, iso(p.end) - iso(p.start)), 0) || 1;
+        for (const p of periods) spread((iso(p.start) - day0) / 3600e3, (iso(p.end) - day0) / 3600e3, (Number(e.energy) || 0) * (Math.max(0, iso(p.end) - iso(p.start)) / total));
+      }
+      if (v.session && v.charging) spread((iso(v.session.start) - day0) / 3600e3, nowH, Number(v.session.energy) || 0);
+      const kw = Number(v.charge_power) || Number(v.power) || 7;
+      const week = this._state.settings?.insight_use ? this._weekCharges(v) : [];
+      const ahead = week.length ? week.map((c) => [iso(c.start), iso(c.end), Number(c.kwh)]) : (hasSegments(this._livePlan(v)) ? this._livePlan(v).segments.map((g) => [iso(g.start), iso(g.end), null]) : []);
+      const plan = Array(24).fill(0);
+      for (const [a, b, kwh] of ahead) {
+        const ha = Math.max(nowH, (a - day0) / 3600e3), hb = Math.min(24, (b - day0) / 3600e3);
+        if (hb <= ha) continue;
+        const per = isNum(kwh) && kwh > 0 ? kwh / Math.max(0.25, (b - a) / 3600e3) : kw;
+        for (let h = Math.floor(ha); h < Math.ceil(hb); h += 1) plan[h] += per * (Math.min(hb, h + 1) - Math.max(ha, h));
+      }
+      return { done: out, plan };
+    });
+    // The hour's price.
+    const slots = (this._state.prices || []).map((p) => [iso(p.start), Number(p.price)]).filter(([, p]) => Number.isFinite(p));
+    const price = Array.from({ length: 24 }, (_, h) => { const a = day0 + h * 3600e3; const xs = slots.filter(([t]) => t >= a && t < a + 3600e3); return xs.length ? xs.reduce((t, [, p]) => t + p, 0) / xs.length : null; });
+    const known = price.filter(isNum);
+    const lo = known.length ? Math.min(...known) : 0, hi = known.length ? Math.max(...known) : 1;
+    // Each hour's whole, for the scale.
+    const value = (h) => {
+      const past = h < Math.floor(nowH) || (h === Math.floor(nowH));
+      const cs = carH.map((c) => (past ? c.done[h] : c.plan[h]));
+      const carsSum = cs.reduce((t, x) => t + x, 0);
+      const base = past ? house[h] : typical[h];
+      const homeOnly = isNum(base) ? Math.max(0, base - (past ? carsSum : 0)) : null;
+      return { past, cs, homeOnly, total: (homeOnly || 0) + carsSum };
+    };
+    const hours = Array.from({ length: 24 }, (_, h) => value(h));
+    const top = Math.max(0.5, ...hours.map((x) => x.total), ...sun.filter(isNum));
+    const C = 160, R0 = 46, R1 = 124;
+    const rad = (h) => ((h / 24) * 360 - 90) * (Math.PI / 180);
+    const pt = (r, a) => [C + r * Math.cos(a), C + r * Math.sin(a)];
+    const wedge = (h, r0, r1) => {
+      const a0 = rad(h) + 0.022, a1 = rad(h + 1) - 0.022;
+      const [x0, y0] = pt(r0, a0), [x1, y1] = pt(r1, a0), [x2, y2] = pt(r1, a1), [x3, y3] = pt(r0, a1);
+      return `M${x0.toFixed(1)} ${y0.toFixed(1)}L${x1.toFixed(1)} ${y1.toFixed(1)}A${r1} ${r1} 0 0 1 ${x2.toFixed(1)} ${y2.toFixed(1)}L${x3.toFixed(1)} ${y3.toFixed(1)}A${r0} ${r0} 0 0 0 ${x0.toFixed(1)} ${y0.toFixed(1)}Z`;
+    };
+    // The radius grows with the square root, so a quiet hour is still seen beside a charging one.
+    const radius = (cum) => R0 + Math.sqrt(Math.max(0, cum) / top) * (R1 - R0);
+    const scale = (kwh) => radius(kwh) - R0;
+    const pick = Number.isInteger(this._xClockH) ? this._xClockH : Math.min(23, Math.floor(nowH));
+    let petals = "";
+    hours.forEach((x, h) => {
+      let cum = 0;
+      const cls = `${x.past ? "past" : "next"}${h === pick ? " pick" : ""}`;
+      const parts = [];
+      const layer = (kwh, attrs) => { const a = radius(cum); cum += kwh; const b = Math.max(a + 1.5, radius(cum)); parts.push(`<path ${attrs} d="${wedge(h, a, b)}"/>`); };
+      if (isNum(x.homeOnly) && x.homeOnly > 0) layer(x.homeOnly, `class="x-cp house ${cls}"`);
+      x.cs.forEach((kwh, ci) => { if (kwh > 0.05) layer(kwh, `class="x-cp car ${cls}" style="--car:${this._carColor(this._cars.indexOf(cars[ci]))}"`); });
+      if (!parts.length) parts.push(`<path class="x-cp empty ${cls}" d="${wedge(h, R0, R0 + 2)}"/>`);
+      petals += `<g class="x-cpet" data-act="x-clock" data-h="${h}" style="--d:${h * 22}ms"><path class="x-chit" d="${wedge(h, R0 - 6, R1 + 12)}"/>${parts.join("")}</g>`;
+    });
+    // The sun, where it is known: a line round the hours.
+    let sunPath = "";
+    if (sun.some(isNum)) sun.forEach((v, h) => { if (!isNum(v)) return; const [x, y] = pt(radius(v), rad(h + 0.5)); sunPath += `${sunPath ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`; });
+    const ring = price.map((p, h) => (isNum(p) ? `<path class="x-cring ${X_TIER(p, lo, hi)}" d="${wedge(h, R1 + 16, R1 + 22)}"/>` : "")).join("");
+    const labels = [0, 6, 12, 18].map((h) => { const [x, y] = pt(R1 + 34, rad(h)); return `<text class="x-clab" x="${x.toFixed(1)}" y="${(y + 4).toFixed(1)}" text-anchor="middle">${String(h).padStart(2, "0")}</text>`; }).join("");
+    const [hx, hy] = pt(R1 + 10, rad(nowH));
+    const [hx0, hy0] = pt(R0 - 4, rad(nowH));
+    // The middle: so far today.
+    const doneHouse = house.slice(0, Math.ceil(nowH)).filter(isNum).reduce((t, x) => t + x, 0);
+    const doneCars = carH.reduce((t, c) => t + c.done.reduce((a, b) => a + b, 0), 0);
+    const total = house.some(isNum) ? doneHouse : doneCars;
+    const sel = hours[pick];
+    const selParts = [];
+    if (isNum(sel.homeOnly)) selParts.push(`<span><i class="house"></i>${esc(this._t("x_clock_house"))} <b class="x-num">${esc(this._kwh(sel.homeOnly))}</b></span>`);
+    sel.cs.forEach((kwh, ci) => { if (kwh > 0.05) selParts.push(`<span><i style="background:${this._carColor(this._cars.indexOf(cars[ci]))}"></i>${esc(cars[ci].name.split(" ")[0])} <b class="x-num">${esc(this._kwh(kwh))}</b></span>`); });
+    if (isNum(price[pick])) selParts.push(`<span><i class="p ${X_TIER(price[pick], lo, hi)}"></i><b class="x-num">${esc(this._money(price[pick]))}</b>/kWh</span>`);
+    const hh = (h) => `${String(h).padStart(2, "0")}${this._lang === "da" ? "." : ":"}00`;
+    // The petals grow out the first time the clock is drawn, not again at every update.
+    const grow = !this._xClockGrown;
+    this._xClockGrown = true;
+    return `<div class="x-clock-wrap"><svg class="x-clocksvg${grow ? " grow" : ""}" viewBox="0 0 320 320" role="img" aria-label="${esc(this._t("x_clock_title"))}">
+        <circle class="x-cdisc" cx="${C}" cy="${C}" r="${R1 + 8}"/>
+        ${[0.25, 1].map((k) => `<circle class="x-cgrid" cx="${C}" cy="${C}" r="${radius(top * k).toFixed(1)}"/>`).join("")}
+        ${ring}${petals}${sunPath ? `<path class="x-csun" d="${sunPath}"/>` : ""}${labels}
+        <line class="x-chand" x1="${hx0.toFixed(1)}" y1="${hy0.toFixed(1)}" x2="${hx.toFixed(1)}" y2="${hy.toFixed(1)}"/><circle class="x-chandot" cx="${hx.toFixed(1)}" cy="${hy.toFixed(1)}" r="4.5"/>
+        <circle class="x-ccore" cx="${C}" cy="${C}" r="${R0 - 8}"/>
+        <text class="x-cbig" x="${C}" y="${C + 2}" text-anchor="middle">${esc(this._num(total, total < 10 ? 1 : 0))}</text>
+        <text class="x-csmall" x="${C}" y="${C + 18}" text-anchor="middle">${esc(this._t("x_clock_kwh_today"))}</text>
+      </svg></div>
+      <div class="x-clock-pick"><b class="x-num">${esc(`${hh(pick)}–${hh((pick + 1) % 24)}`)}</b><small>${esc(this._t(sel.past ? "x_clock_was" : "x_clock_will"))}</small><div class="x-clock-parts">${selParts.join("") || `<span class="x-soft">${esc(this._t("x_clock_quiet"))}</span>`}</div></div>
+      <div class="x-legend"><span><i class="x-cl-house"></i>${esc(this._t("x_clock_house"))}</span>${cars.map((v) => `<span><i style="background:${this._carColor(this._cars.indexOf(v))}"></i>${esc(v.name.split(" ")[0])}</span>`).join("")}${sunPath ? `<span><i class="line" style="background:#ffc83d"></i>${esc(this._t("x_front_sun"))}</span>` : ""}<span class="x-push">${esc(this._t("x_clock_ring"))}</span></div>`;
+  },
+
   _xTodayCard() {
     return `<section class="x-card x-today home-today" aria-label="${esc(this._t("home_today"))}">
       <div class="x-head"><h2>${esc(this._t("home_today"))}</h2><span class="x-num x-soft">${esc(new Intl.DateTimeFormat(this._locale, { weekday: "short", day: "numeric", month: "numeric" }).format(ZD()))}</span></div>
@@ -14196,10 +14570,14 @@ Object.assign(EvPlannerPanel.prototype, {
     const best = this._cheapest(hours);
     const nightPrice = paid.length ? paid.reduce((t, h) => t + h.p, 0) / paid.length : best ? best.avg : null;
     const top = Math.max(0.01, ...hours.map((h) => h.p || 0));
+    // Each hour in its price's colour, cheap to dear (2.5.0b55); the hours a car charges in the car's colour.
+    const known = hours.filter((h) => h.p !== null).map((h) => h.p);
+    const plo = known.length ? Math.min(...known) : 0, phi = known.length ? Math.max(...known) : 1;
     const bars = hours.map((h, n) => {
       if (h.p === null) return "<i></i>";
       const car = charging(h);
-      return `<i class="x-bar" style="height:${Math.max(4, (h.p / top) * 46).toFixed(1)}px;${car >= 0 ? `background:${this._carColor(car)};` : ""}animation-delay:${n * 25}ms"></i>`;
+      const fill = car >= 0 ? `background:${this._carColor(car)};box-shadow:0 0 10px -2px ${this._carColor(car)};` : `background:${X_TIER_COLOR[X_TIER(h.p, plo, phi)]};opacity:.72;`;
+      return `<i class="x-bar${car >= 0 ? " chg" : ""}" style="height:${Math.max(4, (h.p / top) * 46).toFixed(1)}px;${fill}animation-delay:${n * 25}ms"></i>`;
     }).join("");
     const ticks = hours.map((h) => `<span>${h.hour % 3 === 0 ? pad(h.hour) : ""}</span>`).join("");
     (this._scrubs ||= {}).tonight = (f) => {
@@ -14216,7 +14594,7 @@ Object.assign(EvPlannerPanel.prototype, {
       const c = this._nextCharge(v);
       const soon = c && ZD(c.start).getTime() < now + 24 * 3600e3;
       const down = this._troubled(v);
-      const note = down ? this._t("x_charger_down") : c ? (soon ? `${this._t("x_charges", { when: this._whenSpan(c) })}${isNum(c.cost) ? ` · ${this._money(c.cost, 0)}` : ""}` : this._t(ZD(c.start).getHours() >= 18 || ZD(c.start).getHours() < 6 ? "x_charges_night" : "x_charges_day", { day: this._xDayShort(c.start) })) : this._t("x_enough");
+      const note = down ? this._t("x_charger_down") : c ? (soon ? `${this._t("x_charges", { when: this._whenSpan(c) })}${isNum(c.cost) && c.cost >= 0.5 ? ` · ${this._money(c.cost, 0)}` : ""}` : this._t(ZD(c.start).getHours() >= 18 || ZD(c.start).getHours() < 6 ? "x_charges_night" : "x_charges_day", { day: this._xDayShort(c.start) })) : this._t("x_enough");
       const s = this._vs(v);
       const day = this._deadlineDay(v);
       const fast = day && isNum(s.day_targets?.[day]) && (!steered(v) || (s.day_fixed || []).includes(day));
@@ -14572,6 +14950,27 @@ Object.assign(EvPlannerPanel.prototype, {
       <button class="x-clim-row" data-act="x-clim" data-id="${id}" data-k="${k}" aria-pressed="${on}"${has ? "" : " disabled"}><span class="x-clim-ic${on ? " on" : ""}">${xi(XD.snow, { w: 18, sw: 2.2 })}</span><span class="x-grow"><b>${esc(this._t("x_clim_dep"))}</b><small class="x-num">${esc(sub)}</small></span><span class="x-sw${on ? " on" : ""}"><i></i></span></button>
       ${on ? `<div class="x-step x-clim-temp"><span>${esc(this._t("x_clim_temp"))}</span><div><button class="x-sq" data-act="x-clim-temp" data-id="${id}" data-k="${k}" data-d="-0.5" aria-label="${esc(this._t("x_colder"))}">−</button><b class="x-num x-disp">${esc(this._num(temp, 1))}°</b><button class="x-sq" data-act="x-clim-temp" data-id="${id}" data-k="${k}" data-d="0.5" aria-label="${esc(this._t("x_warmer"))}">+</button></div></div>` : ""}
     </div>`;
+  },
+
+  /* What the last 30 days' charging at home saved against each day's mean price, as Learning's Charging page
+     counts it (2.5.0b55). Insight's own "saved" counts only the nights it chose to wait. */
+  _xSaved30() {
+    const days = this._insight?.price_days || {};
+    const since = znow() - 30 * 864e5;
+    const key = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    let saved = 0, n = 0;
+    for (const v of this._cars) {
+      for (const e of v.history || []) {
+        if (e.elsewhere || !isNum(e.energy) || !isNum(e.cost) || Number(e.energy) <= 0) continue;
+        const at = ZD(e.start);
+        if (at.getTime() < since) continue;
+        const mean = days[key(at)]?.mean;
+        if (!isNum(mean)) continue;
+        saved += Number(e.energy) * Number(mean) - Number(e.cost);
+        n += 1;
+      }
+    }
+    return n ? saved : null;
   },
 
   _xEditorTime(input) {
@@ -15178,7 +15577,7 @@ Object.assign(EvPlannerPanel.prototype, {
         const text = c ? `${this._whenSpan(c)} → ${this._pct(c.soc ?? v.target)}${v.deadline ? ` · ${this._readyText(v.deadline)}` : ""}` : this._t("x_ins_waits", { pct: this._pct(v.soc) });
         return `<div class="x-insplan"><i style="background:${this._carColor(i)}"></i><b>${esc(v.name.split(" ")[0])}</b><span class="x-num">${esc(text)}</span><span class="x-pctpill small ${fast ? "fast" : "auto"}">${esc(fast ? this._t("x_fast_low") : `✦ ≈${Math.round(Number(v.target) || 0)} %`)}</span></div>`;
       }).join("");
-      const saved = isNum(sc.saved) ? Number(sc.saved) : null;
+      const saved = this._xSaved30();
       body = `<small class="x-over2 vio">${esc(this._t("x_ins_learned", { days }))}</small>
         <div class="x-ins3">
           <div><div class="x-ring" style="--p:${knows}%"><b class="x-num x-disp">${knows} %</b></div><small>${esc(this._t("x_ins_knows"))}</small></div>
@@ -15189,7 +15588,7 @@ Object.assign(EvPlannerPanel.prototype, {
         <small class="x-over2 vio">${esc(this._t("x_ins_tonight"))}</small>
         <div class="x-well x-insnight"><div class="x-insbars">${night}</div><div class="x-insticks x-num">${ticks}</div></div>
         <div class="x-insplans">${plans}</div>
-        ${saved !== null && sc.scored ? `<div class="x-saved"><div><b class="x-num x-disp">${esc(this._money(saved, 0))}</b><small>${esc(this._t("x_ins_saved"))}</small></div><svg width="120" height="40" viewBox="0 0 120 40" aria-hidden="true"><path d="M0 34 L12 30 L24 31 L36 24 L48 25 L60 18 L72 19 L84 12 L96 13 L108 6 L120 4" fill="none" stroke="var(--x-acc-ink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>` : ""}`;
+        ${saved !== null ? `<div class="x-saved"><div><b class="x-num x-disp">${esc(this._money(saved, 0))}</b><small>${esc(this._t("x_ins_saved"))}</small></div><svg width="120" height="40" viewBox="0 0 120 40" aria-hidden="true"><path d="M0 34 L12 30 L24 31 L36 24 L48 25 L60 18 L72 19 L84 12 L96 13 L108 6 L120 4" fill="none" stroke="var(--x-acc-ink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>` : ""}`;
     }
     return `<div class="x-scrim" data-ins="close"></div>
       <section class="x-insight sheet-up" role="dialog" aria-modal="true" aria-label="Insight">
@@ -16721,8 +17120,7 @@ const NEXT_STYLE = `
 :host([look="evp"]) .x-title h1 { font-size: 34px; letter-spacing: -.035em; }
 :host([look="evp"]) .x-hello p { font-size: 15.5px; font-weight: 500; opacity: .9; }
 /* Small labels are set like a charger's display: monospaced, spaced, upper case. */
-:host([look="evp"]) .x-over, :host([look="evp"]) .x-over2, :host([look="evp"]) .x-dep small, :host([look="evp"]) .x-tile small,
-:host([look="evp"]) .x-tn-when small, :host([look="evp"]) .x-pricechip small, :host([look="evp"]) .x-days small {
+:host([look="evp"]) .x-over, :host([look="evp"]) .x-over2, :host([look="evp"]) .x-dep small, :host([look="evp"]) .x-tile small, :host([look="evp"]) .x-days small {
   font-family: var(--n-mono); font-weight: 600; letter-spacing: .1em; text-transform: uppercase; font-size: 10.5px;
 }
 :host([look="evp"]) .x-over { opacity: .8; font-size: 11px; }
@@ -16926,7 +17324,14 @@ const NEXT_STYLE = `
 }
 :host([look="evp"]) .x-scrim, :host([look="evp"]) .app > .x-profscrim { background: rgba(3, 5, 14, .55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 :host([look="evp"]) .x-handle { width: 44px; height: 5px; border-radius: 3px; background: var(--n-hair2); }
-:host([look="evp"]) .x-qtile, :host([look="evp"]) .x-profmenu .x-prof-tiles button { border-radius: 20px; border: 1px solid var(--n-hair); background: var(--x-card2); box-shadow: inset 0 1px 0 var(--n-hi); }
+:host([look="evp"]) .x-qtile:not(.active), :host([look="evp"]) .x-profmenu .x-prof-tiles button { border-radius: 20px; border: 1px solid var(--n-hair); background: var(--x-card2); box-shadow: inset 0 1px 0 var(--n-hi); }
+:host([look="evp"]) .x-qtile { border-radius: 20px; }
+/* The quick menu reads plainly (2.5.0b55): a chosen tile is ringed in ink, an active one keeps its own colour. */
+:host([look="evp"]) .x-qtile.sel:not(.active) { border: 2px solid var(--x-ink); }
+:host([look="evp"]) .x-qtile b { color: inherit; }
+:host([look="evp"]) .x-qtile:not(.active) small { color: var(--x-soft); }
+:host([look="evp"]) .x-quick { background: var(--x-pop); }
+:host([look="evp"]) .x-qchips button { border-color: var(--n-hair2); }
 :host([look="evp"]) .x-qtile.active { box-shadow: inset 0 0 0 1.5px var(--n-amber), 0 12px 26px -16px var(--n-glow); }
 
 /* ---------- 8. Focus and press ------------------------------------------------------------------- */
@@ -16968,7 +17373,15 @@ const NEXT_STYLE = `
 }
 
 /* Bigger levels and prices. */
-:host([look="evp"]) .x-tn-soc { font-size: 40px; line-height: 1; }
+:host([look="evp"]) .x-tn-soc { font-size: 32px; line-height: 1; letter-spacing: -.04em; }
+/* Tonight's head and boxes kept compact (2.5.0b55): the price on one line, the tag a soft chip that may wrap. */
+:host([look="evp"]) .x-pricechip { padding: 6px 10px; border-radius: 14px; }
+:host([look="evp"]) .x-pricechip small { font-size: 10.5px; white-space: nowrap; letter-spacing: 0; text-transform: none; }
+:host([look="evp"]) .x-tn-when small { font-size: 12px; white-space: nowrap; }
+:host([look="evp"]) .x-tn-car { padding: 12px; gap: 3px; }
+:host([look="evp"]) .x-tn-name b { font-size: 13.5px; }
+:host([look="evp"]) .x-tn-car small { font-size: 12px; line-height: 1.3; }
+:host([look="evp"]) .x-tag { border-radius: 10px; padding: 4px 8px; font-size: 11.5px; line-height: 1.3; }
 :host([look="evp"]) .x-tl-soc { font-size: 32px; font-weight: 800; letter-spacing: -.04em; }
 
 /* The profile looks the same in every top. */
@@ -17852,6 +18265,129 @@ button.x-card { font: inherit; text-align: left; cursor: pointer; width: 100%; }
 .x-artdot { fill: #6ee7b0; stroke: #fff; stroke-width: 2; }
 .x-artnow { stroke: currentColor; stroke-width: 1.5; stroke-dasharray: 3 4; opacity: .5; }
 .x-artstar { fill: #fff; animation: x-twinkle 3.2s ease-in-out infinite; }
+
+/* Forside's day as a scene (2.5.0b55) */
+.x-dscene { margin: 0 -18px; overflow-x: auto; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 18px), transparent); mask-image: linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 18px), transparent); }
+.x-dscene::-webkit-scrollbar { display: none; }
+.x-dscene > svg { display: block; border-radius: 0; }
+.x-ds-star { fill: #fff; animation: x-twinkle 3.2s ease-in-out infinite; }
+.x-ds-sun circle { fill: #ffe08a; } .x-ds-sun circle.glow { fill: rgba(255, 214, 107, .28); animation: x-dsglow 4s ease-in-out infinite; }
+.x-ds-moon path { fill: #fff3cf; } .x-ds-moon circle.glow { fill: rgba(255, 243, 207, .12); }
+@keyframes x-dsglow { 50% { transform: scale(1.18); } }
+.x-ds-mid { stroke: rgba(255, 255, 255, .35); stroke-dasharray: 3 5; }
+.x-ds-day { fill: rgba(255, 255, 255, .85); font: 800 12px var(--x-display); letter-spacing: .02em; text-transform: uppercase; }
+.x-ds-hill { fill: color-mix(in srgb, var(--x-bg) 78%, #2b3a2a); } .x-ds-hill.b { fill: color-mix(in srgb, var(--x-bg) 60%, #36486a); opacity: .9; }
+:host([xlight]) .x-ds-hill { fill: #cfdccc; } :host([xlight]) .x-ds-hill.b { fill: #b7c9d9; }
+.x-ds-road { fill: color-mix(in srgb, var(--x-bg) 70%, #3a3f55); }
+:host([xlight]) .x-ds-road { fill: #8e96a8; }
+.x-ds-dash { stroke: rgba(255, 255, 255, .45); stroke-width: 1.5; stroke-dasharray: 10 12; animation: x-dsroad 1.6s linear infinite; }
+@keyframes x-dsroad { to { stroke-dashoffset: -22; } }
+.x-ds-edge.lo { fill: #3ee08f; } .x-ds-edge.mid { fill: #f5b94a; } .x-ds-edge.hi { fill: #ff7a6b; } .x-ds-edge.fc { opacity: .5; }
+.x-ds-tick { fill: rgba(255, 255, 255, .7); font: 600 10px var(--x-text); }
+.x-ds-chg line { stroke-linecap: round; }
+.x-ds-chg .glow { stroke: var(--car); stroke-width: 11; opacity: .25; }
+.x-ds-chg .core { stroke: var(--car); stroke-width: 5; }
+.x-ds-chg .flow { stroke: #fff; stroke-width: 2; stroke-dasharray: 2 10; opacity: .85; animation: x-dsflow 1.1s linear infinite; }
+@keyframes x-dsflow { to { stroke-dashoffset: -24; } }
+.x-ds-chg.done { opacity: .45; }
+.x-ds-chg.live .glow { animation: x-dsbreath 1.6s ease-in-out infinite; }
+@keyframes x-dsbreath { 50% { opacity: .55; } }
+.x-ds-chg .post { fill: #1a2030; stroke: var(--car); stroke-width: 1; } .x-ds-chg .screen { fill: var(--car); }
+.x-ds-lab { fill: #fff; font: 700 10px var(--x-text); paint-order: stroke; stroke: rgba(0, 0, 0, .35); stroke-width: 3px; }
+.x-ds-house { filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .35)); }
+.x-ds-car { overflow: visible; filter: drop-shadow(0 5px 6px rgba(0, 0, 0, .35)); }
+.x-ds-dep, .x-ds-now-car { cursor: pointer; }
+.x-ds-car.go { animation: x-dsgo 3.2s ease-in-out infinite; }
+@keyframes x-dsgo { 0%, 60%, 100% { transform: translateX(0); } 80% { transform: translateX(5px); } }
+.x-ds-car.drive { animation: x-dsdrive 2.4s ease-in-out infinite; }
+@keyframes x-dsdrive { 50% { transform: translate(3px, -1px); } }
+.x-ds-now-car.out { opacity: .8; }
+.x-ds-flag rect { fill: var(--x-card); stroke: var(--car); stroke-width: 1.5; }
+.x-ds-flag text { fill: var(--x-ink); font: 700 10px var(--x-text); }
+.x-ds-cable { fill: none; stroke: var(--car); stroke-width: 2.5; stroke-dasharray: 3 5; animation: x-dsflow .9s linear infinite; filter: drop-shadow(0 0 4px var(--car)); }
+.x-ds-now .beam { fill: url(#x-ds-fade); fill: rgba(255, 196, 110, .14); }
+.x-ds-now line { stroke: var(--x-acc); stroke-width: 2; }
+.x-ds-now circle { fill: var(--x-acc); animation: x-dsnow 2.2s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes x-dsnow { 0% { transform: scale(1); } 50% { transform: scale(1.6); opacity: .6; } 100% { transform: scale(1); } }
+.x-ds-now.charging .beam { fill: rgba(255, 196, 110, .24); }
+@media (prefers-reduced-motion: reduce) { .x-dscene * { animation: none !important; } }
+
+/* Forside's day (2.5.0b55): now, today and tomorrow as bands of 24 hours. */
+.x-day { gap: 14px; }
+.x-dnowrow { display: flex; flex-direction: column; gap: 10px; }
+.x-dlive { display: inline-flex; align-items: center; gap: 8px; font: 800 19px/1 var(--x-display); letter-spacing: -.02em; }
+.x-dlive b { font: 600 14px/1 var(--x-text); color: var(--x-soft); letter-spacing: 0; }
+.x-dlive i { width: 10px; height: 10px; border-radius: 50%; background: var(--x-acc); animation: x-dpulse 2.2s ease-out infinite; }
+@keyframes x-dpulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--x-acc) 55%, transparent); } 75%, 100% { box-shadow: 0 0 0 10px transparent; } }
+.x-dchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.x-dchip { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 11px; border-radius: 999px; background: color-mix(in srgb, var(--x-ink) 6%, transparent); font-size: 12.5px; font-weight: 600; color: var(--x-ink2); white-space: nowrap; }
+.x-dchip i { width: 8px; height: 8px; border-radius: 50%; background: var(--x-faint); flex: none; }
+.x-dchip.on { background: color-mix(in srgb, var(--car) 18%, transparent); color: var(--x-ink); }
+.x-dchip.on i { background: var(--car); box-shadow: 0 0 8px var(--car); }
+.x-dchip.price.lo i { background: #3ee08f; } .x-dchip.price.mid i { background: #f5b94a; } .x-dchip.price.hi i { background: #ff7a6b; }
+.x-dchip i.house { border-radius: 2px; background: var(--x-blue); }
+.x-drow { display: grid; gap: 6px; }
+.x-dhead { display: flex; align-items: baseline; gap: 8px; }
+.x-dhead b { font: 800 15px/1.1 var(--x-display); }
+.x-dhead small { font-size: 12px; color: var(--x-soft); }
+.x-dline { margin: 0; font-size: 12.5px; line-height: 1.35; color: var(--x-soft); }
+.x-dtrack { position: relative; height: calc(30px + var(--lanes, 1) * 18px); border-radius: 14px; background: var(--x-well); overflow: hidden; }
+.x-dprice { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); align-items: end; gap: 1px; }
+.x-dprice i { opacity: .32; border-radius: 3px 3px 0 0; transition: height .6s ease; } .x-dprice i.fc { opacity: .16; }
+.x-dprice i.lo { background: #3ee08f; } .x-dprice i.mid { background: #f5b94a; } .x-dprice i.hi { background: #ff7a6b; }
+.x-dsun { position: absolute; top: 0; height: 3px; background: linear-gradient(90deg, transparent, #ffc83d 18%, #ffc83d 82%, transparent); opacity: .85; }
+.x-dpast { position: absolute; left: 0; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--x-bg) 50%, transparent) 0 4px, transparent 4px 8px); }
+.x-dnow { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--x-acc); box-shadow: 0 0 10px var(--x-acc); z-index: 3; }
+.x-dnow i { position: absolute; top: 2px; left: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--x-acc); animation: x-dpulse 2.2s ease-out infinite; }
+.x-dcap { position: absolute; top: calc(22px + var(--lane) * 18px); height: 14px; min-width: 14px; margin: 0; padding: 0 5px; border: 0; border-radius: 7px; background: linear-gradient(90deg, color-mix(in srgb, var(--car) 80%, #fff), var(--car)); color: #0b1020; font: 700 9.5px/14px var(--x-text); overflow: hidden; cursor: pointer; box-shadow: 0 0 12px -3px var(--car); text-align: left; white-space: nowrap; z-index: 1; }
+.x-dcap span { position: relative; z-index: 1; }
+.x-dcap.done { opacity: .45; box-shadow: none; }
+.x-dcap.live::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .7), transparent); transform: translateX(-100%); animation: x-dshine 1.8s linear infinite; }
+@keyframes x-dshine { to { transform: translateX(100%); } }
+.x-dflag { position: absolute; top: 3px; transform: translateX(-50%); margin: 0; padding: 1px 5px; border: 1.5px solid var(--car); border-radius: 7px; background: var(--x-card); color: var(--x-ink); font: 700 9.5px/1.25 var(--x-text); display: flex; gap: 3px; align-items: baseline; cursor: pointer; white-space: nowrap; z-index: 2; }
+.x-dflag::after { content: ""; position: absolute; left: calc(50% - .75px); top: 100%; width: 1.5px; height: 80px; background: var(--car); opacity: .55; }
+.x-dflag small { font-size: 9px; color: var(--x-soft); }
+.x-dflag i { width: 6px; height: 6px; border-radius: 50%; align-self: center; }
+.x-daxis { position: relative; height: 14px; font-size: 10.5px; color: var(--x-faint); }
+.x-daxis span { position: absolute; top: 0; transform: translateX(-50%); }
+.x-daxis span:first-child { transform: none; } .x-daxis span:last-child { transform: translateX(-100%); }
+.x-dlegend i.x-dl-lo { background: #3ee08f; opacity: .7; } .x-dlegend i.x-dl-hi { background: #ff7a6b; opacity: .7; }
+@media (prefers-reduced-motion: reduce) { .x-dcap.live::after, .x-dnow i, .x-dlive i { animation: none; } }
+
+/* Husets ur (2.5.0b55) */
+.x-clockcard { gap: 12px; }
+.x-clock-wrap { display: grid; place-items: center; }
+.x-clocksvg { width: min(100%, 340px); height: auto; overflow: visible; }
+.x-cdisc { fill: color-mix(in srgb, var(--x-ink) 3%, transparent); }
+.x-cgrid { fill: none; stroke: var(--x-line2); stroke-dasharray: 2 4; }
+.x-cring { opacity: .85; } .x-cring.lo { fill: #3ee08f; } .x-cring.mid { fill: #f5b94a; } .x-cring.hi { fill: #ff7a6b; }
+.x-cpet { cursor: pointer; }
+.x-chit { fill: transparent; }
+.x-cp { transform-origin: 160px 160px; }
+.x-clocksvg.grow .x-cp { animation: x-cgrow .7s cubic-bezier(.2, .9, .3, 1.2) both; animation-delay: var(--d); }
+@keyframes x-cgrow { from { transform: scale(.4); opacity: 0; } }
+.x-cp.house { fill: color-mix(in srgb, var(--x-blue) 70%, var(--x-ink)); }
+.x-cp.car { fill: var(--car); }
+.x-cp.next { opacity: .38; }
+.x-cp.next.house { fill: none; stroke: color-mix(in srgb, var(--x-blue) 70%, var(--x-ink)); stroke-dasharray: 2 2; opacity: .6; }
+.x-cp.empty { fill: var(--x-line2); }
+.x-cp.pick { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--x-ink) 40%, transparent)); opacity: 1; }
+.x-csun { fill: none; stroke: #ffc83d; stroke-width: 2; stroke-linejoin: round; }
+.x-clab { fill: var(--x-faint); font: 600 10.5px var(--x-text); }
+.x-chand { stroke: var(--x-acc); stroke-width: 2; stroke-linecap: round; }
+.x-chandot { fill: var(--x-acc); filter: drop-shadow(0 0 6px var(--x-acc)); }
+.x-ccore { fill: var(--x-card); stroke: var(--x-line2); }
+.x-cbig { fill: var(--x-ink); font: 800 22px var(--x-display); letter-spacing: -.03em; }
+.x-csmall { fill: var(--x-soft); font: 600 9.5px var(--x-text); }
+.x-clock-pick { display: grid; gap: 6px; padding: 12px; border-radius: 16px; background: var(--x-well); }
+.x-clock-pick > b { font: 800 16px var(--x-display); }
+.x-clock-pick > small { font-size: 12px; color: var(--x-soft); margin-top: -4px; }
+.x-clock-parts { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--x-ink2); }
+.x-clock-parts span { display: inline-flex; align-items: center; gap: 6px; }
+.x-clock-parts i { width: 9px; height: 9px; border-radius: 3px; }
+.x-clock-parts i.house, .x-legend i.x-cl-house { background: color-mix(in srgb, var(--x-blue) 70%, var(--x-ink)); }
+.x-clock-parts i.p.lo { background: #3ee08f; } .x-clock-parts i.p.mid { background: #f5b94a; } .x-clock-parts i.p.hi { background: #ff7a6b; }
+@media (prefers-reduced-motion: reduce) { .x-cp { animation: none; } }
 
 /* Huset: the clay house in its own card. */
 .x-scene-card { padding: 0; overflow: clip; gap: 0; }

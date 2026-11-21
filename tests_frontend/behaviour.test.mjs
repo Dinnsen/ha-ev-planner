@@ -222,7 +222,7 @@ test("a new household is shown what to set up, until there is a car, a charger a
     const full = fixture("two-cars");
     await push({ ...state, vehicles: full.vehicles });
     await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector('.setup-steps li[data-step="car"].done'), null, { timeout: 5000 });
-    assert.ok(await read(".x-frow"), "the cars are shown under the steps");
+    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".x-day .x-dscene")), "the day is shown under the steps");
     await push({ ...state, vehicles: full.vehicles, chargers: full.chargers });
     await page.waitForFunction(() => !window.harness.panel.shadowRoot.querySelector(".setup"), null, { timeout: 5000 });
   });
@@ -635,10 +635,13 @@ function swipe(page, selector, dx, dy) {
   );
 }
 
-test("Forside: a car in tonight's card opens its page on the Cars tab", async () => {
+test("Forside: the day as a scene; a car in it opens its page on the Cars tab", async () => {
   await withPanel("two-cars", { size: { width: 390, height: 844 } }, async ({ page, read }) => {
     assert.equal(await read('.tabs button[aria-selected="true"]', "data-tab"), "front");
-    await page.evaluate(() => window.harness.panel.shadowRoot.querySelector('.x-front .x-tn-car[data-id="tesla_model_y"]').click());
+    const scene = await page.evaluate(() => { const r = window.harness.panel.shadowRoot; return { cars: r.querySelectorAll(".x-dscene .x-ds-now-car").length, charging: r.querySelectorAll(".x-dscene .x-ds-chg").length, house: !!r.querySelector(".x-dscene .x-ds-house"), tonight: !!r.querySelector(".x-front .x-tn") }; });
+    assert.deepEqual(scene, { cars: 2, charging: scene.charging, house: true, tonight: false }, "the house, the cars and their charging; tonight's card is Biler's");
+    assert.ok(scene.charging >= 1, "the charging is drawn");
+    await page.evaluate(() => window.harness.panel.shadowRoot.querySelector('.x-dscene .x-ds-now-car[data-id="tesla_model_y"]').dispatchEvent(new MouseEvent("click", { bubbles: true, composed: true })));
     assert.equal(await page.evaluate(() => [window.harness.panel._tab, window.harness.panel._carId].join()), "cars,tesla_model_y");
     assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector('.car-page[data-id="tesla_model_y"]')), "the car's page is shown");
   });
