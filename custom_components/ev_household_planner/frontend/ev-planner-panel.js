@@ -33,6 +33,7 @@ const TEXT = {
     x_theme_auto: "Auto",
     x_theme_light: "Lys",
     x_theme_dark: "Mørk",
+    x_theme_sky: "Himmel",
     x_arc_now: "nu {price}",
     x_charges: "lader {when}",
     x_waits: "venter til {day} nat",
@@ -101,6 +102,10 @@ const TEXT = {
     x_every: "Hver {day}",
     x_clim_dep: "Klima til afgang",
     x_clim_sub: "{temp}° · starter {min} min før",
+    x_clim_need_time: "Vælg et klar-tidspunkt først",
+    x_clim_temp: "Temperatur",
+    x_colder: "Koldere",
+    x_warmer: "Varmere",
     x_off: "fra",
     x_time_gone: "Det tidspunkt er gået.",
     x_own_photo: "Eget foto",
@@ -926,6 +931,7 @@ const TEXT = {
     x_theme_auto: "Auto",
     x_theme_light: "Light",
     x_theme_dark: "Dark",
+    x_theme_sky: "Sky",
     x_arc_now: "now {price}",
     x_charges: "charges {when}",
     x_waits: "waits until {day} night",
@@ -994,6 +1000,10 @@ const TEXT = {
     x_every: "Every {day}",
     x_clim_dep: "Climate for departure",
     x_clim_sub: "{temp}° · starts {min} min before",
+    x_clim_need_time: "Choose a ready-by time first",
+    x_clim_temp: "Temperature",
+    x_colder: "Colder",
+    x_warmer: "Warmer",
     x_off: "Off",
     x_time_gone: "That time has passed.",
     x_own_photo: "Own photo",
@@ -6131,6 +6141,16 @@ class EvPlannerPanel extends HTMLElement {
     if (this.getAttribute("look") !== look) this.setAttribute("look", look);
     // Light or dark: Auto follows Home Assistant, else the person's own choice.
     const dark = this._xDark();
+    const sky = this._xTheme() === "sky";
+    this.toggleAttribute("sky", sky);
+    if (sky) {
+      const tone = this._xSkyTone();
+      if (this.style.getPropertyValue("--n-sky") !== tone.bg) this.style.setProperty("--n-sky", tone.bg);
+      this.toggleAttribute("golden", tone.golden);
+    } else {
+      this.style.removeProperty("--n-sky");
+      this.removeAttribute("golden");
+    }
     this.toggleAttribute("xlight", !dark);
     this.toggleAttribute("dark", dark);
     this.toggleAttribute("light", !dark);
@@ -6517,6 +6537,15 @@ class EvPlannerPanel extends HTMLElement {
 
   _setTab(tab) {
     if (!PAGES.includes(tab)) return;
+    // The page change slides and fades where the browser can (the View Transitions API, 2.5.0b54).
+    if (tab !== this._tab && document.startViewTransition && !navigator.webdriver && !matchMedia("(prefers-reduced-motion: reduce)").matches && this.getAttribute("look") === "evp") {
+      document.startViewTransition(() => this._setTabNow(tab));
+      return;
+    }
+    this._setTabNow(tab);
+  }
+
+  _setTabNow(tab) {
     this._tab = tab;
     this._histClassic = null;
     this._sheet = null;
@@ -6801,7 +6830,7 @@ class EvPlannerPanel extends HTMLElement {
     // 2.5.0b48: the brand, the menu and the profile live in each page's own top (as in Middagsro and
     // Hverdagsro); _xDock moves them there. The tabs are pills at the bottom of the top on a PC, and a
     // bar floating at the bottom on a phone.
-    this.shadowRoot.innerHTML = `<style>${STYLE}${X_STYLE}</style>
+    this.shadowRoot.innerHTML = `<style>${STYLE}${X_STYLE}${NEXT_STYLE}</style>
       <div class="app">
         <header class="bar">
           <div class="menu"></div>
@@ -11253,7 +11282,8 @@ class EvPlannerPanel extends HTMLElement {
     const past = this._tab === "past";
     // With Insight on the learning centre is the page; what is learned opens from it, with a way back.
     if (!past && insightOn && this._histClassic !== "learned") return `<div class="page stack hist-page insight-host"></div>`;
-    const parts = { sum: "sum", cars: "cars", learned: "learn" };
+    // Overview ("sum") is kept but not shown: Forside has the evening (2.5.0b53).
+    const parts = { cars: "cars", learned: "learn" };
     const own = (k) => k === "history" || k === "learned";
     const view = past ? "history" : insightOn ? "learned" : this._histView === "learned" || !(this._histView in parts) ? "learned" : this._histView;
     // With Insight on, the history is the last of Insight's tabs: the same row, the others lead back to Insight.
@@ -12091,6 +12121,8 @@ class EvPlannerPanel extends HTMLElement {
       return;
     }
     if (this._insEl.parentNode !== place) place.replaceChildren(this._insEl);
+    // EV Planner's own look reaches into Learning's page too (2.5.0b54).
+    this._insEl.toggleAttribute("evp", this.getAttribute("look") === "evp");
     this._insEl.input = this._insightInput();
     if (this._insTab) { this._insEl.tab = this._insTab; this._insTab = null; }
   }
@@ -12686,7 +12718,7 @@ class EvPlannerPanel extends HTMLElement {
     this._ncar = this._tab === "settings" ? button.closest("[data-ncar]")?.dataset.ncar || null : null;
     const v = this._currentCar;
     const s = v ? this._vs(v) : null;
-    if (["x-kind", "x-mode", "x-step", "x-scope", "x-clim", "x-make-std"].includes(act)) {
+    if (["x-kind", "x-mode", "x-step", "x-scope", "x-clim", "x-clim-temp", "x-make-std"].includes(act)) {
       this._xEditorAct(act, button);
       return;
     }
@@ -13419,10 +13451,11 @@ const xi = (d, { w = 20, sw = 2, fill = false } = {}) =>
   `<svg class="xi" width="${w}" height="${w}" viewBox="0 0 24 24" fill="${fill ? "currentColor" : "none"}" stroke="${fill ? "none" : "currentColor"}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
 const XMARK = '<svg class="x-mark" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="11" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="4"/><path d="M14 3 A11 11 0 0 1 25 14" fill="none" stroke="#2fd3a3" stroke-width="4" stroke-linecap="round"/><path d="M15 8 L10 15 H14 L13 20 L18 13 H14 Z" fill="#7ed957"/></svg>';
 const XSPARK = '<svg class="xi" width="14" height="14" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1 L7.2 4.8 L11 6 L7.2 7.2 L6 11 L4.8 7.2 L1 6 L4.8 4.8 Z" fill="currentColor"/></svg>';
-const X_FONTS = "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap";
+const X_FONTS = "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=Schibsted+Grotesk:wght@500;600;700;800;900&family=JetBrains+Mono:wght@500;600&display=swap";
 const X_TIER = (p, lo, hi) => (p <= lo + (hi - lo) * 0.3 ? "lo" : p <= lo + (hi - lo) * 0.66 ? "mid" : "hi");
 const X_TIER_COLOR = { lo: "#3ee08f", mid: "#f5b94a", hi: "#ff7a6b" };
-const X_THEMES = ["auto", "light", "dark"];
+// Himmel ("sky", 2.5.0b54): the page takes its colour from the sky over the house, light by day, dark by night.
+const X_THEMES = ["auto", "light", "dark", "sky"];
 
 Object.assign(EvPlannerPanel.prototype, {
   // ------------------------------------------------------------------ the shell
@@ -13446,7 +13479,21 @@ Object.assign(EvPlannerPanel.prototype, {
     const theme = this._xTheme();
     if (theme === "dark") return true;
     if (theme === "light") return false;
+    if (theme === "sky") return !this._xSkyTone().light;
     return !!this._hass?.themes?.darkMode;
+  },
+
+  /* Himmel: the sky's colour from the sun's height: night, the blue hour, the golden hour, the day. */
+  _xSkyTone() {
+    const el = Number(this._hass?.states?.["sun.sun"]?.attributes?.elevation);
+    const t = Math.max(-1, Math.min(1, (Number.isFinite(el) ? el : -20) / 30));
+    const stops = [[-1, [8, 10, 26]], [-0.25, [24, 22, 58]], [0.05, [74, 52, 78]], [0.35, [214, 226, 240]], [1, [236, 242, 249]]];
+    let i = 0;
+    while (i < stops.length - 2 && t > stops[i + 1][0]) i += 1;
+    const [t0, c0] = stops[i], [t1, c1] = stops[i + 1];
+    const k = Math.max(0, Math.min(1, (t - t0) / (t1 - t0)));
+    const bg = `#${c0.map((v, n) => Math.round(v + (c1[n] - v) * k).toString(16).padStart(2, "0")).join("")}`;
+    return { bg, light: t > 0.2, golden: t > -0.25 && t < 0.3 };
   },
 
   _setTheme(theme) {
@@ -13523,12 +13570,20 @@ Object.assign(EvPlannerPanel.prototype, {
   },
 
   /* The small top of the other pages: the page's name, a line, a slice of the house with the cars, and the prices. */
-  _xSmallTop({ title, line = "", back = null, pic = true }) {
+  /* A small top. Each page has its own picture (2.5.0b54): Huset the street with the house, Biler the cars,
+     Learning and History the price landscape; the other pages the sky. */
+  _xSmallTop({ title, line = "", back = null, pic = true, art = null }) {
     const night = this._xNight();
-    const street = pic && this._homeShown;
+    const kind = !pic ? "sky" : art || (this._homeShown ? "street" : "sky");
+    const drawn = kind === "street" ? this._homeShown : kind === "cars" ? this._cars.length > 0 : kind === "prices" ? this._hourPrices(24).some((h) => h.p !== null) : false;
+    const show = drawn ? kind : "sky";
     const backBtn = back ? `<button class="x-round" data-act="${back}" data-f="x-back" aria-label="${esc(this._t("back_label"))}">${xi(XD.back, { sw: 2.4 })}</button>` : "";
-    return `<header class="x-top small ${night ? "night" : "day"}${street ? " street" : ""}" style="background:${this._xSky("small")}" aria-label="${esc(title)}">
-      ${street ? '<div class="x-street small" aria-hidden="true"></div><div class="x-wash" aria-hidden="true"></div>' : `<div class="x-sky">${this._xStars([[10, 30], [38, 18], [59, 44], [72, 22], [88, 50]])}</div>`}
+    const picture = show === "street" ? '<div class="x-street small" aria-hidden="true"></div>'
+      : show === "cars" ? this._xArtCars(night)
+      : show === "prices" ? this._xArtPrices(night)
+      : "";
+    return `<header class="x-top small ${night ? "night" : "day"}${show !== "sky" ? ` street art-${show}` : ""}" style="background:${this._xSky("small")}" aria-label="${esc(title)}">
+      ${show !== "sky" ? `${picture}<div class="x-wash" aria-hidden="true"></div>` : `<div class="x-sky">${this._xStars([[10, 30], [38, 18], [59, 44], [72, 22], [88, 50]])}</div>`}
       <div class="x-in">
         <div class="x-dock"></div>
         <div class="x-title">${backBtn}<div><h1>${esc(title)}</h1>${line ? `<span class="x-num x-line">${line.split("\n").map((l) => `<span>${esc(l)}</span>`).join("")}</span>` : ""}</div></div>
@@ -13549,7 +13604,51 @@ Object.assign(EvPlannerPanel.prototype, {
 
   /* Another page in a small top: its own content under it, as it was. */
   _xPage(title, inner, opts = {}) {
-    return `${this._xSmallTop({ title, line: opts.line ?? this._xLine(), back: opts.back || null, pic: opts.pic !== false })}<div class="x-wrap x-old">${inner}</div>`;
+    const art = this._tab === "history" || this._tab === "past" ? "prices" : "sky";
+    return `${this._xSmallTop({ title, line: opts.line ?? this._xLine(), back: opts.back || null, pic: opts.pic !== false, art })}<div class="x-wrap x-old">${inner}</div>`;
+  },
+
+  /* Biler's picture: the household's cars side by side under the lamp, on a wet floor; a car that is out is
+     drawn faint. */
+  _xArtCars(night) {
+    const cars = this._cars.slice(0, 3);
+    const here = new Set(this._tonightCars().map((v) => v.id));
+    const pics = cars.map((v, i) => {
+      const body = ClayScene.BODIES.includes(v.settings?.body) ? v.settings.body : "sedan";
+      const img = v.image ? `<img class="x-carimg photo" src="${esc(v.image)}" alt="">` : `<span class="x-carimg drawn">${ClayScene.preview(body, v.settings?.paint === "black" ? "black" : "white").replace(/<rect[^>]*url\(#cs-bg\)[^>]*\/>/, "")}</span>`;
+      const out = v.home === false || v.elsewhere === true;
+      return `<span class="x-artcar${out ? " out" : ""}" style="--car:${this._carColor(i)};--i:${i}">${img}</span>`;
+    }).join("");
+    return `<div class="x-art cars${night ? " night" : ""}" aria-hidden="true"><i class="x-artlamp"></i><i class="x-artfloor"></i><div class="x-artcars n${cars.length}">${pics}</div></div>`;
+  },
+
+  /* Learning's picture: the next day's prices as a landscape, the cheapest hours a lit valley. */
+  _xArtPrices(night) {
+    const hours = this._hourPrices(24);
+    const ps = hours.map((h) => h.p).filter((p) => p !== null);
+    const lo = Math.min(...ps), hi = Math.max(...ps), span = Math.max(0.01, hi - lo);
+    const W = 400, H = 220, base = 196;
+    const pts = hours.map((h, k) => [(k / 23) * W, h.p === null ? null : base - 30 - ((h.p - lo) / span) * 104]);
+    let last = pts.find(([, y]) => y !== null)[1];
+    for (const pt of pts) { if (pt[1] === null) pt[1] = last; last = pt[1]; }
+    const smooth = (list) => list.map(([x, y], k) => {
+      if (!k) return `M${x.toFixed(1)} ${y.toFixed(1)}`;
+      const [px, py] = list[k - 1];
+      const mx = (px + x) / 2;
+      return `C${mx.toFixed(1)} ${py.toFixed(1)} ${mx.toFixed(1)} ${y.toFixed(1)} ${x.toFixed(1)} ${y.toFixed(1)}`;
+    }).join("");
+    const ridge = smooth(pts);
+    const back = smooth(pts.map(([x, y], k) => [x, Math.min(base - 8, y - 26 + Math.sin(k * 0.9) * 10)]));
+    const best = this._cheapest(hours, 3);
+    const k0 = best ? hours.findIndex((h) => h.hour === best.from) : -1;
+    const glow = k0 >= 0 ? (() => { const x = ((k0 + 1) / 23) * W; const y = pts[Math.min(23, k0 + 1)][1]; return `<ellipse class="x-artglow" cx="${x.toFixed(1)}" cy="${(y + 4).toFixed(1)}" rx="46" ry="16"/><circle class="x-artdot" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4.5"/>`; })() : "";
+    const sky = night ? [[40, 30], [96, 18], [150, 42], [214, 24], [262, 52], [318, 20], [372, 40]].map(([x, y], n) => `<circle class="x-artstar" style="animation-delay:${n * 0.4}s" cx="${x}" cy="${y}" r="1.2"/>`).join("") : "";
+    return `<div class="x-art prices${night ? " night" : ""}" aria-hidden="true"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice">
+      <defs><linearGradient id="xart-a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="s1"/><stop offset="1" class="s2"/></linearGradient>
+      <linearGradient id="xart-b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="s3"/><stop offset="1" class="s4"/></linearGradient></defs>
+      ${sky}<path class="x-artback" d="${back}L${W} ${H}L0 ${H}Z" fill="url(#xart-b)"/>
+      <path class="x-artfill" d="${ridge}L${W} ${H}L0 ${H}Z" fill="url(#xart-a)"/><path class="x-artridge" d="${ridge}"/>${glow}
+      <line class="x-artnow" x1="0.8" x2="0.8" y1="${(pts[0][1] - 26).toFixed(1)}" y2="${H}"/></svg></div>`;
   },
 
   _xMountMini() {
@@ -13854,25 +13953,30 @@ Object.assign(EvPlannerPanel.prototype, {
     const places = sites.length > 1 ? `<div class="x-pills x-places">${sites.map((site) => `<button class="x-pill place${site.id === place.id ? " on" : ""}" data-act="place" data-id="${esc(site.id)}" data-f="place-${esc(site.id)}" aria-pressed="${site.id === place.id}">${esc(site.name || this._t("place_home"))}</button>`).join("")}</div>` : "";
     const scene = `<section class="x-card x-scene-card">${places}<div class="x-house scene-slot" role="img" aria-label="${esc(this._t("home_title"))}"></div></section>`;
     const cards = [scene, this._xTonightLink(only), place.home && this._state.home?.history ? this._xTodayCard() : "", supply ? this._xSupplyCard(supply, place.home ? null : place) : "", this._xChargersCard(only)].filter(Boolean);
-    return `${this._xSmallTop({ title: this._t("tab_home"), line: this._xLine() })}<div class="x-wrap x-home">${cards.join("")}</div>`;
+    return `${this._xSmallTop({ title: this._t("tab_home"), line: this._xLine(), art: "street" })}<div class="x-wrap x-home">${cards.join("")}</div>`;
   },
 
   /* "Bilerne i nat": the cars by the charger, each one's level and what it does tonight; it opens Biler. */
   _xTonightLink(siteId) {
-    const cars = this._tonightCars().filter((v) => !siteId || (v.site ?? "home") === siteId);
+    // Every car of the place, also one that is out (2.5.0b54); the house above already shows them by the charger.
+    const here = this._tonightCars();
+    const cars = this._cars.filter((v) => (v.site ?? "home") === (siteId || "home")).slice(0, 4);
     if (!cars.length) return "";
     const now = znow();
     const items = cars.map((v, i) => {
+      if (!here.includes(v)) {
+        const side = cars.length > 1 ? (i % 2 === 1 ? " r" : "") : " c";
+        return `<span class="x-tl-car out${side}"><b class="x-tl-name">${esc(v.name)}</b><b class="x-num x-disp x-tl-soc">${isNum(v.soc) ? this._pct(v.soc) : "–"}</b><small class="x-num away">${esc(this._t("x_front_away"))}</small></span>`;
+      }
       const c = this._nextCharge(v);
       const soon = c && ZD(c.start).getTime() < now + 24 * 3600e3;
       const night = c && (ZD(c.start).getHours() >= 18 || ZD(c.start).getHours() < 6);
       const note = c ? (soon ? this._t("x_charges", { when: this._whenSpan(c) }) : this._t(night ? "x_waits" : "x_waits_day", { day: this._xDayShort(c.start) })) : this._t("x_enough");
-      const side = cars.length > 1 ? (i === 1 ? " r" : "") : " c";
+      const side = cars.length > 1 ? (i % 2 === 1 ? " r" : "") : " c";
       return `<span class="x-tl-car${side}"><b class="x-tl-name">${esc(v.name)}</b><b class="x-num x-disp x-tl-soc">${isNum(v.soc) ? this._pct(v.soc) : "–"}</b><small class="x-num ${soon ? "on" : ""}">${esc(note)}</small></span>`;
     }).join("");
     return `<button class="x-card x-hero-card x-tonight-link" data-act="x-tab" data-tab="cars" aria-label="${esc(this._t("x_to_cars"))}">
       <span class="x-head"><h2>${esc(this._t("x_cars_tonight"))}</h2><span class="x-go">${esc(this._t("tab_cars"))}${xi(XD.chev, { w: 14, sw: 2.4 })}</span></span>
-      <span class="x-tpic tn-pic" role="img" aria-label="${esc(this._t("x_cars_tonight"))}"></span>
       <span class="x-tl-row${cars.length > 1 ? "" : " one"}">${items}</span>
     </button>`;
   },
@@ -14049,7 +14153,7 @@ Object.assign(EvPlannerPanel.prototype, {
       ? `${this._xIssueCard()}${this._xTonightCard()}${this._xWeekCard()}`
       : setup ? "" : `<section class="x-card x-empty">${MARK}<h2>${this._t("no_cars_title")}</h2><p>${this._t("no_cars_text")}</p>
           <a class="x-btn primary" href="/config/integrations/integration/ev_household_planner" target="_top">${ICONS.plus}<span>${this._t("add_car")}</span></a></section>`;
-    return `${this._xSmallTop({ title: this._t("tab_cars"), line: this._xLine() })}<div class="x-wrap x-cars">${setup}${body}</div>`;
+    return `${this._xSmallTop({ title: this._t("tab_cars"), line: this._xLine(), art: "cars" })}<div class="x-wrap x-cars">${setup}${body}</div>`;
   },
 
   /* A problem at the top: a charger that does not answer, or a plan that cannot reach its target. */
@@ -14105,7 +14209,10 @@ Object.assign(EvPlannerPanel.prototype, {
       return { x: (k + 0.5) / hours.length, html: this._xTipHtml(h.at, h.p, car >= 0 ? [[this._carColor(car), this._t("x_tip_charges", { car: this._cars[car].name.split(" ")[0] })]] : []) };
     };
     const steered = (v) => this._steered(v);
-    const blocks = here.map((v, i) => {
+    // Every car of the home has its box, also one that is out: it says so (2.5.0b54).
+    const shown = cars.slice(0, 4);
+    const blocks = shown.map((v, i) => {
+      const out = !here.includes(v);
       const c = this._nextCharge(v);
       const soon = c && ZD(c.start).getTime() < now + 24 * 3600e3;
       const down = this._troubled(v);
@@ -14116,7 +14223,14 @@ Object.assign(EvPlannerPanel.prototype, {
       const auto = steered(v) && !fast;
       const tag = v.deadline ? `${auto ? "✦ " : ""}${this._pct(v.target)} · ${this._day(v.deadline).toLowerCase()} ${this._time(v.deadline)}` : this._t("x_no_departure");
       const ci = this._cars.indexOf(v);
-      return `<button class="x-tn-car${here.length > 1 && i === 1 ? " r" : ""}" data-act="open-car" data-id="${esc(v.id)}" data-f="tn-${esc(v.id)}" style="--car:${this._carColor(ci)}" aria-label="${esc(this._t("tn_open", { car: v.name }))}">
+      if (out) {
+        return `<button class="x-tn-car out${shown.length > 1 && i % 2 === 1 ? " r" : ""}" data-act="open-car" data-id="${esc(v.id)}" data-f="tn-${esc(v.id)}" style="--car:${this._carColor(ci)}" aria-label="${esc(this._t("tn_open", { car: v.name }))}">
+        <span class="x-tn-name"><b>${esc(v.name)}</b>${xi(XD.chev, { w: 16, sw: 2.4 })}</span>
+        <b class="x-num x-disp x-tn-soc">${isNum(v.soc) ? this._pct(v.soc) : "–"}</b>
+        <small class="x-num away">${esc(this._t("x_front_away"))}</small>
+        <small class="x-tag">${esc(tag)}</small></button>`;
+      }
+      return `<button class="x-tn-car${shown.length > 1 && i % 2 === 1 ? " r" : ""}" data-act="open-car" data-id="${esc(v.id)}" data-f="tn-${esc(v.id)}" style="--car:${this._carColor(ci)}" aria-label="${esc(this._t("tn_open", { car: v.name }))}">
         <span class="x-tn-name"><b>${esc(v.name)}</b>${xi(XD.chev, { w: 16, sw: 2.4 })}</span>
         <b class="x-num x-disp x-tn-soc">${isNum(v.soc) ? this._pct(v.soc) : "–"}</b>
         <small class="x-num ${down ? "warn" : soon ? "on" : ""}">${esc(note)}</small>
@@ -14141,8 +14255,8 @@ Object.assign(EvPlannerPanel.prototype, {
       </div>
       ${why}
       <div class="x-tn-words">${head}${sub ? `<p>${esc(sub.trim())}</p>` : ""}</div>
-      ${here.length ? `<div class="x-tpic tn-pic" role="img" aria-label="${esc(this._t("x_cars_tonight"))}"></div>
-      <div class="x-tn-cars${here.length > 1 ? "" : " one"}">${blocks}</div>` : `<p class="x-note x-away">${esc(this._t("x_none_home"))}</p>`}
+      ${here.length ? `<div class="x-tpic tn-pic" role="img" aria-label="${esc(this._t("x_cars_tonight"))}"></div>` : `<p class="x-note x-away">${esc(this._t("x_none_home"))}</p>`}
+      <div class="x-tn-cars${shown.length > 1 ? "" : " one"}">${blocks}</div>
       ${swap}
       ${hours.some((h) => h.p !== null) ? `<div class="x-well x-strip" data-scrub="tonight"><div class="x-row x-soft"><span>${esc(this._t("x_next_day_prices"))}</span><span class="x-num">${best ? esc(this._t("x_cheap_at", { from: pad(best.from), to: pad(best.to) })) : ""}</span></div><div class="x-bars20">${bars}</div><div class="x-ticks20 x-num">${ticks}</div></div>` : ""}
     </section>`;
@@ -14334,7 +14448,8 @@ Object.assign(EvPlannerPanel.prototype, {
       <div class="x-field"><small>${esc(this._t("x_applies"))}</small>
         ${seg("x-scope", [["once", esc(this._t("x_only", { day: `${this._xDayShort(d.date)}`.toLowerCase(), date: `${d.date.getDate()}/${d.date.getMonth() + 1}` }))], ["every", esc(this._t("x_every", { day: this._weekdayName(d.wd).toLowerCase() }))]], d.once ? "once" : "every")}
       </div>
-      ${v.climate ? `<button class="x-clim-row" data-act="x-clim" data-id="${esc(v.id)}" data-k="${k}" aria-pressed="${d.climate !== null}"><span class="x-clim-ic${d.climate !== null ? " on" : ""}">${xi(XD.snow, { w: 18, sw: 2.2 })}</span><span class="x-grow"><b>${esc(this._t("x_clim_dep"))}</b><small class="x-num">${esc(d.climate !== null ? this._t("x_clim_sub", { temp: this._num(d.climate, 1), min: Number(s.climate_minutes) || 15 }) : this._t("x_off"))}</small></span><span class="x-sw${d.climate !== null ? " on" : ""}"><i></i></span></button>` : ""}` : ""}
+      ` : ""}
+      ${v.climate ? this._xClimRow(v, d, k, s, has) : ""}
       <div class="x-result">${xi(XD.now, { w: 16, fill: true })}<span class="x-num">${esc(result)}</span></div>
     </div>`;
   },
@@ -14434,9 +14549,29 @@ Object.assign(EvPlannerPanel.prototype, {
         this._xSet(v, { day_climate: climates });
         return true;
       }
+      case "x-clim-temp": {
+        const climates = { ...(s.day_climate || {}) };
+        const now = isNum(climates[d.wd]) ? Number(climates[d.wd]) : Number(s.climate_temperature) || 21;
+        climates[d.wd] = clamp(Math.round((now + Number(button.dataset.d || 0)) * 2) / 2, 15, 28);
+        this._xSet(v, { day_climate: climates });
+        return true;
+      }
       default:
         return false;
     }
+  },
+
+  /* The week plan's climate for the day: on or off, and the temperature (2.5.0b54). Shown for every car
+     with a climate; on a day without a departure it says to choose a time first. */
+  _xClimRow(v, d, k, s, has) {
+    const id = esc(v.id);
+    const temp = isNum((s.day_climate || {})[d.wd]) ? Number(s.day_climate[d.wd]) : null;
+    const on = has && temp !== null;
+    const sub = !has ? this._t("x_clim_need_time") : on ? this._t("x_clim_sub", { temp: this._num(temp, 1), min: Number(s.climate_minutes) || 15 }) : this._t("x_off");
+    return `<div class="x-clim-box${on ? " on" : ""}">
+      <button class="x-clim-row" data-act="x-clim" data-id="${id}" data-k="${k}" aria-pressed="${on}"${has ? "" : " disabled"}><span class="x-clim-ic${on ? " on" : ""}">${xi(XD.snow, { w: 18, sw: 2.2 })}</span><span class="x-grow"><b>${esc(this._t("x_clim_dep"))}</b><small class="x-num">${esc(sub)}</small></span><span class="x-sw${on ? " on" : ""}"><i></i></span></button>
+      ${on ? `<div class="x-step x-clim-temp"><span>${esc(this._t("x_clim_temp"))}</span><div><button class="x-sq" data-act="x-clim-temp" data-id="${id}" data-k="${k}" data-d="-0.5" aria-label="${esc(this._t("x_colder"))}">−</button><b class="x-num x-disp">${esc(this._num(temp, 1))}°</b><button class="x-sq" data-act="x-clim-temp" data-id="${id}" data-k="${k}" data-d="0.5" aria-label="${esc(this._t("x_warmer"))}">+</button></div></div>` : ""}
+    </div>`;
   },
 
   _xEditorTime(input) {
@@ -15100,7 +15235,7 @@ Object.assign(EvPlannerPanel.prototype, {
     </header>
     <div class="x-wrap x-lookpage">
       <section class="x-sec"><h2>${esc(this._t("x_appearance"))}</h2><div class="x-looks">${looks}</div>
-        <div class="x-seg n3">${X_THEMES.map((t) => `<button data-act="x-theme" data-value="${t}" class="${theme === t ? "on" : ""}" aria-pressed="${theme === t}">${esc(this._t(`x_theme_${t}`))}</button>`).join("")}</div></section>
+        <div class="x-seg n4">${X_THEMES.map((t) => `<button data-act="x-theme" data-value="${t}" class="${theme === t ? "on" : ""}" aria-pressed="${theme === t}">${esc(this._t(`x_theme_${t}`))}</button>`).join("")}</div></section>
       <section class="x-sec"><h2>${esc(this._t("x_top_house"))}</h2><div class="x-houses">${houses}</div></section>
       ${cars ? `<section class="x-sec"><h2>${esc(this._t("x_top_cars"))}</h2>${cars}</section>` : ""}
       ${photos ? `<section class="x-card x-hero-card x-photos"><div class="x-head"><div><h2>${esc(this._t("x_own_picture"))}</h2><small class="x-soft">${esc(this._t("x_own_picture_sub"))}</small></div><button class="x-q small" data-act="x-pop" data-pop="photo" aria-expanded="${this._xPop === "photo"}" aria-label="${esc(this._t("x_how"))}">?</button></div>
@@ -16494,6 +16629,370 @@ button.hero-pill:focus-visible { outline: 2px solid currentColor; outline-offset
 `;
 
 /* The pages as drawn (2.5.0b48): only the panel uses these, not the dashboard cards. */
+/* EV Planner's own look, the night street (2.5.0b54): Nat, Dag and Himmel. After X_STYLE. */
+const NEXT_STYLE = `
+/* ==================================================================================================
+   EV Planner's own look (2.5.0b54): the night street. On top of the x-design styles above.
+   Layout concept: a night street, lit by sodium lamps. The page is the dark road; cards are lit
+   panels on it; the one warm colour is the lamp's amber, kept for what is happening now (charging,
+   the chosen page, the quick button). Green stays the colour of cheap power.
+   Nothing here changes what a page shows: only colours, surfaces, type, spacing, placement, motion.
+   ================================================================================================== */
+
+/* ---------- 1. Tokens ---------------------------------------------------------------------------- */
+:host([look="evp"]) {
+  /* type */
+  --n-display: "Schibsted Grotesk", "Bricolage Grotesque", Inter, -apple-system, "Segoe UI", sans-serif;
+  --n-text: Inter, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --n-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* shape */
+  --n-r-card: 28px; --n-r-inner: 18px; --n-r-chip: 999px;
+  /* Nat: the road at night */
+  --n-amber: #ffb547; --n-amber-ink: #ffcf85; --n-amber-deep: #ff9419; --n-on-amber: #2a1700;
+  --n-glow: rgba(255, 181, 71, .32);
+  --n-hair: rgba(214, 222, 255, .085); --n-hair2: rgba(214, 222, 255, .15); --n-hi: rgba(255, 255, 255, .055);
+  --n-raise: #262d52; --n-glass: rgba(16, 20, 42, .62); --n-dock: rgba(14, 17, 36, .74);
+  --n-card-shadow: 0 1px 0 rgba(0, 0, 0, .35), 0 28px 56px -36px rgba(0, 0, 0, .85);
+  --n-rail: #070917;
+
+  --x-bg: #090c1b; --x-card: #121735; --x-card2: #181e40; --x-well: #0d1129; --x-seg: #0f1430;
+  --x-line: rgba(214, 222, 255, .07); --x-line2: rgba(214, 222, 255, .13);
+  --x-ink: #f1f3ff; --x-ink2: #d5d9f5; --x-soft: #9ba2c6; --x-faint: #6f779d;
+  --x-acc: var(--n-amber); --x-acc-ink: var(--n-amber-ink); --x-good: #6ee7b0;
+  --x-vio: #c4b8ff; --x-warn: #f7c04f; --x-warn-ink: #ffd67e; --x-coral: #ff8f7e; --x-blue: #5b9bff; --x-blue-ink: #9cc2ff;
+  --x-hero: linear-gradient(175deg, #1a2048 0%, #141a3a 46%, #121735 100%);
+  --x-pop: #1c2247; --x-on: #f1f3ff; --x-on-ink: #0b0e1f;
+  --x-brand: linear-gradient(150deg, #ffd27a 0%, #ffad3b 52%, #ff8a1f 100%);
+  --x-display: var(--n-display); --x-text: var(--n-text);
+  --evp-display: var(--n-display);
+  --x-shadow: var(--n-card-shadow);
+  font-family: var(--n-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Dag: a clear Nordic day — cool paper, ink, the amber kept deep enough to read. */
+:host([look="evp"][xlight]), :host([look="evp"][sky][xlight]) {
+  --n-amber: #f29d1c; --n-amber-ink: #a35a00; --n-amber-deep: #d97a00; --n-on-amber: #2a1700;
+  --n-glow: rgba(242, 157, 28, .28);
+  --n-hair: rgba(16, 26, 48, .08); --n-hair2: rgba(16, 26, 48, .14); --n-hi: rgba(255, 255, 255, .9);
+  --n-raise: #ffffff; --n-glass: rgba(255, 255, 255, .7); --n-dock: rgba(255, 255, 255, .78);
+  --n-card-shadow: 0 1px 2px rgba(16, 26, 48, .06), 0 22px 44px -30px rgba(16, 26, 48, .35);
+  --n-rail: #e6ebf3;
+
+  --x-bg: #eef2f8; --x-card: #ffffff; --x-card2: #f4f6fb; --x-well: #edf1f7; --x-seg: #e6ebf3;
+  --x-line: rgba(16, 26, 48, .07); --x-line2: rgba(16, 26, 48, .13);
+  --x-ink: #0d1526; --x-ink2: #283246; --x-soft: #5a6478; --x-faint: #8a93a6;
+  --x-good: #0b8a5c; --x-vio: #6a52d6; --x-warn: #e7a52c; --x-warn-ink: #8f5c00; --x-coral: #cf4d3b; --x-blue: #2f7cf0; --x-blue-ink: #2363c6;
+  --x-hero: linear-gradient(175deg, #fff6e6 0%, #ffffff 60%);
+  --x-pop: #ffffff; --x-on: #0d1526; --x-on-ink: #ffffff;
+  --x-brand: linear-gradient(150deg, #ffc763 0%, #f6a023 55%, #e9860f 100%);
+}
+
+/* Himmel: the page takes its colour from the sky over the house (the sun's height, set from outside as --n-sky). */
+:host([look="evp"][sky]) {
+  --x-bg: color-mix(in oklab, var(--n-sky, #090c1b) 82%, #03040b);
+  --x-card: color-mix(in oklab, var(--n-sky, #090c1b) 52%, #1a2046);
+  --x-card2: color-mix(in oklab, var(--n-sky, #090c1b) 42%, #222a55);
+  --x-well: color-mix(in oklab, var(--n-sky, #090c1b) 70%, #070914);
+  --x-seg: color-mix(in oklab, var(--n-sky, #090c1b) 66%, #0b0e22);
+  --x-pop: color-mix(in oklab, var(--n-sky, #090c1b) 40%, #262d58);
+  --n-raise: color-mix(in oklab, var(--n-sky, #090c1b) 30%, #2f3766);
+  --n-rail: color-mix(in oklab, var(--n-sky, #090c1b) 80%, #000);
+  --x-hero: linear-gradient(175deg, color-mix(in oklab, var(--n-sky) 40%, #2a3166), var(--x-card));
+}
+:host([look="evp"][sky][xlight]) {
+  --x-bg: color-mix(in oklab, var(--n-sky, #eef2f8) 74%, #ffffff);
+  --x-card: #ffffff; --x-card2: color-mix(in oklab, var(--n-sky) 18%, #ffffff);
+  --x-well: color-mix(in oklab, var(--n-sky) 34%, #ffffff); --x-seg: color-mix(in oklab, var(--n-sky) 40%, #ffffff);
+  --x-pop: #ffffff; --n-raise: #ffffff; --n-rail: color-mix(in oklab, var(--n-sky) 60%, #ffffff);
+  --x-hero: linear-gradient(175deg, color-mix(in oklab, var(--n-sky) 30%, #fff6e6), #ffffff);
+}
+/* The golden hour: the lamp's amber leans towards the evening's rose. */
+:host([look="evp"][sky][golden]) { --n-amber: #ff9e6b; --n-amber-ink: #ffc3a0; --n-amber-deep: #ff7b4a; --n-glow: rgba(255, 140, 100, .34); }
+:host([look="evp"][sky][golden][xlight]) { --n-amber-ink: #b2491d; }
+
+:host([look="evp"]) { background: var(--x-bg); color: var(--x-ink); transition: background-color .6s ease; }
+
+/* ---------- 2. Type ----------------------------------------------------------------------------- */
+:host([look="evp"]) .x-disp, :host([look="evp"]) .x-top h1, :host([look="evp"]) .x-card h2, :host([look="evp"]) .x-sec h2 { font-family: var(--n-display); letter-spacing: -.025em; }
+:host([look="evp"]) .x-disp { font-weight: 800; font-variant-numeric: tabular-nums; font-feature-settings: "tnum", "ss01"; }
+:host([look="evp"]) .x-top h1 { font-weight: 900; text-wrap: balance; }
+:host([look="evp"]) .x-hello h1 { font-size: clamp(46px, 13vw, 58px); line-height: .94; letter-spacing: -.045em; }
+:host([look="evp"]) .x-title h1 { font-size: 34px; letter-spacing: -.035em; }
+:host([look="evp"]) .x-hello p { font-size: 15.5px; font-weight: 500; opacity: .9; }
+/* Small labels are set like a charger's display: monospaced, spaced, upper case. */
+:host([look="evp"]) .x-over, :host([look="evp"]) .x-over2, :host([look="evp"]) .x-dep small, :host([look="evp"]) .x-tile small,
+:host([look="evp"]) .x-tn-when small, :host([look="evp"]) .x-pricechip small, :host([look="evp"]) .x-days small {
+  font-family: var(--n-mono); font-weight: 600; letter-spacing: .1em; text-transform: uppercase; font-size: 10.5px;
+}
+:host([look="evp"]) .x-over { opacity: .8; font-size: 11px; }
+:host([look="evp"]) .x-head h2 { font-size: 18px; font-weight: 800; letter-spacing: -.02em; }
+:host([look="evp"]) .x-title .x-num { font-family: var(--n-text); font-weight: 500; }
+:host([look="evp"]) .bar .brand span { font-family: var(--n-display); font-weight: 800; letter-spacing: -.03em; }
+
+/* ---------- 3. Surfaces -------------------------------------------------------------------------- */
+:host([look="evp"]) .x-card {
+  border-radius: var(--n-r-card);
+  background: linear-gradient(180deg, color-mix(in oklab, var(--x-card) 94%, #ffffff 6%) 0, var(--x-card) 140px);
+  border: 1px solid var(--n-hair);
+  box-shadow: inset 0 1px 0 var(--n-hi), var(--n-card-shadow);
+  padding: 20px 18px;
+  gap: 14px;
+}
+:host([look="evp"][xlight]) .x-card, :host([look="evp"][sky][xlight]) .x-card { background: var(--x-card); }
+:host([look="evp"]) .x-hero-card { background: var(--x-hero); }
+:host([look="evp"]) .x-well, :host([look="evp"]) .x-chart { border-radius: var(--n-r-inner); background: var(--x-well); box-shadow: inset 0 1px 2px rgba(0, 0, 0, .18); }
+:host([look="evp"][xlight]) .x-well, :host([look="evp"][xlight]) .x-chart, :host([look="evp"][sky][xlight]) .x-well, :host([look="evp"][sky][xlight]) .x-chart { box-shadow: inset 0 1px 2px rgba(16, 26, 48, .06); }
+
+/* The card's link: a quiet chip. */
+:host([look="evp"]) .x-go { border: 0; padding: 6px 10px 6px 12px; border-radius: var(--n-r-chip); background: color-mix(in oklab, var(--n-amber) 13%, transparent); color: var(--n-amber-ink); font-weight: 700; font-size: 12.5px; }
+:host([look="evp"]) .x-q { background: var(--x-well); border-color: var(--n-hair2); }
+
+/* Buttons */
+:host([look="evp"]) .x-btn { border-radius: 16px; height: 46px; font-family: var(--n-text); }
+:host([look="evp"]) .x-btn.primary, :host([look="evp"]) .x-save, :host([look="evp"]) .x-bigbtn:not(.light) { background: var(--x-brand); color: var(--n-on-amber); box-shadow: 0 10px 24px -12px var(--n-glow); }
+
+/* Segmented controls: a sunk track, the chosen part raised. */
+:host([look="evp"]) .x-seg, :host([look="evp"]) .x-views, :host([look="evp"]) .x-daynight, :host([look="evp"]) .x-modes, :host([look="evp"]) .segmented {
+  background: var(--x-seg); border: 1px solid var(--n-hair); border-radius: 16px; padding: 4px; box-shadow: inset 0 1px 2px rgba(0, 0, 0, .2);
+}
+:host([look="evp"]) .x-seg button.on, :host([look="evp"]) .x-views button.on, :host([look="evp"]) .x-daynight button.on, :host([look="evp"]) .segmented button.on {
+  background: var(--n-raise); color: var(--x-ink); border-radius: 12px; box-shadow: inset 0 1px 0 var(--n-hi), 0 6px 14px -8px rgba(0, 0, 0, .6);
+}
+:host([look="evp"]) .x-modes button.on { background: var(--x-brand); color: var(--n-on-amber); }
+:host([look="evp"]) .x-sw.on { background: var(--n-amber); }
+
+/* Pills over the street */
+:host([look="evp"]) .x-glass { background: var(--n-glass); border-color: var(--n-hair2); -webkit-backdrop-filter: blur(20px) saturate(1.5); backdrop-filter: blur(20px) saturate(1.5); }
+:host([look="evp"]) .x-pill { height: 34px; padding: 0 14px; font-weight: 700; }
+
+/* ---------- 4. The tops -------------------------------------------------------------------------- */
+/* Forside's top: the greeting sits low over the road, the light falls on it. */
+:host([look="evp"]) .x-top.front .x-hello { padding-top: 22px; gap: 6px; }
+:host([look="evp"]) .x-top.front .x-hello h1 { text-shadow: 0 2px 30px rgba(0, 0, 0, .45); }
+:host([look="evp"]) .x-top.front.day .x-hello h1 { text-shadow: 0 1px 24px rgba(255, 255, 255, .7); }
+/* The road fades into the page without a seam. */
+:host([look="evp"]) .x-top.front .x-fade { background: linear-gradient(180deg, rgba(4, 6, 18, .45) 0%, transparent 24%, transparent 58%, color-mix(in oklab, var(--x-bg) 70%, transparent) 82%, var(--x-bg) 100%); }
+:host([look="evp"]) .x-top.front.day .x-fade { background: linear-gradient(180deg, rgba(255, 255, 255, .25) 0%, transparent 22%, transparent 66%, color-mix(in oklab, var(--x-bg) 60%, transparent) 86%, var(--x-bg) 100%); }
+
+/* Scrolling: the street drifts slower than the page and the greeting steps back (where the browser can). */
+@supports (animation-timeline: scroll()) {
+  :host([look="evp"]) .content { scroll-timeline: --n-page block; }
+  :host([look="evp"]) .x-top .x-street { animation: n-drift linear both; animation-timeline: --n-page; animation-range: 0 640px; }
+  :host([look="evp"]) .x-top .x-hello, :host([look="evp"]) .x-top .x-title { animation: n-step linear both; animation-timeline: --n-page; animation-range: 0 300px; }
+  @keyframes n-drift { to { transform: translateY(34%) scale(1.04); filter: saturate(.7) brightness(.8); } }
+  @keyframes n-step { to { transform: translateY(-26px) scale(.97); opacity: 0; } }
+}
+@media (prefers-reduced-motion: reduce) { :host([look="evp"]) .x-top .x-street, :host([look="evp"]) .x-top .x-hello, :host([look="evp"]) .x-top .x-title { animation: none !important; } }
+
+/* The lifted card over Forside's top: frosted, with the lamp light caught on its edge. */
+:host([look="evp"]) .x-front .x-lift > .x-card {
+  background: color-mix(in oklab, var(--x-card) 58%, transparent);
+  -webkit-backdrop-filter: blur(26px) saturate(1.6); backdrop-filter: blur(26px) saturate(1.6);
+  border-color: color-mix(in oklab, var(--n-amber) 22%, var(--n-hair2));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 -20px 60px -30px var(--n-glow), 0 40px 70px -40px rgba(0, 0, 0, .9);
+}
+:host([look="evp"][xlight]) .x-front .x-lift > .x-card, :host([look="evp"][sky][xlight]) .x-front .x-lift > .x-card { background: color-mix(in oklab, #ffffff 74%, transparent); }
+
+/* The small tops: the title set big, the wash a little deeper so it reads. */
+:host([look="evp"]) .x-top.small.street .x-title { padding-top: 8px; }
+
+/* The profile: a ring in the lamp's colour. */
+:host([look="evp"]) .bar .prof { background: var(--x-card2); color: var(--x-ink); box-shadow: 0 0 0 2px var(--n-amber), 0 0 18px -2px var(--n-glow); font-family: var(--n-display); font-weight: 800; }
+:host([look="evp"]) .x-top.day .bar .prof { background: #fff; color: #0d1526; }
+
+/* ---------- 5. Navigation ------------------------------------------------------------------------ */
+/* The phone's dock */
+:host([look="evp"]) .app > nav.tabs {
+  left: 12px; right: 12px; bottom: calc(12px + var(--evp-safe-bottom)); height: 68px; padding: 0 6px; border-radius: 26px;
+  background: var(--n-dock); border: 1px solid var(--n-hair2);
+  -webkit-backdrop-filter: blur(28px) saturate(1.8); backdrop-filter: blur(28px) saturate(1.8);
+  box-shadow: inset 0 1px 0 var(--n-hi), 0 24px 48px -18px rgba(0, 0, 0, .75);
+}
+:host([look="evp"]) .app > nav.tabs button { color: var(--x-faint); font-weight: 600; font-size: 10.5px; letter-spacing: .01em; border-radius: 18px; transition: color .25s; }
+:host([look="evp"]) .app > nav.tabs button .xi { transition: transform .3s cubic-bezier(.2, .9, .3, 1.4); }
+:host([look="evp"]) .app > nav.tabs button.on { color: var(--n-amber-ink); background: transparent; font-weight: 700; }
+:host([look="evp"]) .app > nav.tabs button.on::before {
+  content: ""; position: absolute; inset: 7px 6px; border-radius: 16px; z-index: -1;
+  background: radial-gradient(80% 90% at 50% 100%, color-mix(in oklab, var(--n-amber) 30%, transparent), color-mix(in oklab, var(--n-amber) 9%, transparent));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--n-amber) 26%, transparent);
+}
+:host([look="evp"]) .app > nav.tabs button.on .xi { transform: translateY(-1px); filter: drop-shadow(0 0 8px var(--n-glow)); }
+:host([look="evp"]) .app > nav.tabs button { isolation: isolate; }
+
+/* The quick button: the lamp itself. */
+:host([look="evp"]) .app > .qfab {
+  background: var(--x-brand); color: var(--n-on-amber); border-radius: 22px; width: 62px; height: 62px;
+  box-shadow: 0 0 0 6px color-mix(in oklab, var(--n-amber) 14%, transparent), 0 14px 34px -8px var(--n-glow), inset 0 1px 0 rgba(255, 255, 255, .55);
+}
+:host([look="evp"]) .app > .qfab .xi { stroke-width: 2.4; }
+
+/* The sub-menus on a phone (Learning's pages, a car's Now / Rules / History): a glass segmented bar. */
+@media (max-width: 860px) {
+  :host([look="evp"]) .app .car-views, :host([look="evp"]) .app .hist-views {
+    left: 12px; right: 12px; padding: 5px; border-radius: 20px;
+    background: var(--n-dock); border: 1px solid var(--n-hair2);
+    -webkit-backdrop-filter: blur(28px) saturate(1.8); backdrop-filter: blur(28px) saturate(1.8);
+    box-shadow: inset 0 1px 0 var(--n-hi), 0 18px 36px -18px rgba(0, 0, 0, .7);
+  }
+  :host([look="evp"]) .app { --evp-subbar: calc(var(--evp-tabbar, 68px) + 22px + var(--evp-safe-bottom)); }
+}
+:host([look="evp"]) .car-views button.on, :host([look="evp"]) .hist-views button.on { background: var(--n-raise); color: var(--x-ink); border-radius: 15px; box-shadow: inset 0 1px 0 var(--n-hi), 0 6px 14px -8px rgba(0, 0, 0, .6); }
+
+/* A PC: the pages in a rail at the left, the brand at its top; the tops lose their pills. */
+@media (min-width: 1100px) {
+  :host([look="evp"]) .app > .content { padding-left: 252px; box-sizing: border-box; }
+  :host([look="evp"]) .app::before { content: ""; position: fixed; left: 0; top: 0; bottom: 0; width: 252px; z-index: 0; background: var(--n-rail); border-right: 1px solid var(--n-hair); }
+  :host([look="evp"]) .x-top .x-tabs { position: static !important; padding: 0 !important; margin: 0 !important; height: 0 !important; }
+  :host([look="evp"]) .x-tabs nav.tabs.docked {
+    position: fixed !important; left: 0; top: 0; bottom: 0; width: 252px; z-index: 30; box-sizing: border-box;
+    display: flex; flex-direction: column; gap: 4px; overflow: visible; padding: 104px 16px 24px !important;
+  }
+  :host([look="evp"]) .x-tabs nav.tabs.docked button,
+  :host([look="evp"][xlight]) .x-top .x-tabs nav.tabs.docked button {
+    width: 100%; height: 48px; padding: 0 14px; gap: 12px; justify-content: flex-start; border-radius: 15px;
+    background: transparent !important; color: var(--x-soft) !important; box-shadow: none !important;
+    -webkit-backdrop-filter: none; backdrop-filter: none; font: 600 14.5px/1 var(--n-text);
+  }
+  :host([look="evp"]) .x-tabs nav.tabs.docked button:hover { background: color-mix(in oklab, var(--x-ink) 6%, transparent) !important; color: var(--x-ink) !important; }
+  :host([look="evp"]) .x-tabs nav.tabs.docked button.on,
+  :host([look="evp"][xlight]) .x-top .x-tabs nav.tabs.docked button.on {
+    background: color-mix(in oklab, var(--n-amber) 14%, transparent) !important; color: var(--x-ink) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--n-amber) 24%, transparent) !important;
+  }
+  :host([look="evp"]) .x-tabs nav.tabs.docked button.on .xi { color: var(--n-amber); filter: drop-shadow(0 0 8px var(--n-glow)); }
+  :host([look="evp"]) .x-tabs nav.tabs.docked button[data-tab="more"] { margin-top: auto; }
+  :host([look="evp"]) .x-top .x-dock .bar .brand { position: fixed; left: 30px; top: 32px; z-index: 31; color: var(--x-ink); }
+  :host([look="evp"]) .x-top .x-dock .bar .brand span { font-size: 21px !important; opacity: 1 !important; }
+  :host([look="evp"]) .x-top .x-dock .bar .brand .x-mark { width: 34px !important; height: 34px !important; }
+  /* Forside: tonight and the departures side by side, the cars and the house beneath. */
+  :host([look="evp"]) .x-wrap { max-width: 1240px; padding: 26px 32px 0; gap: 20px; }
+  :host([look="evp"]) .x-front { grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: start; }
+  :host([look="evp"]) .x-front > * { grid-column: 1 / -1; }
+  :host([look="evp"]) .x-front > .x-lift { grid-column: span 7; }
+  :host([look="evp"]) .x-front > .x-deps-card { grid-column: span 5; }
+  :host([look="evp"]) .x-front > .x-fcars { grid-column: span 7; }
+  :host([look="evp"]) .x-front > .x-tiles { grid-column: span 5; grid-template-columns: 1fr 1fr; }
+  :host([look="evp"]) .x-front .x-deps-row { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-columns: auto; overflow: visible; margin: 0; padding: 0; }
+  :host([look="evp"]) .x-top.front { height: calc(560px + var(--evp-safe-top)); }
+  :host([look="evp"]) .x-top.front .x-hello { padding-top: 70px; }
+  :host([look="evp"]) .x-top.front .x-hello h1 { font-size: 76px; }
+  :host([look="evp"]) .x-top.small.street { height: calc(280px + var(--evp-safe-top)); }
+  :host([look="evp"]) .x-top.small.street .x-title { padding-top: 44px; }
+  :host([look="evp"]) .x-top.small.street .x-title h1 { font-size: 46px; }
+}
+
+/* ---------- 6. Forside's parts ------------------------------------------------------------------- */
+/* Departures: tickets, the next one lit. */
+:host([look="evp"]) .x-dep {
+  border-radius: 20px; padding: 14px 8px 12px; gap: 3px;
+  background: linear-gradient(180deg, var(--x-card2), color-mix(in oklab, var(--x-card2) 70%, var(--x-well)));
+  box-shadow: inset 0 1px 0 var(--n-hi), inset 0 0 0 1px var(--n-hair);
+  position: relative;
+}
+:host([look="evp"]) .x-dep b { font-size: 24px; margin-top: 8px; font-family: var(--n-display); }
+:host([look="evp"]) .x-dep.on { background: linear-gradient(180deg, color-mix(in oklab, var(--car) 30%, var(--x-card2)), color-mix(in oklab, var(--car) 8%, var(--x-card2))); box-shadow: inset 0 0 0 1.5px var(--car), 0 14px 28px -18px var(--car); }
+
+/* The cars: big level, a meter that glows where it is charging. */
+:host([look="evp"]) .x-frow { padding: 14px 2px; grid-template-columns: 48px minmax(0, 1fr) auto; }
+:host([look="evp"]) .x-fic { width: 48px; height: 48px; border-radius: 16px; box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--car) 30%, transparent); }
+:host([look="evp"]) .x-frow > b { font-size: 28px; font-family: var(--n-display); letter-spacing: -.03em; }
+:host([look="evp"]) .x-meter { height: 8px; border-radius: 4px; background: var(--x-well); box-shadow: inset 0 1px 1px rgba(0, 0, 0, .25); }
+:host([look="evp"]) .x-meter i { border-radius: 4px; background: linear-gradient(90deg, color-mix(in oklab, var(--car) 70%, transparent), var(--car)); box-shadow: 0 0 12px -2px var(--car); }
+:host([look="evp"]) .x-frow small.on { color: var(--n-amber-ink); }
+
+/* The tiles: little lit panels. */
+:host([look="evp"]) .x-tile {
+  border-radius: 24px; padding: 16px; gap: 6px;
+  background: linear-gradient(180deg, color-mix(in oklab, var(--x-card) 94%, #fff 6%), var(--x-card));
+  border: 1px solid var(--n-hair); box-shadow: inset 0 1px 0 var(--n-hi), var(--n-card-shadow);
+}
+:host([look="evp"][xlight]) .x-tile, :host([look="evp"][sky][xlight]) .x-tile { background: var(--x-card); }
+:host([look="evp"]) .x-tile b { font-size: 26px; font-family: var(--n-display); letter-spacing: -.03em; }
+:host([look="evp"]) .x-tile.learn { background: radial-gradient(120% 120% at 100% 0%, color-mix(in oklab, var(--x-vio) 26%, transparent), transparent 60%), var(--x-card); }
+:host([look="evp"]) .x-tile.learn b { font-size: 20px; }
+
+/* Tonight */
+:host([look="evp"]) .x-tn-car { border-radius: 22px; padding: 14px; border: 1px solid var(--n-hair); border-top: 3px solid var(--car); background: linear-gradient(180deg, color-mix(in oklab, var(--car) 10%, transparent), transparent 70%); box-shadow: inset 0 1px 0 var(--n-hi); }
+:host([look="evp"]) .x-tn-soc { font-family: var(--n-display); font-weight: 800; letter-spacing: -.04em; }
+:host([look="evp"]) .x-pricechip { border-radius: 16px; box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--x-good) 30%, transparent); }
+:host([look="evp"]) .x-tn-h { font-family: var(--n-display); letter-spacing: -.025em; font-weight: 800; }
+
+/* ---------- 7. Sheets and menus ------------------------------------------------------------------ */
+:host([look="evp"]) .x-quick, :host([look="evp"]) .x-insight, :host([look="evp"]) .app > .x-profmenu {
+  background: color-mix(in oklab, var(--x-pop) 90%, transparent);
+  -webkit-backdrop-filter: blur(30px) saturate(1.6); backdrop-filter: blur(30px) saturate(1.6);
+  border: 1px solid var(--n-hair2); box-shadow: inset 0 1px 0 var(--n-hi), 0 -30px 80px -30px rgba(0, 0, 0, .8);
+}
+:host([look="evp"]) .x-scrim, :host([look="evp"]) .app > .x-profscrim { background: rgba(3, 5, 14, .55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+:host([look="evp"]) .x-handle { width: 44px; height: 5px; border-radius: 3px; background: var(--n-hair2); }
+:host([look="evp"]) .x-qtile, :host([look="evp"]) .x-profmenu .x-prof-tiles button { border-radius: 20px; border: 1px solid var(--n-hair); background: var(--x-card2); box-shadow: inset 0 1px 0 var(--n-hi); }
+:host([look="evp"]) .x-qtile.active { box-shadow: inset 0 0 0 1.5px var(--n-amber), 0 12px 26px -16px var(--n-glow); }
+
+/* ---------- 8. Focus and press ------------------------------------------------------------------- */
+:host([look="evp"]) button { -webkit-tap-highlight-color: transparent; }
+:host([look="evp"]) .x-card:is(button):active, :host([look="evp"]) .x-tile:active, :host([look="evp"]) .x-dep:active, :host([look="evp"]) .x-frow:active, :host([look="evp"]) .x-tn-car:active { transform: scale(.98); transition: transform .12s; }
+:host([look="evp"]) :focus-visible { outline: 2px solid var(--n-amber); outline-offset: 3px; }
+
+/* ---------- 9. Light on the road ----------------------------------------------------------------- */
+/* Lit edges: at night a card catches the lamp light on its upper edge. */
+:host([look="evp"]:not([xlight])) .x-card, :host([look="evp"][sky]:not([xlight])) .x-card,
+:host([look="evp"]:not([xlight])) .x-tile, :host([look="evp"][sky]:not([xlight])) .x-tile {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--x-card) 94%, #ffffff 6%) 0, var(--x-card) 140px) padding-box,
+    linear-gradient(165deg, color-mix(in oklab, var(--n-amber) 38%, transparent) 0%, rgba(214, 222, 255, .1) 22%, rgba(214, 222, 255, .04) 60%, rgba(214, 222, 255, .08) 100%) border-box;
+}
+:host([look="evp"]:not([xlight])) .x-hero-card, :host([look="evp"][sky]:not([xlight])) .x-hero-card {
+  background: var(--x-hero) padding-box, linear-gradient(165deg, color-mix(in oklab, var(--n-amber) 45%, transparent), rgba(214, 222, 255, .06) 30%, rgba(214, 222, 255, .08)) border-box;
+}
+:host([look="evp"]:not([xlight])) .x-tile.learn, :host([look="evp"][sky]:not([xlight])) .x-tile.learn {
+  background: radial-gradient(120% 120% at 100% 0%, color-mix(in oklab, var(--x-vio) 26%, transparent), transparent 60%) padding-box, var(--x-card) padding-box,
+    linear-gradient(165deg, color-mix(in oklab, var(--x-vio) 50%, transparent), rgba(214, 222, 255, .06) 40%) border-box;
+}
+/* Pools of lamp light along the page: you pass under them as you scroll. */
+:host([look="evp"]) .content {
+  background:
+    radial-gradient(70% 420px at 0% 980px, color-mix(in oklab, var(--n-amber) 7%, transparent), transparent 70%),
+    radial-gradient(70% 420px at 100% 1900px, color-mix(in oklab, var(--n-amber) 6%, transparent), transparent 70%),
+    radial-gradient(70% 420px at 0% 2800px, color-mix(in oklab, var(--n-amber) 5%, transparent), transparent 70%),
+    var(--x-bg);
+  background-attachment: local;
+}
+:host([look="evp"][xlight]) .content { background: var(--x-bg); }
+
+/* A card's title carries a small lamp. */
+:host([look="evp"]) .x-card > .x-head h2::before, :host([look="evp"]) .x-card > .x-head .x-hl h2::before {
+  content: ""; display: inline-block; width: 7px; height: 7px; margin: 0 9px 2px 1px; border-radius: 50%; vertical-align: middle;
+  background: var(--n-amber); box-shadow: 0 0 0 3px color-mix(in oklab, var(--n-amber) 18%, transparent), 0 0 12px var(--n-glow);
+}
+
+/* Bigger levels and prices. */
+:host([look="evp"]) .x-tn-soc { font-size: 40px; line-height: 1; }
+:host([look="evp"]) .x-tl-soc { font-size: 32px; font-weight: 800; letter-spacing: -.04em; }
+
+/* The profile looks the same in every top. */
+:host([look="evp"]) .x-top.small .bar.docked .prof { box-shadow: 0 0 0 2px var(--n-amber), 0 0 14px -2px var(--n-glow); background: var(--x-card2); color: var(--x-ink); }
+
+/* ---------- 10. A PC, finer points --------------------------------------------------------------- */
+@media (min-width: 1100px) {
+  /* Forside: the cards float up over the end of the road. */
+  :host([look="evp"]) .x-top.front { height: calc(520px + var(--evp-safe-top)); }
+  :host([look="evp"]) .x-front > .x-lift, :host([look="evp"]) .x-front > .x-deps-card { margin-top: -150px; position: relative; }
+  /* Huset: the house is the page's picture, twice the size of the cards beside it. */
+  :host([look="evp"]) .x-home { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+  :host([look="evp"]) .x-home > .x-scene-card { grid-column: span 2; grid-row: span 2; }
+  /* The quick button lives in the rail, beside Mere. */
+  :host([look="evp"]) .app > .qfab { left: 184px; right: auto; bottom: 22px; width: 52px; height: 52px; border-radius: 17px; z-index: 32; box-shadow: 0 0 0 5px color-mix(in oklab, var(--n-amber) 12%, transparent), 0 10px 24px -8px var(--n-glow), inset 0 1px 0 rgba(255, 255, 255, .55); }
+  :host([look="evp"]) .app > .qfab .xi { width: 24px; height: 24px; }
+  :host([look="evp"]) .x-tabs nav.tabs.docked button[data-tab="more"] { width: 156px; }
+}
+
+/* A day top keeps light glass, whatever the page's colours. */
+:host([look="evp"]) .x-top.day .x-glass { background: rgba(255, 255, 255, .68); border-color: rgba(16, 26, 48, .12); color: #0d1526; }
+
+`;
+
 const X_STYLE = `
 /* ====================================================================================================
    2.5.0b48: the pages as drawn. Tokens first: EV Planner's own look (dark, or light), then the other
@@ -16755,7 +17254,11 @@ button.x-card { font: inherit; text-align: left; cursor: pointer; width: 100%; }
 .x-tl-name { font-size: 13px; color: var(--x-ink2); }
 .x-tl-soc { font-size: 24px; font-family: var(--x-display); }
 .x-tl-car small { font-size: 12px; color: var(--x-soft); }
-.x-tl-car small.on { color: var(--x-good); }
+.x-tl-car small.on {
+.x-tl-row { flex-wrap: wrap; row-gap: 14px; }
+.x-tl-row > .x-tl-car { flex: 1 1 40%; }
+.x-tl-car.out .x-tl-soc { opacity: .62; }
+.x-tl-car small.away { color: var(--x-soft); } color: var(--x-good); }
 .x-chart { position: relative; border-radius: 14px; background: var(--x-well); overflow: hidden; }
 .x-chart svg { position: absolute; inset: 0; }
 .x-axis { position: absolute; left: 8px; right: 8px; bottom: 4px; display: flex; justify-content: space-between; font-size: 9.5px; color: var(--x-faint); }
@@ -16810,6 +17313,10 @@ button.x-card { font: inherit; text-align: left; cursor: pointer; width: 100%; }
 .x-tn-soc { font-size: 34px; line-height: 1; font-family: var(--x-display); }
 .x-tn-car small { font-size: 12px; color: var(--x-soft); }
 .x-tn-car small.on { color: var(--x-good); }
+.x-tn-car.out { border-top-style: dashed; background: transparent; }
+.x-tn-car.out .x-tn-soc { opacity: .62; }
+.x-tn-car small.away { color: var(--x-soft); display: inline-flex; align-items: center; gap: 6px; }
+.x-tn-car small.away::before { content: ""; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid currentColor; }
 .x-tn-car small.warn { color: var(--x-warn-ink); }
 .x-tag { margin-top: 4px; padding: 4px 9px; border-radius: 999px; background: color-mix(in srgb, var(--x-ink) 8%, transparent); font-weight: 600; color: var(--x-ink2) !important; }
 .x-tag.auto { color: var(--x-vio) !important; background: color-mix(in srgb, #8c6eff 16%, transparent); }
@@ -16864,7 +17371,7 @@ button.x-card { font: inherit; text-align: left; cursor: pointer; width: 100%; }
 .x-field { display: flex; flex-direction: column; gap: 8px; }
 .x-field > small { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--x-soft); }
 .x-seg { display: grid; grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 14px; background: var(--x-seg); }
-.x-seg.n2 { --n: 2; } .x-seg.n3 { --n: 3; }
+.x-seg.n2 { --n: 2; } .x-seg.n3 { --n: 3; } .x-seg.n4 { --n: 4; }
 .x-seg button { min-height: 40px; border: 0; border-radius: 11px; background: transparent; color: var(--x-ink2); font: 600 13.5px/1.2 var(--x-text); cursor: pointer; padding: 6px 8px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
 .x-seg button.on { background: var(--x-on); color: var(--x-on-ink); font-weight: 700; }
 .x-seg button svg { width: 12px; height: 12px; }
@@ -16877,6 +17384,10 @@ button.x-card { font: inherit; text-align: left; cursor: pointer; width: 100%; }
 .x-sq { width: 42px; height: 42px; border-radius: 12px; border: 0; background: color-mix(in srgb, var(--x-ink) 9%, transparent); color: var(--x-ink); font: 600 18px/1 var(--x-text); cursor: pointer; }
 .x-clim-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border-radius: 16px; border: 0; background: var(--x-seg); color: var(--x-ink); font: inherit; text-align: left; cursor: pointer; }
 .x-clim-row .x-grow b { font-size: 14px; }
+.x-clim-row:disabled { opacity: .55; cursor: default; }
+.x-clim-box { display: flex; flex-direction: column; gap: 8px; }
+.x-clim-box.on { padding: 0 0 4px; }
+.x-clim-temp { padding: 0 4px; }
 .x-clim-row .x-grow small { font-size: 12px; color: var(--x-soft); }
 .x-clim-ic { width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center; background: color-mix(in srgb, var(--x-ink) 8%, transparent); color: var(--x-soft); }
 .x-clim-ic.on { background: var(--x-blue); color: #fff; }
@@ -17315,6 +17826,32 @@ button.x-card { font: inherit; text-align: left; cursor: pointer; width: 100%; }
   .x-top.small.street + .x-wrap { margin-top: 0; }
   .x-front .x-lift { margin-top: 0; }
 }
+
+/* The small tops' own pictures (2.5.0b54): Biler's cars, Learning's price landscape. */
+.x-art { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.x-art.cars .x-artlamp { position: absolute; right: 18%; top: -40px; width: 340px; height: 340px; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 196, 110, .28), rgba(255, 196, 110, .08) 55%, transparent); }
+.x-top.day .x-art.cars .x-artlamp { background: radial-gradient(closest-side, rgba(255, 255, 255, .7), transparent); }
+.x-art.cars .x-artfloor { position: absolute; left: 20%; right: -10%; bottom: 60px; height: 90px; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 255, 255, .12), transparent); }
+.x-top.day .x-art.cars .x-artfloor { background: radial-gradient(closest-side, rgba(16, 26, 48, .14), transparent); }
+.x-artcars { position: absolute; right: max(10px, calc((100% - 1180px) / 2 + 10px)); bottom: 92px; display: flex; align-items: flex-end; }
+.x-artcar { position: relative; z-index: calc(10 - var(--i)); width: 168px; height: 104px; margin-left: -52px; display: block; -webkit-box-reflect: below -6px linear-gradient(transparent 62%, rgba(255, 255, 255, .16)); }
+.x-artcars.n1 .x-artcar { width: 230px; height: 140px; }
+.x-artcars.n2 .x-artcar { width: 196px; height: 120px; margin-left: -40px; }
+.x-artcar:first-child { margin-left: 0; }
+.x-artcar .x-carimg { width: 100%; height: 100%; }
+.x-artcar .x-carimg.photo { object-fit: contain; object-position: center bottom; }
+.x-artcar::after { content: ""; position: absolute; left: 14%; right: 14%; bottom: -4px; height: 10px; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--car) 70%, transparent), transparent); }
+.x-artcar.out { opacity: .38; filter: saturate(.4); }
+.x-art.prices svg { position: absolute; right: 0; bottom: 40px; width: min(100%, 760px); height: 230px; }
+.x-art.prices .s1 { stop-color: color-mix(in srgb, var(--x-acc) 30%, #1a2148); } .x-art.prices .s2 { stop-color: var(--x-bg); }
+.x-art.prices .s3 { stop-color: color-mix(in srgb, var(--x-vio) 22%, #141a38); } .x-art.prices .s4 { stop-color: var(--x-bg); }
+.x-top.day .x-art.prices .s1 { stop-color: color-mix(in srgb, var(--x-acc) 30%, #ffffff); } .x-top.day .x-art.prices .s3 { stop-color: color-mix(in srgb, var(--x-vio) 16%, #ffffff); }
+.x-artridge { fill: none; stroke: color-mix(in srgb, var(--x-acc) 80%, #fff); stroke-width: 2; stroke-linecap: round; }
+.x-artback { opacity: .8; }
+.x-artglow { fill: rgba(110, 231, 176, .35); filter: blur(8px); }
+.x-artdot { fill: #6ee7b0; stroke: #fff; stroke-width: 2; }
+.x-artnow { stroke: currentColor; stroke-width: 1.5; stroke-dasharray: 3 4; opacity: .5; }
+.x-artstar { fill: #fff; animation: x-twinkle 3.2s ease-in-out infinite; }
 
 /* Huset: the clay house in its own card. */
 .x-scene-card { padding: 0; overflow: clip; gap: 0; }

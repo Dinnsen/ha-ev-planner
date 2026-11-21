@@ -661,6 +661,55 @@ test("on a phone Insight's row of pages sits above the floating tab bar", async 
   });
 });
 
+test("each page has its own picture in the top: the street, the cars, the price landscape", async () => {
+  await withPanel("shared-supply", { size: { width: 390, height: 844 }, lang: "da" }, async ({ page }) => {
+    const top = () => page.evaluate(() => { const t = window.harness.panel.shadowRoot.querySelector(".content .x-top"); return [...t.classList].filter((c) => c.startsWith("art-") || c === "front").join() + (t.querySelector(".x-street") ? "+street" : ""); });
+    assert.equal(await top(), "front+street");
+    const seen = [];
+    for (const tab of ["home", "cars", "history"]) { await page.evaluate((t) => window.harness.panel._setTab(t), tab); seen.push(await top()); }
+    assert.deepEqual(seen, ["art-street+street", "art-cars", "art-prices"], "no two pages share a picture");
+    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".x-art.prices .x-artridge").length), 1, "the price landscape has its ridge");
+  });
+});
+
+test("Himmel: the page takes its colour from the sun, light by day, dark by night", async () => {
+  await withPanel("two-cars", { size: { width: 390, height: 844 }, lang: "da" }, async ({ page }) => {
+    await page.evaluate(() => window.harness.panel._setTheme("sky"));
+    const look = () => page.evaluate(() => { const p = window.harness.panel; return [p.hasAttribute("sky"), p.hasAttribute("xlight"), p.style.getPropertyValue("--n-sky")]; });
+    const [sky, light, tone] = await look();
+    assert.ok(sky && !light && /^#/.test(tone), `night: dark, tinted ${tone}`);
+    await page.evaluate(() => { const h = window.harness.hass; window.harness.panel.hass = { ...h, states: { ...h.states, "sun.sun": { ...h.states["sun.sun"], state: "above_horizon", attributes: { elevation: 28 } } } }; });
+    const [, day] = await look();
+    assert.ok(day, "day: light");
+    assert.deepEqual(await page.evaluate(() => window.harness.userData.ev_planner_theme), "sky");
+  });
+});
+
+test("the week plan's climate: on or off for the day, and its temperature", async () => {
+  const state = fixture("two-cars");
+  const car = state.vehicles.find((v) => v.id === "tesla_model_y");
+  car.climate = { entity: "climate.tesla", on: false, inside: 18, outside: 4 };
+  await withPanel(state, { size: { width: 390, height: 844 }, lang: "da" }, async ({ page, waitForCall, calls }) => {
+    await page.evaluate(() => window.harness.panel._setTab("cars"));
+    const open = async (k) => { await page.evaluate((k) => window.harness.panel.shadowRoot.querySelector(`.x-week .x-cell[data-id="tesla_model_y"][data-k="${k}"]`).click(), k); };
+    await open(1);
+    const row = () => page.evaluate(() => { const b = window.harness.panel.shadowRoot.querySelector(".x-ed .x-clim-row"); return b ? [b.disabled, b.getAttribute("aria-pressed"), b.textContent.replace(/\s+/g, " ").trim()] : null; });
+    const [off] = await row();
+    assert.equal(off, false, "a day with a departure can have the climate");
+    await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".x-ed .x-clim-row").click());
+    await waitForCall("vehicle_set");
+    const wd = Object.keys((await calls("vehicle_set")).at(-1).settings.day_climate)[0];
+    assert.equal((await calls("vehicle_set")).at(-1).settings.day_climate[wd], 21);
+    const s = state.vehicles.find((v) => v.id === "tesla_model_y").settings;
+    s.day_climate = { [wd]: 21 };
+    await page.evaluate((st) => window.harness.push(st), state);
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector(".x-ed .x-clim-temp"));
+    await page.evaluate(() => window.harness.panel.shadowRoot.querySelector('.x-ed [data-act="x-clim-temp"][data-d="0.5"]').click());
+    await page.waitForFunction(() => window.harness.calls.filter((c) => c.type.endsWith("vehicle_set")).length >= 2);
+    assert.equal((await calls("vehicle_set")).at(-1).settings.day_climate[wd], 21.5, "half a degree warmer");
+  });
+});
+
 test("a swipe to the side changes the tab, and a scroll up and down does not", async () => {
   await withPanel("two-cars", { size: { width: 390, height: 844 } }, async ({ page, read }) => {
     const tab = () => read('.tabs button[aria-selected="true"]', "data-tab");
@@ -1000,11 +1049,11 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     assert.ok(await read(".sheet .insight-card strong"));
     assert.match(await read(".sheet .insight-card small"), /01–04/);
   });
-  // With Insight off: Charging and Learned as before, the other four dimmed with one line.
+  // With Insight off: Learned as before, Driving dimmed with one line (Overview is not in the row).
   await withPanel(state, { size: PHONE }, async ({ page, tap, read, calls }) => {
     await page.evaluate(() => window.harness.panel._setTab("history"));
     assert.equal(await read('.learn-views button[aria-selected="true"]', "data-value"), "learned");
-    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".learn-views button.dim").length), 2);
+    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".learn-views button.dim").length), 1);
     // On a phone Learning's pages sit above the floating tab bar, not behind it, and the quick button above them.
     const box = await page.evaluate(() => { const r = window.harness.panel.shadowRoot; const b = (s) => r.querySelector(s).getBoundingClientRect(); return { views: b(".learn-views"), nav: b(".app > nav.tabs"), fab: b(".app > .qfab") }; });
     assert.ok(box.views.bottom <= box.nav.top, `${box.views.bottom} > ${box.nav.top}`);
@@ -1148,8 +1197,8 @@ test("Forside has the big top: the date, a greeting and the street; Huset and th
   });
 });
 
-test("on a PC the tabs are pills at the bottom of each page's top, and the cards sit side by side", async () => {
-  await withPanel("two-cars", { size: { width: 1440, height: 900 }, lang: "da" }, async ({ page, tap }) => {
+test("on a tablet the tabs are pills at the bottom of each page's top; on a PC a rail at the left, and the cards sit side by side", async () => {
+  await withPanel("two-cars", { size: { width: 960, height: 900 }, lang: "da" }, async ({ page, tap }) => {
     for (const tab of ["home", "cars", "guest", "history", "past"]) {
       await tap(`.tabs button[data-tab="${tab}"]`);
       const where = await page.evaluate(() => {
@@ -1164,12 +1213,27 @@ test("on a PC the tabs are pills at the bottom of each page's top, and the cards
       assert.ok(where.bottom >= 0 && where.bottom < 40, `${tab}: the tabs sit at the bottom of the top (${where.bottom})`);
       assert.ok(where.brandTop >= 0 && where.brandTop < 40, `${tab}: the brand at the top of the top (${where.brandTop})`);
     }
+  });
+  await withPanel("two-cars", { size: { width: 1440, height: 900 }, lang: "da" }, async ({ page, tap }) => {
+    for (const tab of ["front", "home", "cars", "guest", "history", "past"]) {
+      await tap(`.tabs button[data-tab="${tab}"]`);
+      const where = await page.evaluate(() => {
+        const root = window.harness.panel.shadowRoot;
+        const r = root.querySelector("nav.tabs").getBoundingClientRect();
+        const brand = root.querySelector(".bar .brand").getBoundingClientRect();
+        const content = root.querySelector(".content .x-wrap").getBoundingClientRect();
+        return { left: r.left, top: r.top, height: r.height, width: r.width, brand: [brand.left, brand.top], cards: content.left };
+      });
+      assert.ok(where.left === 0 && where.top === 0 && where.height >= 899 && where.width < 300, `${tab}: the tabs are a rail at the left (${JSON.stringify(where)})`);
+      assert.ok(where.brand[0] < 60 && where.brand[1] < 60, `${tab}: the brand at the rail's top`);
+      assert.ok(where.cards >= where.width, `${tab}: the cards start right of the rail`);
+    }
     await tap('.tabs button[data-tab="cars"]');
     const [a, b] = await page.evaluate(() => [".x-tn", ".x-week"].map((s) => window.harness.panel.shadowRoot.querySelector(s).getBoundingClientRect().toJSON()));
     assert.ok(Math.abs(a.top - b.top) < 2 && b.left > a.right, "tonight and the week side by side");
-    // Nothing wider than the column of 1180 px.
+    // Nothing wider than the column of 1240 px.
     const wide = await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".x-wrap").getBoundingClientRect().width);
-    assert.ok(wide <= 1180, `the column is ${wide} px`);
+    assert.ok(wide <= 1240, `the column is ${wide} px`);
   });
 });
 
@@ -1334,22 +1398,26 @@ test("the profile menu drops from the top as six tiles, and a tap beside it only
   });
 });
 
-test("tonight's boxes show only the cars that are home; Forside's top has no holiday pill", async () => {
+test("tonight's boxes show every car, one that is out says so; Forside's top has no holiday pill", async () => {
   const state = fixture("two-cars");
   const [away, home] = state.vehicles;
   away.home = false;
   state.settings = { ...state.settings, days: { ...(state.settings.days || {}) } };
   await withPanel(state, { size: PHONE, lang: "da" }, async ({ page, tap, read }) => {
     await tap('.tabs button[data-tab="cars"]');
-    const boxes = await page.evaluate(() => [...window.harness.panel.shadowRoot.querySelectorAll(".x-tn-car")].map((b) => b.dataset.id));
-    assert.deepEqual(boxes, [home.id], "only the car at home has a box");
+    const boxes = await page.evaluate(() => [...window.harness.panel.shadowRoot.querySelectorAll(".x-tn-car")].map((b) => `${b.dataset.id}:${b.classList.contains("out")}`));
+    assert.deepEqual(boxes, [`${away.id}:true`, `${home.id}:false`], "every car has a box; the one that is out is marked");
+    assert.equal(await read(`.x-tn-car.out[data-id="${away.id}"] small.away`), "Ikke hjemme");
+    await tap('.tabs button[data-tab="home"]');
+    assert.equal(await read(".x-tonight-link .x-tl-car.out small.away"), "Ikke hjemme", "Huset's cars card shows it too");
+    assert.equal(await read(".x-tonight-link .tn-pic"), null, "and does not repeat tonight's picture");
     await tap('.tabs button[data-tab="front"]');
     assert.equal(await read(".x-top.front .x-pill.fest"), null, "no holiday pill");
-    // Every car away: no boxes, a line instead.
+    // Every car away: a line instead of the picture, and the boxes still there.
     home.home = false;
     await page.evaluate((s) => window.harness.push(s), state);
     await tap('.tabs button[data-tab="cars"]');
-    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".x-tn-car").length), 0);
+    assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".x-tn-car.out").length), 2);
     assert.match(await read(".x-tn .x-away"), /Ingen af bilerne er hjemme/);
   });
 });

@@ -306,6 +306,46 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } th, td { text
 .lvl { transition: width .9s cubic-bezier(.2,.8,.2,1); }
 @media (max-width: 420px) { .tl-q { padding: 12px 6px 10px; } .tl-q svg { width: 50px; height: 50px; } .wkfact { padding: 8px 9px; } .wkfact b { font-size: 15px; } }
 @media (prefers-reduced-motion: reduce) { .hflow, .hpulse { animation: none; } .lvl, .tl-q .ringv, .c9week i { transition: none; } }
+
+/* EV Planner's own look, the night street (2.5.0b54): the panel's tokens reach in here. */
+/* EV Planner Next — Learning's own page (its shadow root): the panel's tokens, the same surfaces and type.
+   The panel's custom properties reach in here; the page's own are set from them. */
+:host([evp]), :host([evp][dark]) {
+  --bg: var(--x-bg); --card: var(--x-card); --ink: var(--x-ink); --soft: var(--x-soft); --faint: var(--x-faint);
+  --line: var(--x-line2); --well: var(--x-well);
+  --accent: var(--x-good); --accent-ink: var(--x-good);
+  --fc: var(--n-amber); --band: color-mix(in oklab, var(--n-amber) 16%, transparent); --band2: color-mix(in oklab, var(--n-amber) 30%, transparent);
+  --bad: var(--x-coral); --sun: var(--n-amber);
+  --shadow: inset 0 1px 0 var(--n-hi), var(--n-card-shadow);
+  font-family: var(--n-text);
+}
+:host([evp]) h1, :host([evp]) h2, :host([evp]) h3 { font-family: var(--n-display); letter-spacing: -.025em; }
+:host([evp]) h2 { font-size: 18px; font-weight: 800; }
+:host([evp]) h3 { font-weight: 700; }
+:host([evp]) .tag { font-family: var(--n-mono); font-size: 10.5px; letter-spacing: .12em; color: var(--n-amber-ink); }
+:host([evp]) .card {
+  border-radius: var(--n-r-card, 28px); padding: 20px 18px;
+  background: linear-gradient(180deg, color-mix(in oklab, var(--x-card) 94%, #ffffff 6%) 0, var(--x-card) 140px);
+  border: 1px solid var(--n-hair);
+}
+:host([evp]:not([dark])) .card { background: var(--x-card); }
+:host([evp]) .chips button, :host([evp]) .btn { border-color: var(--n-hair2); font-weight: 600; }
+:host([evp]) .chips button.on { background: var(--n-raise); color: var(--x-ink); border-color: transparent; box-shadow: inset 0 1px 0 var(--n-hi), 0 6px 14px -8px rgba(0, 0, 0, .6); }
+:host([evp]) nav.tabs button { font-family: var(--n-text); font-weight: 600; }
+:host([evp]) nav.tabs button.on { background: var(--n-raise); color: var(--x-ink); box-shadow: inset 0 1px 0 var(--n-hi), 0 6px 14px -8px rgba(0, 0, 0, .6); }
+@media (max-width: 860px) {
+  :host([evp]) nav.tabs {
+    left: 12px; right: 12px; padding: 5px; border-radius: 20px;
+    background: var(--n-dock); border: 1px solid var(--n-hair2);
+    -webkit-backdrop-filter: blur(28px) saturate(1.8); backdrop-filter: blur(28px) saturate(1.8);
+    box-shadow: inset 0 1px 0 var(--n-hi), 0 18px 36px -18px rgba(0, 0, 0, .7);
+  }
+  :host([evp]) nav.tabs button { border-radius: 15px; }
+}
+@media (min-width: 861px) {
+  :host([evp]) nav.tabs { background: color-mix(in oklab, var(--x-bg) 80%, transparent); border: 1px solid var(--n-hair); padding: 5px; }
+}
+
 `;
 
 /* Small tools. */

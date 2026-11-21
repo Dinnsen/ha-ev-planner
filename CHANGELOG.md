@@ -2,6 +2,23 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b54] - 2026-11-21
+
+### Added
+
+- **EV Planner's look, the night street**: the layout from the EV Planner Next preview, in the whole app. Cards lit like panels on a dark road, the lamp's amber for what happens now (charging, the chosen page, the quick button), green for cheap power; new type (Schibsted Grotesk, small labels set like a charger's display); a glass dock and glass sub-menus on a phone; the street drifts as the page scrolls; page changes slide and fade where the browser can.
+- **A rail on a PC**: the pages in a menu at the left with the brand at its top and the quick button beside Mere; Forside's cards float up over the road, Huset's house twice the size of the cards beside it.
+- **Himmel, a new theme** (Udseende): the page takes its colour from the sky over the house, from night through the blue and the golden hour to day; light by day, dark by night.
+- **Each page its own picture in the top**: Forside and Huset the street, Biler the household's cars under the lamp, Learning and History the next day's prices as a landscape with the cheapest hours a lit valley.
+- **The week plan's climate**: the day's editor always shows the climate for a car that has one, with its temperature (half a degree at a time); on a day without a departure it says to choose a time first.
+
+### Changed
+
+- **The cars are shown also when they are out**: tonight's card and Huset's cars card have a box for every car, one that is out marked "Ikke hjemme".
+- **Huset's cars card** no longer repeats tonight's picture: the house above shows the cars by the charger.
+- **Learning**: also with Insight off, Overview is not in the row.
+- **Learning's own page** (Insight) takes the same colours, surfaces and type.
+
 ## [2.5.0b53] - 2026-11-21
 
 ### Fixed
