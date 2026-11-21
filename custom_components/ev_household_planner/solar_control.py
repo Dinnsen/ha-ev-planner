@@ -453,6 +453,12 @@ class SolarControl:
                 vid: {"sold_for": round(sold, 3), "plan": round(price, 3)} for vid, (sold, price) in self.sold.items()
             },
             "forecast_left_today": self.forecast_today(now),
+            # The forecast hour by hour for the next day and a half (kWh), for Husets hjul (2.5.0b55).
+            "forecast_hours": [
+                {"start": start.isoformat(), "kwh": round(wh / 1000, 2)}
+                for start, wh in sorted(self.forecast.items())
+                if now - timedelta(hours=1) < start < now + timedelta(hours=40)
+            ],
         }
 
     def to_store(self) -> dict[str, Any]:

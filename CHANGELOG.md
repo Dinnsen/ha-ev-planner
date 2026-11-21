@@ -2,6 +2,23 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b55] - 2026-11-21
+
+### Added
+
+- **Drejeskiven on Forside**: the cars at home on a turntable in the app's clay world, slowly turning, the next 36 hours as a ring round it: the price outermost, a track for each car that glows where it charges. One label for each period ("Tesla charges 02–05 → 80 %", "Renault leaves 07:00 · 64 %"); the charger's little display says who charges, at what power and price, or who waits. Drag across it (or use Look ahead) to see a later hour: the light, who is home, who charges. Tap a car: the camera goes in, its plan unfolds with Ready/Short for its next trip, and Charge now, Ready by and Climate open the quick menu for that car; Open the car goes to its page. It replaces the road scene.
+- **Husets hjul on Huset**: the whole house on the same kind of turntable, in its design from Husets billede (all ten, walls, roofs, windows and garage doors after the app's drawings), turning so it is seen from all sides. The solar panels, the battery, the gateway, up to two chargers and the heat pump stand where the app puts them, the cars on their places in front of the garage; the energy runs between them as light (yellow from the sun, violet from the battery, the price's colour from the grid), and over the roof it says whether the house buys, sells or manages on its own. The ring has the price, the sun by the Energy dashboard's forecast and each car; the battery and the heat pump are shown as they are now, as EV Planner does not plan them. A house without some of these things simply has no track or box for them. Under it: the next things that happen and the next 36 hours in figures.
+- **The sun's forecast hour by hour** is in the state (`solar.forecast_hours`) for Husets hjul.
+- **Husets ur on Huset**: today as a clock, a petal an hour, as in The house's day: what the house bought, the cars' part in their colours, the typical day and the planned charging for the hours to come, the hour's price as a ring; tap an hour for its figures. For every house, with or without sun, battery or heat pump.
+
+### Changed
+
+- **Learning's "saved the last 30 days"** counts the charging at home against each day's mean price, as Learning's Charging page does; it showed only what waiting a night had saved, which was nothing.
+- **The next day's prices** (tonight's card): each hour in its price's colour.
+- **Tonight's card**: the price on one line, smaller levels, the boxes' tags as soft chips; no "0 kr." for a charge that costs nothing.
+- **Forside**: the cars' card is gone (Drejeskiven and the departures show it).
+- **The quick menu** reads plainly in the light look: a chosen tile is ringed in ink, an active one keeps its colour with white text.
+
 ## [2.5.0b54] - 2026-11-21
 
 ### Added

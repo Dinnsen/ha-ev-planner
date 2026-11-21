@@ -34,6 +34,15 @@ const TEXT = {
     x_theme_light: "Lys",
     x_theme_dark: "Mørk",
     x_theme_sky: "Himmel",
+    x_wheel_cars: "Drejeskiven",
+    x_wheel_house: "Husets hjul",
+    x_clock_title: "Husets ur",
+    x_clock_house: "Huset",
+    x_clock_kwh_today: "kWh i dag",
+    x_clock_was: "brugt",
+    x_clock_will: "ventet",
+    x_clock_quiet: "En stille time.",
+    x_clock_ring: "Ringen: timens pris",
     x_arc_now: "nu {price}",
     x_charges: "lader {when}",
     x_waits: "venter til {day} nat",
@@ -175,7 +184,7 @@ const TEXT = {
     x_ins_typical: "Typisk kørsel pr. ugedag",
     x_ins_higher: "højere søjle = flere kWh",
     x_ins_tonight: "DET GØR DEN I NAT",
-    x_ins_saved: "sparet de sidste 30 dage",
+    x_ins_saved: "sparet de sidste 30 dage mod døgnets snitpris",
     x_ins_on: "styrer opladningen",
     x_ins_off: "lærer kun",
     x_ins_foot_on: "Slår du Insight fra, lader bilerne efter ugeplanens faste mål. Den bliver ved med at lære, så du kan slå den til igen.",
@@ -932,6 +941,15 @@ const TEXT = {
     x_theme_light: "Light",
     x_theme_dark: "Dark",
     x_theme_sky: "Sky",
+    x_wheel_cars: "The turntable",
+    x_wheel_house: "The house's wheel",
+    x_clock_title: "The house's clock",
+    x_clock_house: "House",
+    x_clock_kwh_today: "kWh today",
+    x_clock_was: "used",
+    x_clock_will: "expected",
+    x_clock_quiet: "A quiet hour.",
+    x_clock_ring: "The ring: the hour's price",
     x_arc_now: "now {price}",
     x_charges: "charges {when}",
     x_waits: "waits until {day} night",
@@ -1073,7 +1091,7 @@ const TEXT = {
     x_ins_typical: "Typical driving per weekday",
     x_ins_higher: "higher bar = more kWh",
     x_ins_tonight: "WHAT IT DOES TONIGHT",
-    x_ins_saved: "saved the last 30 days",
+    x_ins_saved: "saved the last 30 days against the day's mean price",
     x_ins_on: "steers the charging",
     x_ins_off: "only learns",
     x_ins_foot_on: "If you turn Insight off, the cars charge to the week plan's fixed targets. It keeps learning, so you can turn it on again.",
@@ -7181,6 +7199,8 @@ class EvPlannerPanel extends HTMLElement {
     this._xMountMini();
     // The street is a picture: whatever goes wrong drawing it must not stop the page.
     try { this._xStreetMount(); } catch (err) { console.error("EV Planner: the street", err); }
+    // Drejeskiven and Husets hjul keep their own element across renders: they turn on (2.5.0b55).
+    if (this._tab === "front" || this._tab === "home") { try { this._xWheelMount(); } catch (err) { console.error("EV Planner: the wheel", err); } }
     if ((this._tab === "cars" && !car) || this._tab === "home" || this._tab === "front") this._paintTonight();
     if (this._quick && !this.shadowRoot.activeElement?.matches?.('[data-q="to"]')) this._renderQuick();
     if (this._xInsight) this._xInsightRender();
@@ -11159,6 +11179,7 @@ class EvPlannerPanel extends HTMLElement {
     if (fresh) return;
     await this._loadHouse("day", 0);
     this._patch(this.shadowRoot.querySelector(".home-today .today-body"), `today:${this._houseAt?.[key]}:${this._lang}`, this._xTodayBody());
+    this._patch(this.shadowRoot.querySelector(".home-clock .clock-body"), `clock:${this._houseAt?.[key]}:${this._xClockH ?? "now"}:${this._lang}`, this._xClockBody());
   }
 
   // ------------------------------------------------------------------ the history
@@ -12724,6 +12745,12 @@ class EvPlannerPanel extends HTMLElement {
     }
     switch (act) {
       // ---- the pages as drawn (2.5.0b48)
+      case "x-clock": {
+        const body = this.shadowRoot.querySelector(".home-clock .clock-body");
+        this._xClockH = Number(button.dataset.h);
+        if (body) body.innerHTML = this._xClockBody();
+        break;
+      }
       case "x-tab":
         if (button.dataset.tab === "cars" && this._carId) this._openCar(null);
         else this._setTab(button.dataset.tab);
@@ -13753,8 +13780,8 @@ Object.assign(EvPlannerPanel.prototype, {
       const setup = this._setupHtml();
       return `${this._xFrontTop()}<div class="x-wrap x-front">${setup || `<section class="x-card x-empty">${MARK}<h2>${this._t("no_cars_title")}</h2><p>${this._t("no_cars_text")}</p></section>`}</div>`;
     }
-    const tonight = this._xTonightCard();
-    return `${this._xFrontTop()}<div class="x-wrap x-front">${this._setupHtml()}${this._xIssueCard()}${tonight ? `<div class="x-lift">${tonight}</div>` : ""}${this._xFrontDeps()}${this._xFrontCars()}${this._xFrontTiles()}</div>`;
+    const day = this._xWheelCard("cars");
+    return `${this._xFrontTop()}<div class="x-wrap x-front">${this._setupHtml()}${this._xIssueCard()}${day ? `<div class="x-lift">${day}</div>` : ""}${this._xFrontDeps()}${this._xFrontTiles()}</div>`;
   },
 
   /* The next departures of all the cars, as tiles: day, time, car and the level it leaves with. */
@@ -13801,6 +13828,118 @@ Object.assign(EvPlannerPanel.prototype, {
     }
     tiles.push(`<button class="x-tile learn" data-act="x-tab" data-tab="history"><small>${XSPARK} ${esc(this._t("tab_history"))}</small><b class="x-disp">${esc(this._t("x_front_learn"))}</b><span>${esc(this._t("x_front_learn_sub"))}</span></button>`);
     return `<section class="x-tiles">${tiles.join("")}</section>`;
+  },
+
+  // ------------------------------------------------------------------ Drejeskiven and Husets hjul (2.5.0b55)
+
+  /* The card a wheel lives in: Drejeskiven on Forside (the cars at home, two at most), Husets hjul on Huset. The
+     wheel itself is a module of its own, fetched when first shown, and its element is kept across renders. */
+  _xWheelCard(mode) {
+    const cars = this._cars.filter((v) => (v.site ?? "home") === "home");
+    if (mode === "cars" && !cars.length) return "";
+    return `<section class="x-card x-hero-card x-wheel-card ${mode}" aria-label="${esc(this._t(mode === "house" ? "x_wheel_house" : "x_wheel_cars"))}">${mode === "house" ? `<div class="x-head"><h2>${esc(this._t("x_wheel_house"))}</h2></div>` : ""}<div class="x-wheel-host" data-mode="${mode}"></div></section>`;
+  },
+
+  _xWheelMount() {
+    const hosts = [...this.shadowRoot.querySelectorAll(".x-wheel-host")];
+    if (!hosts.length) return;
+    if (!customElements.get("ev-planner-wheel")) {
+      if (!this._wheelWait) {
+        const url = new URL(import.meta.url);
+        this._wheelWait = import(`${new URL("./ev-planner-wheel.js", url).href}${url.search}`)
+          .then(() => { if (this._tab === "front" || this._tab === "home") this._render(); })
+          .catch(() => { this._wheelWait = null; });
+      }
+      return;
+    }
+    this._wheels = this._wheels || {};
+    for (const host of hosts) {
+      const mode = host.dataset.mode;
+      let el = this._wheels[mode];
+      if (!el) {
+        el = document.createElement("ev-planner-wheel");
+        el.setAttribute("mode", mode);
+        el.addEventListener("evp-wheel", (event) => this._xWheelSaid(event.detail || {}));
+        this._wheels[mode] = el;
+      }
+      if (el.parentNode !== host) host.replaceChildren(el);
+      el.model = this._xWheelModel(mode);
+    }
+  },
+
+  /* What a wheel asks for: a car's page, or the quick menu on one of its tabs for that car. */
+  _xWheelSaid({ act, id }) {
+    if (act === "open-car" && id) { this._openCar(id, { render: false }); this._setTab("cars"); return; }
+    const tab = { "quick-now": "now", "quick-ready": "ready", "quick-climate": "climate" }[act];
+    if (tab && id) {
+      this._xInsightClose?.();
+      this._quick = { tab, pick: [id], to: {}, opener: this._wheels?.[this._tab === "home" ? "house" : "cars"] || null };
+      this._renderQuick();
+    }
+  },
+
+  /* The wheel's model: the hours from today's midnight on the household's clock, the prices hour by hour, the
+     sun's day, each car's charges (Insight's week when it is used, else the plan) and departures, and on Huset
+     the house now with the sun's forecast. */
+  _xWheelModel(mode) {
+    const now = znow();
+    const mid = ZD(now); mid.setHours(0, 0, 0, 0);
+    const day0 = mid.getTime();
+    const H = (ms) => (ms - day0) / 3600e3;
+    const iso = (x) => ZD(x).getTime();
+    const nowH = H(now);
+    const slots = (this._state.prices || []).map((p) => [iso(p.start), Number(p.price), !!p.forecast]).filter(([, p]) => Number.isFinite(p));
+    const prices = Array.from({ length: 72 }, (_, k) => {
+      const a = day0 + k * 3600e3, inside = slots.filter(([t]) => t >= a && t < a + 3600e3);
+      return inside.length ? { p: inside.reduce((t, [, p]) => t + p, 0) / inside.length, fc: inside.some(([, , f]) => f) } : null;
+    });
+    const known = prices.slice(Math.max(0, Math.floor(nowH)), Math.floor(nowH) + 37).filter(Boolean).map((x) => x.p);
+    const sunAttr = this._hass?.states?.["sun.sun"]?.attributes || {};
+    const hourOf = (x) => { if (!x) return null; const d = ZD(x); return d.getHours() + d.getMinutes() / 60; };
+    const rise = hourOf(sunAttr.next_rising), set = hourOf(sunAttr.next_setting);
+    const chargers = this._chargers.filter((c) => (c.site ?? "home") === "home");
+    const cars = this._cars.filter((v) => (v.site ?? "home") === "home").slice(0, 2).map((v) => {
+      const i = this._cars.indexOf(v);
+      const ahead = [];
+      const week = this._state.settings?.insight_use ? this._weekCharges(v) : [];
+      if (week.length) for (const c of week) ahead.push({ a: H(iso(c.start)), b: H(iso(c.end)), cost: c.cost, kwh: c.kwh, level: isNum(c.level) ? Number(c.level) : isNum(c.soc) ? Number(c.soc) : null });
+      else {
+        const plan = this._livePlan(v);
+        if (plan && hasSegments(plan)) plan.segments.forEach((g, k) => ahead.push({ a: H(iso(g.start)), b: H(iso(g.end)), level: k === plan.segments.length - 1 && isNum(plan.end_soc) ? Number(plan.end_soc) : null, kwh: k === 0 ? plan.energy : 0, cost: k === 0 ? plan.cost : 0 }));
+      }
+      const pctOf = (d) => { const x = d.fixed ? d.pct : d.auto ?? d.pct; return isNum(x) ? Number(x) : null; };
+      const deps = (this._xDeps(v) || []).filter((d) => d.time && isNum(d.at)).map((d) => ({ h: H(d.at), pct: pctOf(d) }));
+      const settings = v.settings || {};
+      const charger = chargers.findIndex((c) => c.id === v.charger?.id);
+      return {
+        id: v.id, name: v.name, color: this._carColor(i),
+        kind: ["suv", "van"].includes(settings.body) ? "suv" : "sedan", paint: settings.paint === "black" ? "#2a2f39" : "#eef1f5",
+        soc: isNum(v.soc) ? Number(v.soc) : 0, here: this._carIsHere(v), plugged: v.connected === true || (v.connected == null && !!v.charging), charging: !!v.charging,
+        kw: v.charging && isNum(v.charge_power) ? Number(v.charge_power) : null, power: isNum(v.power) ? Number(v.power) : 11,
+        charger: charger < 0 ? 0 : charger, climate: !!v.climate, charges: ahead.filter((c) => c.b - c.a > 0.02), deps,
+      };
+    });
+    const model = {
+      lang: this._lang, nowH, prices, lo: known.length ? Math.min(...known) : 0, hi: known.length ? Math.max(...known) : 1,
+      rise: Number.isFinite(rise) ? rise : 8, set: Number.isFinite(set) ? set : 16,
+      days: [0, 1, 2].map((n) => new Intl.DateTimeFormat(this._locale, { weekday: "long" }).format(new Date(day0 + n * 864e5 + 12 * 3600e3))),
+      chargers: Math.max(1, Math.min(2, chargers.length)), cars,
+      money: (v) => this._money(v), num: (v, d) => this._num(v, d),
+    };
+    if (mode === "house") {
+      const m = this._sceneModel();
+      const solar = this._state.solar;
+      const hours = (solar?.forecast_hours || []).map((x) => ({ h: H(iso(x.start)), kw: Number(x.kwh) || 0 })).filter((x) => Number.isFinite(x.h));
+      const gridKw = isNum(solar?.grid_kw) ? Number(solar.grid_kw) : isNum(this._state.home?.grid_kw) ? Number(this._state.home.grid_kw) : null;
+      model.house = {
+        design: this._houseOf({ home: true }),
+        sun: m.solar ? { kw: isNum(m.solar.kw) ? Number(m.solar.kw) : null, hours: hours.length ? hours : null, peak: hours.length ? Math.max(1, ...hours.map((x) => x.kw)) : 3 } : null,
+        battery: m.battery ? { soc: isNum(m.battery.soc) ? Number(m.battery.soc) : null, kw: Number(m.battery.kw) || 0 } : null,
+        heat: m.heat ? { kw: Number(m.heat.kw) || 0 } : null,
+        houseKw: Number.isFinite(m.flows?.home) ? m.flows.home : null, gridKw,
+      };
+    }
+    return model;
   },
 
   // ------------------------------------------------------------------ Mere and the menu's tabs (2.5.0b52)
@@ -13952,7 +14091,7 @@ Object.assign(EvPlannerPanel.prototype, {
     const supply = place.home || !only ? this._state.supply : place.supply;
     const places = sites.length > 1 ? `<div class="x-pills x-places">${sites.map((site) => `<button class="x-pill place${site.id === place.id ? " on" : ""}" data-act="place" data-id="${esc(site.id)}" data-f="place-${esc(site.id)}" aria-pressed="${site.id === place.id}">${esc(site.name || this._t("place_home"))}</button>`).join("")}</div>` : "";
     const scene = `<section class="x-card x-scene-card">${places}<div class="x-house scene-slot" role="img" aria-label="${esc(this._t("home_title"))}"></div></section>`;
-    const cards = [scene, this._xTonightLink(only), place.home && this._state.home?.history ? this._xTodayCard() : "", supply ? this._xSupplyCard(supply, place.home ? null : place) : "", this._xChargersCard(only)].filter(Boolean);
+    const cards = [scene, place.home ? this._xWheelCard("house") : "", this._xTonightLink(only), place.home ? this._xClockCard() : "", supply ? this._xSupplyCard(supply, place.home ? null : place) : "", this._xChargersCard(only)].filter(Boolean);
     return `${this._xSmallTop({ title: this._t("tab_home"), line: this._xLine(), art: "street" })}<div class="x-wrap x-home">${cards.join("")}</div>`;
   },
 
@@ -14045,6 +14184,128 @@ Object.assign(EvPlannerPanel.prototype, {
   },
 
   /* I dag: the house hour by hour (and the sun), the cars' part of it, and what it cost. */
+  /* Husets ur (2.5.0b55): today as a clock, a petal an hour, midnight at the top, as in The house's day. Each
+     petal is what the house bought in the hour, the cars' part in the cars' colours; the hours to come show
+     the typical day and the planned charging. The ring outside is the hour's price. Drawn for every house,
+     with or without a meter, sun, battery or heat pump: what is not known is left out. */
+  _xClockCard() {
+    return `<section class="x-card x-clockcard home-clock" aria-label="${esc(this._t("x_clock_title"))}">
+      <div class="x-head"><h2>${esc(this._t("x_clock_title"))}</h2><span class="x-num x-soft">${esc(new Intl.DateTimeFormat(this._locale, { weekday: "short", day: "numeric", month: "numeric" }).format(ZD()))}</span></div>
+      <div class="clock-body">${this._xClockBody()}</div>
+    </section>`;
+  },
+
+  _xClockBody() {
+    const data = this._state.home?.history ? this._houseData?.[this._histKey("day", 0)] : null;
+    const rows = data?.rows || [];
+    const typical = data?.typical_day || [];
+    const now = znow();
+    const mid = ZD(now); mid.setHours(0, 0, 0, 0);
+    const day0 = mid.getTime();
+    const nowH = (now - day0) / 3600e3;
+    const iso = (x) => ZD(x).getTime();
+    const cars = this._cars.filter((v) => (v.site ?? "home") === "home").slice(0, 4);
+    // The house per hour (what was bought), the sun where it is known.
+    const house = Array.from({ length: 24 }, (_, h) => { const r = rows.find((x) => ZD(x.start).getHours() === h); return r && isNum(r.kwh) ? Number(r.kwh) : null; });
+    const sun = Array.from({ length: 24 }, (_, h) => { const r = rows.find((x) => ZD(x.start).getHours() === h); return r && isNum(r.solar) ? Number(r.solar) : null; });
+    // The cars per hour: today's charging spread over its periods, then the planned charging.
+    const carH = cars.map((v) => {
+      const out = Array(24).fill(0);
+      const spread = (a, b, kwh) => {
+        const span = Math.max(0.05, b - a);
+        for (let h = Math.max(0, Math.floor(a)); h < Math.min(24, Math.ceil(b)); h += 1) out[h] += kwh * (Math.max(0, Math.min(b, h + 1) - Math.max(a, h)) / span);
+      };
+      for (const e of v.history || []) {
+        if (e.elsewhere || !e.end || iso(e.end) <= day0) continue;
+        const periods = Array.isArray(e.periods) && e.periods.length ? e.periods : [{ start: e.start, end: e.end }];
+        const total = periods.reduce((t, p) => t + Math.max(0, iso(p.end) - iso(p.start)), 0) || 1;
+        for (const p of periods) spread((iso(p.start) - day0) / 3600e3, (iso(p.end) - day0) / 3600e3, (Number(e.energy) || 0) * (Math.max(0, iso(p.end) - iso(p.start)) / total));
+      }
+      if (v.session && v.charging) spread((iso(v.session.start) - day0) / 3600e3, nowH, Number(v.session.energy) || 0);
+      const kw = Number(v.charge_power) || Number(v.power) || 7;
+      const week = this._state.settings?.insight_use ? this._weekCharges(v) : [];
+      const ahead = week.length ? week.map((c) => [iso(c.start), iso(c.end), Number(c.kwh)]) : (hasSegments(this._livePlan(v)) ? this._livePlan(v).segments.map((g) => [iso(g.start), iso(g.end), null]) : []);
+      const plan = Array(24).fill(0);
+      for (const [a, b, kwh] of ahead) {
+        const ha = Math.max(nowH, (a - day0) / 3600e3), hb = Math.min(24, (b - day0) / 3600e3);
+        if (hb <= ha) continue;
+        const per = isNum(kwh) && kwh > 0 ? kwh / Math.max(0.25, (b - a) / 3600e3) : kw;
+        for (let h = Math.floor(ha); h < Math.ceil(hb); h += 1) plan[h] += per * (Math.min(hb, h + 1) - Math.max(ha, h));
+      }
+      return { done: out, plan };
+    });
+    // The hour's price.
+    const slots = (this._state.prices || []).map((p) => [iso(p.start), Number(p.price)]).filter(([, p]) => Number.isFinite(p));
+    const price = Array.from({ length: 24 }, (_, h) => { const a = day0 + h * 3600e3; const xs = slots.filter(([t]) => t >= a && t < a + 3600e3); return xs.length ? xs.reduce((t, [, p]) => t + p, 0) / xs.length : null; });
+    const known = price.filter(isNum);
+    const lo = known.length ? Math.min(...known) : 0, hi = known.length ? Math.max(...known) : 1;
+    // Each hour's whole, for the scale.
+    const value = (h) => {
+      const past = h < Math.floor(nowH) || (h === Math.floor(nowH));
+      const cs = carH.map((c) => (past ? c.done[h] : c.plan[h]));
+      const carsSum = cs.reduce((t, x) => t + x, 0);
+      const base = past ? house[h] : typical[h];
+      const homeOnly = isNum(base) ? Math.max(0, base - (past ? carsSum : 0)) : null;
+      return { past, cs, homeOnly, total: (homeOnly || 0) + carsSum };
+    };
+    const hours = Array.from({ length: 24 }, (_, h) => value(h));
+    const top = Math.max(0.5, ...hours.map((x) => x.total), ...sun.filter(isNum));
+    const C = 160, R0 = 46, R1 = 124;
+    const rad = (h) => ((h / 24) * 360 - 90) * (Math.PI / 180);
+    const pt = (r, a) => [C + r * Math.cos(a), C + r * Math.sin(a)];
+    const wedge = (h, r0, r1) => {
+      const a0 = rad(h) + 0.022, a1 = rad(h + 1) - 0.022;
+      const [x0, y0] = pt(r0, a0), [x1, y1] = pt(r1, a0), [x2, y2] = pt(r1, a1), [x3, y3] = pt(r0, a1);
+      return `M${x0.toFixed(1)} ${y0.toFixed(1)}L${x1.toFixed(1)} ${y1.toFixed(1)}A${r1} ${r1} 0 0 1 ${x2.toFixed(1)} ${y2.toFixed(1)}L${x3.toFixed(1)} ${y3.toFixed(1)}A${r0} ${r0} 0 0 0 ${x0.toFixed(1)} ${y0.toFixed(1)}Z`;
+    };
+    // The radius grows with the square root, so a quiet hour is still seen beside a charging one.
+    const radius = (cum) => R0 + Math.sqrt(Math.max(0, cum) / top) * (R1 - R0);
+    const scale = (kwh) => radius(kwh) - R0;
+    const pick = Number.isInteger(this._xClockH) ? this._xClockH : Math.min(23, Math.floor(nowH));
+    let petals = "";
+    hours.forEach((x, h) => {
+      let cum = 0;
+      const cls = `${x.past ? "past" : "next"}${h === pick ? " pick" : ""}`;
+      const parts = [];
+      const layer = (kwh, attrs) => { const a = radius(cum); cum += kwh; const b = Math.max(a + 1.5, radius(cum)); parts.push(`<path ${attrs} d="${wedge(h, a, b)}"/>`); };
+      if (isNum(x.homeOnly) && x.homeOnly > 0) layer(x.homeOnly, `class="x-cp house ${cls}"`);
+      x.cs.forEach((kwh, ci) => { if (kwh > 0.05) layer(kwh, `class="x-cp car ${cls}" style="--car:${this._carColor(this._cars.indexOf(cars[ci]))}"`); });
+      if (!parts.length) parts.push(`<path class="x-cp empty ${cls}" d="${wedge(h, R0, R0 + 2)}"/>`);
+      petals += `<g class="x-cpet" data-act="x-clock" data-h="${h}" style="--d:${h * 22}ms"><path class="x-chit" d="${wedge(h, R0 - 6, R1 + 12)}"/>${parts.join("")}</g>`;
+    });
+    // The sun, where it is known: a line round the hours.
+    let sunPath = "";
+    if (sun.some(isNum)) sun.forEach((v, h) => { if (!isNum(v)) return; const [x, y] = pt(radius(v), rad(h + 0.5)); sunPath += `${sunPath ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`; });
+    const ring = price.map((p, h) => (isNum(p) ? `<path class="x-cring ${X_TIER(p, lo, hi)}" d="${wedge(h, R1 + 16, R1 + 22)}"/>` : "")).join("");
+    const labels = [0, 6, 12, 18].map((h) => { const [x, y] = pt(R1 + 34, rad(h)); return `<text class="x-clab" x="${x.toFixed(1)}" y="${(y + 4).toFixed(1)}" text-anchor="middle">${String(h).padStart(2, "0")}</text>`; }).join("");
+    const [hx, hy] = pt(R1 + 10, rad(nowH));
+    const [hx0, hy0] = pt(R0 - 4, rad(nowH));
+    // The middle: so far today.
+    const doneHouse = house.slice(0, Math.ceil(nowH)).filter(isNum).reduce((t, x) => t + x, 0);
+    const doneCars = carH.reduce((t, c) => t + c.done.reduce((a, b) => a + b, 0), 0);
+    const total = house.some(isNum) ? doneHouse : doneCars;
+    const sel = hours[pick];
+    const selParts = [];
+    if (isNum(sel.homeOnly)) selParts.push(`<span><i class="house"></i>${esc(this._t("x_clock_house"))} <b class="x-num">${esc(this._kwh(sel.homeOnly))}</b></span>`);
+    sel.cs.forEach((kwh, ci) => { if (kwh > 0.05) selParts.push(`<span><i style="background:${this._carColor(this._cars.indexOf(cars[ci]))}"></i>${esc(cars[ci].name.split(" ")[0])} <b class="x-num">${esc(this._kwh(kwh))}</b></span>`); });
+    if (isNum(price[pick])) selParts.push(`<span><i class="p ${X_TIER(price[pick], lo, hi)}"></i><b class="x-num">${esc(this._money(price[pick]))}</b>/kWh</span>`);
+    const hh = (h) => `${String(h).padStart(2, "0")}${this._lang === "da" ? "." : ":"}00`;
+    // The petals grow out the first time the clock is drawn, not again at every update.
+    const grow = !this._xClockGrown;
+    this._xClockGrown = true;
+    return `<div class="x-clock-wrap"><svg class="x-clocksvg${grow ? " grow" : ""}" viewBox="0 0 320 320" role="img" aria-label="${esc(this._t("x_clock_title"))}">
+        <circle class="x-cdisc" cx="${C}" cy="${C}" r="${R1 + 8}"/>
+        ${[0.25, 1].map((k) => `<circle class="x-cgrid" cx="${C}" cy="${C}" r="${radius(top * k).toFixed(1)}"/>`).join("")}
+        ${ring}${petals}${sunPath ? `<path class="x-csun" d="${sunPath}"/>` : ""}${labels}
+        <line class="x-chand" x1="${hx0.toFixed(1)}" y1="${hy0.toFixed(1)}" x2="${hx.toFixed(1)}" y2="${hy.toFixed(1)}"/><circle class="x-chandot" cx="${hx.toFixed(1)}" cy="${hy.toFixed(1)}" r="4.5"/>
+        <circle class="x-ccore" cx="${C}" cy="${C}" r="${R0 - 8}"/>
+        <text class="x-cbig" x="${C}" y="${C + 2}" text-anchor="middle">${esc(this._num(total, total < 10 ? 1 : 0))}</text>
+        <text class="x-csmall" x="${C}" y="${C + 18}" text-anchor="middle">${esc(this._t("x_clock_kwh_today"))}</text>
+      </svg></div>
+      <div class="x-clock-pick"><b class="x-num">${esc(`${hh(pick)}–${hh((pick + 1) % 24)}`)}</b><small>${esc(this._t(sel.past ? "x_clock_was" : "x_clock_will"))}</small><div class="x-clock-parts">${selParts.join("") || `<span class="x-soft">${esc(this._t("x_clock_quiet"))}</span>`}</div></div>
+      <div class="x-legend"><span><i class="x-cl-house"></i>${esc(this._t("x_clock_house"))}</span>${cars.map((v) => `<span><i style="background:${this._carColor(this._cars.indexOf(v))}"></i>${esc(v.name.split(" ")[0])}</span>`).join("")}${sunPath ? `<span><i class="line" style="background:#ffc83d"></i>${esc(this._t("x_front_sun"))}</span>` : ""}<span class="x-push">${esc(this._t("x_clock_ring"))}</span></div>`;
+  },
+
   _xTodayCard() {
     return `<section class="x-card x-today home-today" aria-label="${esc(this._t("home_today"))}">
       <div class="x-head"><h2>${esc(this._t("home_today"))}</h2><span class="x-num x-soft">${esc(new Intl.DateTimeFormat(this._locale, { weekday: "short", day: "numeric", month: "numeric" }).format(ZD()))}</span></div>
@@ -14196,10 +14457,14 @@ Object.assign(EvPlannerPanel.prototype, {
     const best = this._cheapest(hours);
     const nightPrice = paid.length ? paid.reduce((t, h) => t + h.p, 0) / paid.length : best ? best.avg : null;
     const top = Math.max(0.01, ...hours.map((h) => h.p || 0));
+    // Each hour in its price's colour, cheap to dear (2.5.0b55); the hours a car charges in the car's colour.
+    const known = hours.filter((h) => h.p !== null).map((h) => h.p);
+    const plo = known.length ? Math.min(...known) : 0, phi = known.length ? Math.max(...known) : 1;
     const bars = hours.map((h, n) => {
       if (h.p === null) return "<i></i>";
       const car = charging(h);
-      return `<i class="x-bar" style="height:${Math.max(4, (h.p / top) * 46).toFixed(1)}px;${car >= 0 ? `background:${this._carColor(car)};` : ""}animation-delay:${n * 25}ms"></i>`;
+      const fill = car >= 0 ? `background:${this._carColor(car)};box-shadow:0 0 10px -2px ${this._carColor(car)};` : `background:${X_TIER_COLOR[X_TIER(h.p, plo, phi)]};opacity:.72;`;
+      return `<i class="x-bar${car >= 0 ? " chg" : ""}" style="height:${Math.max(4, (h.p / top) * 46).toFixed(1)}px;${fill}animation-delay:${n * 25}ms"></i>`;
     }).join("");
     const ticks = hours.map((h) => `<span>${h.hour % 3 === 0 ? pad(h.hour) : ""}</span>`).join("");
     (this._scrubs ||= {}).tonight = (f) => {
@@ -14216,7 +14481,7 @@ Object.assign(EvPlannerPanel.prototype, {
       const c = this._nextCharge(v);
       const soon = c && ZD(c.start).getTime() < now + 24 * 3600e3;
       const down = this._troubled(v);
-      const note = down ? this._t("x_charger_down") : c ? (soon ? `${this._t("x_charges", { when: this._whenSpan(c) })}${isNum(c.cost) ? ` · ${this._money(c.cost, 0)}` : ""}` : this._t(ZD(c.start).getHours() >= 18 || ZD(c.start).getHours() < 6 ? "x_charges_night" : "x_charges_day", { day: this._xDayShort(c.start) })) : this._t("x_enough");
+      const note = down ? this._t("x_charger_down") : c ? (soon ? `${this._t("x_charges", { when: this._whenSpan(c) })}${isNum(c.cost) && c.cost >= 0.5 ? ` · ${this._money(c.cost, 0)}` : ""}` : this._t(ZD(c.start).getHours() >= 18 || ZD(c.start).getHours() < 6 ? "x_charges_night" : "x_charges_day", { day: this._xDayShort(c.start) })) : this._t("x_enough");
       const s = this._vs(v);
       const day = this._deadlineDay(v);
       const fast = day && isNum(s.day_targets?.[day]) && (!steered(v) || (s.day_fixed || []).includes(day));
@@ -14572,6 +14837,27 @@ Object.assign(EvPlannerPanel.prototype, {
       <button class="x-clim-row" data-act="x-clim" data-id="${id}" data-k="${k}" aria-pressed="${on}"${has ? "" : " disabled"}><span class="x-clim-ic${on ? " on" : ""}">${xi(XD.snow, { w: 18, sw: 2.2 })}</span><span class="x-grow"><b>${esc(this._t("x_clim_dep"))}</b><small class="x-num">${esc(sub)}</small></span><span class="x-sw${on ? " on" : ""}"><i></i></span></button>
       ${on ? `<div class="x-step x-clim-temp"><span>${esc(this._t("x_clim_temp"))}</span><div><button class="x-sq" data-act="x-clim-temp" data-id="${id}" data-k="${k}" data-d="-0.5" aria-label="${esc(this._t("x_colder"))}">−</button><b class="x-num x-disp">${esc(this._num(temp, 1))}°</b><button class="x-sq" data-act="x-clim-temp" data-id="${id}" data-k="${k}" data-d="0.5" aria-label="${esc(this._t("x_warmer"))}">+</button></div></div>` : ""}
     </div>`;
+  },
+
+  /* What the last 30 days' charging at home saved against each day's mean price, as Learning's Charging page
+     counts it (2.5.0b55). Insight's own "saved" counts only the nights it chose to wait. */
+  _xSaved30() {
+    const days = this._insight?.price_days || {};
+    const since = znow() - 30 * 864e5;
+    const key = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    let saved = 0, n = 0;
+    for (const v of this._cars) {
+      for (const e of v.history || []) {
+        if (e.elsewhere || !isNum(e.energy) || !isNum(e.cost) || Number(e.energy) <= 0) continue;
+        const at = ZD(e.start);
+        if (at.getTime() < since) continue;
+        const mean = days[key(at)]?.mean;
+        if (!isNum(mean)) continue;
+        saved += Number(e.energy) * Number(mean) - Number(e.cost);
+        n += 1;
+      }
+    }
+    return n ? saved : null;
   },
 
   _xEditorTime(input) {
@@ -15178,7 +15464,7 @@ Object.assign(EvPlannerPanel.prototype, {
         const text = c ? `${this._whenSpan(c)} → ${this._pct(c.soc ?? v.target)}${v.deadline ? ` · ${this._readyText(v.deadline)}` : ""}` : this._t("x_ins_waits", { pct: this._pct(v.soc) });
         return `<div class="x-insplan"><i style="background:${this._carColor(i)}"></i><b>${esc(v.name.split(" ")[0])}</b><span class="x-num">${esc(text)}</span><span class="x-pctpill small ${fast ? "fast" : "auto"}">${esc(fast ? this._t("x_fast_low") : `✦ ≈${Math.round(Number(v.target) || 0)} %`)}</span></div>`;
       }).join("");
-      const saved = isNum(sc.saved) ? Number(sc.saved) : null;
+      const saved = this._xSaved30();
       body = `<small class="x-over2 vio">${esc(this._t("x_ins_learned", { days }))}</small>
         <div class="x-ins3">
           <div><div class="x-ring" style="--p:${knows}%"><b class="x-num x-disp">${knows} %</b></div><small>${esc(this._t("x_ins_knows"))}</small></div>
@@ -15189,7 +15475,7 @@ Object.assign(EvPlannerPanel.prototype, {
         <small class="x-over2 vio">${esc(this._t("x_ins_tonight"))}</small>
         <div class="x-well x-insnight"><div class="x-insbars">${night}</div><div class="x-insticks x-num">${ticks}</div></div>
         <div class="x-insplans">${plans}</div>
-        ${saved !== null && sc.scored ? `<div class="x-saved"><div><b class="x-num x-disp">${esc(this._money(saved, 0))}</b><small>${esc(this._t("x_ins_saved"))}</small></div><svg width="120" height="40" viewBox="0 0 120 40" aria-hidden="true"><path d="M0 34 L12 30 L24 31 L36 24 L48 25 L60 18 L72 19 L84 12 L96 13 L108 6 L120 4" fill="none" stroke="var(--x-acc-ink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>` : ""}`;
+        ${saved !== null ? `<div class="x-saved"><div><b class="x-num x-disp">${esc(this._money(saved, 0))}</b><small>${esc(this._t("x_ins_saved"))}</small></div><svg width="120" height="40" viewBox="0 0 120 40" aria-hidden="true"><path d="M0 34 L12 30 L24 31 L36 24 L48 25 L60 18 L72 19 L84 12 L96 13 L108 6 L120 4" fill="none" stroke="var(--x-acc-ink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>` : ""}`;
     }
     return `<div class="x-scrim" data-ins="close"></div>
       <section class="x-insight sheet-up" role="dialog" aria-modal="true" aria-label="Insight">
@@ -16721,8 +17007,7 @@ const NEXT_STYLE = `
 :host([look="evp"]) .x-title h1 { font-size: 34px; letter-spacing: -.035em; }
 :host([look="evp"]) .x-hello p { font-size: 15.5px; font-weight: 500; opacity: .9; }
 /* Small labels are set like a charger's display: monospaced, spaced, upper case. */
-:host([look="evp"]) .x-over, :host([look="evp"]) .x-over2, :host([look="evp"]) .x-dep small, :host([look="evp"]) .x-tile small,
-:host([look="evp"]) .x-tn-when small, :host([look="evp"]) .x-pricechip small, :host([look="evp"]) .x-days small {
+:host([look="evp"]) .x-over, :host([look="evp"]) .x-over2, :host([look="evp"]) .x-dep small, :host([look="evp"]) .x-tile small, :host([look="evp"]) .x-days small {
   font-family: var(--n-mono); font-weight: 600; letter-spacing: .1em; text-transform: uppercase; font-size: 10.5px;
 }
 :host([look="evp"]) .x-over { opacity: .8; font-size: 11px; }
@@ -16926,7 +17211,14 @@ const NEXT_STYLE = `
 }
 :host([look="evp"]) .x-scrim, :host([look="evp"]) .app > .x-profscrim { background: rgba(3, 5, 14, .55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 :host([look="evp"]) .x-handle { width: 44px; height: 5px; border-radius: 3px; background: var(--n-hair2); }
-:host([look="evp"]) .x-qtile, :host([look="evp"]) .x-profmenu .x-prof-tiles button { border-radius: 20px; border: 1px solid var(--n-hair); background: var(--x-card2); box-shadow: inset 0 1px 0 var(--n-hi); }
+:host([look="evp"]) .x-qtile:not(.active), :host([look="evp"]) .x-profmenu .x-prof-tiles button { border-radius: 20px; border: 1px solid var(--n-hair); background: var(--x-card2); box-shadow: inset 0 1px 0 var(--n-hi); }
+:host([look="evp"]) .x-qtile { border-radius: 20px; }
+/* The quick menu reads plainly (2.5.0b55): a chosen tile is ringed in ink, an active one keeps its own colour. */
+:host([look="evp"]) .x-qtile.sel:not(.active) { border: 2px solid var(--x-ink); }
+:host([look="evp"]) .x-qtile b { color: inherit; }
+:host([look="evp"]) .x-qtile:not(.active) small { color: var(--x-soft); }
+:host([look="evp"]) .x-quick { background: var(--x-pop); }
+:host([look="evp"]) .x-qchips button { border-color: var(--n-hair2); }
 :host([look="evp"]) .x-qtile.active { box-shadow: inset 0 0 0 1.5px var(--n-amber), 0 12px 26px -16px var(--n-glow); }
 
 /* ---------- 8. Focus and press ------------------------------------------------------------------- */
@@ -16968,7 +17260,15 @@ const NEXT_STYLE = `
 }
 
 /* Bigger levels and prices. */
-:host([look="evp"]) .x-tn-soc { font-size: 40px; line-height: 1; }
+:host([look="evp"]) .x-tn-soc { font-size: 32px; line-height: 1; letter-spacing: -.04em; }
+/* Tonight's head and boxes kept compact (2.5.0b55): the price on one line, the tag a soft chip that may wrap. */
+:host([look="evp"]) .x-pricechip { padding: 6px 10px; border-radius: 14px; }
+:host([look="evp"]) .x-pricechip small { font-size: 10.5px; white-space: nowrap; letter-spacing: 0; text-transform: none; }
+:host([look="evp"]) .x-tn-when small { font-size: 12px; white-space: nowrap; }
+:host([look="evp"]) .x-tn-car { padding: 12px; gap: 3px; }
+:host([look="evp"]) .x-tn-name b { font-size: 13.5px; }
+:host([look="evp"]) .x-tn-car small { font-size: 12px; line-height: 1.3; }
+:host([look="evp"]) .x-tag { border-radius: 10px; padding: 4px 8px; font-size: 11.5px; line-height: 1.3; }
 :host([look="evp"]) .x-tl-soc { font-size: 32px; font-weight: 800; letter-spacing: -.04em; }
 
 /* The profile looks the same in every top. */
@@ -17852,6 +18152,48 @@ button.x-card { font: inherit; text-align: left; cursor: pointer; width: 100%; }
 .x-artdot { fill: #6ee7b0; stroke: #fff; stroke-width: 2; }
 .x-artnow { stroke: currentColor; stroke-width: 1.5; stroke-dasharray: 3 4; opacity: .5; }
 .x-artstar { fill: #fff; animation: x-twinkle 3.2s ease-in-out infinite; }
+
+/* Drejeskiven and Husets hjul (2.5.0b55): the wheel draws itself; the card only holds it */
+.x-wheel-card { gap: 8px; padding-top: 6px; overflow: hidden; }
+.x-wheel-card.house { padding-top: 16px; }
+.x-wheel-host { min-height: 380px; }
+.x-wheel-card.house .x-wheel-host { min-height: 420px; }
+ev-planner-wheel { display: block; }
+
+/* Husets ur (2.5.0b55) */
+.x-clockcard { gap: 12px; }
+.x-clock-wrap { display: grid; place-items: center; }
+.x-clocksvg { width: min(100%, 340px); height: auto; overflow: visible; }
+.x-cdisc { fill: color-mix(in srgb, var(--x-ink) 3%, transparent); }
+.x-cgrid { fill: none; stroke: var(--x-line2); stroke-dasharray: 2 4; }
+.x-cring { opacity: .85; } .x-cring.lo { fill: #3ee08f; } .x-cring.mid { fill: #f5b94a; } .x-cring.hi { fill: #ff7a6b; }
+.x-cpet { cursor: pointer; }
+.x-chit { fill: transparent; }
+.x-cp { transform-origin: 160px 160px; }
+.x-clocksvg.grow .x-cp { animation: x-cgrow .7s cubic-bezier(.2, .9, .3, 1.2) both; animation-delay: var(--d); }
+@keyframes x-cgrow { from { transform: scale(.4); opacity: 0; } }
+.x-cp.house { fill: color-mix(in srgb, var(--x-blue) 70%, var(--x-ink)); }
+.x-cp.car { fill: var(--car); }
+.x-cp.next { opacity: .38; }
+.x-cp.next.house { fill: none; stroke: color-mix(in srgb, var(--x-blue) 70%, var(--x-ink)); stroke-dasharray: 2 2; opacity: .6; }
+.x-cp.empty { fill: var(--x-line2); }
+.x-cp.pick { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--x-ink) 40%, transparent)); opacity: 1; }
+.x-csun { fill: none; stroke: #ffc83d; stroke-width: 2; stroke-linejoin: round; }
+.x-clab { fill: var(--x-faint); font: 600 10.5px var(--x-text); }
+.x-chand { stroke: var(--x-acc); stroke-width: 2; stroke-linecap: round; }
+.x-chandot { fill: var(--x-acc); filter: drop-shadow(0 0 6px var(--x-acc)); }
+.x-ccore { fill: var(--x-card); stroke: var(--x-line2); }
+.x-cbig { fill: var(--x-ink); font: 800 22px var(--x-display); letter-spacing: -.03em; }
+.x-csmall { fill: var(--x-soft); font: 600 9.5px var(--x-text); }
+.x-clock-pick { display: grid; gap: 6px; padding: 12px; border-radius: 16px; background: var(--x-well); }
+.x-clock-pick > b { font: 800 16px var(--x-display); }
+.x-clock-pick > small { font-size: 12px; color: var(--x-soft); margin-top: -4px; }
+.x-clock-parts { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--x-ink2); }
+.x-clock-parts span { display: inline-flex; align-items: center; gap: 6px; }
+.x-clock-parts i { width: 9px; height: 9px; border-radius: 3px; }
+.x-clock-parts i.house, .x-legend i.x-cl-house { background: color-mix(in srgb, var(--x-blue) 70%, var(--x-ink)); }
+.x-clock-parts i.p.lo { background: #3ee08f; } .x-clock-parts i.p.mid { background: #f5b94a; } .x-clock-parts i.p.hi { background: #ff7a6b; }
+@media (prefers-reduced-motion: reduce) { .x-cp { animation: none; } }
 
 /* Huset: the clay house in its own card. */
 .x-scene-card { padding: 0; overflow: clip; gap: 0; }

@@ -222,7 +222,7 @@ test("a new household is shown what to set up, until there is a car, a charger a
     const full = fixture("two-cars");
     await push({ ...state, vehicles: full.vehicles });
     await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector('.setup-steps li[data-step="car"].done'), null, { timeout: 5000 });
-    assert.ok(await read(".x-frow"), "the cars are shown under the steps");
+    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".x-wheel-card .x-wheel-host")), "Drejeskiven is shown under the steps");
     await push({ ...state, vehicles: full.vehicles, chargers: full.chargers });
     await page.waitForFunction(() => !window.harness.panel.shadowRoot.querySelector(".setup"), null, { timeout: 5000 });
   });
@@ -635,12 +635,38 @@ function swipe(page, selector, dx, dy) {
   );
 }
 
-test("Forside: a car in tonight's card opens its page on the Cars tab", async () => {
-  await withPanel("two-cars", { size: { width: 390, height: 844 } }, async ({ page, read }) => {
-    assert.equal(await read('.tabs button[aria-selected="true"]', "data-tab"), "front");
-    await page.evaluate(() => window.harness.panel.shadowRoot.querySelector('.x-front .x-tn-car[data-id="tesla_model_y"]').click());
+test("Forside: Drejeskiven turns with the cars at home; a car in it opens its page on the Cars tab", async () => {
+  await withPanel("two-cars", { size: { width: 390, height: 844 } }, async ({ page }) => {
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector("ev-planner-wheel")?.shadowRoot?.querySelector(".pill"), null, { timeout: 8000 });
+    const wheel = await page.evaluate(() => {
+      const r = window.harness.panel.shadowRoot, el = r.querySelector(".x-front ev-planner-wheel");
+      return { mode: el.getAttribute("mode"), pills: [...el.shadowRoot.querySelectorAll(".pill")].map((b) => b.dataset.id), canvas: !!el.shadowRoot.querySelector("canvas"), charges: el.m.cars.map((c) => c.charges.length > 0), tonight: !!r.querySelector(".x-front .x-tn") };
+    });
+    assert.deepEqual({ ...wheel, charges: undefined }, { mode: "cars", pills: wheel.pills, canvas: true, charges: undefined, tonight: false });
+    assert.equal(wheel.pills.length, 2, "both cars on the disc");
+    assert.ok(wheel.charges.some(Boolean), "a plan is in the ring");
+    // A car is chosen: its plan unfolds; Åbn bilen opens its page on the Cars tab.
+    await page.evaluate(() => window.harness.panel.shadowRoot.querySelector("ev-planner-wheel").shadowRoot.querySelector('.pill[data-id="tesla_model_y"]').click());
+    assert.ok(await page.evaluate(() => !window.harness.panel.shadowRoot.querySelector("ev-planner-wheel").shadowRoot.querySelector(".detail").hidden), "the car's plan is shown");
+    await page.evaluate(() => window.harness.panel.shadowRoot.querySelector("ev-planner-wheel").shadowRoot.querySelector('.detail button[data-a="open-car"]').click());
     assert.equal(await page.evaluate(() => [window.harness.panel._tab, window.harness.panel._carId].join()), "cars,tesla_model_y");
     assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector('.car-page[data-id="tesla_model_y"]')), "the car's page is shown");
+  });
+});
+
+test("Huset: Husets hjul has the house's design, its things and the cars; Lad nu opens the quick menu for the car", async () => {
+  const state = fixture("shared-supply");
+  await withPanel({ ...state, settings: { ...state.settings, house: "angle" } }, { size: { width: 390, height: 844 } }, async ({ page }) => {
+    await page.evaluate(() => window.harness.panel._setTab("home"));
+    await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector('ev-planner-wheel[mode="house"]')?.shadowRoot?.querySelector(".pill"), null, { timeout: 8000 });
+    const wheel = await page.evaluate(() => { const el = window.harness.panel.shadowRoot.querySelector('ev-planner-wheel[mode="house"]'); return { design: el.lay.key, pills: [...el.shadowRoot.querySelectorAll(".pill")].map((b) => b.dataset.id) }; });
+    assert.equal(wheel.design, "angle", "the design from Husets billede");
+    assert.ok(wheel.pills.includes("grid"), "the grid is always there");
+    const car = wheel.pills.find((id) => !["sun", "battery", "heat", "grid"].includes(id));
+    await page.evaluate((id) => window.harness.panel.shadowRoot.querySelector('ev-planner-wheel[mode="house"]').shadowRoot.querySelector(`.pill[data-id="${id}"]`).click(), car);
+    await page.evaluate(() => window.harness.panel.shadowRoot.querySelector('ev-planner-wheel[mode="house"]').shadowRoot.querySelector('.detail button[data-a="quick-now"]').click());
+    assert.deepEqual(await page.evaluate(() => [window.harness.panel._quick?.tab, window.harness.panel._quick?.pick]), ["now", [car]], "the quick menu opens on Lad nu for that car; nothing is started");
+    assert.equal(await page.evaluate(() => window.harness.calls.filter((c) => /mode|charge_now|vehicle_set/.test(c.type)).length), 0, "nothing was sent");
   });
 });
 
@@ -1462,11 +1488,14 @@ test("press and hold on a chart shows the value under the finger; a car's chart 
       const box = await page.evaluate((s) => { const el = window.harness.panel.shadowRoot.querySelector(s); el.scrollIntoView({ block: "center" }); const r = el.getBoundingClientRect(); return [r.x + r.width * 0.4, r.y + r.height / 2]; }, sel);
       await page.mouse.move(box[0], box[1]);
       await page.mouse.down();
-      await page.waitForTimeout(80);
+      // The tip comes at once; a busy machine (the wheel's module loading beside it) may take a moment.
+      await page.waitForFunction((q) => window.harness.panel.shadowRoot.querySelector(q)?.textContent.trim(), `${sel} .x-tip`, { timeout: 3000 }).catch(() => null);
       const tip = await read(`${sel} .x-tip`);
       await page.mouse.up();
       return tip;
     };
+    // Forside's wheel fetches its module first; the charts are held once it has arrived.
+    await page.waitForFunction(() => customElements.get("ev-planner-wheel"), null, { timeout: 8000 });
     await tap('.tabs button[data-tab="cars"]');
     assert.match(await hold(".x-strip[data-scrub]"), /\d\d[.:]\d\d.*kr/, "tonight's prices");
     assert.match(await hold('.x-graph[data-scrub="week"]'), /\d\d[.:]\d\d.*%/, "the cars' week, with each car's battery");
