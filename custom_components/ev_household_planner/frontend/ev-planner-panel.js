@@ -5,6 +5,19 @@
 const TEXT = {
   da: {
     tab_cars: "Biler",
+    tab_front: "Forside",
+    tab_more: "Mere",
+    x_front_deps: "Afgange",
+    x_front_week: "Hele ugen",
+    x_front_charging: "Lader nu",
+    x_front_away: "Ikke hjemme",
+    x_front_house: "Huset nu",
+    x_front_sun: "sol",
+    x_front_learn: "Det har planen lært",
+    x_front_learn_sub: "Se Læring",
+    more_custom: "Tilpas menu",
+    more_custom_sub: "Vælg fire faner til bunden. Resten ligger her i Mere.",
+    more_custom_count: "{n} af 4 valgt",
     tab_home: "Huset",
     greet_night: "God nat",
     greet_morning: "God morgen",
@@ -885,6 +898,19 @@ const TEXT = {
   },
   en: {
     tab_cars: "Cars",
+    tab_front: "Front",
+    tab_more: "More",
+    x_front_deps: "Departures",
+    x_front_week: "The whole week",
+    x_front_charging: "Charging now",
+    x_front_away: "Not at home",
+    x_front_house: "The house now",
+    x_front_sun: "sun",
+    x_front_learn: "What the plan has learned",
+    x_front_learn_sub: "See Learning",
+    more_custom: "Customise menu",
+    more_custom_sub: "Pick four tabs for the bar. The rest are here in More.",
+    more_custom_count: "{n} of 4 chosen",
     tab_home: "House",
     greet_night: "Good night",
     greet_morning: "Good morning",
@@ -2047,7 +2073,7 @@ const DEADLINE_PRESETS = ["06:00", "07:00", "08:00"];
 const MODES = ["smart", "charge_now", "pause", "off"];
 const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 const OPPORTUNISTIC = ["off", "lower_ceiling", "follow_end_price"];
-const TABS = ["home", "cars", "guest", "history", "past"];
+const TABS = ["front", "home", "cars", "guest", "history", "past"];
 // The pages one can be on: the tabs, and the settings (opened from the profile menu).
 const PAGES = [...TABS, "settings"];
 // Holidays and special days: Hverdagsro's days and its dates, with days before and after (changed per day).
@@ -3656,6 +3682,8 @@ const ClayScene = (() => {
     for (const [a, b, c, d] of [[-14, 3, 10, -8], [14, 3, -10, -8], [-9, 4, 7, -15], [9, 4, -6, -14]]) s += `<path d="M${f1(bx + a)} ${f1(by + b)} L${f1(bx + c)} ${f1(by + d)}" stroke="#5A3A20" stroke-width="3" stroke-linecap="round"/>`;
     for (let i = 0; i < 6; i += 1) { const fx = bx + (i - 2.5) * 3.4, h = 18 + (i % 3) * 5; s += `<path class="cs-flame" style="--d:${(i * 0.17).toFixed(2)}s;transform-origin:${f1(fx)}px ${f1(by - 2)}px" d="M${f1(fx - 4)} ${f1(by - 2)} Q${f1(fx - 2)} ${f1(by - h * 0.6)} ${f1(fx)} ${f1(by - h)} Q${f1(fx + 2)} ${f1(by - h * 0.6)} ${f1(fx + 4)} ${f1(by - 2)} Z" fill="${i % 2 ? "#FFC83D" : "#FF7A1F"}"/>`; }
     for (let i = 0; i < 8; i += 1) s += `<circle class="cs-spark" style="--d:${(i * 0.31).toFixed(2)}s" cx="${f1(bx + ((i * 7) % 13) - 6)}" cy="${f1(by - 24)}" r="1.1" fill="#FFD27A"/>`;
+    // Sankt Hans: the witch on her stake in the middle of the fire.
+    s += vjWitch(bx, by - 34, 1.15);
     return s;
   }
 
@@ -5841,12 +5869,209 @@ function mergeState(last, message) {
   return next;
 }
 
+/* ------------------------------------------------------------------ Vejen: the street in the tops (2.5.0b52)
+   The house in the tops is the clay house from Huset (bare: no ground of its own) standing in its street:
+   the sky of now (moon, sun, clouds, stars, the day's sky), the ground, the pavement and the road past the
+   end of the drive, street lamps at even spacing with their light falling down on the road, the neighbours'
+   houses either side and cars going by. Drawn in the clay house's own metres and projection. */
+const VJ_CSS = `
+.vj-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.vj-stage > svg { position: absolute; left: 0; top: 0; overflow: visible; }
+.vj-host { position: absolute; }
+.vj-host .cscene { background: transparent !important; border-radius: 0; overflow: visible; }
+.vj-host .cs-labels, .vj-host .cs-leaders, .vj-host .cs-tools, .vj-host .cs-label, .vj-host button { display: none !important; }
+@keyframes vj-tw { 0%,100% { opacity: .25 } 50% { opacity: 1 } }
+@keyframes vj-drift { 0%,100% { transform: translateX(0) } 50% { transform: translateX(16px) } }
+@keyframes vj-shoot { 0% { transform: translate(330px, 70px); opacity: 0 } 1% { opacity: 1 } 7% { transform: translate(220px, 110px); opacity: 0 } 100% { transform: translate(220px, 110px); opacity: 0 } }
+@keyframes vj-cone { 0%,100% { opacity: .55 } 50% { opacity: .85 } }
+@keyframes vj-flick { 0%,100% { opacity: 1 } 45% { opacity: .55 } 60% { opacity: .9 } }
+@keyframes vj-sway { 0%,100% { transform: rotate(-2deg) } 50% { transform: rotate(2deg) } }
+@keyframes vj-burst { 0% { transform: scale(.2); opacity: 0 } 15% { opacity: 1 } 70% { opacity: .9 } 100% { transform: scale(1.15); opacity: 0 } }
+@keyframes vj-rise { 0% { transform: translateY(0); opacity: 0 } 15% { opacity: .9 } 100% { transform: translateY(-160px); opacity: 0 } }
+@keyframes vj-conf { 0% { transform: translateY(-40px) rotate(0); opacity: 0 } 10% { opacity: 1 } 100% { transform: translateY(160px) rotate(260deg); opacity: 0 } }
+@keyframes vj-fall { from { transform: translateY(0) } to { transform: translateY(var(--h, 700px)) } }
+.vj-tw { animation: vj-tw 3.4s ease-in-out infinite; }
+.vj-cloud { animation: vj-drift 26s ease-in-out infinite; }
+.vj-shoot { animation: vj-shoot 9s linear infinite; }
+.vj-cone { animation: vj-cone 4s ease-in-out infinite; }
+.vj-flick { animation: vj-flick 7s ease-in-out infinite; }
+.vj-sway { animation: vj-sway 3.2s ease-in-out infinite; }
+.vj-burst { animation: vj-burst 3.2s ease-out infinite; }
+.vj-rise { transform-box: fill-box; animation: vj-rise 6s ease-in infinite; }
+.vj-conf { animation: vj-conf 6s linear infinite; }
+.vj-snow { animation: vj-fall linear infinite; }
+@media (prefers-reduced-motion: reduce) { .vj-stage *, .vj-stage { animation: none !important; } }
+
+`;
+const VJ_F = (n) => (Math.round(n * 10) / 10).toString();
+// Where each house's street begins (past the end of its drive), where its cars stand, the plot's extent,
+// and where the flagpole or the bonfire stands, as in the clay house.
+const VJ_STREET = { classic: 16.8, angle: 26.2, long: 15.2, tee: 21, aitch: 23.5, funkis: 16.5, cabin: 13.5, hipped: 16, storey: 16, terrace: 18.5 };
+const VJ_SLOTS = { classic: [-0.9, 3.05], angle: [15.39, 18.45], long: [18.74, 21.74], tee: [10.1, 13.0], aitch: [12.6, 15.5], funkis: [8.74, 11.74], cabin: [11.5, 14.0], hipped: [15.64, 18.64], storey: [13.1, 16.0], terrace: [0.5, 3.3] };
+const VJ_PLOT = { classic: [-1.4, 14, 2, 9.8], angle: [0, 21.35, 0, 19.19], long: [0, 24.6, 0, 7.5], tee: [0, 16, 0, 13.5], aitch: [0, 18.5, 0, 16], funkis: [0, 15.5, 0, 9], cabin: [0, 16, 0, 6.5], hipped: [0, 21.3, 0, 9], storey: [0, 19, 0, 8.5], terrace: [0, 6, 0, 9] };
+const VJ_POLE = { classic: [15.6, 12.2], angle: [4.5, 23.2], long: [2.6, 11.2], tee: [2, 10.4], aitch: [6.6, 18.6], funkis: [0, 11.8], cabin: [3.6, 9.6], hipped: [3, 11.4], storey: [2.6, 10.8], terrace: [-2.6, 11.8] };
+const VJ_CP = (x, y, z = 0) => [(x - y) * Math.cos(Math.PI / 6) * 25 + 400, (x + y) * 0.5 * 25 - z * 25 + 104];
+
+function vjHeart(x, y, s, c, cls = "") {
+  const f = VJ_F;
+  return `<path class="${cls}" d="M${f(x)} ${f(y + s * 0.35)} C${f(x - s * 1.1)} ${f(y - s * 0.35)} ${f(x - s * 0.45)} ${f(y - s * 1.05)} ${f(x)} ${f(y - s * 0.45)} C${f(x + s * 0.45)} ${f(y - s * 1.05)} ${f(x + s * 1.1)} ${f(y - s * 0.35)} ${f(x)} ${f(y + s * 0.35)} Z" fill="${c}"/>`;
+}
+
+// The witch on the Sankt Hans bonfire: on a stake, hat and broom.
+function vjWitch(x, y, k = 1) {
+  const S = (n) => VJ_F(n * k);
+  return `<g transform="translate(${VJ_F(x)} ${VJ_F(y)})"><path d="M0 ${S(30)} V${S(-2)}" stroke="#5A3A20" stroke-width="${S(2)}"/><path d="M${S(-9)} ${S(10)} L${S(11)} ${S(-6)}" stroke="#7a5230" stroke-width="${S(1.6)}" stroke-linecap="round"/><path d="M${S(9)} ${S(-7)} l${S(5)} ${S(-2)} M${S(9)} ${S(-7)} l${S(5)} ${S(1)} M${S(9)} ${S(-7)} l${S(4)} ${S(3)}" stroke="#c9a15a" stroke-width="${S(1)}"/><path d="M${S(-5)} ${S(12)} L${S(-3)} ${S(-4)} H${S(3)} L${S(5)} ${S(12)} Z" fill="#2b1d3a"/><circle cx="0" cy="${S(-7)}" r="${S(3.2)}" fill="#e8c9a0"/><path d="M${S(-6)} ${S(-8)} H${S(6)} L${S(1)} ${S(-20)} L${S(-1)} ${S(-12)} Z" fill="#1b1028"/></g>`;
+}
+
+// Clouds: by day soft heaps with a flat, shaded underside; at night thin veils, one drifting over the moon.
+function vjCloud(x, y, k, night) {
+  if (night) return `<g opacity=".55"><ellipse cx="${x}" cy="${y}" rx="${70 * k}" ry="${5 * k}" fill="#8d97d8" opacity=".35"/><ellipse cx="${x + 26 * k}" cy="${y - 4 * k}" rx="${44 * k}" ry="${4 * k}" fill="#aab3ee" opacity=".3"/></g>`;
+  let s = `<ellipse cx="${x + 8 * k}" cy="${y + 6 * k}" rx="${52 * k}" ry="${8 * k}" fill="#dbe7f5"/>`;
+  for (const [dx, dy, r] of [[-30, 0, 16], [-12, -10, 20], [10, -14, 24], [32, -6, 18], [48, 2, 12]]) s += `<circle cx="${x + dx * k}" cy="${y + dy * k}" r="${r * k}" fill="#ffffff"/>`;
+  return s + `<rect x="${x - 50 * k}" y="${y + 2 * k}" width="${108 * k}" height="${10 * k}" fill="#ffffff"/><ellipse cx="${x + 6 * k}" cy="${y + 11 * k}" rx="${54 * k}" ry="${3.5 * k}" fill="#c9d8ec" opacity=".8"/>`;
+}
+
+/* The sky: night or day, the moon or the sun high on the right, stars, clouds, shooting stars, and the
+   day's own sky (fireworks, bats and a big moon, sparkles). w × h; compact for the small tops. */
+function vjSky({ night, season, w, h, compact, id }) {
+  const f = VJ_F;
+  const sky = night ? (season === "halloween" ? ["#0d0b24", "#22184a", "#4a2a52", "#8a4a3a"] : season === "sankthans" ? ["#0b1330", "#2a2a62", "#5a3a6a", "#a65a3a"] : ["#0b1330", "#1d2558", "#3a2f6e", "#6a3f6d"]) : ["#4f98e6", "#86bdf0", "#bcdcf6", "#e7f1fb"];
+  const MX = w - 44, MY = compact ? 70 : 128;
+  let s = `<defs><linearGradient id="${id}sk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${sky[0]}"/><stop offset=".45" stop-color="${sky[1]}"/><stop offset=".72" stop-color="${sky[2]}"/><stop offset="1" stop-color="${sky[3]}"/></linearGradient>
+    <radialGradient id="${id}mg"><stop offset="0" stop-color="${season === "halloween" ? "#ffd28a" : "#fff3cf"}" stop-opacity=".45"/><stop offset="1" stop-color="#fff3cf" stop-opacity="0"/></radialGradient>
+    <radialGradient id="${id}sg"><stop offset="0" stop-color="#fff6d6" stop-opacity=".9"/><stop offset="1" stop-color="#fff6d6" stop-opacity="0"/></radialGradient>
+    <mask id="${id}cr"><rect width="${w}" height="${h}" fill="#fff"/><circle cx="${MX + 10}" cy="${MY - 7}" r="18" fill="#000"/></mask></defs>
+    <rect width="${w}" height="${h}" fill="url(#${id}sk)"/>`;
+  if (night) {
+    for (let i = 0; i < Math.round(w / 30); i += 1) s += `<circle class="vj-tw" style="animation-delay:${(i * 0.45).toFixed(2)}s" cx="${f((i * 53.3) % w)}" cy="${f(60 + ((i * 41.7) % 220))}" r="${i % 3 ? 1 : 1.4}" fill="#fff"/>`;
+    if (!compact) {
+      if (season === "halloween") {
+        s += `<circle cx="${MX}" cy="${MY}" r="70" fill="url(#${id}mg)"/><circle cx="${MX}" cy="${MY}" r="28" fill="#F8E2B0"/><circle cx="${MX - 8}" cy="${MY - 8}" r="5" fill="#E8CF98"/>`;
+        const bat = (x, y, k) => `<path class="vj-bat" transform="translate(${x} ${y}) scale(${k})" d="M0 2 C-3 -2 -7 -3 -12 -1 C-10 0 -9 2 -9 4 C-7 2 -5 2 -3 4 C-2 2 -1 2 0 4 C1 2 2 2 3 4 C5 2 7 2 9 4 C9 2 10 0 12 -1 C7 -3 3 -2 0 2 Z" fill="#14112a"/>`;
+        s += bat(MX - 90, MY + 20, 1.2) + bat(MX - 20, MY + 70, 0.9) + bat(MX - 130, MY + 60, 0.7);
+      } else s += `<circle cx="${MX}" cy="${MY}" r="60" fill="url(#${id}mg)"/><circle cx="${MX}" cy="${MY}" r="21" fill="#fff3cf" mask="url(#${id}cr)"/>`;
+      s += `<g class="vj-shoot"><path d="M0 0 L-46 16" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".9"/><circle r="1.8" fill="#fff"/></g>`;
+    }
+  } else if (!compact) {
+    s += `<circle cx="${MX}" cy="${MY}" r="70" fill="url(#${id}sg)"/><circle cx="${MX}" cy="${MY}" r="22" fill="#fff6d6"/>`;
+  }
+  if (season === "nytaar") {
+    const burst = (x, y, r, c, d) => { let b = `<g class="vj-burst" style="animation-delay:${d}s;transform-origin:${x}px ${y}px">`; for (let i = 0; i < 12; i += 1) { const a = (i / 12) * Math.PI * 2; b += `<path d="M${f(x + Math.cos(a) * r * 0.3)} ${f(y + Math.sin(a) * r * 0.3)} L${f(x + Math.cos(a) * r)} ${f(y + Math.sin(a) * r)}" stroke="${c}" stroke-width="2" stroke-linecap="round"/>`; } return `${b}<circle cx="${x}" cy="${y}" r="2" fill="${c}"/></g>`; };
+    s += burst(w * 0.2, 150, 30, "#FFD24A", 0) + burst(w * 0.64, 120, 34, "#FF5C7A", 0.9) + burst(w * 0.44, 200, 22, "#5CE1E6", 1.7);
+  }
+  if (season === "bryllup") for (let i = 0; i < 14; i += 1) s += `<circle class="vj-tw" style="animation-delay:${(i * 0.33).toFixed(2)}s" cx="${f((i * 61.7) % w)}" cy="${f(110 + ((i * 37) % 180))}" r="1.8" fill="#FFE7A8"/>`;
+  return s;
+}
+
+// The clouds drift in front of the houses: by day soft heaps, at night thin veils (one over the moon).
+function vjClouds(night, w, compact) {
+  const MX = w - 44, MY = compact ? 70 : 128;
+  if (night) return compact ? "" : `<g class="vj-cloud" style="animation-duration:48s">${vjCloud(MX - 46, MY + 8, 1, true)}</g><g class="vj-cloud" style="animation-duration:70s;animation-delay:-20s">${vjCloud(w * 0.25, 212, 0.8, true)}</g>`;
+  if (compact) return `<g class="vj-cloud" style="animation-duration:60s">${vjCloud(w * 0.3, 150, 0.6, false)}</g><g class="vj-cloud" style="animation-duration:80s;animation-delay:-25s">${vjCloud(w * 0.7, 210, 0.45, false)}</g>`;
+  return `<g class="vj-cloud" style="animation-duration:55s">${vjCloud(w * 0.18, 200, 0.62, false)}</g><g class="vj-cloud" style="animation-duration:75s;animation-delay:-30s">${vjCloud(w * 0.56, 238, 0.42, false)}</g><g class="vj-cloud" style="animation-duration:90s;animation-delay:-12s" opacity=".85">${vjCloud(w * 0.82, 196, 0.34, false)}</g>`;
+}
+
+// In front of the house: hearts rising from the garden, confetti falling, snow at Christmas.
+function vjFront(season, w, h, ground) {
+  const f = VJ_F;
+  let s = "";
+  if (season === "valentin" || season === "aarsdag") for (let i = 0; i < 11; i += 1) s += vjHeart(30 + ((i * 41) % Math.max(60, w - 60)), ground + 10 + (i % 3) * 18, 4 + (i % 3) * 1.4, i % 2 ? "#F472B6" : "#E11D48", "vj-rise");
+  if (season === "fodselsdag" || season === "fastelavn") {
+    const cols = ["#F43F5E", "#F59E0B", "#10B981", "#3B82F6", "#A855F7"];
+    for (let i = 0; i < 34; i += 1) s += `<rect class="vj-conf" style="animation-delay:-${((i * 0.47) % 6).toFixed(2)}s" x="${f((i * 47.3) % w)}" y="${f(ground - 260 + ((i * 29.1) % 200))}" width="5" height="2.4" rx="1" fill="${cols[i % 5]}"/>`;
+  }
+  if (season === "jul") for (let i = 0; i < Math.round(w / 9); i += 1) s += `<circle class="vj-snow" cx="${f((i * 53.7) % w)}" cy="-10" r="${(1 + (i % 3) * 0.6).toFixed(1)}" fill="#fff" opacity="${(0.55 + (i % 4) * 0.1).toFixed(2)}" style="--h:${h + 20}px;animation-duration:${(7 + (i % 5) * 2.3).toFixed(1)}s;animation-delay:-${((i * 1.37) % 12).toFixed(2)}s"/>`;
+  return s;
+}
+
+/* The street round the clay house: W(x, y, z) maps the clay house's metres to the stage, sc its scale. */
+function vjStreet({ W, sc, night, id, house, season }) {
+  const pts = (list) => list.map((p) => W(...p).map((n) => n.toFixed(1)).join(",")).join(" ");
+  const [px0, px1, py0, road] = VJ_PLOT[house] || VJ_PLOT.classic;
+  const yS = VJ_STREET[house] || road + 7.6;
+  const L = -70, R = 90;
+  const lawn = night ? "#151a34" : "#eceef2", roadC = night ? "#151a36" : "#c3c9d4", walk = night ? "#232a52" : "#f6f7fa", kerb = night ? "#2f3768" : "#ffffff", line = night ? "#3c4280" : "#ffffff";
+  let under = "", over = "";
+  // The neighbours: clay-like houses with a saddle roof, chimney, door, windows, a drive and a hedge.
+  const nb = (x0, x1, y0, y1, h, r, flip) => {
+    const wall = night ? "#323a55" : "#d3d7de", side = night ? "#272e46" : "#bdc3cc", roof = night ? "#4c5568" : "#f4f5f7", roofF = night ? "#57607a" : "#fbfbfc", edge = night ? "#3b4358" : "#e3e6eb";
+    const ym = (y0 + y1) / 2, o = 0.4;
+    const dx0 = flip ? x0 + 0.6 : x1 - 3.4;
+    let g = `<polygon points="${pts([[dx0, y1, 0], [dx0 + 2.8, y1, 0], [dx0 + 2.8, yS - 1.9, 0], [dx0, yS - 1.9, 0]])}" fill="${night ? "#222a4c" : "#f7f8fa"}"/>`;
+    g += `<polygon points="${pts([[x0 - o, ym, h + r], [x1 + o, ym, h + r], [x1 + o, y0 - o, h], [x0 - o, y0 - o, h]])}" fill="${roof}"/>`;
+    g += `<polygon points="${pts([[x1, y0, 0], [x1, y1, 0], [x1, y1, h], [x1, ym, h + r], [x1, y0, h]])}" fill="${side}"/>`;
+    g += `<polygon points="${pts([[x0, y1, 0], [x1, y1, 0], [x1, y1, h], [x0, y1, h]])}" fill="${wall}"/>`;
+    g += `<polygon points="${pts([[x0 - o, y1 + o, h], [x1 + o, y1 + o, h], [x1 + o, ym, h + r], [x0 - o, ym, h + r]])}" fill="${roofF}" stroke="${edge}" stroke-width=".8"/>`;
+    const cx0 = x0 + (x1 - x0) * 0.7;
+    g += `<polygon points="${pts([[cx0, ym + 0.6, h + r * 0.7], [cx0 + 0.6, ym + 0.6, h + r * 0.7], [cx0 + 0.6, ym + 0.6, h + r + 0.8], [cx0, ym + 0.6, h + r + 0.8]])}" fill="${side}"/>`;
+    const win = (u, w, i) => `<polygon class="${night && i % 3 !== 2 ? "vj-flick" : ""}" style="animation-duration:${(6 + i * 3.7).toFixed(1)}s" points="${pts([[x0 + u, y1, 0.9], [x0 + u + w, y1, 0.9], [x0 + u + w, y1, 2.0], [x0 + u, y1, 2.0]])}" fill="${night ? (i % 3 === 2 ? "#1b2036" : "#ffd27a") : "#9db6d3"}"/>`;
+    g += win(0.8, 1.6, 0) + win(3.2, 1.6, 1) + win((x1 - x0) - 2.4, 1.4, 2);
+    const du = (x1 - x0) * 0.48;
+    g += `<polygon points="${pts([[x0 + du, y1, 0], [x0 + du + 1, y1, 0], [x0 + du + 1, y1, 2.1], [x0 + du, y1, 2.1]])}" fill="${night ? "#1a1f34" : "#5d6b84"}"/>`;
+    const hx = flip ? x1 + 1.4 : x0 - 1.4, hd = night ? "#1c2a3e" : "#dfe6e2", hs = night ? "#152030" : "#cdd6d1";
+    g += `<polygon points="${pts([[hx - 0.35, y0 + 1, 0.9], [hx + 0.35, y0 + 1, 0.9], [hx + 0.35, yS - 2.2, 0.9], [hx - 0.35, yS - 2.2, 0.9]])}" fill="${hd}"/><polygon points="${pts([[hx + 0.35, y0 + 1, 0], [hx + 0.35, yS - 2.2, 0], [hx + 0.35, yS - 2.2, 0.9], [hx + 0.35, y0 + 1, 0.9]])}" fill="${hs}"/>`;
+    return g;
+  };
+  const tree = (x, y, k = 1) => {
+    const [bx, by] = W(x, y, 0), [tx, ty] = W(x, y, 2.4 * k), r = 1.3 * k * 25 * sc;
+    return `<g class="vj-sway" style="transform-origin:${bx.toFixed(1)}px ${by.toFixed(1)}px"><ellipse cx="${(bx + r * 0.3).toFixed(1)}" cy="${(by + 1).toFixed(1)}" rx="${(r * 0.9).toFixed(1)}" ry="${(r * 0.4).toFixed(1)}" fill="#000" opacity=".2"/><path d="M${bx.toFixed(1)} ${by.toFixed(1)} V${ty.toFixed(1)}" stroke="${night ? "#2c3346" : "#b9a58a"}" stroke-width="${(2.4 * k).toFixed(1)}"/><circle cx="${tx.toFixed(1)}" cy="${(ty - r * 0.6).toFixed(1)}" r="${r.toFixed(1)}" fill="${night ? "#2f3850" : "#f1f3f7"}"/><circle cx="${(tx + r * 0.35).toFixed(1)}" cy="${(ty - r * 0.35).toFixed(1)}" r="${(r * 0.62).toFixed(1)}" fill="${night ? "#283046" : "#dfe4ec"}"/></g>`;
+  };
+  const lw = px0 - 17, rw = px1 + 7;
+  under += nb(lw, lw + 10, road - 9, road - 1, 2.6, 2.3, false) + tree(lw - 3, road - 2, 1.05);
+  under += nb(rw, rw + 11, road - 9.5, road - 1.2, 2.8, 2.4, true) + tree(rw + 14, road - 3, 0.95);
+  // Pavement and kerb, the road and its middle line.
+  under += `<polygon points="${pts([[L, yS - 1.9, 0], [R, yS - 1.9, 0], [R, yS - 0.1, 0], [L, yS - 0.1, 0]])}" fill="${walk}"/><polygon points="${pts([[L, yS - 0.1, 0], [R, yS - 0.1, 0], [R, yS + 0.1, 0], [L, yS + 0.1, 0]])}" fill="${kerb}"/><polygon points="${pts([[L, yS + 0.1, 0], [R, yS + 0.1, 0], [R, yS + 6.6, 0], [L, yS + 6.6, 0]])}" fill="${roadC}"/>`;
+  for (let x = L; x < R; x += 4) under += `<polygon points="${pts([[x, yS + 3.25, 0], [x + 2, yS + 3.25, 0], [x + 2, yS + 3.45, 0], [x, yS + 3.45, 0]])}" fill="${line}"/>`;
+  // Street lamps every 12 m, clear of the drive and the bonfire or flagpole; the light falls down on the road.
+  const slots = VJ_SLOTS[house] || [0, 3];
+  const avoid = [[slots[0] - 2.4, slots[1] + 4.4]];
+  const pole = VJ_POLE[house];
+  if (pole && ["sankthans", "grundlov", "fodselsdag", "bryllup"].includes(season)) avoid.push([pole[0] - 3, pole[0] + 3]);
+  const gap = (x) => Math.min(...avoid.map(([a, b]) => (x < a ? a - x : x > b ? x - b : -1)));
+  const step = 12, from = Math.floor((L + 10) / step) * step;
+  let phase = 0, best = -Infinity;
+  for (let p0 = 0; p0 < step; p0 += 0.25) {
+    let worst = Infinity;
+    for (let x = from + p0; x < R - 10; x += step) if (x > L + 10) worst = Math.min(worst, gap(x));
+    if (worst > best) { best = worst; phase = p0; }
+  }
+  for (let x = from + phase; x < R - 10; x += step) {
+    if (x <= L + 10) continue;
+    const base = W(x, yS - 0.6, 0), top = W(x, yS - 0.6, 5), head = W(x, yS + 0.9, 5);
+    const pc = night ? "#3b4180" : "#8c96ab";
+    if (night) {
+      const pool = [];
+      for (let a = 0; a < 16; a += 1) { const t = (a / 16) * Math.PI * 2; pool.push([x + Math.cos(t) * 2.6, yS + 1.6 + Math.sin(t) * 2.2, 0]); }
+      over += `<polygon points="${pts(pool)}" fill="url(#${id}pool)" opacity=".9"/>`;
+      const l = W(x - 2.1, yS + 1.6, 0), r = W(x + 2.1, yS + 1.6, 0);
+      over += `<polygon class="vj-cone" points="${head[0].toFixed(1)},${head[1].toFixed(1)} ${r[0].toFixed(1)},${r[1].toFixed(1)} ${l[0].toFixed(1)},${l[1].toFixed(1)}" fill="url(#${id}down)"/>`;
+    }
+    over += `<path d="M${base[0].toFixed(1)} ${base[1].toFixed(1)} L${top[0].toFixed(1)} ${top[1].toFixed(1)} L${head[0].toFixed(1)} ${head[1].toFixed(1)}" stroke="${pc}" stroke-width="2.2" fill="none" stroke-linejoin="round" stroke-linecap="round"/><ellipse cx="${head[0].toFixed(1)}" cy="${(head[1] + 1).toFixed(1)}" rx="4" ry="1.8" fill="${pc}"/><ellipse cx="${head[0].toFixed(1)}" cy="${(head[1] + 2).toFixed(1)}" rx="2.6" ry="1" fill="${night ? "#fff2c4" : "#dfe5ef"}"/>`;
+  }
+  // Cars going by in both lanes; lights on at night.
+  const ride = (lane, dir, dur, dl, colour) => {
+    const y0 = yS + lane, Lc = 4.2, Wc = 1.7;
+    const xs = dir > 0 ? [L + 10, R - 10] : [R - 10, L + 10];
+    const [ax, ay] = W(xs[0], y0), [bx, by] = W(xs[1], y0), [ox, oy] = W(0, y0);
+    const sh = (list) => list.map(([x, y, z]) => { const [p, q] = W(x, y, z); return `${(p - ox).toFixed(1)},${(q - oy).toFixed(1)}`; }).join(" ");
+    const y1 = y0 - Wc / 2, y2 = y0 + Wc / 2, dark = night ? "#14182a" : "#3a4256", fr = dir > 0 ? Lc : 0;
+    let g = `<polygon points="${sh([[0, y1, 0], [Lc, y1, 0], [Lc, y2, 0], [0, y2, 0]])}" fill="#000" opacity=".25"/>`;
+    g += `<polygon points="${sh([[0, y2, 0.25], [Lc, y2, 0.25], [Lc, y2, 0.85], [0, y2, 0.85]])}" fill="${colour}"/><polygon points="${sh([[Lc, y1, 0.25], [Lc, y2, 0.25], [Lc, y2, 0.85], [Lc, y1, 0.85]])}" fill="${colour}" opacity=".8"/><polygon points="${sh([[0, y1, 0.85], [Lc, y1, 0.85], [Lc, y2, 0.85], [0, y2, 0.85]])}" fill="${colour}"/>`;
+    g += `<polygon points="${sh([[1.1, y2 - 0.15, 0.85], [3.1, y2 - 0.15, 0.85], [2.8, y2 - 0.25, 1.4], [1.4, y2 - 0.25, 1.4]])}" fill="${dark}"/><polygon points="${sh([[1.4, y1 + 0.25, 1.4], [2.8, y1 + 0.25, 1.4], [2.8, y2 - 0.25, 1.4], [1.4, y2 - 0.25, 1.4]])}" fill="${colour}"/>`;
+    if (night) g += dir > 0 ? `<polygon points="${sh([[fr, y1 + 0.2, 0.3], [fr + 7, y1 - 1.2, 0], [fr + 7, y2 + 1.2, 0], [fr, y2 - 0.2, 0.3]])}" fill="url(#${id}beam)"/>` : `<polygon points="${sh([[Lc, y1 + 0.2, 0.5], [Lc, y2 - 0.2, 0.5], [Lc, y2 - 0.2, 0.65], [Lc, y1 + 0.2, 0.65]])}" fill="#ff3b3b"/>`;
+    return `<g><animateTransform attributeName="transform" type="translate" values="${ax.toFixed(1)} ${ay.toFixed(1)};${bx.toFixed(1)} ${by.toFixed(1)}" dur="${dur}s" begin="${dl}s" repeatCount="indefinite"/>${g}</g>`;
+  };
+  over += ride(1.7, -1, 16, -7, night ? "#59607e" : "#d9465b") + ride(4.8, 1, 12, -2, night ? "#8e96ad" : "#3b82f6") + ride(4.8, 1, 12, -8, night ? "#3c4258" : "#f5b94a");
+  const defs = `<defs><radialGradient id="${id}pool"><stop offset="0" stop-color="#fff2c4" stop-opacity=".28"/><stop offset="1" stop-color="#fff2c4" stop-opacity="0"/></radialGradient><linearGradient id="${id}down" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff2c4" stop-opacity=".42"/><stop offset="1" stop-color="#fff2c4" stop-opacity=".04"/></linearGradient><linearGradient id="${id}beam" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff6d6" stop-opacity=".45"/><stop offset="1" stop-color="#fff6d6" stop-opacity="0"/></linearGradient></defs>`;
+  return { under: defs + under, over, lawn };
+}
+
 class EvPlannerPanel extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
     const tab = this._read(TAB_KEY);
-    this._tab = PAGES.includes(tab) ? tab : "home";
+    this._tab = PAGES.includes(tab) ? tab : "front";
     this._carId = this._read(CAR_KEY) || null;
     // How many choices the car page shows: Simple, Smart (as before) or Expert.
     const level = this._read(LEVEL_KEY);
@@ -6627,7 +6852,23 @@ class EvPlannerPanel extends HTMLElement {
       profMenu.addEventListener("click", (ev) => {
         const item = ev.target.closest("[data-prof]");
         if (!item) return;
+        const kind = item.dataset.prof;
+        // Tilpas menu: pick the bar's four tabs, in the menu itself.
+        if (kind === "more-edit" || kind === "more-back" || kind === "tabpick") {
+          if (kind === "tabpick") {
+            const bar = this._xBarTabs();
+            const t = item.dataset.t;
+            const next = bar.includes(t) ? bar.filter((x) => x !== t) : bar.length < 4 ? [...bar, t] : bar;
+            if (next.length) { try { localStorage.setItem("evp-bar-tabs", JSON.stringify(TABS.filter((x) => next.includes(x)))); } catch (_err) { /* kept for now only */ } }
+            this._renderTabs();
+          } else this._xMoreEdit = kind === "more-edit";
+          profMenu.innerHTML = this._xMoreHtml();
+          profMenu.querySelector("[data-prof]")?.focus();
+          return;
+        }
         close();
+        this._xMoreEdit = false;
+        if (kind === "tab") { this._setTab(item.dataset.t); return; }
         if (item.dataset.prof === "close") { prof.focus(); return; }
         if (item.dataset.prof === "houseday") { this._openHouseDay(); return; }
         if (item.dataset.prof === "look") this._xLookFrom = { tab: this._tab, car: this._carId, charger: this._chargerId };
@@ -6638,7 +6879,7 @@ class EvPlannerPanel extends HTMLElement {
       // A tap outside the open menu only closes it (on a phone the page under it is dimmed).
       this.shadowRoot.addEventListener("click", (ev) => {
         const path = ev.composedPath();
-        if (profMenu.hidden || path.includes(profMenu) || path.includes(prof)) return;
+        if (profMenu.hidden || path.includes(profMenu) || path.includes(prof) || path.some((el) => el?.dataset?.tab === "more")) return;
         ev.stopPropagation();
         ev.preventDefault();
         close();
@@ -6861,7 +7102,8 @@ class EvPlannerPanel extends HTMLElement {
 
   // The tab to the side of this one (a swipe); from a car's or a charger's page first back to its tab's front.
   _swipeTab(step) {
-    const tabs = TABS.filter((tab) => tab !== "home" || this._homeShown);
+    // A swipe walks the tabs in the bar, in the order they are shown there.
+    const tabs = this._xBarTabs().filter((tab) => tab !== "home" || this._homeShown);
     const at = tabs.indexOf(this._tab);
     const next = tabs[at + step];
     if (at < 0 || !next) return;
@@ -6892,7 +7134,8 @@ class EvPlannerPanel extends HTMLElement {
     // The brand, menu and profile (and on a PC the tabs) are taken back out of the old top first.
     this._xPark();
     const page = (title, html) => this._xPage(title, html);
-    if (this._tab === "guest") content.innerHTML = page(this._t("tab_guest"), this._guestHtml());
+    if (this._tab === "front") content.innerHTML = this._xFrontHtml();
+    else if (this._tab === "guest") content.innerHTML = page(this._t("tab_guest"), this._guestHtml());
     else if (this._tab === "home" && this._currentCharger) content.innerHTML = page(this._currentCharger.name, this._chargerPageHtml(this._currentCharger));
     else if (this._tab === "home") content.innerHTML = this._xHomeHtml();
     else if (this._tab === "history") {
@@ -6907,7 +7150,9 @@ class EvPlannerPanel extends HTMLElement {
     else content.innerHTML = this._xCarsHtml();
     this._xDock();
     this._xMountMini();
-    if ((this._tab === "cars" && !car) || this._tab === "home") this._paintTonight();
+    // The street is a picture: whatever goes wrong drawing it must not stop the page.
+    try { this._xStreetMount(); } catch (err) { console.error("EV Planner: the street", err); }
+    if ((this._tab === "cars" && !car) || this._tab === "home" || this._tab === "front") this._paintTonight();
     if (this._quick && !this.shadowRoot.activeElement?.matches?.('[data-q="to"]')) this._renderQuick();
     if (this._xInsight) this._xInsightRender();
     if (this._tab === "home" && !this._currentCharger) this._mountScene();
@@ -6942,7 +7187,8 @@ class EvPlannerPanel extends HTMLElement {
     nav.querySelectorAll("button").forEach((button) =>
       button.addEventListener("click", () => {
         // The Cars tab from a car page goes back to the overview.
-        if (button.dataset.tab === "cars" && this._tab === "cars" && this._carId) this._openCar(null);
+        if (button.dataset.tab === "more") this._xOpenMore();
+        else if (button.dataset.tab === "cars" && this._tab === "cars" && this._carId) this._openCar(null);
         else if (button.dataset.tab === "home" && this._tab === "home" && this._chargerId) this._openCharger(null);
         else if (button.dataset.tab === this._tab) this.shadowRoot.querySelector(".content")?.scrollTo({ top: 0, behavior: "smooth" });
         else this._setTab(button.dataset.tab);
@@ -13277,12 +13523,12 @@ Object.assign(EvPlannerPanel.prototype, {
   /* The small top of the other pages: the page's name, a line, a slice of the house with the cars, and the prices. */
   _xSmallTop({ title, line = "", back = null, pic = true }) {
     const night = this._xNight();
+    const street = pic && this._homeShown;
     const backBtn = back ? `<button class="x-round" data-act="${back}" data-f="x-back" aria-label="${esc(this._t("back_label"))}">${xi(XD.back, { sw: 2.4 })}</button>` : "";
-    return `<header class="x-top small ${night ? "night" : "day"}" style="background:${this._xSky("small")}" aria-label="${esc(title)}">
-      <div class="x-sky">${this._xStars([[10, 30], [38, 18], [59, 44], [72, 22], [88, 50]])}</div>
+    return `<header class="x-top small ${night ? "night" : "day"}${street ? " street" : ""}" style="background:${this._xSky("small")}" aria-label="${esc(title)}">
+      ${street ? '<div class="x-street small" aria-hidden="true"></div><div class="x-wash" aria-hidden="true"></div>' : `<div class="x-sky">${this._xStars([[10, 30], [38, 18], [59, 44], [72, 22], [88, 50]])}</div>`}
       <div class="x-in">
         <div class="x-dock"></div>
-        ${pic && this._homeShown ? '<div class="x-pic mini-slot" aria-hidden="true"></div>' : ""}
         <div class="x-title">${backBtn}<div><h1>${esc(title)}</h1>${line ? `<span class="x-num x-line">${line.split("\n").map((l) => `<span>${esc(l)}</span>`).join("")}</span>` : ""}</div></div>
       </div>
       <div class="x-tabs x-in"></div>
@@ -13317,16 +13563,205 @@ Object.assign(EvPlannerPanel.prototype, {
     requestAnimationFrame(() => this._mini && this._mini._fit());
   },
 
+  // ------------------------------------------------------------------ Vejen: the street in the tops (2.5.0b52)
+
+  /* Each top with a street slot gets the street: the clay house (bare) in its street under the sky of now.
+     The stage is drawn at full size; a small top shows it at 62 %, the house on its lower edge. */
+  _xStreetMount() {
+    const root = this.shadowRoot;
+    for (const slot of root.querySelectorAll(".x-street")) {
+      const compact = slot.classList.contains("small");
+      const key = compact ? "_vjSmall" : "_vjBig";
+      if (!this[key]) {
+        this[key] = new ClayScene();
+        this[key].t = (k, vars) => this._t(k, vars);
+      }
+      const clay = this[key];
+      const w = slot.clientWidth || 390, h = slot.clientHeight || (compact ? 300 : 600);
+      const night = this._xNight();
+      const model = { ...this._sceneModel(), labels: [], canEdit: false, bare: true };
+      const house = model.house, season = model.season;
+      const id = compact ? "vjs" : "vjb";
+      const scale = compact ? 0.62 : 1;
+      const SW = Math.ceil(w / scale), wide = SW > 700;
+      const ty = compact ? Math.round(h - 30 - 520 * scale) : 0;
+      const SH = Math.ceil((h - ty) / scale);
+      const hostW = Math.min(wide ? 470 : 380, SW * 1.02);
+      const hostL = wide ? Math.round(SW * 0.64 - hostW / 2) : Math.round((SW - hostW) / 2 + 8);
+      const hostT = wide && !compact ? 70 : 180;
+      const stage = document.createElement("div");
+      stage.className = "vj-stage";
+      stage.style.cssText = `width:${SW}px;height:${SH}px;transform:translate(0,${ty}px) scale(${scale})`;
+      stage.innerHTML = `<svg class="vj-sky" width="${SW}" height="${SH}" aria-hidden="true">${vjSky({ night, season, w: SW, h: SH, compact, id })}</svg><svg class="vj-under" width="${SW}" height="${SH}" aria-hidden="true"></svg><div class="vj-host" style="left:${hostL}px;top:${hostT}px;width:${hostW}px"></div><svg class="vj-over" width="${SW}" height="${SH}" aria-hidden="true"></svg>`;
+      // In a closed root of its own: the street's clay house is not Huset's picture (for its styles,
+      // and for anything that looks for the scene on the page).
+      if (!slot._vj) slot._vj = slot.attachShadow({ mode: "closed" });
+      slot._vj.innerHTML = `<style>${CLAY_CSS}${VJ_CSS}</style>`;
+      slot._vj.appendChild(stage);
+      const host = stage.querySelector(".vj-host");
+      host.appendChild(clay.el);
+      clay.view = null;
+      clay.update(model);
+      const svg = clay.el.querySelector(".cs-main");
+      if (!svg) continue;
+      const vb = (svg.getAttribute("viewBox") || "0 0 800 560").split(" ").map(Number);
+      const hr = host.getBoundingClientRect(), sr = svg.getBoundingClientRect();
+      const ratio = hr.width / (host.offsetWidth || 1) || 1;
+      const sw = sr.width / ratio, sh = sr.height / ratio, sc = Math.min(sw / vb[2], sh / vb[3]);
+      const ox = hostL + (sr.left - hr.left) / ratio + (sw - vb[2] * sc) / 2, oy = hostT + (sr.top - hr.top) / ratio + (sh - vb[3] * sc) / 2;
+      const W = (x, y, z = 0) => { const [px, py] = VJ_CP(x, y, z); return [ox + (px - vb[0]) * sc, oy + (py - vb[1]) * sc]; };
+      const street = vjStreet({ W, sc, night, id, house, season });
+      // The ground: the sky above, then one flat ground colour from behind the house down past the road.
+      const gTop = hostT + 30, gFull = hostT + 150;
+      stage.querySelector(".vj-under").innerHTML = `<defs><linearGradient id="${id}gr" gradientUnits="userSpaceOnUse" x1="0" y1="${gTop}" x2="0" y2="${gFull}"><stop offset="0" stop-color="${street.lawn}" stop-opacity="0"/><stop offset="1" stop-color="${street.lawn}"/></linearGradient></defs><rect x="0" y="${gTop}" width="${SW}" height="${SH - gTop}" fill="url(#${id}gr)"/>${street.under}`;
+      stage.querySelector(".vj-over").innerHTML = street.over + vjClouds(night, SW, compact) + vjFront(season, SW, SH, hostT + 250);
+    }
+  },
+
+  // ------------------------------------------------------------------ Forside (2.5.0b52)
+
+  /* The front page's top: the greeting and the day's line over the street. */
+  _xFrontTop() {
+    const s = this._state.settings || {};
+    const night = this._xNight();
+    const sites = this._state.sites || [];
+    const place = this._placeNow();
+    const pills = [];
+    if (s.insight) pills.push(`<button class="x-glass x-pill ins${s.insight_use ? " on" : ""}" data-act="insight-open" data-f="insight-open">${XSPARK}<span>${esc(this._t(s.insight_use ? "hero_insight" : "hero_learning"))}</span></button>`);
+    if (sites.length > 1) sites.forEach((site) => pills.push(`<button class="x-glass x-pill place${site.id === place.id ? " on" : ""}" data-act="place" data-id="${esc(site.id)}" data-f="place-${esc(site.id)}" aria-pressed="${site.id === place.id}">${esc(site.name || this._t("place_home"))}</button>`));
+    return `<header class="x-top front ${night ? "night" : "day"}" aria-label="${esc(this._t("tab_front"))}">
+      <div class="x-street big" aria-hidden="true"></div>
+      <div class="x-fade" aria-hidden="true"></div>
+      <div class="x-in">
+        <div class="x-dock"></div>
+        <div class="x-hello">
+          <span class="x-over">${esc(this._xOverline())}</span>
+          <h1>${esc(this._xGreeting())}</h1>
+          <p>${esc(this._heroLine())}</p>
+          ${pills.length ? `<div class="x-pills">${pills.join("")}</div>` : ""}
+        </div>
+      </div>
+      <div class="x-tabs x-in"></div>
+    </header>`;
+  },
+
+  /* Forside: the top, tonight (lifted onto the top), the departures, the cars, the house now and Learning. */
+  _xFrontHtml() {
+    const cars = this._cars;
+    if (!cars.length) {
+      const setup = this._setupHtml();
+      return `${this._xFrontTop()}<div class="x-wrap x-front">${setup || `<section class="x-card x-empty">${MARK}<h2>${this._t("no_cars_title")}</h2><p>${this._t("no_cars_text")}</p></section>`}</div>`;
+    }
+    const tonight = this._xTonightCard();
+    return `${this._xFrontTop()}<div class="x-wrap x-front">${this._setupHtml()}${this._xIssueCard()}${tonight ? `<div class="x-lift">${tonight}</div>` : ""}${this._xFrontDeps()}${this._xFrontCars()}${this._xFrontTiles()}</div>`;
+  },
+
+  /* The next departures of all the cars, as tiles: day, time, car and the level it leaves with. */
+  _xFrontDeps() {
+    const now = znow();
+    const all = [];
+    this._cars.forEach((v, i) => {
+      for (const d of this._xDeps(v)) if (d.at !== null && d.at > now) all.push({ v, i, d });
+    });
+    all.sort((a, b) => a.d.at - b.d.at);
+    const next = all.slice(0, 6);
+    if (!next.length) return "";
+    const day = (date) => new Intl.DateTimeFormat(this._locale, { weekday: "short", day: "numeric" }).format(date).replace(".", "");
+    const tiles = next.map(({ v, i, d }, k) => {
+      const pct = this._xPctText(d);
+      return `<button class="x-dep${k === 0 ? " on" : ""}" data-act="open-car" data-id="${esc(v.id)}" style="--car:${this._carColor(i)}"><small>${esc(day(d.date))}</small><b class="x-num x-disp">${esc(this._hhmm(d.time))}</b><span>${esc(String(v.name).split(" ")[0])}</span>${pct ? `<em class="x-num${d.fixed || d.once ? "" : " auto"}">${esc(pct)}</em>` : ""}</button>`;
+    }).join("");
+    return `<section class="x-card x-deps-card"><div class="x-head"><h2>${esc(this._t("x_front_deps"))}</h2><button class="x-go" data-act="x-tab" data-tab="cars">${esc(this._t("x_front_week"))}${xi(XD.chev, { w: 14, sw: 2.4 })}</button></div><div class="x-deps-row">${tiles}</div></section>`;
+  },
+
+  /* The cars: level, what each does next, and a tap opens the car. */
+  _xFrontCars() {
+    const now = znow();
+    const rows = this._cars.map((v, i) => {
+      const c = this._nextCharge(v);
+      const soon = c && ZD(c.start).getTime() < now + 24 * 3600e3;
+      const note = v.charging ? this._t("x_front_charging") : c ? (soon ? this._t("x_charges", { when: this._whenSpan(c) }) : this._t("x_waits_day", { day: this._xDayShort(c.start) })) : this._t("x_enough");
+      const soc = isNum(v.soc) ? Number(v.soc) : null;
+      const away = !this._carIsHere(v);
+      return `<button class="x-frow" data-act="open-car" data-id="${esc(v.id)}" style="--car:${this._carColor(i)}"><span class="x-fic">${xi(XD.car, { w: 22 })}</span><span class="x-grow"><b>${esc(v.name)}</b><span class="x-meter"><i style="width:${soc === null ? 0 : clamp(soc, 0, 100)}%"></i></span><small class="${soon || v.charging ? "on" : ""}">${esc(away ? this._t("x_front_away") : note)}</small></span><b class="x-num x-disp">${soc === null ? "–" : esc(this._pct(soc))}</b></button>`;
+    }).join("");
+    return `<section class="x-card x-fcars">${rows}</section>`;
+  },
+
+  /* Two tiles: the house now (opens Huset) and Learning (opens Læring). */
+  _xFrontTiles() {
+    const tiles = [];
+    if (this._homeShown) {
+      const m = this._sceneModel();
+      const kw = (n) => (Math.abs(n) < 1 ? `${Math.round(Math.abs(n) * 1000)} W` : `${this._num(Math.abs(n), 1)} kW`);
+      const home = Number(m.flows?.home);
+      const extra = [m.battery && isNum(m.battery.soc) ? `${this._t("x_battery")} ${this._pct(m.battery.soc)}` : "", m.solar ? `${this._t("x_front_sun")} ${kw(Number(m.solar.kw) || 0)}` : ""].filter(Boolean).join(" · ");
+      tiles.push(`<button class="x-tile" data-act="x-tab" data-tab="home"><small>${esc(this._t("x_front_house"))}</small><b class="x-num x-disp">${Number.isFinite(home) ? esc(kw(home)) : "–"}</b><span>${esc(extra || this._t("tab_home"))}</span></button>`);
+    }
+    tiles.push(`<button class="x-tile learn" data-act="x-tab" data-tab="history"><small>${XSPARK} ${esc(this._t("tab_history"))}</small><b class="x-disp">${esc(this._t("x_front_learn"))}</b><span>${esc(this._t("x_front_learn_sub"))}</span></button>`);
+    return `<section class="x-tiles">${tiles.join("")}</section>`;
+  },
+
+  // ------------------------------------------------------------------ Mere and the menu's tabs (2.5.0b52)
+
+  /* The four tabs in the bar (the fifth is Mere): chosen in Tilpas menu, kept on this device. */
+  _xBarTabs() {
+    let picked = null;
+    try { picked = JSON.parse(localStorage.getItem("evp-bar-tabs") || "null"); } catch (_err) { picked = null; }
+    const ok = (t) => TABS.includes(t) && (t !== "home" || this._homeShown);
+    const list = (Array.isArray(picked) ? picked : ["front", "home", "cars", "history"]).filter(ok);
+    for (const t of ["front", "home", "cars", "history", "guest", "past"]) if (list.length < 4 && ok(t) && !list.includes(t)) list.push(t);
+    return list.slice(0, 4);
+  },
+
+  _xOpenMore() {
+    const menu = this.shadowRoot.querySelector(".prof-menu");
+    if (!menu) return;
+    if (!menu.hidden) { menu.hidden = true; return; }
+    this._xMoreEdit = false;
+    menu.innerHTML = this._xMoreHtml();
+    menu.hidden = false;
+    menu.querySelector(".x-prof-tiles button")?.focus();
+  },
+
+  _xMoreHtml() {
+    const name = String(this._hass?.user?.name || "").trim();
+    const initial = (name[0] || "?").toUpperCase();
+    const bar = this._xBarTabs();
+    if (this._xMoreEdit) {
+      const all = TABS.filter((t) => t !== "home" || this._homeShown);
+      const rows = all.map((t) => `<button class="x-tabpick${bar.includes(t) ? " on" : ""}" data-prof="tabpick" data-t="${t}" aria-pressed="${bar.includes(t)}"><span>${esc(this._t(`tab_${t}`))}</span><i></i></button>`).join("");
+      return `<div class="x-prof-head"><button class="x-round small" data-prof="more-back" aria-label="${esc(this._t("back_label"))}">${xi(XD.back, { w: 16, sw: 2.4 })}</button><div class="x-grow"><b class="x-disp">${esc(this._t("more_custom"))}</b><small>${esc(this._t("more_custom_sub"))}</small></div><button class="x-round small" data-prof="close" aria-label="${esc(this._t("close"))}">${xi(XD.close, { w: 16, sw: 2.4 })}</button></div><div class="x-tabpicks">${rows}</div><p class="x-more-note">${esc(this._t("more_custom_count", { n: bar.length }))}</p><i class="x-handle" aria-hidden="true"></i>`;
+    }
+    const extra = TABS.filter((t) => !bar.includes(t) && (t !== "home" || this._homeShown));
+    const icons = { front: XD.now, home: XD.house, cars: XD.car, guest: XD.guest, history: XD.bulb, past: XD.history };
+    const pages = extra.map((t) => `<button role="menuitem" data-prof="tab" data-t="${t}"><span class="x-tile-ic" style="background:rgba(124,192,255,.16);color:#8cc4ff">${xi(icons[t] || XD.house)}</span><span>${esc(this._t(`tab_${t}`))}</span></button>`).join("");
+    const tiles = [
+      ["houseday", XD.sun, "rgba(245,185,74,.16)", "var(--x-warn-ink)"],
+      ["look", XD.look, "rgba(47,211,163,.16)", "var(--x-acc-ink)"],
+      ["settings", XD.gear, "rgba(255,255,255,.08)", "var(--x-ink2)"],
+      ["notifications", XD.bell, "rgba(140,110,255,.18)", "var(--x-vio)"],
+      ["days", XD.party, "rgba(255,122,107,.16)", "var(--x-coral)"],
+      ["support", XD.help, "rgba(59,139,255,.16)", "var(--x-blue-ink)"],
+    ].map(([key, d, bg, fg]) => `<button role="menuitem" data-prof="${key}"><span class="x-tile-ic" style="background:${bg};color:${fg}">${xi(d)}</span><span>${esc(this._t(`prof_${key}`))}</span></button>`).join("");
+    const custom = `<button role="menuitem" data-prof="more-edit" class="x-custom"><span class="x-tile-ic" style="background:rgba(167,139,250,.2);color:#c4b5fd">${xi(XD.look)}</span><span>${esc(this._t("more_custom"))}</span></button>`;
+    return `<div class="x-prof-head"><span class="x-avatar">${esc(initial)}</span><div class="x-grow"><b class="x-disp">${esc(this._t("tab_more"))}</b><small>${esc(name)}</small></div><button class="x-round small" data-prof="close" aria-label="${esc(this._t("close"))}">${xi(XD.close, { w: 16, sw: 2.4 })}</button></div>
+      <div class="prof-tiles x-prof-tiles">${pages}${tiles}${custom}</div><i class="x-handle" aria-hidden="true"></i>`;
+  },
+
   // ------------------------------------------------------------------ the tabs
 
   _xTabsHtml() {
     const problems = this._cars.filter((v) => this._troubled(v)).length;
-    const icons = { home: XD.house, cars: XD.car, guest: XD.guest, history: XD.bulb, past: XD.history };
-    return TABS.filter((tab) => tab !== "home" || this._homeShown).map((tab) => {
+    const icons = { front: XD.now, home: XD.house, cars: XD.car, guest: XD.guest, history: XD.bulb, past: XD.history };
+    const more = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
+    const bar = this._xBarTabs();
+    const inMore = !bar.includes(this._tab) && this._tab !== "settings";
+    return bar.map((tab) => {
       const on = this._tab === tab;
       const badge = tab === "cars" && problems ? `<em class="bad" aria-label="${problems}">${problems}</em>` : "";
       return `<button role="tab" data-tab="${tab}" aria-selected="${on}" class="${on ? "on" : ""}">${xi(icons[tab], { w: 22 })}<span>${this._t(`tab_${tab}`)}</span>${badge}</button>`;
-    }).join("");
+    }).join("") + `<button role="tab" data-tab="more" aria-selected="${inMore}" aria-haspopup="menu" class="${inMore ? "on" : ""}">${more}<span>${this._t("tab_more")}</span></button>`;
   },
 
   // ------------------------------------------------------------------ Huset
@@ -13414,8 +13849,10 @@ Object.assign(EvPlannerPanel.prototype, {
     const place = this._placeNow();
     const only = sites.length > 1 ? place.id : null;
     const supply = place.home || !only ? this._state.supply : place.supply;
-    const cards = [this._xTonightLink(only), place.home && this._state.home?.history ? this._xTodayCard() : "", supply ? this._xSupplyCard(supply, place.home ? null : place) : "", this._xChargersCard(only)].filter(Boolean);
-    return `${this._xHomeTop()}<div class="x-wrap x-home">${cards.join("")}</div>`;
+    const places = sites.length > 1 ? `<div class="x-pills x-places">${sites.map((site) => `<button class="x-pill place${site.id === place.id ? " on" : ""}" data-act="place" data-id="${esc(site.id)}" data-f="place-${esc(site.id)}" aria-pressed="${site.id === place.id}">${esc(site.name || this._t("place_home"))}</button>`).join("")}</div>` : "";
+    const scene = `<section class="x-card x-scene-card">${places}<div class="x-house scene-slot" role="img" aria-label="${esc(this._t("home_title"))}"></div></section>`;
+    const cards = [scene, this._xTonightLink(only), place.home && this._state.home?.history ? this._xTodayCard() : "", supply ? this._xSupplyCard(supply, place.home ? null : place) : "", this._xChargersCard(only)].filter(Boolean);
+    return `${this._xSmallTop({ title: this._t("tab_home"), line: this._xLine() })}<div class="x-wrap x-home">${cards.join("")}</div>`;
   },
 
   /* "Bilerne i nat": the cars by the charger, each one's level and what it does tonight; it opens Biler. */
@@ -16074,13 +16511,13 @@ const X_STYLE = `
   --x-shadow: 0 10px 30px -18px rgba(0,0,0,.35);
 }
 :host([look="evp"]) {
-  --x-bg: #0d1014; --x-card: #161a21; --x-card2: #1f242e; --x-well: #12161c; --x-seg: #14181e;
+  --x-bg: #0b1020; --x-card: #141a31; --x-card2: #1b2242; --x-well: #11162b; --x-seg: #161c36;
   --x-line: rgba(255,255,255,.07); --x-line2: rgba(255,255,255,.12);
-  --x-ink: #eef2f5; --x-ink2: #d5dbe2; --x-soft: #a3adb8; --x-faint: #7d8794;
-  --x-acc: #2fd3a3; --x-acc-ink: #6fe8c4; --x-good: #7ff0b7;
+  --x-ink: #eef2ff; --x-ink2: #d6dbff; --x-soft: #9aa3c7; --x-faint: #7a83a8;
+  --x-acc: #3ee08f; --x-acc-ink: #7ff0b7; --x-good: #7ff0b7;
   --x-vio: #c3b5ff; --x-warn: #f5b94a; --x-warn-ink: #ffd27a; --x-coral: #ff9a8a; --x-blue: #3b8bff; --x-blue-ink: #8ab8ff;
-  --x-hero: linear-gradient(170deg, #1b2142 0%, #171b2a 50%, #161a21 100%);
-  --x-pop: #232936; --x-on: #eef2f5; --x-on-ink: #0d1014;
+  --x-hero: linear-gradient(170deg, #1b2142 0%, #161c36 50%, #141a31 100%);
+  --x-pop: #1f2647; --x-on: #eef2f5; --x-on-ink: #0d1014;
   --x-display: 'Bricolage Grotesque', Inter, -apple-system, 'Segoe UI', sans-serif;
   --x-text: Inter, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --x-shadow: none;
@@ -16250,8 +16687,8 @@ button.x-pill { cursor: pointer; }
 .x-tabs nav.tabs.docked button.on { background: #fff; color: #10182e; box-shadow: 0 10px 24px -12px rgba(0,0,0,.6); }
 .x-tabs nav.tabs.docked button .xi { width: 18px; height: 18px; }
 /* The light look: the top fades into a light page, so the pills are light glass with dark text. */
-:host([xlight]) .x-top.big .x-tabs nav.tabs.docked button, :host([xlight]) .x-top.xcar .x-tabs nav.tabs.docked button, :host([xlight]) .x-top.look .x-tabs nav.tabs.docked button { color: #10182e; background: rgba(255,255,255,.72); box-shadow: 0 0 0 1px rgba(15,26,42,.1); }
-:host([xlight]) .x-top.big .x-tabs nav.tabs.docked button.on, :host([xlight]) .x-top.xcar .x-tabs nav.tabs.docked button.on, :host([xlight]) .x-top.look .x-tabs nav.tabs.docked button.on { background: #10182e; color: #fff; }
+:host([xlight]) .x-top.big .x-tabs nav.tabs.docked button, :host([xlight]) .x-top.xcar .x-tabs nav.tabs.docked button, :host([xlight]) .x-top.look .x-tabs nav.tabs.docked button, :host([xlight]) .x-top.front .x-tabs nav.tabs.docked button, :host([xlight]) .x-top.small.street .x-tabs nav.tabs.docked button { color: #10182e; background: rgba(255,255,255,.72); box-shadow: 0 0 0 1px rgba(15,26,42,.1); }
+:host([xlight]) .x-top.big .x-tabs nav.tabs.docked button.on, :host([xlight]) .x-top.xcar .x-tabs nav.tabs.docked button.on, :host([xlight]) .x-top.look .x-tabs nav.tabs.docked button.on, :host([xlight]) .x-top.front .x-tabs nav.tabs.docked button.on, :host([xlight]) .x-top.small.street .x-tabs nav.tabs.docked button.on { background: #10182e; color: #fff; }
 .x-tabs nav.tabs.docked button em { font-style: normal; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: var(--x-coral); color: #fff; }
 nav.tabs button:focus-visible { outline: 2px solid var(--x-acc); outline-offset: 2px; }
 
@@ -16851,6 +17288,82 @@ button.x-card { font: inherit; text-align: left; cursor: pointer; width: 100%; }
 .x-qclimrow.on .x-qic { background: rgba(90,170,255,.3); }
 .x-week .x-head { flex-wrap: wrap; row-gap: 6px; }
 .x-week .x-head h2 { white-space: nowrap; }
+/* 2.5.0b52 Vejen: the street in the tops, Forside, Mere. */
+.x-street { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+/* The front page's top: the street behind the greeting, fading into the page under the first card. */
+.x-top.front { height: calc(600px + var(--evp-safe-top)); background: var(--x-bg); }
+.x-top.front .x-fade { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(180deg, rgba(5,10,30,.35) 0%, rgba(11,16,32,0) 26%, rgba(11,16,32,0) 64%, color-mix(in srgb, var(--x-bg) 60%, transparent) 84%, var(--x-bg) 100%); }
+.x-top.front.day .x-fade { background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 72%, color-mix(in srgb, var(--x-bg) 45%, transparent) 88%, var(--x-bg) 100%); }
+.x-top.front > .x-in:not(.x-tabs), .x-top.small.street > .x-in:not(.x-tabs) { position: relative; z-index: 2; }
+.x-top.front > .x-tabs, .x-top.small.street > .x-tabs { z-index: 3; }
+.x-top.front .x-hello { text-shadow: 0 2px 18px rgba(0,0,0,.35); }
+.x-top.front.day .x-hello { text-shadow: 0 1px 10px rgba(255,255,255,.5); }
+.x-front .x-lift { margin-top: -96px; position: relative; }
+.x-front .x-lift > .x-card { background: color-mix(in srgb, var(--x-card) 60%, transparent); -webkit-backdrop-filter: blur(18px) saturate(1.3); backdrop-filter: blur(18px) saturate(1.3); border-color: rgba(255,255,255,.18); box-shadow: 0 30px 60px -30px rgba(0,0,0,.7); }
+
+/* The small tops: the street at 62 %, a wash behind the title, fading into the page (no card edge). */
+.x-top.small.street { height: calc(300px + var(--evp-safe-top)); background: var(--x-bg) !important; }
+.x-top.small.street .x-wash { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(180deg, rgba(11,16,32,0) 55%, color-mix(in srgb, var(--x-bg) 55%, transparent) 80%, var(--x-bg) 100%), linear-gradient(90deg, rgba(6,10,34,.82) 0%, rgba(6,10,34,.38) 46%, rgba(6,10,34,0) 72%); }
+.x-top.small.street.day .x-wash { background: linear-gradient(180deg, rgba(255,255,255,0) 55%, color-mix(in srgb, var(--x-bg) 55%, transparent) 80%, var(--x-bg) 100%), linear-gradient(90deg, rgba(244,247,252,.78) 0%, rgba(244,247,252,.35) 46%, rgba(244,247,252,0) 70%); }
+.x-top.small.street + .x-wrap { margin-top: -72px; position: relative; }
+/* On a tablet and a PC the tabs sit at the bottom of the top: the cards start under them, not over them. */
+@media (min-width: 701px) {
+  .x-top.small.street + .x-wrap { margin-top: 0; }
+  .x-front .x-lift { margin-top: 0; }
+}
+
+/* Huset: the clay house in its own card. */
+.x-scene-card { padding: 0; overflow: clip; gap: 0; }
+/* In the card the house's editor lies under the picture, inside the card. */
+.x-scene-card .x-house .cscene .cs-tools { position: relative; top: auto; }
+.x-scene-card .x-house .cscene .cs-bar { border-radius: 0; box-shadow: none; }
+.x-scene-card .x-house { position: relative; left: auto; top: auto; transform: none; width: 100%; filter: none; }
+.x-scene-card .x-places { padding: 12px 14px 0; }
+
+/* Forside: departures, cars, tiles. */
+.x-deps-row { display: grid; grid-auto-flow: column; grid-auto-columns: 100px; gap: 10px; overflow-x: auto; margin: 0 -16px; padding: 2px 16px 4px; scrollbar-width: none; }
+.x-dep { font: inherit; color: inherit; border: 0; cursor: pointer; padding: 12px 8px; border-radius: 20px; background: var(--x-card2); text-align: center; display: grid; gap: 2px; justify-items: center; --car: var(--x-acc); }
+.x-dep small { font-size: 11px; font-weight: 750; letter-spacing: .06em; color: var(--x-soft); text-transform: uppercase; }
+.x-dep b { font-size: 22px; }
+.x-dep span { font-size: 12px; color: var(--x-ink2); }
+.x-dep em { margin-top: 4px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; font-style: normal; background: color-mix(in srgb, var(--car) 28%, transparent); color: var(--x-ink); }
+.x-dep em.auto { background: rgba(167,139,250,.2); color: var(--x-vio); }
+.x-dep.on { box-shadow: inset 0 0 0 1.5px var(--car); background: linear-gradient(180deg, color-mix(in srgb, var(--car) 20%, transparent), color-mix(in srgb, var(--car) 6%, transparent)); }
+.x-fcars { padding-block: 4px; gap: 0; }
+.x-frow { font: inherit; color: inherit; background: none; border: 0; width: 100%; text-align: left; cursor: pointer; display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 0; }
+.x-frow + .x-frow { border-top: 1px solid var(--x-line); }
+.x-fic { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: color-mix(in srgb, var(--car) 18%, transparent); color: var(--car); }
+.x-frow .x-grow > b { font-size: 15px; }
+.x-frow > b { font-size: 22px; }
+.x-meter { display: block; margin-top: 6px; height: 6px; border-radius: 3px; background: var(--x-well); overflow: hidden; }
+.x-meter i { display: block; height: 100%; border-radius: 3px; background: var(--car); }
+.x-frow small { display: block; margin-top: 5px; font-size: 12px; color: var(--x-soft); }
+.x-frow small.on { color: var(--x-acc-ink); }
+.x-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.x-tile { font: inherit; color: var(--x-ink); text-align: left; cursor: pointer; padding: 14px; border-radius: 22px; background: var(--x-card); border: 1px solid var(--x-line); display: grid; gap: 4px; }
+.x-tile small { font-size: 12px; color: var(--x-soft); font-weight: 700; display: flex; gap: 6px; align-items: center; }
+.x-tile small svg { width: 14px; height: 14px; }
+.x-tile b { font-size: 22px; line-height: 1.1; }
+.x-tile.learn b { font-size: 17px; }
+.x-tile span { font-size: 12px; color: var(--x-soft); }
+.x-tile.learn { background: linear-gradient(160deg, #2a2160, #1a1840); border-color: rgba(167,139,250,.25); color: #eef2ff; }
+.x-tile.learn small { color: #c4b5fd; }
+:host([xlight]) .x-tile.learn { background: linear-gradient(160deg, #efeaff, #f8f6ff); color: var(--x-ink); }
+:host([xlight]) .x-tile.learn small { color: #6b55d9; }
+
+/* Mere: Tilpas menu. */
+.x-tabpicks { display: grid; gap: 8px; padding: 6px 2px; }
+.x-tabpick { font: inherit; color: inherit; display: flex; align-items: center; gap: 12px; height: 52px; padding: 0 12px; border-radius: 16px; border: 0; background: var(--x-card2); font-size: 14px; font-weight: 600; cursor: pointer; }
+.x-tabpick i { margin-left: auto; width: 46px; height: 28px; border-radius: 999px; background: rgba(127,127,127,.3); position: relative; flex: none; }
+.x-tabpick i::after { content: ""; position: absolute; left: 3px; top: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .2s; }
+.x-tabpick.on i { background: var(--x-acc); }
+.x-tabpick.on i::after { transform: translateX(18px); }
+.x-more-note { margin: 6px 4px 0; font-size: 12.5px; color: var(--x-soft); }
+
+/* The layout of the whole app, lifted to the tops: deeper night colours, softer cards, the glass bar. */
+.x-card { border-radius: 24px; }
+.x-wrap { gap: 14px; }
+.app > nav.tabs { border-radius: 26px; height: 68px; background: color-mix(in srgb, var(--x-card) 84%, transparent); -webkit-backdrop-filter: blur(20px) saturate(1.5); backdrop-filter: blur(20px) saturate(1.5); border-color: var(--x-line); }
 `;
 
 if (!customElements.get("ev-planner-panel")) customElements.define("ev-planner-panel", EvPlannerPanel);

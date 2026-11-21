@@ -2,6 +2,21 @@
 
 All notable changes to EV Planner. The version is the one in `custom_components/ev_household_planner/manifest.json`.
 
+## [2.5.0b52] - 2026-11-21
+
+### Added
+
+- **Forside, a new front page**: the street with the house, the greeting and the day's line in a big top; tonight's card lies on the top; then the next departures, the cars, the house now and Learning.
+- **Mere in the tab bar**: the pages that are not in the bar, the profile's tiles, and Tilpas, to pick which four pages the bar shows.
+- **The street in the tops**: the house on its street with the neighbours, lamps, passing cars, clouds in front of the houses, sky, sun or moon, and the holidays' touches (Sankthans with the witch, hearts, snow).
+
+### Changed
+
+- **Huset has the small top** with the street, and the house picture in its own card; its editor opens under the picture in the card.
+- **One look across the app**: a deeper dark palette, rounder cards, and a glass tab bar. What the pages show and how the cards work is unchanged.
+- **A swipe to the side** walks the pages in the bar, in the bar's order.
+- **On a tablet and a PC** the tabs sit at the bottom of every page's top, and the cards start under them.
+
 ## [2.5.0b51] - 2026-11-20
 
 ### Fixed

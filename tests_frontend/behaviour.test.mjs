@@ -31,7 +31,15 @@ async function withPanel(name, options, run) {
     page,
     state,
     // A real click with the mouse (Playwright's selectors look inside shadow roots).
-    tap: (selector) => page.locator(`ev-planner-panel ${selector}`).first().click({ timeout: 5000 }),
+    // A tab not in the bar (2.5.0b52) is opened from Mere.
+    tap: async (selector) => {
+      const tab = selector.match(/\.tabs button\[data-tab="([a-z]+)"\]$/);
+      if (tab && !(await page.locator(`ev-planner-panel ${selector}`).count())) {
+        await page.locator('ev-planner-panel .tabs button[data-tab="more"]').first().click({ timeout: 5000 });
+        return page.locator(`ev-planner-panel [data-prof="tab"][data-t="${tab[1]}"]`).first().click({ timeout: 5000 });
+      }
+      return page.locator(`ev-planner-panel ${selector}`).first().click({ timeout: 5000 });
+    },
     // A tap as on an iPhone, where the focus stays where it was.
     touch: (selector) =>
       page.evaluate((s) => {
@@ -214,7 +222,7 @@ test("a new household is shown what to set up, until there is a car, a charger a
     const full = fixture("two-cars");
     await push({ ...state, vehicles: full.vehicles });
     await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector('.setup-steps li[data-step="car"].done'), null, { timeout: 5000 });
-    assert.ok(await read(".x-week"), "the cars are shown under the steps");
+    assert.ok(await read(".x-frow"), "the cars are shown under the steps");
     await push({ ...state, vehicles: full.vehicles, chargers: full.chargers });
     await page.waitForFunction(() => !window.harness.panel.shadowRoot.querySelector(".setup"), null, { timeout: 5000 });
   });
@@ -630,16 +638,16 @@ function swipe(page, selector, dx, dy) {
 test("a swipe to the side changes the tab, and a scroll up and down does not", async () => {
   await withPanel("two-cars", { size: { width: 390, height: 844 } }, async ({ page, read }) => {
     const tab = () => read('.tabs button[aria-selected="true"]', "data-tab");
-    assert.equal(await tab(), "home");
+    assert.equal(await tab(), "front");
     await swipe(page, ".content", -160, 10);
-    assert.equal(await tab(), "cars");
-    await swipe(page, ".content", 0, -200);
-    assert.equal(await tab(), "cars");
-    await swipe(page, ".content", 160, -8);
     assert.equal(await tab(), "home");
+    await swipe(page, ".content", 0, -200);
+    assert.equal(await tab(), "home");
+    await swipe(page, ".content", 160, -8);
+    assert.equal(await tab(), "front");
     // The first tab has nothing before it.
     await swipe(page, ".content", 160, 0);
-    assert.equal(await tab(), "home");
+    assert.equal(await tab(), "front");
   });
 });
 
@@ -941,7 +949,7 @@ test("Insight's page shows the evening, the cars, the prices, the charging, the 
     assert.equal(await inside((root) => root.querySelector("#tl-sheet").hidden), false);
     await tap('ev-planner-insight #tl-sheet [data-open="history"]');
     // The history is a tab of its own: the charging history alone, and back to Learning from the tab bar.
-    assert.equal(await read('.tabs button[aria-selected="true"]', "data-tab"), "past");
+    assert.equal(await page.evaluate(() => window.harness.panel._tab), "past");
     assert.ok(await read(".hist-controls"));
     assert.equal(await read(".learn-views"), null);
     await tap('.tabs button[data-tab="history"]');
@@ -1082,21 +1090,23 @@ test("the house's day opens from the profile menu, each season its own day, and 
   });
 });
 
-test("Huset has the big top: the date, a greeting, the price arc over the house; the other pages a small top", async () => {
+test("Forside has the big top: the date, a greeting and the street; Huset and the other pages a small top", async () => {
   await withPanel("two-cars", { size: PHONE, lang: "da" }, async ({ page, tap, read }) => {
+    assert.equal(await read('.tabs button[aria-selected="true"]', "data-tab"), "front", "the app opens on Forside");
+    assert.equal(await read('.tabs button[data-tab="front"] span'), "Forside");
+    assert.ok(await read(".x-top.front .x-over"), "the date is over the greeting");
+    assert.match(await read(".x-top.front h1"), /^God /);
+    assert.ok(await read(".x-top.front .x-hello p"), "one line under the greeting");
+    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".x-top.front .x-street.big .vj-stage") === null), "the street is drawn out of the tests' reach");
+    // The brand, the menu and the profile are in the top itself.
+    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".x-top.front .x-dock .bar .brand")), "the brand is in the top");
+    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".x-top.front .x-dock .bar .prof")), "the profile is in the top");
     await tap('.tabs button[data-tab="home"]');
     assert.equal(await read('.tabs button[data-tab="home"] span'), "Huset");
-    assert.ok(await read(".x-top.big .x-over"), "the date is over the greeting");
-    assert.match(await read(".x-top.big h1"), /^God /);
-    assert.ok(await read(".x-top.big .x-hello p"), "one line under the greeting");
-    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".x-arc .x-bead").length >= 6), "the price arc has its beads");
-    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".x-top.big .scene-slot .cscene")), "the house is drawn in the top");
-    // The brand, the menu and the profile are in the top itself.
-    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".x-top.big .x-dock .bar .brand")), "the brand is in the top");
-    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".x-top.big .x-dock .bar .prof")), "the profile is in the top");
+    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".x-top.small.street .x-street.small")), "Huset has the small top with the street");
+    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".x-scene-card .scene-slot .cscene")), "the house is drawn in its own card");
     await tap('.tabs button[data-tab="cars"]');
     assert.equal(await read(".x-top.small h1"), "Biler");
-    assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".x-top.small .x-pic .cscene")), "a slice of the house in the small top");
     assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelectorAll(".x-rib i").length), 0, "no price dots in the small top");
     // On a phone the tabs float at the bottom.
     assert.ok(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".app > nav.tabs")), "the tabs float at the bottom on a phone");
@@ -1244,7 +1254,7 @@ test("Insight's pop-up opens from the top, shows what it has learned, and turns 
   const insight = { enabled: true, cars: { [a]: { name: "Renault", days: 34 }, [b]: { name: "Tesla", days: 20 } }, detail: { [a]: detail, [b]: detail }, score: { scored: 4, rate: 0.86, saved: 214 } };
   await withPanel(state, { size: PHONE, lang: "da" }, async ({ page, tap, read, waitForCall, calls }) => {
     await page.evaluate((data) => { window.harness.insight = data; }, insight);
-    await tap('.tabs button[data-tab="home"]');
+    await tap('.tabs button[data-tab="front"]');
     await tap('[data-act="insight-open"]');
     await page.waitForFunction(() => window.harness.panel.shadowRoot.querySelector(".x-insight .x-ring"), null, { timeout: 5000 });
     assert.match(await read(".x-insight .x-over2"), /34 DAGE/);
@@ -1286,13 +1296,14 @@ test("the profile menu drops from the top as six tiles, and a tap beside it only
     const tiles = await page.evaluate(() => [...window.harness.panel.shadowRoot.querySelectorAll(".prof-tiles [data-prof]")].map((b) => b.dataset.prof));
     assert.deepEqual(tiles, ["houseday", "look", "settings", "notifications", "days", "support"]);
     const tab = await page.evaluate(() => window.harness.panel._tab);
-    await page.evaluate(() => window.harness.panel.shadowRoot.querySelector('.tabs button[data-tab="guest"]').click());
+    // A tap low on the page, where a tab lies under the menu's shade.
+    await page.mouse.click(195, 800);
     assert.equal(await page.evaluate(() => window.harness.panel.shadowRoot.querySelector(".prof-menu").hidden), true);
     assert.equal(await page.evaluate(() => window.harness.panel._tab), tab, "the tab under it was not tapped");
   });
 });
 
-test("tonight's boxes show only the cars that are home; Huset's top has the prices as pills and no holiday", async () => {
+test("tonight's boxes show only the cars that are home; Forside's top has no holiday pill", async () => {
   const state = fixture("two-cars");
   const [away, home] = state.vehicles;
   away.home = false;
@@ -1301,11 +1312,8 @@ test("tonight's boxes show only the cars that are home; Huset's top has the pric
     await tap('.tabs button[data-tab="cars"]');
     const boxes = await page.evaluate(() => [...window.harness.panel.shadowRoot.querySelectorAll(".x-tn-car")].map((b) => b.dataset.id));
     assert.deepEqual(boxes, [home.id], "only the car at home has a box");
-    await tap('.tabs button[data-tab="home"]');
-    assert.equal(await read(".x-top.big .x-pill.fest"), null, "no holiday pill");
-    assert.match(await read(".x-top.big .x-prices .x-pill.price"), /^Nu \d/);
-    assert.match(await read(".x-top.big .x-prices .x-pill.cheap"), /^Billigst \d\d–\d\d/);
-    assert.equal(await read(".x-arc .x-lab.cheap"), null, "nothing of the prices behind the house");
+    await tap('.tabs button[data-tab="front"]');
+    assert.equal(await read(".x-top.front .x-pill.fest"), null, "no holiday pill");
     // Every car away: no boxes, a line instead.
     home.home = false;
     await page.evaluate((s) => window.harness.push(s), state);

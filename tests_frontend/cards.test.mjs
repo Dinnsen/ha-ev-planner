@@ -244,7 +244,7 @@ test("the whole planner as a card: its own tabs, and the address stays", async (
     await page.waitForFunction(() => document.querySelector("ev-planner-app-card")?.shadowRoot?.querySelector("ev-planner-panel")?.shadowRoot?.querySelector(".tabs button"), null, { timeout: 8000 });
     const seen = await page.evaluate(() => {
       const panel = document.querySelector("ev-planner-app-card").shadowRoot.querySelector("ev-planner-panel");
-      panel.shadowRoot.querySelector('.tabs button[data-tab="guest"]').click();
+      panel._setTab("guest");
       return { card: panel.hasAttribute("card"), menu: panel.shadowRoot.querySelector("ha-menu-button") === null, tab: panel._tab, path: location.pathname };
     });
     assert.deepEqual(seen, { card: true, menu: true, tab: "guest", path: before });

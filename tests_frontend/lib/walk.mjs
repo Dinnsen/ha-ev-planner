@@ -38,7 +38,12 @@ export async function walkPanel({ lang }) {
     return true;
   };
   const values = (selector, name) => [...root.querySelectorAll(selector)].map((el) => el.dataset[name]);
-  const tab = (name) => click(`.tabs button[data-tab="${name}"]`);
+  // A tab in the bar, or (2.5.0b52) one of the pages in Mere.
+  const tab = (name) => {
+    if (root.querySelector(`.tabs button[data-tab="${name}"]`)) return click(`.tabs button[data-tab="${name}"]`);
+    if (!click('.tabs button[data-tab="more"]')) return false;
+    return click(`[data-prof="tab"][data-t="${name}"]`);
+  };
   // Every tile on the page: open its sheet, look, and close it again.
   const tiles = async (view) => {
     for (const tile of values('[data-act="tile"]', "tile")) {
@@ -50,6 +55,12 @@ export async function walkPanel({ lang }) {
   };
 
   for (let i = 0; i < 100 && !root.querySelector(".tabs button"); i += 1) await settle();
+
+  // Forside (2.5.0b52): the street, tonight, the departures, the cars.
+  if (root.querySelector('.tabs button[data-tab="front"]')) {
+    tab("front");
+    await check("front");
+  }
 
   // Home: the house, each label opened, and each charger's page.
   if (root.querySelector('.tabs button[data-tab="home"]')) {
